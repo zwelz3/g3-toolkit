@@ -1,0 +1,23 @@
+/* g3-toolkit docs: custom overrides on top of Furo theme variables */
+
+/* Tables: full content width, don't collapse to min-content */
+.content table {
+    width: 100%;
+}
+
+/* Ensure long table cells wrap rather than forcing horizontal scroll */
+.content table td,
+.content table th {
+    word-break: normal;
+    overflow-wrap: break-word;
+}
+
+/* Slightly tighter line height for spec bullet lists (dense content) */
+.content li {
+    margin-bottom: 0.25em;
+}
+
+/* Sub-bullets in spec format (- key: value) get less vertical space */
+.content li li {
+    margin-bottom: 0.1em;
+}

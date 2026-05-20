@@ -1,0 +1,32 @@
+[workspace]
+name = "g3-toolkit"
+version = "0.0.1"
+description = "Graph visualization toolkit specifications and documentation"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+license = "MIT"
+license-file = "LICENSE" 
+
+[tasks]
+# Bootstrap
+install    = { cmd = "npm install", description = "Install Node.js dependencies" }
+# Application tasks (delegate to npm scripts; depend on install)
+dev        = { cmd = "npm run dev", depends-on = ["install"], description = "Start Vite dev server" }
+build      = { cmd = "npm run build", depends-on = ["install"], description = "Production build" }
+test       = { cmd = "npm run test", depends-on = ["install"], description = "Run Vitest unit + component tests" }
+test-e2e   = { cmd = "npm run test:e2e", depends-on = ["install"], description = "Run Playwright e2e tests" }
+typecheck  = { cmd = "npm run typecheck", depends-on = ["install"], description = "Run tsc --noEmit" }
+lint       = { cmd = "npm run lint", depends-on = ["install"], description = "Run ESLint + Prettier check" }
+# Documentation tasks
+docs       = { cmd = "python scripts/build_docs.py -b html docs/source docs/build/html", description = "Build HTML documentation" }
+docs-clean = { cmd = "python -c \"import shutil; shutil.rmtree('docs/build', ignore_errors=True)\"", description = "Clean built docs" }
+docs-serve = { cmd = "python -m http.server 8000 -d docs/build/html", depends-on = ["docs"], description = "Build and serve docs locally" }
+lint-specs = { cmd = "python scripts/lint_specs.py specs/", description = "Lint specl markdown files" }
+
+[dependencies]
+python = ">=3.11"
+nodejs = ">=20"
+sphinx = ">=7.0"
+myst-parser = ">=3.0"
+furo = ">=2024.0"
+pyyaml = ">=6.0"
