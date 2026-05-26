@@ -3,17 +3,6 @@
   "version": "1.0.0-rc",
   "description": "A composable, paradigm-neutral graph visualization toolkit for RDF, LPG, and Holonic architectures.",
   "type": "module",
-  "main": "dist/g3t.cjs",
-  "module": "dist/g3t.mjs",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/g3t.mjs",
-      "require": "./dist/g3t.cjs",
-      "types": "./dist/index.d.ts"
-    },
-    "./style.css": "./dist/style.css"
-  },
   "files": [
     "dist",
     "README.md",
@@ -41,7 +30,8 @@
     "verify:smoke": "node scripts/smoke-test.mjs",
     "verify:bundle": "node scripts/check-bundle-size.mjs",
     "verify:stats": "node scripts/workspace-stats.mjs",
-    "verify": "pnpm run build:packages && pnpm run verify:treeshake && pnpm run verify:smoke && pnpm run verify:bundle"
+    "verify": "pnpm run build:packages && pnpm run verify:treeshake && pnpm run verify:smoke && pnpm run verify:bundle",
+    "test:storybook": "vitest run --config vitest.storybook.config.ts"
   },
   "peerDependencies": {
     "@tanstack/react-table": "^8.21.3",
@@ -140,5 +130,8 @@
     "*.css"
   ],
   "packageManager": "pnpm@11.3.0",
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  }
 }

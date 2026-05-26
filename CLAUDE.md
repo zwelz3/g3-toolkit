@@ -102,7 +102,9 @@ cleanly via Node's resolver, and a treeshake test
 pnpm install            # Cold install (rejects npm/yarn via preinstall)
 pnpm dev                # Demo at localhost:5173
 pnpm storybook          # Components at localhost:6006
-pnpm test               # 600 Vitest tests
+pnpm test               # 600 Vitest tests (jsdom only)
+pnpm run test:storybook # Storybook+browser tests; requires
+                        # `pnpm exec playwright install chromium`
 pnpm typecheck          # TypeScript strict
 pnpm lint               # ESLint + Prettier
 pnpm run build:packages # tsc -b across the workspace + per-package Vite
@@ -114,6 +116,11 @@ pnpm run verify         # build:packages + smoke + treeshake + bundle-size
 The legacy `pnpm build:lib` (monolithic ESM/CJS bundle) was removed in
 Phase 2. Do not reintroduce it — per-package builds are the only
 supported topology.
+
+The storybook tests are split from `pnpm test` (commit bugfix 22) so
+contributors without Playwright Chromium installed can still run the
+unit suite. Run them together via `pnpm test && pnpm test:storybook`
+when you have Playwright installed.
 
 ## Current State
 
@@ -221,6 +228,15 @@ inspect → publish in topology order (core → react → charts) via
     have a `version:` argument; it conflicts with the `packageManager`
     field in package.json. The fix is committed in ci.yml and
     publish.yml; don't reintroduce the `version:` key.
+
+11. **Node 22 required:** pnpm 11.3.0 (pinned via `packageManager`)
+    requires Node ≥22.13 because it imports `node:sqlite` (a Node 22+
+    built-in). Both CI workflows use `node-version: 22`, and root
+    package.json has `engines.node: ">=22.13"` so a wrong-version
+    local install fails fast rather than crashing with
+    `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` mid-resolve. If you
+    need to support older Node (you probably shouldn't), downgrade
+    pnpm — don't loosen the engines field.
 
 ## Engagement History
 

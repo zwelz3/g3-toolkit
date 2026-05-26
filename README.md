@@ -1,7 +1,5 @@
 # g3-toolkit (v1.0.0-rc)
 
-![logo](docs/source/_static/icon-light-sm.png)
-
 Composable graph visualization components for RDF, LPG, and Holonic architectures.
 
 g3t is a **component library**, not an application framework. You install it, import the components you need, and compose them into your own application with your own layout, state management, and backend.
@@ -117,10 +115,10 @@ useThemeStore.getState().setTheme("dark");
 
 ## Development
 
-This project uses [pnpm](https://pnpm.io), which will need to be installed
+This project uses [pnpm](https://pnpm.io).
 
 ```bash
-corepack enable               # enables pnpm via Node.js corepack (skip for non-admin users)
+corepack enable               # enables pnpm via Node.js corepack
 pnpm install
 pnpm dev                      # Interactive demo at localhost:5173
 pnpm storybook                # Component explorer at localhost:6006

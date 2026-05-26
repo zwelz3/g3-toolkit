@@ -26,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       # pnpm version comes from the packageManager field in package.json;
       # do NOT also set `version:` here or pnpm/action-setup errors with
