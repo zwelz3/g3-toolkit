@@ -111,6 +111,12 @@ pnpm run build:packages # tsc -b across the workspace + per-package Vite
                         # builds (core → react → charts in topo order)
 pnpm run verify         # build:packages + smoke + treeshake + bundle-size
                         # This is what CI runs.
+
+# Docs
+pnpm run docs:api       # TypeDoc → docs-out/api/ (API reference)
+pnpm run docs:storybook # Storybook build → docs-out/storybook/
+pnpm run docs:build     # All docs: api + storybook + landing page
+                        # Output: docs-out/ (deploy to GitHub Pages)
 ```
 
 The legacy `pnpm build:lib` (monolithic ESM/CJS bundle) was removed in
@@ -148,6 +154,35 @@ Healthcare) all with: visual encoding wired to canvas, context menu
 events wired to cy via wireCytoscapeContextActions, search wired to
 selection, neighborhood views render with `breadthfirst` (different
 layout from primary fcose to demo layout flexibility).
+
+## Documentation Deployment
+
+Docs deploy to GitHub Pages via `.github/workflows/docs.yml` on every
+push to `main`. Three artifacts are built and deployed:
+
+```
+https://<org>.github.io/g3-toolkit/
+├── index.html     ← landing page (docs/landing.html)
+├── api/           ← TypeDoc auto-generated API reference (278 pages)
+└── storybook/     ← Storybook component gallery (6 stories)
+```
+
+**TypeDoc** reads the TypeScript source and JSDoc comments directly;
+no separate schema. Config at `typedoc.json`. To preview locally:
+`pnpm run build:packages && pnpm run docs:api`, then open
+`docs-out/api/index.html`.
+
+**Storybook** builds from `packages/react/src/**/*.stories.tsx`.
+Config at `.storybook/main.ts` + `.storybook/preview.tsx`. To preview
+locally: `pnpm storybook` (dev server) or `pnpm run docs:storybook`
+(static build).
+
+**Landing page** is a single HTML file at `docs/landing.html` with
+install instructions, package descriptions, and links to the API
+reference and Storybook. Edit this directly; it has no build step.
+
+To enable: go to GitHub repo Settings → Pages → Source → GitHub
+Actions. The workflow handles the rest.
 
 ## Immediate Next Work
 

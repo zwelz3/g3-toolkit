@@ -1,0 +1,23 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "packages/core/src/index.ts",
+    "packages/react/src/index.ts",
+    "packages/charts/src/index.ts"
+  ],
+  "entryPointStrategy": "expand",
+  "out": "docs-out/api",
+  "name": "g3-toolkit API Reference",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "categorizeByGroup": true,
+  "searchInComments": true,
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "sort": ["alphabetical"],
+  "tsconfig": "tsconfig.json"
+}

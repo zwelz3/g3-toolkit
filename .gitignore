@@ -52,3 +52,6 @@ __pycache__/
 !.vscode/settings.example.json
 *.swp
 *.swo
+
+# Generated docs (TypeDoc + Storybook build)
+docs-out/

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>g3-toolkit — Graph Visualization Components</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --fg: #1a1a2e;
+      --muted: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --code-bg: #f1f5f9;
+      --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --fg: #e2e8f0;
+        --muted: #94a3b8;
+        --card-bg: #1e293b;
+        --card-border: #334155;
+        --code-bg: #1e293b;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+      padding: 0 24px;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 48px 0 80px; }
+
+    header { text-align: center; margin-bottom: 48px; }
+    h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; }
+    h1 span { color: var(--accent); }
+    .subtitle { color: var(--muted); font-size: 1.1rem; max-width: 540px; margin: 0 auto; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 24px;
+      text-decoration: none;
+      color: var(--fg);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 12px rgba(59,130,246,0.12);
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 4px; }
+    .card p { color: var(--muted); font-size: 0.9rem; }
+    .card .icon { font-size: 1.5rem; margin-bottom: 8px; display: block; }
+
+    h3 { font-size: 1.2rem; margin-bottom: 12px; margin-top: 36px; }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+    code { font-family: var(--mono); font-size: 0.85em; }
+    .inline-code {
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .packages {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .pkg {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+    .pkg .name { font-weight: 600; font-family: var(--mono); font-size: 0.9rem; }
+    .pkg .desc { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
+
+    .links { margin-top: 32px; }
+    .links a {
+      color: var(--accent);
+      text-decoration: none;
+      margin-right: 20px;
+      font-size: 0.9rem;
+    }
+    .links a:hover { text-decoration: underline; }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--card-border);
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span>g3</span>-toolkit</h1>
+      <p class="subtitle">
+        Composable graph visualization components for RDF, LPG, and
+        Holonic graph paradigms. Install the pieces you need; compose
+        them into your application.
+      </p>
+    </header>
+
+    <div class="cards">
+      <a class="card" href="./api/">
+        <span class="icon">📘</span>
+        <h2>API Reference</h2>
+        <p>Auto-generated from TypeScript. Every class, function, type, and prop documented.</p>
+      </a>
+      <a class="card" href="./storybook/">
+        <span class="icon">🧩</span>
+        <h2>Component Gallery</h2>
+        <p>Interactive Storybook. Browse views, controls, and encoding panels live.</p>
+      </a>
+      <a class="card" href="https://github.com/graphistry/g3-toolkit">
+        <span class="icon">📂</span>
+        <h2>Source &amp; Guides</h2>
+        <p>README, ARCHITECTURE.md, specs, and planning docs on GitHub.</p>
+      </a>
+    </div>
+
+    <h3>Packages</h3>
+    <div class="packages">
+      <div class="pkg">
+        <div class="name">@g3t/core</div>
+        <div class="desc">UGM, adapters, pipeline, algorithms, event bus, SHACL. Zero React.</div>
+      </div>
+      <div class="pkg">
+        <div class="name">@g3t/react</div>
+        <div class="desc">12 views, controls, encoding, context menu, theming. React 18+.</div>
+      </div>
+      <div class="pkg">
+        <div class="name">@g3t/charts</div>
+        <div class="desc">LinkedChart with ECharts. Cross-filtered with the graph canvas.</div>
+      </div>
+    </div>
+
+    <h3>Quick Start</h3>
+<pre><span style="color:var(--muted)"># Install (pnpm required)</span>
+pnpm add @g3t/core @g3t/react react react-dom \
+  cytoscape cytoscape-fcose zustand echarts</pre>
+
+<pre><span style="color:var(--muted)">// Minimal graph render</span>
+import { UGM } from "@g3t/core";
+import { CytoscapeCanvas } from "@g3t/react";
+
+const ugm = new UGM();
+ugm.addNode("alice", { types: ["Person"], properties: { name: "Alice" } });
+ugm.addNode("bob",   { types: ["Person"], properties: { name: "Bob" } });
+ugm.addEdge("alice", "bob", { type: "knows" });
+
+function App() {
+  return &lt;CytoscapeCanvas ugm={ugm} /&gt;;
+}</pre>
+
+    <h3>Architecture</h3>
+    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:12px;">
+      <code class="inline-code">@g3t/core</code> is framework-agnostic (no React imports).
+      <code class="inline-code">@g3t/react</code> wraps it for React consumers.
+      Source-boundary tests enforce this at build time. Read
+      <a href="https://github.com/graphistry/g3-toolkit/blob/main/ARCHITECTURE.md"
+         style="color:var(--accent)">ARCHITECTURE.md</a>
+      for the full design rationale.
+    </p>
+
+    <div class="links">
+      <a href="https://github.com/graphistry/g3-toolkit">GitHub</a>
+      <a href="https://github.com/graphistry/g3-toolkit/blob/main/ARCHITECTURE.md">Architecture</a>
+      <a href="https://github.com/graphistry/g3-toolkit/blob/main/planning/pre-publish-checklist.md">Pre-Publish Checklist</a>
+      <a href="https://github.com/graphistry/g3-toolkit/blob/main/specs/">Specs</a>
+    </div>
+
+    <footer>
+      Apache-2.0 · Built with TypeDoc + Storybook · Deployed via GitHub Pages
+    </footer>
+  </div>
+</body>
+</html>
