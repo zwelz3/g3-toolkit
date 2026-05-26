@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
@@ -14,14 +18,22 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@core/*": ["./src/core/*"],
-      "@views/*": ["./src/views/*"],
-      "@state/*": ["./src/state/*"],
-      "@interaction/*": ["./src/interaction/*"],
-      "@a11y/*": ["./src/a11y/*"],
-      "@theme/*": ["./src/theme/*"]
+      "@g3t/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@g3t/react": [
+        "./packages/react/src/index.ts"
+      ],
+      "@g3t/charts": [
+        "./packages/charts/src/index.ts"
+      ]
     },
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src", "tests"]
+  "include": [
+    "src",
+    "tests",
+    "packages/*/src",
+    "examples/*/src"
+  ]
 }

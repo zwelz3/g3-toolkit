@@ -2,7 +2,7 @@
  * MBSE Satellite System fixture (DE.6).
  */
 
-import { UGM } from "@core/ugm";
+import { UGM } from "@g3t/core";
 
 export function buildMBSEUGM(): UGM {
   const ugm = new UGM();

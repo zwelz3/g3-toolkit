@@ -3,7 +3,7 @@
  * with pre-computed metrics.
  */
 
-import { UGM } from "@core/ugm";
+import { UGM } from "@g3t/core";
 
 export function buildAnalyticsUGM(): UGM {
   const ugm = new UGM();

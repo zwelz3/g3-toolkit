@@ -6,38 +6,38 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
-import { CytoscapeCanvas } from "@views/canvas";
-import { TableView } from "@views/table";
-import { SchemaView } from "@views/schema";
-import { MatrixView } from "@views/matrix";
-import { SankeyView } from "@views/sankey";
-import { QueryEditor } from "@views/query";
-import { ZoomControls, StatusBar } from "@interaction/toolbar";
+import { CytoscapeCanvas } from "@g3t/react";
+import { TableView } from "@g3t/react";
+import { SchemaView } from "@g3t/react";
+import { MatrixView } from "@g3t/react";
+import { SankeyView } from "@g3t/react";
+import { QueryEditor } from "@g3t/react";
+import { ZoomControls, StatusBar } from "@g3t/react";
 import {
   EncodingPanel,
   CanvasLegend,
   DEFAULT_ENCODING,
-} from "@interaction/encoding";
-import { FacetFilter } from "@interaction/filter";
-import { FilterBuilder } from "@interaction/filter/FilterBuilder";
-import { SearchBar } from "@interaction/search";
-import { LinkedChart } from "../../charts/LinkedChart";
-import { useSelectionStore } from "@state/selection-store";
-import { LayoutManager } from "@interaction/layout-manager";
-import { useThemeStore } from "@theme/ThemeManager";
-import { ContextMenuManager } from "@interaction/context-menu";
-import { G3tEventBus } from "@core/event-bus";
+} from "@g3t/react";
+import { FacetFilter } from "@g3t/react";
+import { FilterBuilder } from "@g3t/react";
+import { SearchBar } from "@g3t/react";
+import { LinkedChart } from "@g3t/charts";
+import { useSelectionStore } from "@g3t/react";
+import { LayoutManager } from "@g3t/react";
+import { useThemeStore } from "@g3t/react";
+import { ContextMenuManager } from "@g3t/react";
+import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
-} from "@interaction/context-menu/toolkit-actions";
+} from "@g3t/react";
 import {
   createCountByProperty,
   createPropertyCorrelation,
-} from "@core/pipeline";
-import { UGM } from "@core/ugm";
+} from "@g3t/core";
+import { UGM } from "@g3t/core";
 import { buildAnalyticsUGM } from "../fixtures/analytics";
-import type { EncodingConfig } from "@interaction/encoding";
+import type { EncodingConfig } from "@g3t/react";
 
 type BottomTab = "table" | "matrix" | "sankey" | "query";
 type LeftTab = "schema" | "filter" | "encoding";

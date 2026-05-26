@@ -6,29 +6,29 @@
  */
 
 import { useState, useMemo, useEffect } from "react";
-import { CytoscapeCanvas } from "@views/canvas";
-import { TableView } from "@views/table";
-import { DetailInspector } from "@views/inspector";
-import { TreeView } from "@views/tree";
-import { ShaclShapeBrowser } from "@views/schema/ShaclShapeBrowser";
-import { ZoomControls, StatusBar } from "@interaction/toolbar";
-import { CanvasLegend, DEFAULT_ENCODING } from "@interaction/encoding";
-import { FacetFilter } from "@interaction/filter";
-import { SearchBar } from "@interaction/search";
-import { TemporalRangeFilter } from "@interaction/remaining-tickets";
-import { useSelectionStore } from "@state/selection-store";
-import { AnnotationPanel } from "@interaction/annotations";
-import { PropertyEditor } from "@interaction/property-editor";
-import { useThemeStore } from "@theme/ThemeManager";
-import { ContextMenuManager } from "@interaction/context-menu";
-import { G3tEventBus } from "@core/event-bus";
+import { CytoscapeCanvas } from "@g3t/react";
+import { TableView } from "@g3t/react";
+import { DetailInspector } from "@g3t/react";
+import { TreeView } from "@g3t/react";
+import { ShaclShapeBrowser } from "@g3t/react";
+import { ZoomControls, StatusBar } from "@g3t/react";
+import { CanvasLegend, DEFAULT_ENCODING } from "@g3t/react";
+import { FacetFilter } from "@g3t/react";
+import { SearchBar } from "@g3t/react";
+import { TemporalRangeFilter } from "@g3t/react";
+import { useSelectionStore } from "@g3t/react";
+import { AnnotationPanel } from "@g3t/react";
+import { PropertyEditor } from "@g3t/react";
+import { useThemeStore } from "@g3t/react";
+import { ContextMenuManager } from "@g3t/react";
+import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
-} from "@interaction/context-menu/toolkit-actions";
-import { validateShacl, type ShaclShape } from "@core/shacl";
-import { extractProvOProperties } from "@core/advanced";
-import { UGM } from "@core/ugm";
+} from "@g3t/react";
+import { validateShacl, type ShaclShape } from "@g3t/core";
+import { extractProvOProperties } from "@g3t/core";
+import { UGM } from "@g3t/core";
 import { buildAuditorUGM, buildMBSEUGM } from "../fixtures/additional";
 
 const AUDITOR_SHAPES: ShaclShape[] = [

@@ -305,11 +305,10 @@ cards on landing page, 5 with custom shells).
 
 ## Testing Infrastructure (D14, post-M4)
 
-- **D14 adopted:** Four-layer testing strategy (Vitest unit, RTL component, Playwright e2e, Robot Framework acceptance).
+- **D14 adopted (current):** Three-layer testing strategy (Vitest unit, React Testing Library component, Playwright e2e). An earlier four-layer plan also included Robot Framework acceptance tests; those were consolidated into Playwright in v1.0.0-rc (see `docs/source/testing-architecture.md` for the migration rationale).
 - **Test harness:** `src/test-harness.tsx` renders all components in deterministic layout. Activated by `/?test-harness` URL parameter.
 - **Playwright e2e:** 3 spec files (canvas, selection, sidebar) with `toHaveScreenshot()` visual regression. Baselines created on first run.
-- **Robot Framework:** 2 acceptance suites (M0 foundation, M1 interaction) with keyword-driven tests tagged by requirement ID. HTML reports with embedded screenshots.
-- **Pre-requisites for e2e/acceptance:** `npx playwright install --with-deps chromium` and `rfbrowser init` (one-time browser setup).
+- **Pre-requisites for e2e:** `npx playwright install --with-deps chromium` (one-time browser setup).
 
 ## Open Questions Resolved
 

@@ -22,30 +22,34 @@
   ],
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "build:lib": "tsc --noEmit && vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json",
+    "build": "pnpm run build:packages && tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "lint": "eslint src/ tests/ && prettier --check src/ tests/",
+    "lint": "eslint src/ packages/*/src/ tests/ && prettier --check src/ packages/*/src/ tests/",
     "lint:fix": "eslint --fix src/ tests/ && prettier --write src/ tests/",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "build:packages": "npm run build:core && npm run build:react && npm run build:charts",
-    "build:core": "vite build --config vite.packages.config.ts --mode core",
-    "build:react": "vite build --config vite.packages.config.ts --mode react",
-    "build:charts": "vite build --config vite.packages.config.ts --mode charts",
-    "preinstall": "npx only-allow pnpm"
+    "build:packages": "tsc -b packages/core packages/react packages/charts --force && pnpm --filter \"./packages/*\" --workspace-concurrency=1 run build",
+    "verify:treeshake": "node scripts/verify-treeshake.mjs",
+    "verify:smoke": "node scripts/smoke-test.mjs",
+    "verify:bundle": "node scripts/check-bundle-size.mjs",
+    "verify:stats": "node scripts/workspace-stats.mjs",
+    "verify": "pnpm run build:packages && pnpm run verify:treeshake && pnpm run verify:smoke && pnpm run verify:bundle"
   },
   "peerDependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "cytoscape": ">=3.28.0",
     "echarts": ">=5.0.0",
+    "echarts-for-react": "^3.0.6",
     "flexlayout-react": "^0.9.1",
+    "fuse.js": "^7.3.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0",
     "vis-data": "^8.0.4",
@@ -53,6 +57,12 @@
     "zustand": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "echarts": {
+      "optional": true
+    },
+    "cytoscape": {
+      "optional": true
+    },
     "flexlayout-react": {
       "optional": true
     },
@@ -61,30 +71,21 @@
     },
     "vis-timeline": {
       "optional": true
+    },
+    "@tanstack/react-table": {
+      "optional": true
+    },
+    "fuse.js": {
+      "optional": true
+    },
+    "echarts-for-react": {
+      "optional": true
     }
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.0.0",
-    "crossfilter2": "^1.5.4",
-    "cytoscape": ">=3.28.0",
-    "d3-force": "^3.0.0",
-    "d3-hierarchy": "^3.1.2",
-    "echarts": ">=5.0.0",
-    "elkjs": "^0.11.1",
-    "expr-eval": "^2.0.2",
-    "graphology": "^0.26.0",
-    "graphology-communities-louvain": "^2.0.2",
-    "graphology-components": "^1.5.4",
-    "graphology-metrics": "^2.4.0",
-    "graphology-shortest-path": "^2.1.0",
-    "graphology-types": "^0.24.8",
-    "react": ">=18.0.0",
-    "react-dom": ">=18.0.0",
-    "simple-statistics": "^7.8.9",
-    "zustand": ">=4.0.0",
-    "@tanstack/react-table": "^8.21.3",
-    "fuse.js": "^7.3.0",
-    "echarts-for-react": "^3.0.6"
+    "@g3t/core": "workspace:*",
+    "@g3t/react": "workspace:*",
+    "@g3t/charts": "workspace:*"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.2.1",
@@ -121,10 +122,23 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4",
     "vite": "^8.0.13",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "@dagrejs/dagre": "^3.0.0",
+    "cytoscape": ">=3.28.0",
+    "d3-force": "^3.0.0",
+    "d3-hierarchy": "^3.1.2",
+    "echarts": ">=5.0.0",
+    "elkjs": "^0.11.1",
+    "expr-eval": "^2.0.2",
+    "graphology": "^0.26.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "simple-statistics": "^7.8.9",
+    "zustand": ">=4.0.0"
   },
   "sideEffects": [
     "*.css"
   ],
-  "packageManager": "pnpm@11.3.0"
+  "packageManager": "pnpm@11.3.0",
+  "private": true
 }

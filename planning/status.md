@@ -1,6 +1,11 @@
 # Project Status
 
-**Version:** 1.0.0-rc | **Tickets:** 128/130 complete | **Tests:** 531
+**Version:** 1.0.0-rc | **Tickets:** 128/130 complete | **Tests:** 586
+
+> Numbers in this file are hand-maintained snapshots. Run
+> `node scripts/workspace-stats.mjs` for the current derived figures
+> (test counts per package, requirement IDs, subpath counts). Future
+> work will templatize this file from milestone YAML + the script.
 
 ## Milestone Progress
 
@@ -46,7 +51,9 @@ M13   Advanced Features        ██████████                5/5
 | Connectors | 1 | 3 | 4 | M3 | Not started |
 | UX & Accessibility | 10 | 2 | 12 | M0, M1, M8 | Partial (palette, limits done; ARIA in M8) |
 | Security | 5 | 0 | 5 | M10 | Not started |
-| **Total** | **53** | **14** | **67** | | **31% coverage** |
+| **Total (as tabled)** | **53** | **14** | **67** | | **31% coverage**[^drift] |
+
+[^drift]: The per-domain breakdown sums to 67; `scripts/workspace-stats.mjs` finds 72 unique R-IDs in `specs/` (R1.13/R1.14 and R2.13/R2.14/R2.15 were added to specs after the table was last edited). The coverage percentage above is calculated against 67; against the actual 72 it would be lower. Fix is queued for the next milestone-YAML pass.
 
 ## Feature Readiness
 

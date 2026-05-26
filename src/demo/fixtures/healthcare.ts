@@ -3,8 +3,8 @@
  * patients, pathways, and SHACL shapes.
  */
 
-import { UGM } from "@core/ugm";
-import type { ShaclShape } from "@core/shacl";
+import { UGM } from "@g3t/core";
+import type { ShaclShape } from "@g3t/core";
 
 export function buildHealthcareUGM(): UGM {
   const ugm = new UGM();

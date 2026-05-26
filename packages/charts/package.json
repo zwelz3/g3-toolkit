@@ -1,25 +1,61 @@
 {
   "name": "@g3t/charts",
-  "version": "1.0.0-rc",
-  "description": "Linked statistical charts (bar, scatter, line, pie) for g3-toolkit.",
+  "version": "1.0.0-rc.1",
+  "description": "Linked statistical charts (bar, scatter, line, pie) backed by ECharts. Consumes @g3t/core data pipelines and integrates with @g3t/react components.",
   "type": "module",
-  "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md"],
-  "keywords": ["graph", "charts", "echarts", "visualization"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "keywords": [
+    "graph",
+    "charts",
+    "echarts",
+    "visualization"
+  ],
   "license": "Apache-2.0",
+  "author": "g3-toolkit contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/g3-toolkit/g3-toolkit.git",
+    "directory": "packages/charts"
+  },
+  "bugs": {
+    "url": "https://github.com/g3-toolkit/g3-toolkit/issues"
+  },
+  "homepage": "https://github.com/g3-toolkit/g3-toolkit/tree/main/packages/charts#readme",
+  "scripts": {
+    "build": "vite build",
+    "test": "pnpm -w exec vitest run packages/charts/src",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "tsc --build --clean && rm -rf dist"
+  },
+  "dependencies": {
+    "@g3t/core": "workspace:*",
+    "@g3t/react": "workspace:*",
+    "echarts-for-react": "^3.0.0"
+  },
   "peerDependencies": {
     "react": ">=18.0.0",
-    "@g3t/core": "^1.0.0-rc",
-    "echarts": ">=5.0.0",
-    "echarts-for-react": ">=3.0.0"
+    "echarts": ">=5.0.0"
+  },
+  "sideEffects": false,
+  "devDependencies": {
+    "vitest": "^4.1.7",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1"
   }
 }

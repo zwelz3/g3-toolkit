@@ -5,7 +5,7 @@
  * relationships that exercise different toolkit capabilities.
  */
 
-import { UGM } from "@core/ugm";
+import { UGM } from "@g3t/core";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

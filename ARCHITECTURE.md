@@ -47,17 +47,27 @@ Gremlin), RDF projection pipeline, DataPipeline interface,
 algorithm wrappers (graphology-metrics), filter models, encoding
 models, style override models, theme types, diff engine, undo/redo.
 
-Peer dependency: `graphology` only.
+Dependencies (regular, installed transitively): `graphology`,
+`@dagrejs/dagre`, `d3-force`, `d3-hierarchy`, `elkjs`, `expr-eval`,
+`simple-statistics`. No peer dependencies.
 
 ### @g3t/react
 
 React components that consume UGM. Each component is independently
 importable; using `CytoscapeCanvas` does not pull in `TimelineView`.
 
-Contains: 12 view components, 10 control components, accessibility
+Contains: 12 view components, 15 control components, accessibility
 companion, state hooks (selection, theme, view filter).
 
-Peer dependencies: `react`, `@g3t/core`, `cytoscape`.
+Regular dependencies: `@g3t/core`, `@tanstack/react-table`, `fuse.js`.
+Peer dependencies (consumer must install): `react`, `react-dom`,
+`cytoscape`, `cytoscape-fcose`, `zustand`, `echarts`, `vis-timeline`,
+`vis-data`. The peer set is broad because each view brings its own
+runtime; consumers tree-shake by importing only the views they use.
+`@tanstack/react-table` is a regular dep (not peer) because it is
+directly imported by `TableView` and would otherwise resolve to an
+empty virtual module under Vite when consumers don't explicitly
+install it.
 
 ### @g3t/charts (optional)
 
@@ -66,9 +76,13 @@ graph canvas and table. Install only if you need non-graph
 visualizations.
 
 Contains: LinkedChart wrapper, 6 chart renderers (bar, scatter
-with trend, line/area, pie/donut, parallel coordinates).
+with trend, line/area, pie/donut, parallel coordinates, sankey).
 
-Peer dependencies: `react`, `@g3t/core`, `echarts`.
+Regular dependencies: `@g3t/core`, `@g3t/react`, `echarts-for-react`.
+Peer dependencies: `react`, `echarts`. `echarts-for-react` is a
+regular dep (not peer) because it is directly imported by
+`LinkedChart` (same Vite-resolution rationale as `@tanstack/react-table`
+in `@g3t/react`).
 
 ## What Is NOT in the Packages
 

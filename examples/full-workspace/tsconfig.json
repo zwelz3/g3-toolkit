@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": true,
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@g3t/core": ["../../packages/core/src/index.ts"],
+      "@g3t/react": ["../../packages/react/src/index.ts"]
+    }
+  },
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/react" }
+  ],
+  "include": ["src"]
+}

@@ -11,6 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Reject literal brace-glob paths
+        # Catches the failure mode where an agent or script ran `mkdir -p src/{a,b}` in a shell
+        # that doesn't expand braces (POSIX sh, dash), creating literal directories named with
+        # brace characters. Cheap to run; fails fast.
+        run: |
+          found=$(find . -path ./node_modules -prune -o \( -name '*{*' -o -name '*}*' \) -print | grep -v ^./node_modules || true)
+          if [ -n "$found" ]; then
+            echo "FAIL: literal brace-glob paths present:"
+            echo "$found"
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20

@@ -12,27 +12,27 @@
  */
 
 import { useState, useCallback } from "react";
-import { UGM } from "@core/ugm";
-import { CytoscapeCanvas } from "@views/canvas";
-import { TableView } from "@views/table";
-import { DetailInspector } from "@views/inspector";
-import { FacetFilter } from "@interaction/filter";
-import { SearchBar } from "@interaction/search";
-import { TagManager } from "@interaction/tag-manager";
-import { GroupingManager } from "@interaction/grouping";
-import { LayoutSwitcher } from "@interaction/layout-switcher";
+import { UGM } from "@g3t/core";
+import { CytoscapeCanvas } from "@g3t/react";
+import { TableView } from "@g3t/react";
+import { DetailInspector } from "@g3t/react";
+import { FacetFilter } from "@g3t/react";
+import { SearchBar } from "@g3t/react";
+import { TagManager } from "@g3t/react";
+import { GroupingManager } from "@g3t/react";
+import { LayoutSwitcher } from "@g3t/react";
 import {
   createDefaultMenuManager,
   type ContextMenuManager,
-} from "@interaction/context-menu";
-import { useSelectionStore } from "@state/selection-store";
+} from "@g3t/react";
+import { useSelectionStore } from "@g3t/react";
 import {
   ForceLayout,
   HierarchyLayout,
   DagreLayout,
   ElkLayout,
-} from "@core/layout";
-import type { LayoutEngine } from "@core/layout";
+} from "@g3t/core";
+import type { LayoutEngine } from "@g3t/core";
 
 // ── Deterministic test data ─────────────────────────────────────────
 

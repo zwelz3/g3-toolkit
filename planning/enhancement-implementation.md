@@ -55,7 +55,7 @@ updates all charts reactively.
 **M11.E1.T1 — DataPipeline interface and PipelineRegistry.**
 
 ```typescript
-// src/core/pipeline/types.ts
+// packages/core/src/pipeline/types.ts
 
 interface DataPipeline<TData, TSelection = unknown> {
   id: string;

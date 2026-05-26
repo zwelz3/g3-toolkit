@@ -13,9 +13,9 @@ import { DataScientistDemo } from "./shells/DataScientistDemo";
 import { AnalyticsDemo } from "./shells/AnalyticsDemo";
 import { AuditorDemo, MBSEDemo } from "./shells/AuditorMBSEDemo";
 import { CyberDemo, SupplyChainDemo } from "./shells/CyberSupplyDemo";
-import { useThemeStore } from "@theme/ThemeManager";
-import { injectDesignTokens } from "@theme/design-tokens";
-import "@theme/g3t-base.css";
+import { useThemeStore } from "@g3t/react";
+import { injectDesignTokens } from "@g3t/react";
+import "@g3t/react";
 
 /** Map scenario IDs to dedicated demo shells. */
 const SHELL_MAP: Record<string, React.ComponentType<{ onBack: () => void }>> = {

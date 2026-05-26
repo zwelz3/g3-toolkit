@@ -6,12 +6,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@core": resolve(__dirname, "src/core"),
-      "@views": resolve(__dirname, "src/views"),
-      "@state": resolve(__dirname, "src/state"),
-      "@interaction": resolve(__dirname, "src/interaction"),
-      "@a11y": resolve(__dirname, "src/a11y"),
-      "@theme": resolve(__dirname, "src/theme"),
+      "@g3t/core": resolve(__dirname, "packages/core/src"),
+      "@g3t/react": resolve(__dirname, "packages/react/src"),
+      "@g3t/charts": resolve(__dirname, "packages/charts/src"),
     },
   },
 });

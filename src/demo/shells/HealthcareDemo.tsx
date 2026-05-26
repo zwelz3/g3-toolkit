@@ -6,38 +6,38 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { CytoscapeCanvas } from "@views/canvas";
-import { TableView } from "@views/table";
-import { DetailInspector } from "@views/inspector";
-import { TreeView } from "@views/tree";
-import { SchemaView } from "@views/schema";
-import { ShaclShapeBrowser } from "@views/schema/ShaclShapeBrowser";
+import { CytoscapeCanvas } from "@g3t/react";
+import { TableView } from "@g3t/react";
+import { DetailInspector } from "@g3t/react";
+import { TreeView } from "@g3t/react";
+import { SchemaView } from "@g3t/react";
+import { ShaclShapeBrowser } from "@g3t/react";
 import {
   ZoomControls,
   StatusBar,
   KeyboardShortcutModal,
-} from "@interaction/toolbar";
-import { CanvasLegend, DEFAULT_ENCODING } from "@interaction/encoding";
-import { FacetFilter } from "@interaction/filter";
-import { SearchBar } from "@interaction/search";
-import { useSelectionStore } from "@state/selection-store";
-import { AnnotationPanel } from "@interaction/annotations";
-import { PropertyEditor } from "@interaction/property-editor";
-import { LayoutManager } from "@interaction/layout-manager";
-import { useThemeStore } from "@theme/ThemeManager";
-import { ContextMenuManager } from "@interaction/context-menu";
-import { G3tEventBus } from "@core/event-bus";
+} from "@g3t/react";
+import { CanvasLegend, DEFAULT_ENCODING } from "@g3t/react";
+import { FacetFilter } from "@g3t/react";
+import { SearchBar } from "@g3t/react";
+import { useSelectionStore } from "@g3t/react";
+import { AnnotationPanel } from "@g3t/react";
+import { PropertyEditor } from "@g3t/react";
+import { LayoutManager } from "@g3t/react";
+import { useThemeStore } from "@g3t/react";
+import { ContextMenuManager } from "@g3t/react";
+import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
-} from "@interaction/context-menu/toolkit-actions";
-import { validateShacl } from "@core/shacl";
-import { UGM } from "@core/ugm";
+} from "@g3t/react";
+import { validateShacl } from "@g3t/core";
+import { UGM } from "@g3t/core";
 import {
   buildHealthcareUGM,
   HEALTHCARE_SHACL_SHAPES,
 } from "../fixtures/healthcare";
-import type { SearchResult } from "@interaction/search";
+import type { SearchResult } from "@g3t/react";
 
 type LeftTab = "tree" | "shacl" | "filter";
 

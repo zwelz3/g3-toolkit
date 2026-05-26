@@ -48,4 +48,4 @@ pnpm test:e2e
 - Unit tests: `describe` named after module, `it` with behavior sentence
 - Component tests: import from `@testing-library/react`, verify rendering and events
 - E2E tests: use `data-testid` selectors, wait for elements before asserting
-- `src/core/` tests use `.test.ts` (no JSX); everything else uses `.test.tsx`
+- `packages/core/src/` tests use `.test.ts` (no JSX); React-component tests in `packages/react/src/` and `packages/charts/src/` use `.test.tsx`

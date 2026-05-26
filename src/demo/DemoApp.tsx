@@ -12,45 +12,45 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { Scenario } from "./DemoLanding";
-import { UGM } from "@core/ugm";
-import { CytoscapeCanvas } from "@views/canvas";
-import { TableView } from "@views/table";
-import { DetailInspector } from "@views/inspector";
-import { SchemaView } from "@views/schema";
-import { DiffRenderer } from "@views/schema";
-import { MapView } from "@views/map";
-import { TreeView } from "@views/tree";
-import { MatrixView } from "@views/matrix";
-import { QueryEditor } from "@views/query";
+import { UGM } from "@g3t/core";
+import { CytoscapeCanvas } from "@g3t/react";
+import { TableView } from "@g3t/react";
+import { DetailInspector } from "@g3t/react";
+import { SchemaView } from "@g3t/react";
+import { DiffRenderer } from "@g3t/react";
+import { MapView } from "@g3t/react";
+import { TreeView } from "@g3t/react";
+import { MatrixView } from "@g3t/react";
+import { QueryEditor } from "@g3t/react";
 import {
   StatusBar,
   KeyboardShortcutModal,
   ZoomControls,
-} from "@interaction/toolbar";
+} from "@g3t/react";
 import {
   EncodingPanel,
   CanvasLegend,
   DEFAULT_ENCODING,
-} from "@interaction/encoding";
-import { FacetFilter } from "@interaction/filter";
-import { SearchBar } from "@interaction/search";
-import { useSelectionStore } from "@state/selection-store";
-import { useThemeStore } from "@theme/ThemeManager";
-import { AriaCompanion } from "@a11y/AriaCompanion";
-import { ContextMenuManager } from "@interaction/context-menu";
-import { G3tEventBus } from "@core/event-bus";
+} from "@g3t/react";
+import { FacetFilter } from "@g3t/react";
+import { SearchBar } from "@g3t/react";
+import { useSelectionStore } from "@g3t/react";
+import { useThemeStore } from "@g3t/react";
+import { AriaCompanion } from "@g3t/react";
+import { ContextMenuManager } from "@g3t/react";
+import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
-} from "@interaction/context-menu/toolkit-actions";
-import { AnnotationPanel } from "@interaction/annotations";
-import { PropertyEditor } from "@interaction/property-editor";
-import { LayoutManager } from "@interaction/layout-manager";
-import type { LayoutOptions } from "@interaction/layout-manager";
+} from "@g3t/react";
+import { AnnotationPanel } from "@g3t/react";
+import { PropertyEditor } from "@g3t/react";
+import { LayoutManager } from "@g3t/react";
+import type { LayoutOptions } from "@g3t/react";
 
-import type { EncodingConfig } from "@interaction/encoding";
-import type { DiffResult } from "@core/diff";
-import type { SearchResult } from "@interaction/search";
+import type { EncodingConfig } from "@g3t/react";
+import type { DiffResult } from "@g3t/core";
+import type { SearchResult } from "@g3t/react";
 
 // ── Secondary View Tabs ─────────────────────────────────────────────
 

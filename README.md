@@ -115,14 +115,14 @@ useThemeStore.getState().setTheme("dark");
 
 ## Development
 
-This project uses [pnpm](https://pnpm.io) (not npm or yarn).
+This project uses [pnpm](https://pnpm.io).
 
 ```bash
 corepack enable               # enables pnpm via Node.js corepack
 pnpm install
 pnpm dev                      # Interactive demo at localhost:5173
 pnpm storybook                # Component explorer at localhost:6006
-pnpm test                     # 556 unit + component tests
+pnpm test                     # Vitest unit + component tests (run for current count)
 pnpm typecheck
 pnpm lint
 ```
@@ -135,10 +135,11 @@ packages/           ← Published npm packages
   react/            ← @g3t/react (React components)
   charts/           ← @g3t/charts (linked ECharts)
 examples/           ← Reference integrations (NOT published)
-  react-neo4j/      ← Minimal React + Neo4j
-  react-rest-api/   ← React + generic REST backend
-  full-workspace/   ← Full app with layout, workflows, sessions
-demo/               ← Dev server showcase (NOT published)
+  full-workspace/   ← Multi-pane workspace shell with flexlayout-react
+                      and role-based layouts
+src/                ← Interactive demo + test harness for `pnpm dev`
+                      (this is the dev showcase, not a published artifact;
+                      a future cleanup will move it to demo/)
 docs/               ← Adopter guides
 specs/              ← specl-format requirements (72 requirements)
 planning/           ← Roadmap, audits, evaluations

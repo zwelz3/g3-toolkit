@@ -12,8 +12,8 @@ boundary; this is the most important design decision.
 
 ## Tech Stack
 
-TypeScript, React 19, Vite 8. **pnpm** (not npm; content-addressable
-store, strict deps, workspace support). Graph: Graphology (data
+TypeScript, React 19, Vite 8. **pnpm** (content-addressable store, strict
+deps, workspace support). Graph: Graphology (data
 model), Cytoscape.js (canvas). State: Zustand. Charts: ECharts.
 Algorithms: graphology-metrics, simple-statistics. Search: Fuse.js.
 Expressions: expr-eval. Testing: Vitest + RTL (unit/component),

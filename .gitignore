@@ -1,55 +1,54 @@
-# Dependencies
-node_modules/
-
-# Build outputs
+# === Build artifacts ===
 dist/
 build/
-
-# Vite
-.vite/
-
-# Test artifacts
-test-results/
-playwright-report/
-coverage/
-results/
-tests/e2e/__screenshots__/*-retry*
-
-# Storybook
-storybook-static/
-*storybook.log
-
-# Sphinx docs (generated)
 docs/build/
+packages/*/dist
+packages/*/tsconfig.tsbuildinfo
+
+# === Sphinx copies (from build_docs.py) ===
 docs/source/specs/
 docs/source/research/
 docs/source/planning/
 
-# Environment / secrets
-.env
-.env.local
-.env.*.local
+# === Dependencies ===
+node_modules/
+.pnpm-store/
 
-# OS
-.DS_Store
-Thumbs.db
+# === Test outputs ===
+test-results/
+playwright-report/
+coverage/
+results/
+# Screenshot baselines are committed; only ignore temp files
+tests/e2e/__screenshots__/*-retry*
 
-# Editors
-.idea/
-.vscode/
-*.swp
-*.swo
+# === Storybook ===
+*storybook.log
+storybook-static
+storybook-static/
 
-# Package manager
-pnpm-debug.log
+# === Vite / dev caches ===
+.vite/
+.cache/
+.turbo/
+
+# === pnpm / npm pack outputs ===
 *.tgz
+pnpm-debug.log
+npm-debug.log
 
-# Python (pixi/legacy)
+# === Python / pixi ===
 .pixi/
 __pycache__/
 *.pyc
 *.egg-info/
+.env
 
-# Cache
-.cache/
-.eslintcache
+# === Editor / OS noise ===
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+*.swp
+*.swo

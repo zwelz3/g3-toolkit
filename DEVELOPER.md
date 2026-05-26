@@ -77,7 +77,7 @@ src/
 
 ## Adding a New Adapter
 
-1. Implement the `GraphAdapter` interface (`src/core/adapter/types.ts`)
+1. Implement the `GraphAdapter` interface (`packages/core/src/adapter/types.ts`)
 2. Accept `middleware?: Middleware[]` in the constructor
 3. Write unit tests with mocked network calls
 4. Add to barrel export
@@ -102,10 +102,9 @@ font-size: var(--g3t-font-sm);
 | Unit | Vitest | Pure functions (D6 modules), store logic |
 | Component | RTL (@testing-library/react) | React components in jsdom |
 | E2E | Playwright | Full browser interactions |
-| E2E | Playwright | Full browser interactions |
 
 ```bash
-pnpm test          # 399 unit + component tests
+pnpm test          # 556 unit + component tests
 pnpm typecheck     # TypeScript verification
 pnpm lint          # ESLint
 pnpm storybook     # Component explorer

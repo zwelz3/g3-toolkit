@@ -2,7 +2,7 @@ import type { Preview } from "@storybook/react-vite";
 import { useEffect } from "react";
 import { useThemeStore } from "../src/theme/ThemeManager";
 import { injectDesignTokens } from "../src/theme/design-tokens";
-import "../src/theme/g3t-base.css";
+import "../packages/react/src/theme/g3t-base.css";
 
 const withTheme = (Story: React.ComponentType, context: any) => {
   const themeId = context.globals.theme || "light";

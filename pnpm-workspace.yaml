@@ -1,7 +1,12 @@
+# Workspace members. The root (".") is still a workspace member because src/
+# still contains consuming code (views, interaction, charts, etc.); subsequent
+# turns move those into packages/react and packages/charts. Once src/ at root
+# is empty, "." is dropped from this list.
 packages:
+  - "packages/*"
+  - "examples/*"
   - "."
-  - "dist/core"
-  - "dist/react"
-  - "dist/charts"
+
+# pnpm 9+: allow esbuild's postinstall to run (it builds a native binary).
 allowBuilds:
   esbuild: true

@@ -1,36 +1,105 @@
 {
   "name": "@g3t/react",
-  "version": "1.0.0-rc",
-  "description": "React components for graph visualization (canvas, table, tree, map, etc.).",
+  "version": "1.0.0-rc.1",
+  "description": "React components for graph visualization: canvas, table, tree, map, schema, charts. Pairs with @g3t/core.",
   "type": "module",
-  "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
-    "./style.css": "./dist/style.css"
+    "./views": {
+      "import": "./dist/views.mjs",
+      "require": "./dist/views.cjs",
+      "types": "./dist/views/index.d.ts"
+    },
+    "./controls": {
+      "import": "./dist/controls.mjs",
+      "require": "./dist/controls.cjs",
+      "types": "./dist/interaction/index.d.ts"
+    },
+    "./state": {
+      "import": "./dist/state.mjs",
+      "require": "./dist/state.cjs",
+      "types": "./dist/state/index.d.ts"
+    },
+    "./theme": {
+      "import": "./dist/theme.mjs",
+      "require": "./dist/theme.cjs",
+      "types": "./dist/theme/index.d.ts"
+    },
+    "./a11y": {
+      "import": "./dist/a11y.mjs",
+      "require": "./dist/a11y.cjs",
+      "types": "./dist/a11y/index.d.ts"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md"],
-  "keywords": ["graph", "visualization", "react", "cytoscape", "knowledge-graph"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "keywords": [
+    "graph",
+    "visualization",
+    "react",
+    "cytoscape",
+    "knowledge-graph"
+  ],
   "license": "Apache-2.0",
+  "author": "g3-toolkit contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/g3-toolkit/g3-toolkit.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/g3-toolkit/g3-toolkit/issues"
+  },
+  "homepage": "https://github.com/g3-toolkit/g3-toolkit/tree/main/packages/react#readme",
+  "scripts": {
+    "build": "vite build",
+    "test": "pnpm -w exec vitest run packages/react/src",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "tsc --build --clean && rm -rf dist"
+  },
   "dependencies": {
-    "fuse.js": "^7.0.0"
+    "@g3t/core": "workspace:*",
+    "fuse.js": "^7.0.0",
+    "@tanstack/react-table": "^8.0.0"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0",
-    "@g3t/core": "^1.0.0-rc",
     "cytoscape": ">=3.28.0",
+    "cytoscape-fcose": ">=2.2.0",
     "zustand": ">=4.0.0",
-    "@tanstack/react-table": ">=8.0.0"
+    "echarts": ">=5.0.0",
+    "vis-timeline": ">=7.0.0",
+    "vis-data": ">=7.0.0"
   },
   "peerDependenciesMeta": {
-    "vis-timeline": { "optional": true },
-    "vis-data": { "optional": true },
-    "@tanstack/react-table": { "optional": true }
+    "vis-timeline": {
+      "optional": true
+    },
+    "vis-data": {
+      "optional": true
+    }
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "devDependencies": {
+    "vitest": "^4.1.7",
+    "@testing-library/react": "^16.3.2",
+    "@storybook/react": "^10.4.1",
+    "@storybook/react-vite": "^10.4.1"
   }
 }

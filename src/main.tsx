@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { injectDesignTokens } from "./theme/design-tokens";
-import "./theme/g3t-base.css";
+import { injectDesignTokens } from "@g3t/react";
+import "@g3t/react";
 
 // Inject design tokens at startup
 injectDesignTokens();

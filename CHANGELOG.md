@@ -41,12 +41,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   tuning (repulsion, gravity, edge length), reset, freeze/unfreeze,
   animate toggle, edge style selector
 
-### M10.5-M13 (see previous entry for details)
-
-## [1.0.0-rc] - 2026-05-24
+## [0.13.0] - 2026-05-24
 
 Four enhancement milestones completing the toolkit's analytical
-and customization capabilities.
+and customization capabilities. (Previously this block was published
+as a second [1.0.0-rc] section in CHANGELOG.md; corrected to its own
+version as part of Phase 1 release-engineering hygiene.)
 
 ### M10.5: Integration Core
 

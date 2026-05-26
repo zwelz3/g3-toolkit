@@ -5,7 +5,7 @@
  * hover elevation, click to enter full app view.
  */
 
-import type { UGM } from "@core/ugm";
+import type { UGM } from "@g3t/core";
 import {
   buildIntelGraph,
   buildSupplyChainGraph,

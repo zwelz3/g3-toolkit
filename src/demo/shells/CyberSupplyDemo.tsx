@@ -6,37 +6,37 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
-import { CytoscapeCanvas } from "@views/canvas";
-import { TableView } from "@views/table";
-import { DetailInspector } from "@views/inspector";
-import { MapView } from "@views/map";
-import { ZoomControls, StatusBar } from "@interaction/toolbar";
+import { CytoscapeCanvas } from "@g3t/react";
+import { TableView } from "@g3t/react";
+import { DetailInspector } from "@g3t/react";
+import { MapView } from "@g3t/react";
+import { ZoomControls, StatusBar } from "@g3t/react";
 import {
   EncodingPanel,
   CanvasLegend,
   DEFAULT_ENCODING,
-} from "@interaction/encoding";
-import { FacetFilter } from "@interaction/filter";
-import { SearchBar } from "@interaction/search";
-import { LinkedChart } from "../../charts/LinkedChart";
-import { TemporalRangeFilter } from "@interaction/remaining-tickets";
-import { useSelectionStore } from "@state/selection-store";
-import { useThemeStore } from "@theme/ThemeManager";
-import { ContextMenuManager } from "@interaction/context-menu";
-import { G3tEventBus } from "@core/event-bus";
+} from "@g3t/react";
+import { FacetFilter } from "@g3t/react";
+import { SearchBar } from "@g3t/react";
+import { LinkedChart } from "@g3t/charts";
+import { TemporalRangeFilter } from "@g3t/react";
+import { useSelectionStore } from "@g3t/react";
+import { useThemeStore } from "@g3t/react";
+import { ContextMenuManager } from "@g3t/react";
+import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
-} from "@interaction/context-menu/toolkit-actions";
-import { createCountByType, createPropertyCorrelation } from "@core/pipeline";
-import { UGM } from "@core/ugm";
+} from "@g3t/react";
+import { createCountByType, createPropertyCorrelation } from "@g3t/core";
+import { UGM } from "@g3t/core";
 import {
   buildCyberGraph,
   buildSupplyChainGraph,
   upgradeCyberWithDates,
   upgradeSupplyWithProps,
 } from "../fixtures/scenarios";
-import type { EncodingConfig } from "@interaction/encoding";
+import type { EncodingConfig } from "@g3t/react";
 
 type BottomTab = "table" | "map";
 
