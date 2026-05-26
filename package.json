@@ -34,7 +34,8 @@
     "test:storybook": "vitest run --config vitest.storybook.config.ts",
     "docs:api": "typedoc",
     "docs:storybook": "storybook build -o docs-out/storybook",
-    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && cp docs/landing.html docs-out/index.html"
+    "docs:demo": "vite build --base=/g3-toolkit/playground/ --outDir=docs-out/playground --emptyOutDir",
+    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && node -e \"require('fs').copyFileSync('docs/landing.html','docs-out/index.html')\""
   },
   "peerDependencies": {
     "@tanstack/react-table": "^8.21.3",

@@ -115,7 +115,9 @@ pnpm run verify         # build:packages + smoke + treeshake + bundle-size
 # Docs
 pnpm run docs:api       # TypeDoc → docs-out/api/ (API reference)
 pnpm run docs:storybook # Storybook build → docs-out/storybook/
-pnpm run docs:build     # All docs: api + storybook + landing page
+pnpm run docs:demo      # Demo app (vite build) → docs-out/playground/
+                        # Uses --base=/g3-toolkit/playground/ for Pages
+pnpm run docs:build     # All docs: api + storybook + demo + landing page
                         # Output: docs-out/ (deploy to GitHub Pages)
 ```
 
@@ -158,14 +160,23 @@ layout from primary fcose to demo layout flexibility).
 ## Documentation Deployment
 
 Docs deploy to GitHub Pages via `.github/workflows/docs.yml` on every
-push to `main`. Three artifacts are built and deployed:
+push to `main`. Four artifacts are built and deployed:
 
 ```
 https://<org>.github.io/g3-toolkit/
 ├── index.html     ← landing page (docs/landing.html)
 ├── api/           ← TypeDoc auto-generated API reference (278 pages)
-└── storybook/     ← Storybook component gallery (6 stories)
+├── storybook/     ← Storybook component gallery (includes
+│                    CytoscapeCanvas stories: layout switching,
+│                    visual encoding, theming, context menu)
+└── playground/    ← Vite build of the demo app (5 scenario shells)
 ```
+
+**Demo playground** builds the existing `DemoApp` (the same thing
+`pnpm dev` serves) as a static site. The `docs:demo` script invokes
+`vite build` with `--base=/g3-toolkit/playground/` so asset paths
+resolve correctly under the GitHub Pages subdirectory. No backend —
+fixtures are programmatic UGMs.
 
 **TypeDoc** reads the TypeScript source and JSDoc comments directly;
 no separate schema. Config at `typedoc.json`. To preview locally:

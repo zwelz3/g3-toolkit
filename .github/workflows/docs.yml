@@ -40,6 +40,9 @@ jobs:
       # Build Storybook (→ docs-out/storybook/)
       - run: pnpm run docs:storybook
 
+      # Build the live demo playground (→ docs-out/playground/)
+      - run: pnpm run docs:demo
+
       # Copy landing page (→ docs-out/index.html)
       - run: cp docs/landing.html docs-out/index.html
 
