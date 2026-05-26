@@ -18,7 +18,8 @@
       "@views/*": ["./src/views/*"],
       "@state/*": ["./src/state/*"],
       "@interaction/*": ["./src/interaction/*"],
-      "@a11y/*": ["./src/a11y/*"]
+      "@a11y/*": ["./src/a11y/*"],
+      "@theme/*": ["./src/theme/*"]
     },
     "ignoreDeprecations": "6.0"
   },

@@ -7,6 +7,8 @@
  * @see specs/01-functional-views.md R1.11
  */
 
+// Implements: R1.14 (community overlay), R5.7 (holonic layer display).
+
 import { useState } from "react";
 import type { UGM } from "@core/ugm";
 
@@ -19,6 +21,7 @@ export interface DetailInspectorProps {
   className?: string;
 }
 
+// @see R5.7: holonic layer display in inspector
 export function DetailInspector({
   ugm,
   selection,

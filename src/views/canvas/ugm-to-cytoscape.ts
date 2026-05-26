@@ -57,7 +57,8 @@ export function ugmToCytoscapeElements(ugm: UGM): ElementDefinition[] {
         label: attrs.type,
         type: attrs.type,
         _confidence: attrs.meta.confidence ?? 1,
-        _asserted: attrs.meta.asserted ?? true,
+        // Cytoscape selectors can't match boolean false; use 0/1
+        _asserted: (attrs.meta.asserted ?? true) ? 1 : 0,
         ...attrs.properties,
       },
     });

@@ -1,0 +1,32 @@
+{
+  "name": "@g3t/core",
+  "version": "1.0.0-rc",
+  "description": "Framework-agnostic graph data model, adapters, and algorithms.",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "keywords": ["graph", "rdf", "lpg", "sparql", "cypher", "gremlin", "knowledge-graph"],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "graphology": "^0.25.4",
+    "graphology-communities-louvain": "^2.0.1",
+    "graphology-components": "^2.0.0",
+    "graphology-metrics": "^2.1.0",
+    "graphology-shortest-path": "^2.1.0",
+    "graphology-types": "^0.24.7",
+    "simple-statistics": "^7.8.7",
+    "crossfilter2": "^1.5.4",
+    "expr-eval": "^2.0.2"
+  },
+  "peerDependencies": {},
+  "devDependencies": {}
+}

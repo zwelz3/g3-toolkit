@@ -7,6 +7,13 @@ graph, and hybrid architectures.
 This documentation is generated from specl-format markdown files in `specs/`.
 
 ```{toctree}
+:maxdepth: 2
+:caption: Dashboard
+
+planning/status
+```
+
+```{toctree}
 :maxdepth: 3
 :caption: Specification
 
@@ -38,4 +45,18 @@ research/technology-survey
 planning/roadmap
 planning/audit
 planning/m0-acceptance-tests
+planning/m1-acceptance-tests
+planning/m2-acceptance-tests
+planning/m3-acceptance-tests
+planning/m4-acceptance-tests
+planning/m5-acceptance-tests
+planning/m6-acceptance-tests
+planning/m7-acceptance-tests
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Development
+
+testing-architecture
 ```

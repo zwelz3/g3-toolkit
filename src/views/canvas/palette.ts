@@ -8,7 +8,10 @@
  * 8 colors optimized for all forms of color vision deficiency.
  */
 
+// Implements: R7.8 (colorblind-safe Okabe-Ito palette).
+
 /** Okabe-Ito palette (hex). */
+// @see R7.8: colorblind-safe palette
 export const OKABE_ITO_COLORS = [
   "#E69F00", // orange
   "#56B4E9", // sky blue

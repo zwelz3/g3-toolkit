@@ -1,8 +1,10 @@
+import { TestHarness } from "./test-harness";
+import { Demo } from "./demo/Demo";
+
+const params = typeof window !== "undefined" ? window.location.search : "";
+const isTestHarness = params.includes("test-harness");
+
 export function App() {
-  return (
-    <div style={{ padding: "2rem", fontFamily: "system-ui, sans-serif" }}>
-      <h1>g3-toolkit</h1>
-      <p>Graph visualization toolkit. Development build.</p>
-    </div>
-  );
+  if (isTestHarness) return <TestHarness />;
+  return <Demo />;
 }

@@ -1,21 +1,55 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Vite
+.vite/
+
+# Test artifacts
+test-results/
+playwright-report/
+coverage/
+results/
+tests/e2e/__screenshots__/*-retry*
+
+# Storybook
+storybook-static/
+*storybook.log
+
+# Sphinx docs (generated)
 docs/build/
 docs/source/specs/
 docs/source/research/
 docs/source/planning/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Package manager
+pnpm-debug.log
+*.tgz
+
+# Python (pixi/legacy)
 .pixi/
 __pycache__/
 *.pyc
-.env
 *.egg-info/
-dist/
-build/
-node_modules/
-test-results/
-playwright-report/
-coverage/
-CLAUDE.md
-DEVELOPER.md
-PROGRESS.md
-planning/
-research/
-specs/
+
+# Cache
+.cache/
+.eslintcache

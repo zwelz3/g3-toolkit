@@ -1,0 +1,7 @@
+packages:
+  - "."
+  - "dist/core"
+  - "dist/react"
+  - "dist/charts"
+allowBuilds:
+  esbuild: true

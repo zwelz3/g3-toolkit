@@ -9,3 +9,8 @@ export type {
   MenuTargetType,
   MenuRegistration,
 } from "./types";
+export {
+  registerToolkitActions,
+  buildNeighborhoodUGM,
+} from "./toolkit-actions";
+export type { ToolkitActionConfig } from "./toolkit-actions";

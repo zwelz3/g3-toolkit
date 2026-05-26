@@ -1,0 +1,236 @@
+/*
+ * g3t global base styles.
+ *
+ * Provides a polished foundation via CSS custom properties.
+ * Import once at app root or Storybook preview.
+ *
+ * All values reference --g3t-* tokens so they adapt to
+ * light/dark/high-contrast themes automatically.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--g3t-font, "IBM Plex Sans", sans-serif);
+  font-size: var(--g3t-font-md, 13px);
+  line-height: var(--g3t-line-height, 1.5);
+  color: var(--g3t-text-primary, #212529);
+  background: var(--g3t-bg-primary, #fff);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Shared component patterns ─────────────────────────────────── */
+
+/* Panels (sidebars, inspector, filter, encoding) */
+.g3t-panel {
+  background: var(--g3t-bg-secondary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-md, 6px);
+  padding: var(--g3t-space-3, 12px);
+  font-size: var(--g3t-font-sm, 12px);
+}
+
+.g3t-panel-title {
+  font-size: var(--g3t-font-sm, 12px);
+  font-weight: var(--g3t-font-weight-semibold, 600);
+  color: var(--g3t-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--g3t-space-2, 8px);
+}
+
+/* Buttons */
+.g3t-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--g3t-space-1, 4px);
+  padding: var(--g3t-space-1, 4px) var(--g3t-space-3, 12px);
+  font-family: inherit;
+  font-size: var(--g3t-font-sm, 12px);
+  font-weight: var(--g3t-font-weight-medium, 500);
+  color: var(--g3t-text-primary);
+  background: var(--g3t-bg-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-sm, 4px);
+  cursor: pointer;
+  transition: all var(--g3t-transition-fast, 120ms ease);
+  user-select: none;
+}
+
+.g3t-btn:hover {
+  background: var(--g3t-bg-tertiary);
+  border-color: var(--g3t-text-muted);
+}
+
+.g3t-btn:active {
+  transform: scale(0.97);
+}
+
+.g3t-btn-active {
+  background: var(--g3t-accent-primary);
+  color: white;
+  border-color: var(--g3t-accent-primary);
+}
+
+.g3t-btn-active:hover {
+  background: var(--g3t-accent-hover);
+  border-color: var(--g3t-accent-hover);
+}
+
+.g3t-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.g3t-btn-ghost:hover {
+  background: var(--g3t-bg-tertiary);
+}
+
+/* Select / dropdown */
+.g3t-select {
+  font-family: inherit;
+  font-size: var(--g3t-font-sm, 12px);
+  padding: var(--g3t-space-1, 4px) var(--g3t-space-2, 8px);
+  background: var(--g3t-bg-primary);
+  color: var(--g3t-text-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-sm, 4px);
+  cursor: pointer;
+  transition: border-color var(--g3t-transition-fast);
+}
+
+.g3t-select:hover {
+  border-color: var(--g3t-text-muted);
+}
+
+.g3t-select:focus {
+  outline: none;
+  border-color: var(--g3t-accent-primary);
+  box-shadow: 0 0 0 2px var(--g3t-accent-muted);
+}
+
+/* Input / textarea */
+.g3t-input {
+  font-family: inherit;
+  font-size: var(--g3t-font-md, 13px);
+  padding: var(--g3t-space-2, 8px);
+  background: var(--g3t-bg-primary);
+  color: var(--g3t-text-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-sm, 4px);
+  transition: border-color var(--g3t-transition-fast);
+}
+
+.g3t-input:focus {
+  outline: none;
+  border-color: var(--g3t-accent-primary);
+  box-shadow: 0 0 0 2px var(--g3t-accent-muted);
+}
+
+.g3t-input-mono {
+  font-family: var(--g3t-font-mono);
+}
+
+/* Divider */
+.g3t-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--g3t-border);
+  margin: 0 var(--g3t-space-1, 4px);
+}
+
+/* Badge */
+.g3t-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--g3t-space-2, 8px);
+  font-size: var(--g3t-font-xs, 10px);
+  font-weight: var(--g3t-font-weight-medium, 500);
+  border-radius: var(--g3t-radius-full, 9999px);
+  letter-spacing: 0.02em;
+}
+
+/* Table rows */
+.g3t-row {
+  transition: background var(--g3t-transition-fast);
+}
+
+.g3t-row:hover {
+  background: var(--g3t-bg-tertiary);
+}
+
+.g3t-row-selected {
+  background: var(--g3t-accent-muted) !important;
+  border-left: 3px solid var(--g3t-accent-primary);
+}
+
+/* Toolbar */
+.g3t-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--g3t-space-1, 4px);
+  padding: var(--g3t-space-1, 4px) var(--g3t-space-2, 8px);
+  background: var(--g3t-bg-secondary);
+  border-bottom: 1px solid var(--g3t-border);
+}
+
+/* Status bar */
+.g3t-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--g3t-space-4, 16px);
+  padding: var(--g3t-space-1, 4px) var(--g3t-space-3, 12px);
+  font-size: var(--g3t-font-xs, 10px);
+  color: var(--g3t-text-muted);
+  background: var(--g3t-bg-secondary);
+  border-top: 1px solid var(--g3t-border);
+}
+
+/* Tooltip */
+.g3t-tooltip {
+  position: fixed;
+  padding: var(--g3t-space-2, 8px) var(--g3t-space-3, 12px);
+  background: var(--g3t-bg-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-md, 6px);
+  box-shadow: var(--g3t-shadow-lg);
+  font-size: var(--g3t-font-sm, 12px);
+  max-width: 280px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Modal */
+.g3t-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.g3t-modal {
+  background: var(--g3t-bg-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-lg, 8px);
+  padding: var(--g3t-space-6, 24px);
+  box-shadow: var(--g3t-shadow-lg);
+  max-width: 480px;
+  width: 90%;
+}

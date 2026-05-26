@@ -1,11 +1,9 @@
-[workspace]
+[project]
 name = "g3-toolkit"
-version = "0.0.1"
+version = "0.8.5"
 description = "Graph visualization toolkit specifications and documentation"
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
-license = "MIT"
-license-file = "LICENSE" 
 
 [tasks]
 # Bootstrap
@@ -22,6 +20,10 @@ docs       = { cmd = "python scripts/build_docs.py -b html docs/source docs/buil
 docs-clean = { cmd = "python -c \"import shutil; shutil.rmtree('docs/build', ignore_errors=True)\"", description = "Clean built docs" }
 docs-serve = { cmd = "python -m http.server 8000 -d docs/build/html", depends-on = ["docs"], description = "Build and serve docs locally" }
 lint-specs = { cmd = "python scripts/lint_specs.py specs/", description = "Lint specl markdown files" }
+# Acceptance tests (Robot Framework)
+"test:acceptance" = { cmd = "python -m robot --outputdir results tests/acceptance/", depends-on = ["install"], description = "Run Robot Framework acceptance tests" }
+"test:acceptance:m0" = { cmd = "python -m robot --outputdir results --include M0 tests/acceptance/", depends-on = ["install"], description = "Run M0 acceptance tests only" }
+"test:acceptance:m1" = { cmd = "python -m robot --outputdir results --include M1 tests/acceptance/", depends-on = ["install"], description = "Run M1 acceptance tests only" }
 
 [dependencies]
 python = ">=3.11"
@@ -30,3 +32,7 @@ sphinx = ">=7.0"
 myst-parser = ">=3.0"
 furo = ">=2024.0"
 pyyaml = ">=6.0"
+
+[pypi-dependencies]
+robotframework = ">=7.0"
+robotframework-browser = ">=19.0"

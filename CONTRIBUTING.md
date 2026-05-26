@@ -1,14 +1,28 @@
 # Contributing to g3-toolkit
 
+
+## Toolkit Boundary
+
+Before adding a feature, ask: "Would an adopter use this as-is
+(pass a UGM, get a result), or would they need to configure,
+disable, or replace it?"
+
+- **As-is** → toolkit package (`src/`)
+- **Configure/replace** → examples directory (`examples/`)
+
+Full rationale: [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Testing Matrix
 
 All code changes must include tests. Use the appropriate layer:
 
 | Layer | Framework | When to use | Location | Suffix | Run command |
 |---|---|---|---|---|---|
-| **Unit** | Vitest | Pure logic: UGM, adapters, projection, layout, state stores | `src/**/*.test.ts` or `tests/unit/` | `.test.ts` | `npm run test` |
-| **Component** | RTL (React Testing Library) | React components render correctly, props, events | `src/**/*.test.tsx` | `.test.tsx` | `npm run test` |
-| **E2E / Visual** | Playwright | Cross-view linking, right-click flows, screenshots, performance | `tests/e2e/` | `.spec.ts` | `npm run test:e2e` |
+| **Unit** | Vitest | Pure logic: UGM, adapters, projection, layout, state stores | `src/**/*.test.ts` | `.test.ts` | `pnpm test` |
+| **Component** | RTL (React Testing Library) | React components render correctly, props, events | `src/**/*.test.tsx` | `.test.tsx` | `pnpm test` |
+| **E2E / Visual** | Playwright | Screenshot baselines, cross-view flows, real CSS rendering | `tests/e2e/` | `.spec.ts` | `pnpm test:e2e` |
+
+See `docs/testing-architecture.md` for the full rationale (D14).
 
 ### Unit tests (Vitest)
 
@@ -80,7 +94,7 @@ npx playwright install --with-deps chromium
 ## Code Style
 
 - TypeScript strict mode; no `any` except with a comment explaining why.
-- ESLint + Prettier enforced. Run `npm run lint:fix` before committing.
+- ESLint + Prettier enforced. Run `pnpm lint:fix` before committing.
 - Colorblind-safe Okabe-Ito palette for all visual defaults (R7.8).
 - `src/core/` is framework-agnostic (D6): no React, no Cytoscape imports.
 - `src/views/` is React (D13).
@@ -96,3 +110,18 @@ Implements UGM with typed node creation, iteration, lookup, remove.
 
 Refs: R3.1
 ```
+
+## Pull Request Process
+
+1. Fork the repository and create a feature branch.
+2. Run `pnpm test && pnpm typecheck && pnpm lint` before pushing.
+3. PRs require passing CI (GitHub Actions).
+4. Include test coverage for new functionality.
+5. Update CHANGELOG.md under an `[Unreleased]` section.
+
+## Issues
+
+Use GitHub Issues for bug reports and feature requests. Include:
+- Steps to reproduce (for bugs)
+- Expected vs actual behavior
+- Browser/OS/Node version

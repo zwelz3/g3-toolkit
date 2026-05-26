@@ -121,7 +121,7 @@ describe("ugmToCytoscapeElements (M0.E3.T4, T5)", () => {
     const elements = ugmToCytoscapeElements(ugm);
     const edges = elements.filter((e) => e.group === "edges");
 
-    expect(edges[0]!.data._asserted).toBe(false);
+    expect(edges[0]!.data._asserted).toBe(0);
   });
 
   it("defaults asserted to true", () => {
@@ -133,7 +133,7 @@ describe("ugmToCytoscapeElements (M0.E3.T4, T5)", () => {
     const elements = ugmToCytoscapeElements(ugm);
     const edges = elements.filter((e) => e.group === "edges");
 
-    expect(edges[0]!.data._asserted).toBe(true);
+    expect(edges[0]!.data._asserted).toBe(1);
   });
 });
 

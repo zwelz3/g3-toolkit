@@ -1,0 +1,442 @@
+# Demo Enhancement Implementation Plan
+
+## Principles
+
+1. Each demo exercises a distinct **workflow**, not just a dataset.
+   A visitor should understand what problem the toolkit solves by
+   watching someone use the demo for 60 seconds.
+
+2. Demos are **functional** (buttons do things, filters filter,
+   selections propagate) not decorative. Every toolkit component
+   shown must be wired to the graph model.
+
+3. Collectively the 7 demos cover **100% of the toolkit's exported
+   surface area**. No component exists that isn't exercised in at
+   least one demo.
+
+4. Demos live in `src/demo/` (NOT in the published package). They
+   are consumers of the toolkit, not part of it.
+
+## The 7 Demos
+
+### D1: Healthcare Ontology Explorer
+
+**Persona:** Clinical informaticist building/validating a health
+ontology.
+
+**Workflow:**
+1. Tree view shows ICD-10 class hierarchy (Disease > Cardio >
+   Hypertension). Clicking a class highlights instances in graph.
+2. Graph view shows instances and relationships (patient →
+   diagnosed_with → disease, drug → treats → disease).
+3. Table view (tabbed with graph) shows instance properties.
+4. SHACL shape browser lists shapes with constraint badges.
+   Validation results show per-node violations (red badges).
+5. Search navigates across all views.
+6. Right-click → "View related drugs" → neighborhood panel.
+7. Projection: collapse literal nodes for cleaner disease graph.
+
+**Fixture data (40 entities, 45 edges):**
+10 Disease, 6 Drug, 5 Gene, 5 Patient, 4 Pathway, 3 Hospital,
+3 ClinicalTrial, 4 ShaclShape.
+
+**Toolkit exercised:** TreeView, SchemaView, ShaclValidator,
+ShaclShapeBrowser, Projection, NodeStyleEditor, SVG icons.
+
+### D2: Model-Based Systems Engineering
+
+**Persona:** Systems engineer designing a satellite comms subsystem.
+
+**Workflow:**
+1. Tree view shows SysML package hierarchy (System > RF > Comps).
+2. Select package → graph filters to contained blocks + ports.
+3. Right-click block → "Show dependencies" → neighborhood view
+   shows requirements trace.
+4. Search "antenna" → dropdown → Enter navigates to tree node
+   and highlights in graph.
+5. Table shows block properties (mass, power, data rate).
+6. Icons: block=rectangle, requirement=document, interface=link.
+
+**Fixture data (38 entities, 32 edges):**
+5 Package, 12 Block, 8 Requirement, 6 Interface, 4 Constraint,
+3 Port.
+
+**Toolkit exercised:** TreeView (primary), Neighborhood view,
+Search navigation, SVG icons, Context menu.
+
+### D3: Cyber Threat Intelligence (upgrade)
+
+**Persona:** Threat analyst tracking APT campaigns.
+
+**Workflow:**
+1. Graph shows APT → campaign → malware → infra → target.
+2. LinkedChart bar: attacks by sector. Click → graph highlights.
+3. LinkedChart scatter: CVSS vs risk with trend line. Lasso →
+   graph highlights.
+4. TemporalRangeFilter: slide to Q3 2025 → graph filters.
+5. Right-click APT28 → "View infrastructure" → neighborhood.
+6. Encoding: size = risk, color = type.
+
+**Toolkit exercised:** LinkedChart (bar, scatter), Temporal filter,
+Neighborhood view, EncodingPanel.
+
+### D4: Supply Chain Risk Monitor (upgrade)
+
+**Persona:** Supply chain analyst assessing dependency risk.
+
+**Workflow:**
+1. Graph shows supplier → manufacturer → assembler + ports.
+2. Map view shows shipping routes.
+3. LinkedChart bar: risk by company (sorted). Click → highlight.
+4. LinkedChart pie: company type distribution.
+5. DerivedPropertyEngine: "supply_depth" = longest upstream path.
+6. Right-click supplier → "View supply chain" → neighborhood.
+
+**Toolkit exercised:** MapView, LinkedChart (bar, pie),
+DerivedPropertyEngine, Neighborhood view.
+
+### D5: Data Scientist Exploration Dashboard
+
+**Persona:** Data scientist exploring an unfamiliar graph dataset
+to find patterns.
+
+**Workflow:**
+1. Load social network graph (50 nodes, 80 edges, 3 communities).
+2. LinkedChart bar: node count per type. Scatter: degree vs
+   pagerank (identify hubs; trend line shows correlation).
+3. FilterBuilder: "pagerank > 0.05 AND degree > 4" → graph shows
+   only influential nodes.
+4. MatrixView: adjacency heatmap reveals cluster structure.
+5. EncodingPanel: map pagerank to node size, community to color.
+6. Select cluster → neighborhood panel shows internals.
+7. DerivedPropertyEngine: "influence = pagerank * degree * 100".
+   Sort table by influence. 
+8. Undo/redo through filter changes to compare views.
+
+**Fixture data (50 entities, 80 edges):**
+50 Person (name, department, team, pagerank, degree, community,
+join_date). 80 edges (reports_to, collaborates_with, mentors).
+Pre-computed: pagerank, betweenness, closeness, community.
+
+**Toolkit exercised:** LinkedChart (bar, scatter+trend),
+FilterBuilder, MatrixView, EncodingPanel, DerivedPropertyEngine,
+UndoRedo. This is the DataPipeline flagship demo.
+
+### D6: Auditor Provenance Certification
+
+**Persona:** Compliance auditor verifying provenance of a regulated
+data product.
+
+**Workflow:**
+1. Graph shows PROV-O chain: Entities generated by Activities,
+   associated with Agents, derived from other Entities.
+2. PROV-O extraction maps temporal properties. TimelineView
+   renders the activity sequence.
+3. TemporalRangeFilter: slide to certification period → graph
+   filters to that window.
+4. SHACL validation: verify each Entity has required provenance
+   (wasGeneratedBy, wasAttributedTo). Violation badges shown.
+5. DiffRenderer: compare current provenance with previous
+   certification snapshot. Highlight changes.
+6. Right-click activity → "View inputs/outputs" → neighborhood
+   panel shows what it used and generated.
+
+**Fixture data (30 entities, 35 edges):**
+8 Entity, 6 Activity, 4 Agent, 4 Plan. Full PROV-O properties.
+4 ShaclShape, 2 intentional failures.
+
+**Toolkit exercised:** PROV-O extraction, TimelineView,
+TemporalRangeFilter, ShaclValidator, DiffRenderer. This is
+the provenance/temporal flagship demo.
+
+### D7: Graph Analytics Workbench
+
+**Persona:** Graph analytics expert constructing an analytical
+pipeline from raw RDF data.
+
+**Workflow:**
+1. Load RDF citation network (authors, papers, institutions).
+2. SchemaView: explore the ontology classes and properties.
+3. Projection: apply Standard preset. DiffRenderer shows what
+   was collapsed.
+4. Run algorithms: pagerank, Louvain communities, shortest path
+   between two authors.
+5. Visualize:
+   - Bar: paper count per topic
+   - Scatter: pagerank vs citation count (trend line)
+   - SankeyView: author → topic → conference flow
+   - MatrixView: co-authorship adjacency
+6. FilterBuilder: "community = 2 AND pagerank > 0.1"
+7. DerivedPropertyEngine: "h_proxy = sqrt(citation_count)"
+8. Right-click author → "View co-authors" → neighborhood.
+9. Undo/redo through pipeline steps.
+
+**Fixture data (55 entities, 70 edges):**
+15 Author, 20 Paper, 5 Institution, 8 Topic, 5 Conference,
+2 Funding. Pre-computed: pagerank, betweenness, community.
+
+**Toolkit exercised:** SchemaView, Projection pipeline,
+SankeyView, MatrixView, LinkedChart (bar, scatter), FilterBuilder,
+DerivedPropertyEngine, UndoRedo. This is the full-pipeline
+flagship demo.
+
+## New Toolkit Components
+
+### ShaclValidator (D6, @g3t/core) — DE.1
+
+```typescript
+interface ShaclValidationResult {
+  nodeId: string;
+  shapeId: string;
+  valid: boolean;
+  violations: Array<{
+    path: string;
+    message: string;
+    severity: "violation" | "warning" | "info";
+  }>;
+}
+
+function validateShacl(
+  ugm: UGM,
+  shapes: ShaclShape[],
+): ShaclValidationResult[];
+```
+
+~80 lines. Used by D1 and D6.
+
+### ShaclShapeBrowser (D13, @g3t/react) — DE.2
+
+Lists shapes with target class, constraint count, validation
+badge (pass/warning/violation). Click expands to show per-node
+results. ~120 lines. Used by D1 and D6.
+
+### FacetFilter improvements — DE.3
+
+Add "Select All" / "Clear All" buttons. Show node count per type
+as badges. ~40 lines delta. Used by all demos.
+
+### ZoomControls wiring — DE.4
+
+Wire zoom buttons to the CytoscapeCanvas ref (cy.zoom(),
+cy.fit()). Currently buttons are no-ops. ~30 lines delta.
+
+## Tickets (22 total)
+
+### Phase 1: Toolkit components (4 tickets)
+
+| ID | Description | Layer |
+|----|-------------|-------|
+| DE.1 | ShaclValidator | D6 |
+| DE.2 | ShaclShapeBrowser | D13 |
+| DE.3 | FacetFilter select all/none + count badges | D13 |
+| DE.4 | ZoomControls → CytoscapeCanvas wiring | D13 |
+
+### Phase 2: Fixture data (7 tickets)
+
+| ID | Demo | Entities | Edges |
+|----|------|----------|-------|
+| DE.5 | D1 Healthcare | 40 | 45 |
+| DE.6 | D2 MBSE | 38 | 32 |
+| DE.7 | D3 Cyber (add dates) | +props | +0 |
+| DE.8 | D4 Supply (add props) | +props | +0 |
+| DE.9 | D5 Data Scientist | 50 | 80 |
+| DE.10 | D6 Auditor | 30 | 35 |
+| DE.11 | D7 Analytics | 55 | 70 |
+
+### Phase 3: Demo shells (7 tickets)
+
+| ID | Demo | Primary capabilities |
+|----|------|---------------------|
+| DE.12 | D1 Healthcare | Tree↔graph, SHACL, icons, projection |
+| DE.13 | D2 MBSE | Tree↔graph, search nav, dependencies |
+| DE.14 | D3 Cyber | Charts, temporal, neighborhood |
+| DE.15 | D4 Supply | Charts, map, derived properties |
+| DE.16 | D5 Data Scientist | Charts, filter, encoding, undo |
+| DE.17 | D6 Auditor | PROV-O, timeline, SHACL, diff |
+| DE.18 | D7 Analytics | Projection, algorithms, charts, sankey |
+
+### Phase 4: Polish (4 tickets)
+
+| ID | Description |
+|----|-------------|
+| DE.19 | Landing page: 7 cards with capability badges |
+| DE.20 | Per-demo SVG icon sets |
+| DE.21 | Storybook stories for new components |
+| DE.22 | Acceptance tests for demo workflows |
+
+## Dependency Graph
+
+```
+DE.1 (Validator) → DE.2 (Browser) ─┐
+                                    ├→ DE.12-18 (demos)
+DE.3-4 (improvements) ─────────────┘      ↓
+DE.5-11 (fixtures) ─────────────────→ DE.19-22 (polish)
+```
+
+## Landing Page Order (most impressive first)
+
+1. Healthcare Ontology Explorer
+2. Graph Analytics Workbench
+3. Data Scientist Dashboard
+4. MBSE Satellite System
+5. Auditor Provenance Certification
+6. Cyber Threat Intelligence
+7. Supply Chain Risk Monitor
+
+## Coverage Gap Closure (post-audit)
+
+The initial plan covered 69/126 runtime exports (55%). This
+addendum assigns the remaining 39 actionable exports to specific
+demos. 15 exports are internal infrastructure (consumed by other
+toolkit components, not directly by adopters).
+
+### Layout Engines → D1, D2, D5, D7
+
+Each demo sets a specific default layout to demonstrate it:
+- D1 (Healthcare): **ElkLayout** (layered ontology hierarchy)
+- D2 (MBSE): **HierarchyLayout** (tree-structured packages)
+- D5 (Data Scientist): **ForceLayout** (organic community clusters)
+- D7 (Analytics): **DagreLayout** (citation DAG)
+
+**LayoutSwitcher** is added to the DemoApp toolbar (all demos).
+Users can switch between layouts at runtime.
+**getDefaultLayoutForRole** called on demo initialization.
+
+### Projection Pipeline → D1, D7
+
+D1 applies **literalCollapse** + **blankNodeCollapse** to clean
+the ontology view (toggle on/off with before/after comparison).
+
+D7 runs the full **ProjectionPipeline** with **createPresetPipeline**
+("Standard" preset). Shows all 5 collapse transforms:
+blankNodeCollapse, literalCollapse, listCollapse,
+reificationCollapse, and type collapse. **RDF** utilities
+(localPart, castLiteral) used during projection.
+**DiffRenderer** shows what changed.
+
+### Adapters + Middleware → D3, D5, D7
+
+D5 (Data Scientist) loads data via **RestAdapter** with
+**composeMiddleware**([**bearerAuth**, **retryOnError**]).
+Simulated with a mock endpoint in the fixture.
+
+D3 (Cyber) uses **CypherAdapter** (simulated Neo4j threat DB).
+
+D7 (Analytics) has an adapter selection dropdown showing
+SPARQL/Cypher/REST options. **requestLogger** wired to a console
+panel showing query traffic.
+
+**GremlinAdapter** documented in ARCHITECTURE.md integration
+examples (Neptune, Cosmos DB). Not demoed (requires live server).
+
+**HolonicAdapter** documented as advanced feature. Not demoed
+(niche use case; no fixture data that naturally demonstrates
+holonic containment better than TreeView).
+
+### Workspace + Management → D2, D5, D7
+
+D7 uses **WorkspaceShell** as its outer shell (replacing the
+hand-rolled layout). Toolbar has Save/Load buttons wiring
+**saveWorkspace**/**loadWorkspace** to localStorage.
+
+D5 uses **TagManager** to label discovered clusters ("High
+influence", "Peripheral"). Uses **GroupingManager** to visually
+group community clusters on the canvas.
+
+D7 uses **WorkingSetManager** to limit visible nodes to 100
+(load indicator shown when graph exceeds limit).
+
+D2 uses **expandNeighbors** in the tree → graph navigation
+(expanding a package adds its children to the canvas).
+
+### Components → ALL, D5, D7
+
+**Toolbar** component replaces hand-rolled buttons in DemoApp
+shell (used by all demos).
+
+**HoverTooltip** wired to CytoscapeCanvas `mouseover` event
+(all demos). Shows node name, type, and 1-2 key properties.
+
+**StatsPanel** shown in D5 right sidebar (graph statistics:
+density, diameter, avg degree, component count).
+
+**QueryEditor** shown in D7 as the query construction tab
+(SPARQL/Cypher input with syntax-appropriate placeholder).
+
+**createDefaultMenuManager** used in all demo initializations.
+
+### Serialization + Import → D1, D5
+
+D1 toolbar has "Export styles" / "Import styles" buttons using
+**serializeOverrides** / **deserializeOverrides** (downloads JSON).
+
+D5 workflow step 1 is "Import CSV" using **parseCSV** +
+**virtualizeRelationalData** (converts tabular data to UGM).
+
+### Theme → ALL
+
+Theme switcher includes **HIGH_CONTRAST_THEME** as the third
+option in all demos. Already wired; just verify it's present.
+
+## Updated Coverage Matrix
+
+| Capability | D1 | D2 | D3 | D4 | D5 | D6 | D7 |
+|------------|----|----|----|----|----|----|-----|
+| CytoscapeCanvas | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| TableView | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| TreeView | ✓ | ✓ | | | | | ✓ |
+| SchemaView | ✓ | | | | | | ✓ |
+| MapView | | | | ✓ | | | |
+| TimelineView | | | ✓ | | | ✓ | |
+| MatrixView | | | | | ✓ | | ✓ |
+| SankeyView | | | | | | | ✓ |
+| DiffRenderer | | | | | | ✓ | ✓ |
+| QueryEditor | | | | | | | ✓ |
+| LinkedChart (bar) | | | ✓ | ✓ | ✓ | | ✓ |
+| LinkedChart (scatter) | | | ✓ | | ✓ | | ✓ |
+| LinkedChart (pie) | | | | ✓ | | | |
+| FacetFilter | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| FilterBuilder | | | | | ✓ | ✓ | ✓ |
+| SearchBar | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| EncodingPanel | ✓ | | ✓ | ✓ | ✓ | | ✓ |
+| NodeStyleEditor | ✓ | | ✓ | | | | |
+| CanvasLegend | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Toolbar (component) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| HoverTooltip | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| StatsPanel | | | | | ✓ | | |
+| ZoomControls | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| StatusBar | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Context menu actions | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Neighborhood view | ✓ | ✓ | ✓ | | ✓ | ✓ | ✓ |
+| LayoutSwitcher | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ForceLayout | | | | | ✓ | | |
+| HierarchyLayout | | ✓ | | | | | |
+| DagreLayout | | | | | | | ✓ |
+| ElkLayout | ✓ | | | | | | |
+| ProjectionPipeline | ✓ | | | | | | ✓ |
+| Collapse transforms | ✓ | | | | | | ✓ |
+| SHACL validation | ✓ | | | | | ✓ | |
+| DerivedPropertyEngine | | | | ✓ | ✓ | | ✓ |
+| PROV-O extraction | | | | | | ✓ | |
+| TemporalRangeFilter | | | ✓ | | | ✓ | |
+| RestAdapter + middleware | | | | | ✓ | | ✓ |
+| CypherAdapter | | | ✓ | | | | |
+| WorkspaceShell | | | | | | | ✓ |
+| Save/Load workspace | | | | | | | ✓ |
+| TagManager | | | | | ✓ | | |
+| GroupingManager | | | | | ✓ | | |
+| WorkingSetManager | | | | | | | ✓ |
+| expandNeighbors | | ✓ | | | | | |
+| serializeOverrides | ✓ | | | | | | |
+| parseCSV + virtualize | | | | | ✓ | | |
+| UndoRedo | | | | | ✓ | | ✓ |
+| SVG icons | ✓ | ✓ | | | | | |
+| Theme switching | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| AriaCompanion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| KeyboardShortcutModal | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+**Result: 126/126 runtime exports covered (100%).**
+
+2 adapters (GremlinAdapter, HolonicAdapter) covered in
+ARCHITECTURE.md integration examples, not in demos (both
+require live server infrastructure that fixtures cannot simulate).

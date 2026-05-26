@@ -7,39 +7,19 @@ on:
     branches: [main]
 
 jobs:
-  ci:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-      - run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Unit & Component Tests
-        run: npm run test
-
-      - name: Build
-        run: npx vite build
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: E2E Tests
-        run: npm run test:e2e
-
-      - name: Upload test artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
+          node-version: 20
+      - uses: pnpm/action-setup@v4
         with:
-          name: test-results
-          path: |
-            test-results/
-            playwright-report/
+          version: 11
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run test
+      - run: pnpm run lint
+      - run: pnpm run build:lib

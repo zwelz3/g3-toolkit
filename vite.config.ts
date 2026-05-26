@@ -11,6 +11,7 @@ export default defineConfig({
       "@state": resolve(__dirname, "src/state"),
       "@interaction": resolve(__dirname, "src/interaction"),
       "@a11y": resolve(__dirname, "src/a11y"),
+      "@theme": resolve(__dirname, "src/theme"),
     },
   },
 });
