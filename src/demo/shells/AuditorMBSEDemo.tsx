@@ -12,9 +12,10 @@ import { DetailInspector } from "@g3t/react";
 import { TreeView } from "@g3t/react";
 import { ShaclShapeBrowser } from "@g3t/react";
 import { ZoomControls, StatusBar } from "@g3t/react";
-import { CanvasLegend, DEFAULT_ENCODING } from "@g3t/react";
+import { CanvasLegend, DEFAULT_ENCODING, encodingToCytoscapeStyle } from "@g3t/react";
 import { FacetFilter } from "@g3t/react";
 import { SearchBar } from "@g3t/react";
+import type { SearchResult } from "@g3t/react";
 import { TemporalRangeFilter } from "@g3t/react";
 import { useSelectionStore } from "@g3t/react";
 import { AnnotationPanel } from "@g3t/react";
@@ -25,6 +26,7 @@ import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
+  wireCytoscapeContextActions,
 } from "@g3t/react";
 import { validateShacl, type ShaclShape } from "@g3t/core";
 import { extractProvOProperties } from "@g3t/core";
@@ -91,6 +93,21 @@ export function AuditorDemo({ onBack }: { onBack: () => void }) {
     max: number;
   } | null>(null);
 
+  // Bugfix 18: legend now reflects the actual rendering. The Auditor
+  // domain doesn't have an obvious numeric property to size by, but
+  // the type palette still drives the legend, and the encoding wiring
+  // means a future user can add a EncodingPanel and have it work.
+  const encoding = useMemo(() => ({ ...DEFAULT_ENCODING }), []);
+  const encodingStylesheet = useMemo(
+    () =>
+      encodingToCytoscapeStyle(
+        encoding,
+        ugm,
+        theme.typePalette,
+      ) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
+    [encoding, ugm, theme.typePalette],
+  );
+
   const validationResults = useMemo(
     () => validateShacl(ugm, AUDITOR_SHAPES),
     [ugm],
@@ -107,6 +124,20 @@ export function AuditorDemo({ onBack }: { onBack: () => void }) {
     });
     return mgr;
   });
+  // Bugfix 17: wire toolkit context-menu events to cytoscape (see
+  // DataScientistDemo for rationale).
+  useEffect(() => {
+    if (!cyInstance) return;
+    return wireCytoscapeContextActions(
+      cyInstance as Parameters<typeof wireCytoscapeContextActions>[0],
+      eventBus,
+      ugm,
+      {
+        onViewNeighborhood: (subUGM) => setNeighborhoodUGM(subUGM),
+      },
+    );
+  }, [cyInstance, eventBus, ugm]);
+
 
   const filteredUGM = useMemo(() => {
     if (hiddenTypes.size === 0) return ugm;
@@ -197,7 +228,15 @@ export function AuditorDemo({ onBack }: { onBack: () => void }) {
             ))}
           </div>
           <div style={{ padding: 8 }}>
-            <SearchBar ugm={ugm} onSearchChange={() => {}} />
+            <SearchBar
+              ugm={ugm}
+              onSearchChange={(r: SearchResult) => {
+                // Bugfix 10: select matching nodes as the user types.
+                if (r.matchingIds.length > 0) {
+                  useSelectionStore.getState().selectNodes(r.matchingIds);
+                }
+              }}
+            />
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: "0 8px 8px" }}>
             {leftTab === "timeline" && (
@@ -232,6 +271,7 @@ export function AuditorDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={filteredUGM}
               menuManager={menuManager}
+              stylesheet={encodingStylesheet}
               onReady={(c) => setCyInstance(c)}
             />
             <div
@@ -243,7 +283,7 @@ export function AuditorDemo({ onBack }: { onBack: () => void }) {
                 maxWidth: 160,
               }}
             >
-              <CanvasLegend ugm={filteredUGM} encoding={DEFAULT_ENCODING} />
+              <CanvasLegend ugm={filteredUGM} encoding={encoding} />
             </div>
             <div
               style={{
@@ -305,7 +345,7 @@ export function AuditorDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={neighborhoodUGM} />
+                <CytoscapeCanvas ugm={neighborhoodUGM} layout="breadthfirst" />
               </div>
             )}
           </div>
@@ -365,6 +405,26 @@ export function MBSEDemo({ onBack }: { onBack: () => void }) {
   const [cyInstance, setCyInstance] = useState<unknown>(null);
   const [showTree, setShowTree] = useState(true);
 
+  // Bugfix 18: MBSE blocks have mass + power properties - size nodes
+  // by mass so structural diagrams visually reflect component scale.
+  const encoding = useMemo(
+    () => ({
+      ...DEFAULT_ENCODING,
+      nodeSizeProperty: "mass",
+      nodeSizeRange: [16, 50] as [number, number],
+    }),
+    [],
+  );
+  const encodingStylesheet = useMemo(
+    () =>
+      encodingToCytoscapeStyle(
+        encoding,
+        ugm,
+        theme.typePalette,
+      ) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
+    [encoding, ugm, theme.typePalette],
+  );
+
   const [eventBus] = useState(() => new G3tEventBus());
   const [menuManager] = useState(() => {
     const mgr = new ContextMenuManager();
@@ -376,6 +436,20 @@ export function MBSEDemo({ onBack }: { onBack: () => void }) {
     });
     return mgr;
   });
+  // Bugfix 17: wire toolkit context-menu events to cytoscape (see
+  // DataScientistDemo for rationale).
+  useEffect(() => {
+    if (!cyInstance) return;
+    return wireCytoscapeContextActions(
+      cyInstance as Parameters<typeof wireCytoscapeContextActions>[0],
+      eventBus,
+      ugm,
+      {
+        onViewNeighborhood: (subUGM) => setNeighborhoodUGM(subUGM),
+      },
+    );
+  }, [cyInstance, eventBus, ugm]);
+
 
   const filteredUGM = useMemo(() => {
     if (hiddenTypes.size === 0) return ugm;
@@ -457,7 +531,12 @@ export function MBSEDemo({ onBack }: { onBack: () => void }) {
             >
               <SearchBar
                 ugm={ugm}
-                onSearchChange={() => {}}
+                onSearchChange={(r: SearchResult) => {
+                  // Bugfix 10: select matching nodes as the user types.
+                  if (r.matchingIds.length > 0) {
+                    useSelectionStore.getState().selectNodes(r.matchingIds);
+                  }
+                }}
                 placeholder="Search blocks..."
               />
             </div>
@@ -481,6 +560,7 @@ export function MBSEDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={filteredUGM}
               menuManager={menuManager}
+              stylesheet={encodingStylesheet}
               onReady={(c) => setCyInstance(c)}
             />
             <div
@@ -492,7 +572,7 @@ export function MBSEDemo({ onBack }: { onBack: () => void }) {
                 maxWidth: 160,
               }}
             >
-              <CanvasLegend ugm={filteredUGM} encoding={DEFAULT_ENCODING} />
+              <CanvasLegend ugm={filteredUGM} encoding={encoding} />
             </div>
             <div
               style={{
@@ -554,7 +634,7 @@ export function MBSEDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={neighborhoodUGM} />
+                <CytoscapeCanvas ugm={neighborhoodUGM} layout="breadthfirst" />
               </div>
             )}
           </div>

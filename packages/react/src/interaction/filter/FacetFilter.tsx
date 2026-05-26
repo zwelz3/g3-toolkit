@@ -31,20 +31,25 @@ export function FacetFilter({
 
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
+  // Bugfix 13: previously onFilterChange was invoked inside the
+  // setState updater function, which React treats as side-effect-in-
+  // render and warns:
+  //   "Cannot update a component (`<Parent>`) while rendering a
+  //    different component (`FacetFilter`)."
+  // Compute the next Set outside the updater and call both setState
+  // and onFilterChange synchronously, after the updater returns.
   const toggleType = useCallback(
     (type: string) => {
-      setHiddenTypes((prev) => {
-        const next = new Set(prev);
-        if (next.has(type)) {
-          next.delete(type);
-        } else {
-          next.add(type);
-        }
-        onFilterChange(next);
-        return next;
-      });
+      const next = new Set(hiddenTypes);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      setHiddenTypes(next);
+      onFilterChange(next);
     },
-    [onFilterChange],
+    [hiddenTypes, onFilterChange],
   );
 
   // Count nodes per type

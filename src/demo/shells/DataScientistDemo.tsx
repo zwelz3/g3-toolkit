@@ -5,7 +5,7 @@
  * Layout: left=filter+encoding | center=graph | right=charts | bottom=table+matrix
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { CytoscapeCanvas } from "@g3t/react";
 import { TableView } from "@g3t/react";
 import { DetailInspector } from "@g3t/react";
@@ -15,6 +15,7 @@ import {
   EncodingPanel,
   CanvasLegend,
   DEFAULT_ENCODING,
+  encodingToCytoscapeStyle,
 } from "@g3t/react";
 import { FacetFilter } from "@g3t/react";
 import { FilterBuilder } from "@g3t/react";
@@ -30,6 +31,7 @@ import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
+  wireCytoscapeContextActions,
 } from "@g3t/react";
 import {
   createCountByType,
@@ -56,6 +58,22 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
     nodeSizeRange: [14, 50],
     nodeColorProperty: "community",
   });
+
+  // Bugfix 9: actually apply the encoding to the canvas. Without this,
+  // the EncodingPanel updates state and CanvasLegend reflects it, but
+  // CytoscapeCanvas keeps rendering with the default per-type palette
+  // because nothing pipes encoding → stylesheet → canvas. The
+  // encodingToCytoscapeStyle helper already exists in @g3t/react; the
+  // demo just wasn't using it.
+  const encodingStylesheet = useMemo(
+    () =>
+      encodingToCytoscapeStyle(
+        encoding,
+        ugm,
+        theme.typePalette,
+      ) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
+    [encoding, ugm, theme.typePalette],
+  );
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [filterNodeIds, setFilterNodeIds] = useState<Set<string> | null>(null);
   const [neighborhoodUGM, setNeighborhoodUGM] = useState<UGM | null>(null);
@@ -64,6 +82,20 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
   const [cyInstance, setCyInstance] = useState<unknown>(null);
 
   const [eventBus] = useState(() => new G3tEventBus());
+
+  // Bugfix 19: track cy zoom level for the slider. Synced via the
+  // 'zoom' cytoscape event so pinch / wheel zoom also updates the
+  // slider position. The state value is read by ZoomControls below.
+  const [zoomLevel, setZoomLevel] = useState(1);
+  useEffect(() => {
+    if (!cyInstance) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = cyInstance as any;
+    setZoomLevel(c.zoom());
+    const handler = () => setZoomLevel(c.zoom());
+    c.on("zoom", handler);
+    return () => c.off("zoom", handler);
+  }, [cyInstance]);
   const [menuManager] = useState(() => {
     const mgr = new ContextMenuManager();
     registerToolkitActions(mgr, {
@@ -75,6 +107,20 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
     });
     return mgr;
   });
+  // Bugfix 17: wire toolkit context-menu events to cytoscape (see
+  // DataScientistDemo for rationale).
+  useEffect(() => {
+    if (!cyInstance) return;
+    return wireCytoscapeContextActions(
+      cyInstance as Parameters<typeof wireCytoscapeContextActions>[0],
+      eventBus,
+      ugm,
+      {
+        onViewNeighborhood: (subUGM) => setNeighborhoodUGM(subUGM),
+      },
+    );
+  }, [cyInstance, eventBus, ugm]);
+
 
   // Pipelines
   const countByType = useMemo(() => createCountByType(), []);
@@ -97,7 +143,12 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
     return f;
   }, [ugm, hiddenTypes, filterNodeIds]);
 
-  const handleSearch = useCallback((_r: SearchResult) => {}, []);
+  const handleSearch = useCallback((r: SearchResult) => {
+    // Bugfix 10: select matching nodes as the user types.
+    if (r.matchingIds.length > 0) {
+      useSelectionStore.getState().selectNodes(r.matchingIds);
+    }
+  }, []);
   const handleFilterApply = useCallback(
     (ids: Set<string>) => {
       setFilterNodeIds(ids.size === ugm.nodeCount ? null : ids);
@@ -194,6 +245,7 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={filteredUGM}
               menuManager={menuManager}
+              stylesheet={encodingStylesheet}
               onReady={(c) => setCyInstance(c)}
             />
             <div
@@ -229,6 +281,19 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
                   })
                 }
                 onFit={() => cy?.fit(undefined, 40)}
+                // Bugfix 19: zoom slider for direct level control. The
+                // slider tracks the cytoscape zoom level reactively;
+                // changes here drive cy.zoom() and vice versa.
+                zoomLevel={zoomLevel}
+                onZoomChange={(level) =>
+                  cy?.zoom({
+                    level,
+                    renderedPosition: {
+                      x: cy.width() / 2,
+                      y: cy.height() / 2,
+                    },
+                  })
+                }
               />
             </div>
             {neighborhoodUGM && (
@@ -267,7 +332,7 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={neighborhoodUGM} />
+                <CytoscapeCanvas ugm={neighborhoodUGM} layout="breadthfirst" />
               </div>
             )}
           </div>

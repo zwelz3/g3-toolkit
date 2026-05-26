@@ -83,42 +83,53 @@ export function encodingToCytoscapeStyle(
     });
   });
 
-  // Size mapping
+  // Size mapping.
+  // Bugfix 12: scope the mapping with `[<property>]` so cytoscape
+  // only applies it to nodes that actually have the property. Without
+  // this, every node without the property triggers
+  //   "Do not assign mappings to elements without corresponding data"
+  // We also skip entirely when no node has a numeric value for the
+  // property (getPropertyRange returns null), which fixes
+  //   "Do not use continuous mappers without specifying numeric data"
+  // that fired when a user picked a non-numeric property (e.g. asn).
   if (encoding.nodeSizeProperty) {
-    const { min, max } = getPropertyRange(ugm, encoding.nodeSizeProperty);
-    if (max > min) {
+    const range = getPropertyRange(ugm, encoding.nodeSizeProperty);
+    if (range && range.max > range.min) {
+      const prop = encoding.nodeSizeProperty;
       styles.push({
-        selector: "node",
+        selector: `node[${prop}]`,
         style: {
-          width: `mapData(${encoding.nodeSizeProperty}, ${min}, ${max}, ${encoding.nodeSizeRange[0]}, ${encoding.nodeSizeRange[1]})`,
-          height: `mapData(${encoding.nodeSizeProperty}, ${min}, ${max}, ${encoding.nodeSizeRange[0]}, ${encoding.nodeSizeRange[1]})`,
+          width: `mapData(${prop}, ${range.min}, ${range.max}, ${encoding.nodeSizeRange[0]}, ${encoding.nodeSizeRange[1]})`,
+          height: `mapData(${prop}, ${range.min}, ${range.max}, ${encoding.nodeSizeRange[0]}, ${encoding.nodeSizeRange[1]})`,
         },
       });
     }
   }
 
-  // Edge width mapping
+  // Edge width mapping (same fix)
   if (encoding.edgeWidthProperty) {
-    const { min, max } = getEdgePropertyRange(ugm, encoding.edgeWidthProperty);
-    if (max > min) {
+    const range = getEdgePropertyRange(ugm, encoding.edgeWidthProperty);
+    if (range && range.max > range.min) {
+      const prop = encoding.edgeWidthProperty;
       styles.push({
-        selector: "edge",
+        selector: `edge[${prop}]`,
         style: {
-          width: `mapData(${encoding.edgeWidthProperty}, ${min}, ${max}, ${encoding.edgeWidthRange[0]}, ${encoding.edgeWidthRange[1]})`,
+          width: `mapData(${prop}, ${range.min}, ${range.max}, ${encoding.edgeWidthRange[0]}, ${encoding.edgeWidthRange[1]})`,
         },
       });
     }
   }
 
-  // Labels
+  // Labels: also use property-presence selector so nodes/edges
+  // without the label property don't get an empty label.
   styles.push({
-    selector: "node",
+    selector: `node[${encoding.nodeLabelProperty}]`,
     style: { label: `data(${encoding.nodeLabelProperty})` },
   });
 
   if (encoding.edgeLabelProperty) {
     styles.push({
-      selector: "edge",
+      selector: `edge[${encoding.edgeLabelProperty}]`,
       style: { label: `data(${encoding.edgeLabelProperty})` },
     });
   }
@@ -126,33 +137,45 @@ export function encodingToCytoscapeStyle(
   return styles;
 }
 
-function getPropertyRange(ugm: UGM, key: string): { min: number; max: number } {
+function getPropertyRange(
+  ugm: UGM,
+  key: string,
+): { min: number; max: number } | null {
   let min = Infinity;
   let max = -Infinity;
+  let foundNumeric = false;
   ugm.forEachNode((_id, attrs) => {
     const val = attrs.properties[key];
-    if (typeof val === "number") {
+    if (typeof val === "number" && Number.isFinite(val)) {
+      foundNumeric = true;
       if (val < min) min = val;
       if (val > max) max = val;
     }
   });
-  return { min: min === Infinity ? 0 : min, max: max === -Infinity ? 1 : max };
+  // Bugfix 12: signal "no usable data" via null. Previously we returned
+  // fallback {0, 1} which caused cytoscape to apply mapData() to
+  // non-numeric values and warn loudly.
+  if (!foundNumeric) return null;
+  return { min, max };
 }
 
 function getEdgePropertyRange(
   ugm: UGM,
   key: string,
-): { min: number; max: number } {
+): { min: number; max: number } | null {
   let min = Infinity;
   let max = -Infinity;
+  let foundNumeric = false;
   ugm.forEachEdge((_id, attrs) => {
     const val = attrs.properties[key];
-    if (typeof val === "number") {
+    if (typeof val === "number" && Number.isFinite(val)) {
+      foundNumeric = true;
       if (val < min) min = val;
       if (val > max) max = val;
     }
   });
-  return { min: min === Infinity ? 0 : min, max: max === -Infinity ? 1 : max };
+  if (!foundNumeric) return null;
+  return { min, max };
 }
 
 // ── EncodingPanel (M8.5.E2.T2) ─────────────────────────────────────

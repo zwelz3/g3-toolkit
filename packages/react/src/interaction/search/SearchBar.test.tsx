@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
@@ -107,5 +108,71 @@ describe("SearchBar (Fuse.js)", () => {
 
     fireEvent.keyDown(input, { key: "Enter" });
     expect(useSelectionStore.getState().selectedNodeIds.has("o1")).toBe(true);
+  });
+
+  // Bugfix 10 regression: clear button must be present when there's
+  // a query and must reset the input + close the dropdown when clicked.
+  it("renders a clear button when there's a query and resets state on click", async () => {
+    const onSearch = vi.fn();
+    render(<SearchBar ugm={makeUGM()} onSearchChange={onSearch} />);
+
+    // Initially no clear button (empty query)
+    expect(screen.queryByTestId("search-clear")).not.toBeInTheDocument();
+
+    const input = screen.getByTestId("search-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "alice" } });
+
+    // Clear button appears once the user has typed
+    await waitFor(() => {
+      expect(screen.getByTestId("search-clear")).toBeInTheDocument();
+    });
+
+    // Click it
+    fireEvent.click(screen.getByTestId("search-clear"));
+
+    // Input cleared, button gone, last onSearch call has empty matchingIds
+    expect(input.value).toBe("");
+    expect(screen.queryByTestId("search-clear")).not.toBeInTheDocument();
+    await waitFor(() => {
+      const lastCall = onSearch.mock.calls[onSearch.mock.calls.length - 1]?.[0];
+      expect(lastCall.query).toBe("");
+      expect(lastCall.matchingIds).toHaveLength(0);
+    });
+  });
+
+  // Bugfix 11 regression test: passing an inline-lambda onSearchChange
+  // (i.e. fresh identity every render) must NOT cause an infinite
+  // render loop. Before the ref-stash fix, this scenario hit
+  // 'Maximum update depth exceeded' in AnalyticsDemo because the
+  // useEffect dep array contained onSearchChange.
+  it("doesn't loop infinitely when onSearchChange identity changes per render", () => {
+    let outerRenderCount = 0;
+    function Wrapper() {
+      outerRenderCount++;
+      // Bail out after a generous threshold so a real loop fails the
+      // test rather than crashing vitest.
+      if (outerRenderCount > 50) throw new Error("render loop detected");
+      const [tick, setTick] = useState(0);
+      return (
+        <>
+          <button data-testid="tick" onClick={() => setTick((t) => t + 1)}>
+            tick {tick}
+          </button>
+          <SearchBar
+            ugm={makeUGM()}
+            // Fresh identity every render - the bad case.
+            onSearchChange={(_r) => {}}
+          />
+        </>
+      );
+    }
+
+    const { getByTestId } = render(<Wrapper />);
+    // Force several parent re-renders.
+    for (let i = 0; i < 5; i++) {
+      fireEvent.click(getByTestId("tick"));
+    }
+    // If we got here without throwing, we're not looping.
+    expect(outerRenderCount).toBeLessThanOrEqual(50);
   });
 });

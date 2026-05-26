@@ -5,7 +5,7 @@
  * Layout: left=schema+filter | center=graph | right=charts | bottom=table+matrix+sankey+query
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { CytoscapeCanvas } from "@g3t/react";
 import { TableView } from "@g3t/react";
 import { SchemaView } from "@g3t/react";
@@ -17,6 +17,7 @@ import {
   EncodingPanel,
   CanvasLegend,
   DEFAULT_ENCODING,
+  encodingToCytoscapeStyle,
 } from "@g3t/react";
 import { FacetFilter } from "@g3t/react";
 import { FilterBuilder } from "@g3t/react";
@@ -30,6 +31,7 @@ import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
+  wireCytoscapeContextActions,
 } from "@g3t/react";
 import {
   createCountByProperty,
@@ -38,6 +40,7 @@ import {
 import { UGM } from "@g3t/core";
 import { buildAnalyticsUGM } from "../fixtures/analytics";
 import type { EncodingConfig } from "@g3t/react";
+import type { SearchResult } from "@g3t/react";
 
 type BottomTab = "table" | "matrix" | "sankey" | "query";
 type LeftTab = "schema" | "filter" | "encoding";
@@ -54,6 +57,17 @@ export function AnalyticsDemo({ onBack }: { onBack: () => void }) {
     nodeSizeRange: [12, 48],
     nodeColorProperty: "community",
   });
+
+  // Bugfix 9: apply encoding to canvas (see DataScientistDemo for rationale)
+  const encodingStylesheet = useMemo(
+    () =>
+      encodingToCytoscapeStyle(
+        encoding,
+        ugm,
+        theme.typePalette,
+      ) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
+    [encoding, ugm, theme.typePalette],
+  );
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [filterNodeIds, setFilterNodeIds] = useState<Set<string> | null>(null);
   const [neighborhoodUGM, setNeighborhoodUGM] = useState<UGM | null>(null);
@@ -73,6 +87,20 @@ export function AnalyticsDemo({ onBack }: { onBack: () => void }) {
     });
     return mgr;
   });
+  // Bugfix 17: wire toolkit context-menu events to cytoscape (see
+  // DataScientistDemo for rationale).
+  useEffect(() => {
+    if (!cyInstance) return;
+    return wireCytoscapeContextActions(
+      cyInstance as Parameters<typeof wireCytoscapeContextActions>[0],
+      eventBus,
+      ugm,
+      {
+        onViewNeighborhood: (subUGM) => setNeighborhoodUGM(subUGM),
+      },
+    );
+  }, [cyInstance, eventBus, ugm]);
+
 
   const papersByTopic = useMemo(() => createCountByProperty("name"), []);
   const pagerankVsCitations = useMemo(
@@ -180,7 +208,18 @@ export function AnalyticsDemo({ onBack }: { onBack: () => void }) {
             ))}
           </div>
           <div style={{ padding: 8 }}>
-            <SearchBar ugm={ugm} onSearchChange={() => {}} />
+            <SearchBar
+              ugm={ugm}
+              onSearchChange={(r: SearchResult) => {
+                // Bugfix 10: actually wire search to the graph view.
+                // Select matches as the user types; ignore empty-query
+                // events so the user's previous selection isn't blown
+                // away when they clear the box.
+                if (r.matchingIds.length > 0) {
+                  useSelectionStore.getState().selectNodes(r.matchingIds);
+                }
+              }}
+            />
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: "0 8px 8px" }}>
             {leftTab === "schema" && <SchemaView ugm={filteredUGM} />}
@@ -208,6 +247,7 @@ export function AnalyticsDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={filteredUGM}
               menuManager={menuManager}
+              stylesheet={encodingStylesheet}
               onReady={(c) => setCyInstance(c)}
             />
             <div
@@ -281,7 +321,7 @@ export function AnalyticsDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={neighborhoodUGM} />
+                <CytoscapeCanvas ugm={neighborhoodUGM} layout="breadthfirst" />
               </div>
             )}
           </div>

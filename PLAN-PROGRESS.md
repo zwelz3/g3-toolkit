@@ -509,3 +509,159 @@ The user pushed back appropriately and these 8 checks surfaced 4 real fixes (ARC
 - The deferred Storybook config fix + Playwright Chromium install (still blocked on environmental setup)
 - The 67-vs-72 requirements-coverage drift in status.md (footnoted but not reconciled)
 - `LICENSE` byte-mismatch against canonical Apache-2.0 (text is semantically correct; user should download canonical before publish)
+
+
+
+## Bugfix rounds 1-4 + 21 (post-engagement)
+
+After the self-audit signed off the architectural work, a series of
+real-browser smoke tests by the user surfaced several runtime bugs
+that the unit/boundary test suite missed. Each round was committed
+separately. Test count progression: 586 → 589 → 590 → 595 → 600.
+
+### Round 1 (commit 979f990) — external patch application
+
+Applied an external bugfix patch (originally written against the
+pre-Phase-2 layout) by translating paths and adapting six of seven
+items to the post-split workspace:
+
+| # | Issue | Where it landed |
+|---|---|---|
+| 1 | `flexRender` import error — Vite resolved optional peer-deps to empty modules | `@g3t/react` moved `@tanstack/react-table` from optional peer to regular dep; `@g3t/charts` moved `echarts-for-react` peer → dep; root `package.json` added `preinstall: "npx only-allow pnpm"` |
+| 2 | "Edge has invalid endpoints" cytoscape warning | `CytoscapeCanvas` default edge changed `unbundled-bezier` → plain `bezier`; `initCytoscape` scatters initial node positions in a ±300×±200 box before constructing cy |
+| 3 | Cytoscape jitter loop on every parent render | Ref-stashed `onReady` + `stylesheet` props; useEffect dep array reduced from `[ugm, layout, stylesheet, onReady, manager]` to `[ugm, layout, edgeStyle, animate, animationDuration]` |
+| 4 | `TemporalRangeFilter` claimed "max update depth" loop | Wrapped UGM iteration in `useMemo([ugm, timeProperty])`. (The literal loop the patch described doesn't actually fire on the post-P3.5 code, but the memoization is still a valid perf improvement; noted in source comment.) |
+| 5 | npm warnings on pnpm-specific `.npmrc` | Removed pnpm-default settings; enforcement is via `packageManager` + `preinstall` |
+| 6 | Node/edge labels invisible on dark backgrounds | Cartographic halo style (light text `#e0e0e0` + dark outline `#1a1a1a`); edge labels dark `#222` bg + light `#ddd` text |
+| 7 | `.gitignore` missing entries | Reorganized from 22 to 54 lines with sections |
+
+Knock-on doc fixes: ARCHITECTURE.md peer/dep classifications and
+package READMEs both had to be updated to reflect the new dep
+shapes.
+
+### Round 2 (commit 08bd93f) — CI + UX wiring
+
+| # | Issue | Where it landed |
+|---|---|---|
+| – | CI failure: `pnpm/action-setup@v4` `version: 11` conflicts with `packageManager: "pnpm@11.3.0"` | Removed `version:` from both `ci.yml` and `publish.yml`. Action auto-detects from the `packageManager` field. |
+| – | CI references `build:lib` (non-existent post-Phase-2) | Replaced with `pnpm run verify` |
+| – | publish.yml used `dist/core` paths (pre-Phase-2) | Replaced with `pnpm --filter @g3t/<pkg> publish` so workspace:* rewriting works |
+| 8 | Right-click showed browser's native OS menu | Native `contextmenu` listener with `preventDefault` on the canvas container; cleanup on unmount. **2 regression tests added.** |
+| 9 | Visual Encoding panel didn't drive the canvas | The `encodingToCytoscapeStyle()` helper already existed in `@g3t/react` but the demos didn't use it. Wired in DataScientistDemo, AnalyticsDemo, CyberSupplyDemo: useMemo'd stylesheet derived from encoding state, passed as `stylesheet` prop |
+| 10 | Search box not wired + no clear button | Added `×` clear button to `SearchBar`; replaced no-op `onSearchChange` handlers in all 4 demos with `useSelectionStore.getState().selectNodes(r.matchingIds)`. **1 regression test added.** |
+
+### Round 3 (commit dab2447) — regression + warnings
+
+| # | Issue | Where it landed |
+|---|---|---|
+| 11 | **`Maximum update depth exceeded` in SearchBar** (regression I caused in round 2) | The wired inline-lambda `onSearchChange` had fresh identity per render; SearchBar's useEffect had `onSearchChange` in its dep array → loop. Fix: ref-stash pattern (same as CytoscapeCanvas's `onReadyRef`). **Regression test added** that re-renders the parent with an inline lambda and asserts no loop. |
+| 12 | Cytoscape "mapping without corresponding data" + "continuous mapper non-numeric" warnings spamming console every frame | `encodingToCytoscapeStyle` selector changed from `node` → `node[<prop>]` so the mapping only applies to nodes with the property. `getPropertyRange`/`getEdgePropertyRange` now return `null` when no numeric value is found (was returning `{0,1}` fallback, causing mapping to be applied to non-numeric props). |
+| 13 | `FacetFilter` "setState during render" warning | `toggleType` was calling `onFilterChange(next)` inside the setState updater. Computed next Set outside the updater, then called both `setHiddenTypes` and `onFilterChange` sequentially. |
+| 14 | Scroll-wheel zoom request | Added explicit `userZoomingEnabled: true` + `userPanningEnabled: true` to cytoscape config (defensive; these are cytoscape defaults but stating them protects against runtime overrides) |
+
+### Round 4 (commit 6b7451b) — context wiring + zoom slider + remaining encoding
+
+| # | Issue | Where it landed |
+|---|---|---|
+| 15 | `No such layout 'elk' found` crash when picking ELK in LayoutManager | `DemoApp.tsx` `onLayoutChange` now maps logical layout IDs to cytoscape-valid names: `force` → `fcose`; `hierarchy`/`dagre`/`elk` → `breadthfirst` (no cytoscape extensions for those). Comment explains. |
+| 16 | Right-click STILL showed OS menu alongside ours (round-2 fix didn't fully work) | Belt-and-suspenders: React `onContextMenu={preventDefault}` on BOTH the outer wrapper and inner container divs, in addition to the native listener. Renamed `MouseEvent` import to `ReactMouseEvent` to avoid collision with DOM global. |
+| 17 | Many right-click menu options did nothing | New `wireCytoscapeContextActions(cy, eventBus, ugm, options)` helper in `@g3t/react/interaction/context-menu/`. Subscribes to `context:pinNodes` → `cy.lock()` + class, `context:hideNodes` → `display:none` + class, `context:focusNode` → BFS + `cy.fit()`, `context:viewNeighbors`/`viewSubgraph` → build subUGM + callback. Wired into all 5 demos via useEffect. **5 unit tests added** covering each event. |
+| 18 | Visual encoding still not wired in AuditorMBSE + Healthcare | Same pattern as bugfix 9: encoding state + `encodingToCytoscapeStyle` → `CytoscapeCanvas.stylesheet`. Picked per-domain encodings (Healthcare → `beds`, MBSE → `mass`, Auditor → default but wired). |
+| 19 | Zoom slider request | `ZoomControls` gains optional `zoomLevel` / `onZoomChange` / `zoomMin` / `zoomMax` props. Vertical slider via `writingMode: vertical-lr` + `WebkitAppearance: slider-vertical`. Wired in `DataScientistDemo` with `cy.on('zoom', ...)` sync. Other demos opt-in. |
+| 20 | Neighborhood view "too limited to be useful" | All 7 secondary-canvas instances now use `layout="breadthfirst"` (different from primary's fcose) — both visualizes hierarchy clearly and demonstrates multi-layout capability. |
+
+### Bugfix 21 (commit fc24744) — auto straight-vs-bezier per edge
+
+User feedback: "all the layouts in the examples use bezier edges? The
+curve is gross unless you need it." Correct.
+
+Implementation: `ugmToCytoscapeElements` now does a two-pass index of
+edges to determine per-edge curve style:
+1. First pass: count edges per ordered (`source→target`) and unordered
+   (`{source, target}`) key — O(E).
+2. Second pass: mark `data._curveStyle = "bezier"` if (a) `source ===
+   target` (loop), (b) `orderedCount > 1` (parallel), or (c)
+   `unorderedCount > orderedCount` (reverse direction exists too).
+   Otherwise `"straight"`.
+
+`DEFAULT_STYLESHEET` in `CytoscapeCanvas` has two rules: `selector:
+"edge"` sets `curve-style: straight` for the common case, and
+`selector: 'edge[_curveStyle = "bezier"]'` overrides for marked edges
+(higher specificity wins). The existing `edgeStyle` prop default
+changed from `"bezier"` to `undefined` so the auto-selection becomes
+the actual default; setting the prop explicitly still works as a
+force-override.
+
+**5 unit tests added**: single-directed → straight, self-loop →
+bezier, parallel → bezier, bidirectional → bezier, mixed-graph
+isolation. Tests live in `canvas.test.ts`.
+
+### Bugfix totals
+
+- **21 distinct bugfixes** across 5 commits (rounds 1-4 + bugfix 21)
+- **+14 regression tests** specifically targeting the bug classes that
+  unit tests didn't catch (callback identity loops, contextmenu
+  suppression, search-clear UI, cytoscape event translation,
+  edge-curve selection)
+- Test count: 586 → 600
+- React bundle: 164.8 KB → 172.1 KB (+7.3 KB across all bugfixes,
+  budget 200 KB)
+
+### Pattern insights from the bugfix engagement
+
+Three classes of bugs the architectural test suite couldn't catch
+that the bugfix tests now do:
+
+1. **Callback identity in useEffect dep arrays.** Components that
+   accept callback props AND use them in useEffect need ref-stashing
+   so callers can pass inline lambdas. The regression test pattern
+   is to render the component inside a parent that re-renders
+   itself (via a `tick` button + setState) and assert no infinite
+   render. `CytoscapeCanvas.onReady`, `CytoscapeCanvas.stylesheet`,
+   `SearchBar.onSearchChange` all now use this pattern.
+
+2. **Cytoscape stylesheet selectors need property guards.**
+   `selector: "node"` with a `mapData(<prop>, ...)` style applies
+   to all nodes; for any without `<prop>` cytoscape warns every
+   frame. Always scope with `node[<prop>]`. Lint rule worth adding:
+   any selector "node" or "edge" with a `mapData(` reference should
+   warn.
+
+3. **Demo-side wiring gaps.** Several library features (encoding,
+   context-menu actions) emit events / produce values that
+   demos must consume. When the demo doesn't wire them, the feature
+   appears broken even though the library is correct. Worth a
+   "wiring audit" pass before any release: for each event/callback
+   the library emits, grep for whether at least one demo consumes
+   it meaningfully.
+
+### What's still NOT addressed (deferred from the bugfix work)
+
+| Item | Why deferred | Where it would live |
+|---|---|---|
+| Demos look the same — need per-persona visual style | Demo-content overhaul, not a bugfix. Each shell should pick distinct node-shape mixes, palettes, default layouts, and landing-page story arcs. | Demo content, `src/demo/shells/*Demo.tsx` |
+| No Holonic-paradigm demo despite landing-page claim | New demo shell rather than a fix. `HolonicAdapter` in `@g3t/core` is unexercised. | New `src/demo/shells/HolonicDemo.tsx` + a hierarchical fixture |
+| RDF vs LPG source indicator | Feature request needing design discussion; most adapters synthesize hybrid models | `@g3t/react` source-badge component |
+| "Async message channel closed" console error | Almost certainly a browser extension intercepting `chrome.runtime.onMessage` — no g3t frames in the trace | Needs clean incognito repro before chasing |
+| `LICENSE` byte-mismatch against canonical Apache-2.0 | Self-audit caveat carried forward — semantically correct, whitespace differs | Replace with canonical text before publish |
+
+## Final state (engagement archive)
+
+```
+HEAD: fc24744 Bugfix 21: auto-select straight vs bezier per edge
+Baseline: 1a6e16e Baseline: g3-toolkit v1.0.0-rc as audited
+Commits past baseline: 25
+Tests: 600 passing across 52 files
+Bundle: core 95.2 KB / react 172.1 KB / charts 5.8 KB (all within budget)
+Verify chain: clean
+```
+
+Hand-off documents updated:
+- `CLAUDE.md` — rewritten to current post-workspace-split state with
+  the 10-item known-pitfalls section (was 6)
+- `PLAN-PROGRESS.md` — this file, with the bugfix rounds documented
+- `planning/pre-publish-checklist.md` — should be re-read carefully
+  by the next agent; mostly current but the LICENSE caveat above
+  still applies
+- `planning/status.md` — needs a touch-up for the new test count
+  (last touched in Phase 5B at 586 tests)

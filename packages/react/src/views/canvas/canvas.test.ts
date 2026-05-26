@@ -241,3 +241,93 @@ describe("ugmToCytoscapeElements edge cases (audit)", () => {
     expect(node!.data._shape).toBe("ellipse");
   });
 });
+
+// ── Bugfix 21: per-edge curve style ─────────────────────────────────
+
+describe("ugmToCytoscapeElements _curveStyle (bugfix 21)", () => {
+  it("marks a single directed edge between distinct nodes as straight", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addEdge("a", "b", { type: "rel" });
+
+    const elements = ugmToCytoscapeElements(ugm);
+    const edge = elements.find((e) => e.group === "edges");
+    expect(edge!.data._curveStyle).toBe("straight");
+  });
+
+  it("marks self-loops as bezier (straight would degenerate)", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addEdge("a", "a", { type: "rel" });
+
+    const elements = ugmToCytoscapeElements(ugm);
+    const edge = elements.find((e) => e.group === "edges");
+    expect(edge!.data._curveStyle).toBe("bezier");
+  });
+
+  it("marks parallel multi-edges (same direction) as bezier", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addEdge("a", "b", { type: "rel1" });
+    ugm.addEdge("a", "b", { type: "rel2" });
+
+    const elements = ugmToCytoscapeElements(ugm);
+    const edges = elements.filter((e) => e.group === "edges");
+    expect(edges).toHaveLength(2);
+    for (const e of edges) {
+      expect(e.data._curveStyle).toBe("bezier");
+    }
+  });
+
+  it("marks bidirectional pairs (A→B AND B→A) as bezier", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addEdge("a", "b", { type: "fwd" });
+    ugm.addEdge("b", "a", { type: "rev" });
+
+    const elements = ugmToCytoscapeElements(ugm);
+    const edges = elements.filter((e) => e.group === "edges");
+    expect(edges).toHaveLength(2);
+    for (const e of edges) {
+      expect(e.data._curveStyle).toBe("bezier");
+    }
+  });
+
+  it("keeps unrelated edges straight when others in the graph are bezier", () => {
+    // Mixed graph: one straight edge, one bidirectional pair
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addNode("c", { types: ["X"] });
+    ugm.addNode("d", { types: ["X"] });
+    ugm.addEdge("a", "b", { type: "single" }); // should be straight
+    ugm.addEdge("c", "d", { type: "fwd" });
+    ugm.addEdge("d", "c", { type: "rev" }); // should be bezier (both)
+
+    const elements = ugmToCytoscapeElements(ugm);
+    const ab = elements.find(
+      (e) =>
+        e.group === "edges" &&
+        e.data.source === "a" &&
+        e.data.target === "b",
+    );
+    const cd = elements.find(
+      (e) =>
+        e.group === "edges" &&
+        e.data.source === "c" &&
+        e.data.target === "d",
+    );
+    const dc = elements.find(
+      (e) =>
+        e.group === "edges" &&
+        e.data.source === "d" &&
+        e.data.target === "c",
+    );
+    expect(ab!.data._curveStyle).toBe("straight");
+    expect(cd!.data._curveStyle).toBe("bezier");
+    expect(dc!.data._curveStyle).toBe("bezier");
+  });
+});

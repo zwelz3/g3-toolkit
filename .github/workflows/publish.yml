@@ -17,24 +17,26 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+
+      # pnpm version from the packageManager field; do NOT set `version:`
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - run: pnpm run test
-      - run: pnpm run build:lib
-      - run: pnpm run build:packages
+      - run: pnpm run verify
 
-      - run: cd dist/core && pnpm publish --provenance --access public --no-git-checks
+      # Publish order: core → react → charts (peer-dep topology).
+      # Per-package publish via pnpm --filter so workspace:* ranges get
+      # rewritten to actual versions automatically.
+      - run: pnpm --filter @g3t/core publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - run: cd dist/react && pnpm publish --provenance --access public --no-git-checks
+      - run: pnpm --filter @g3t/react publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - run: cd dist/charts && pnpm publish --provenance --access public --no-git-checks
+      - run: pnpm --filter @g3t/charts publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

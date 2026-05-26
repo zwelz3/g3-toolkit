@@ -15,6 +15,8 @@ export {
 } from "./toolkit-actions";
 export type { ToolkitActionConfig } from "./toolkit-actions";
 export { registerPortalMenuItems } from "./holonic-portal-menu";
+export { wireCytoscapeContextActions } from "./wire-cytoscape-actions";
+export type { WireCytoscapeContextActionsOptions } from "./wire-cytoscape-actions";
 
 export {
   registerEditAppearance,

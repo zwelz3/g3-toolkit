@@ -1,6 +1,6 @@
 # Project Status
 
-**Version:** 1.0.0-rc | **Tickets:** 128/130 complete | **Tests:** 586
+**Version:** 1.0.0-rc | **Tickets:** 128/130 complete | **Tests:** 600 (across 52 files)
 
 > Numbers in this file are hand-maintained snapshots. Run
 > `node scripts/workspace-stats.mjs` for the current derived figures

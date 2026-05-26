@@ -5,7 +5,7 @@
  * Both add LinkedChart panels and enhanced filtering to the generic DemoApp.
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { CytoscapeCanvas } from "@g3t/react";
 import { TableView } from "@g3t/react";
 import { DetailInspector } from "@g3t/react";
@@ -15,6 +15,7 @@ import {
   EncodingPanel,
   CanvasLegend,
   DEFAULT_ENCODING,
+  encodingToCytoscapeStyle,
 } from "@g3t/react";
 import { FacetFilter } from "@g3t/react";
 import { SearchBar } from "@g3t/react";
@@ -27,6 +28,7 @@ import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
+  wireCytoscapeContextActions,
 } from "@g3t/react";
 import { createCountByType, createPropertyCorrelation } from "@g3t/core";
 import { UGM } from "@g3t/core";
@@ -37,6 +39,7 @@ import {
   upgradeSupplyWithProps,
 } from "../fixtures/scenarios";
 import type { EncodingConfig } from "@g3t/react";
+import type { SearchResult } from "@g3t/react";
 
 type BottomTab = "table" | "map";
 
@@ -71,6 +74,20 @@ function useGraphDemo(buildFn: () => UGM, upgradeFn?: (u: UGM) => void) {
     });
     return mgr;
   });
+  // Bugfix 17: wire toolkit context-menu events to cytoscape (see
+  // DataScientistDemo for rationale).
+  useEffect(() => {
+    if (!cyInstance) return;
+    return wireCytoscapeContextActions(
+      cyInstance as Parameters<typeof wireCytoscapeContextActions>[0],
+      eventBus,
+      ugm,
+      {
+        onViewNeighborhood: (subUGM) => setNeighborhoodUGM(subUGM),
+      },
+    );
+  }, [cyInstance, eventBus, ugm]);
+
 
   const filteredUGM = useMemo(() => {
     if (hiddenTypes.size === 0) return ugm;
@@ -93,6 +110,13 @@ function useGraphDemo(buildFn: () => UGM, upgradeFn?: (u: UGM) => void) {
     selectedId,
     encoding,
     setEncoding,
+    // Bugfix 9: derived stylesheet so the EncodingPanel actually drives
+    // the canvas. See DataScientistDemo for rationale.
+    encodingStylesheet: encodingToCytoscapeStyle(
+      encoding,
+      filteredUGM,
+      theme.typePalette,
+    ),
     hiddenTypes,
     setHiddenTypes,
     neighborhoodUGM,
@@ -164,7 +188,15 @@ export function CyberDemo({ onBack }: { onBack: () => void }) {
           <div
             style={{ padding: 8, borderBottom: "1px solid var(--g3t-border)" }}
           >
-            <SearchBar ugm={g.ugm} onSearchChange={() => {}} />
+            <SearchBar
+              ugm={g.ugm}
+              onSearchChange={(r: SearchResult) => {
+                // Bugfix 10: select matching nodes as the user types.
+                if (r.matchingIds.length > 0) {
+                  useSelectionStore.getState().selectNodes(r.matchingIds);
+                }
+              }}
+            />
           </div>
           <div
             style={{ padding: 8, borderBottom: "1px solid var(--g3t-border)" }}
@@ -196,6 +228,7 @@ export function CyberDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={g.filteredUGM}
               menuManager={g.menuManager}
+              stylesheet={g.encodingStylesheet as any}
               onReady={(c) => g.setCyInstance(c)}
             />
             <div
@@ -269,7 +302,7 @@ export function CyberDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={g.neighborhoodUGM} />
+                <CytoscapeCanvas ugm={g.neighborhoodUGM} layout="breadthfirst" />
               </div>
             )}
           </div>
@@ -400,7 +433,15 @@ export function SupplyChainDemo({ onBack }: { onBack: () => void }) {
           <div
             style={{ padding: 8, borderBottom: "1px solid var(--g3t-border)" }}
           >
-            <SearchBar ugm={g.ugm} onSearchChange={() => {}} />
+            <SearchBar
+              ugm={g.ugm}
+              onSearchChange={(r: SearchResult) => {
+                // Bugfix 10: select matching nodes as the user types.
+                if (r.matchingIds.length > 0) {
+                  useSelectionStore.getState().selectNodes(r.matchingIds);
+                }
+              }}
+            />
           </div>
           <div
             style={{ padding: 8, borderBottom: "1px solid var(--g3t-border)" }}
@@ -422,6 +463,7 @@ export function SupplyChainDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={g.filteredUGM}
               menuManager={g.menuManager}
+              stylesheet={g.encodingStylesheet as any}
               onReady={(c) => g.setCyInstance(c)}
             />
             <div
@@ -495,7 +537,7 @@ export function SupplyChainDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={g.neighborhoodUGM} />
+                <CytoscapeCanvas ugm={g.neighborhoodUGM} layout="breadthfirst" />
               </div>
             )}
           </div>

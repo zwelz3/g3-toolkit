@@ -48,6 +48,17 @@ export function SearchBar({
   const inputRef = useRef<HTMLInputElement>(null);
   const { selectNodes } = useSelectionStore();
 
+  // Bugfix 11: stash onSearchChange in a ref. The search useEffect below
+  // fires whenever its deps change; if onSearchChange were in those deps
+  // a caller passing an inline lambda would trigger:
+  //   parent render -> new lambda -> effect re-fires -> calls back into
+  //   parent -> setState -> parent re-renders -> new lambda -> ...
+  // (this was the 'Maximum update depth exceeded' crash observed in
+  // AnalyticsDemo after we wired onSearchChange to selectNodes.)
+  // Same ref-stash pattern as CytoscapeCanvas's onReady (bugfix 3).
+  const onSearchChangeRef = useRef(onSearchChange);
+  onSearchChangeRef.current = onSearchChange;
+
   // Build Fuse.js index from UGM
   const fuse = useMemo(() => {
     const records: SearchRecord[] = [];
@@ -81,7 +92,11 @@ export function SearchBar({
     if (!query.trim()) {
       setResults([]);
       setShowDropdown(false);
-      onSearchChange({ matchingIds: [], nonMatchingIds: [], query: "" });
+      onSearchChangeRef.current({
+        matchingIds: [],
+        nonMatchingIds: [],
+        query: "",
+      });
       return;
     }
 
@@ -94,8 +109,11 @@ export function SearchBar({
     const allIds: string[] = [];
     ugm.forEachNode((id) => allIds.push(id));
     const nonMatchingIds = allIds.filter((id) => !matchingIds.includes(id));
-    onSearchChange({ matchingIds, nonMatchingIds, query });
-  }, [query, fuse, ugm, onSearchChange]);
+    onSearchChangeRef.current({ matchingIds, nonMatchingIds, query });
+    // Bugfix 11: onSearchChange intentionally NOT in deps - read via
+    // ref so inline-lambda callers don't cause infinite loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, fuse, ugm]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -149,23 +167,68 @@ export function SearchBar({
           width: "100%",
           fontSize: "var(--g3t-font-sm, 12px)",
           padding: "var(--g3t-space-2, 8px)",
+          // Reserve room on the right for the result-count badge + clear button
+          paddingRight: query ? 84 : 8,
         }}
       />
 
-      {/* Result count badge */}
+      {/* Result count badge + clear button */}
       {query && (
-        <span
-          style={{
-            position: "absolute",
-            right: 8,
-            top: "50%",
-            transform: "translateY(-50%)",
-            fontSize: 10,
-            color: "var(--g3t-text-muted)",
-          }}
-        >
-          {results.length > 0 ? `${results.length} found` : "no match"}
-        </span>
+        <>
+          <span
+            style={{
+              position: "absolute",
+              right: 28,
+              top: "50%",
+              transform: "translateY(-50%)",
+              fontSize: 10,
+              color: "var(--g3t-text-muted)",
+              pointerEvents: "none",
+            }}
+          >
+            {results.length > 0 ? `${results.length} found` : "no match"}
+          </span>
+          {/* Clear button (Bugfix 10) */}
+          <button
+            data-testid="search-clear"
+            type="button"
+            aria-label="Clear search"
+            onClick={() => {
+              setQuery("");
+              setShowDropdown(false);
+              inputRef.current?.focus();
+            }}
+            style={{
+              position: "absolute",
+              right: 6,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 18,
+              height: 18,
+              padding: 0,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--g3t-text-muted)",
+              fontSize: 14,
+              lineHeight: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 3,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--g3t-surface-2, #eee)";
+              e.currentTarget.style.color = "var(--g3t-text, #222)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--g3t-text-muted)";
+            }}
+          >
+            ×
+          </button>
+        </>
       )}
 
       {/* Dropdown results */}

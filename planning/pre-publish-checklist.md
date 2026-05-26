@@ -50,6 +50,41 @@ These are not yet automated; reviewer confirms each.
 - [ ] No `workspace:*` ranges leak into published `dependencies`
       (pnpm rewrites these on publish; verify the dry-run output)
 - [ ] License headers consistent across all source files (`Apache-2.0`)
+- [ ] **LICENSE caveat:** the `LICENSE` file at the repo root was
+      created from training-data Apache-2.0 text and may differ from
+      the canonical text by whitespace only. Before publishing,
+      replace with `curl https://www.apache.org/licenses/LICENSE-2.0.txt
+      > LICENSE` and verify `sha256sum` matches the canonical hash.
+
+## Manual browser smoke (post-bugfix rounds)
+
+Bugfixes 8-21 were applied based on browser feedback but not all of
+them can be verified in jsdom-based unit tests. Before publish, run
+`pnpm dev` and confirm in a real browser:
+
+- [ ] Right-click on a canvas node opens the custom context menu and
+      does NOT also show the browser's native context menu (bugfix 16)
+- [ ] Context menu items actually work: Pin Node locks position,
+      Hide Node removes from view, View Neighbors opens the secondary
+      canvas, Focus N-hop zooms (bugfix 17)
+- [ ] Scroll-wheel zooms the canvas; the zoom slider tracks (bugfix 14, 19)
+- [ ] Edges between distinct nodes draw as straight lines; only
+      self-loops, parallel multi-edges, and bidirectional pairs curve
+      (bugfix 21)
+- [ ] Visual Encoding panel changes (e.g., switching `nodeSizeProperty`)
+      visibly change node sizes in the canvas (bugfix 9, 18)
+- [ ] Search box: typing highlights matching nodes; clear button (×)
+      appears and resets cleanly (bugfix 10)
+- [ ] No `Maximum update depth exceeded` errors in console for any
+      demo (bugfix 11 was a regression that's now tested but
+      "no console errors" is the smoke gate)
+- [ ] No "mapping without corresponding data" or "continuous mapper
+      non-numeric" warnings spamming the console (bugfix 12)
+- [ ] Picking ELK, Dagre, or Hierarchy in the LayoutManager dropdown
+      doesn't crash with `No such layout '<name>' found` (bugfix 15);
+      these now translate to `breadthfirst`
+
+If any of the above fails, file an issue before publish; don't ship.
 
 ## Dry-run publish
 

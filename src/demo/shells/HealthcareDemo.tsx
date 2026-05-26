@@ -17,7 +17,7 @@ import {
   StatusBar,
   KeyboardShortcutModal,
 } from "@g3t/react";
-import { CanvasLegend, DEFAULT_ENCODING } from "@g3t/react";
+import { CanvasLegend, DEFAULT_ENCODING, encodingToCytoscapeStyle } from "@g3t/react";
 import { FacetFilter } from "@g3t/react";
 import { SearchBar } from "@g3t/react";
 import { useSelectionStore } from "@g3t/react";
@@ -30,6 +30,7 @@ import { G3tEventBus } from "@g3t/core";
 import {
   registerToolkitActions,
   buildNeighborhoodUGM,
+  wireCytoscapeContextActions,
 } from "@g3t/react";
 import { validateShacl } from "@g3t/core";
 import { UGM } from "@g3t/core";
@@ -53,6 +54,29 @@ export function HealthcareDemo({ onBack }: { onBack: () => void }) {
   const [cyInstance, setCyInstance] = useState<unknown>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
+  // Bugfix 18: Healthcare demo had a CanvasLegend showing DEFAULT_ENCODING
+  // but the encoding wasn't applied to the canvas - the legend lied.
+  // Use a sensible per-domain encoding: hospital beds drive node size
+  // (so larger hospitals are visually larger), and the type palette
+  // colors the node types.
+  const encoding = useMemo(
+    () => ({
+      ...DEFAULT_ENCODING,
+      nodeSizeProperty: "beds",
+      nodeSizeRange: [18, 56] as [number, number],
+    }),
+    [],
+  );
+  const encodingStylesheet = useMemo(
+    () =>
+      encodingToCytoscapeStyle(
+        encoding,
+        ugm,
+        theme.typePalette,
+      ) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
+    [encoding, ugm, theme.typePalette],
+  );
+
   const validationResults = useMemo(
     () => validateShacl(ugm, HEALTHCARE_SHACL_SHAPES),
     [ugm],
@@ -70,6 +94,20 @@ export function HealthcareDemo({ onBack }: { onBack: () => void }) {
     });
     return mgr;
   });
+  // Bugfix 17: wire toolkit context-menu events to cytoscape (see
+  // DataScientistDemo for rationale).
+  useEffect(() => {
+    if (!cyInstance) return;
+    return wireCytoscapeContextActions(
+      cyInstance as Parameters<typeof wireCytoscapeContextActions>[0],
+      eventBus,
+      ugm,
+      {
+        onViewNeighborhood: (subUGM) => setNeighborhoodUGM(subUGM),
+      },
+    );
+  }, [cyInstance, eventBus, ugm]);
+
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -200,6 +238,7 @@ export function HealthcareDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={filteredUGM}
               menuManager={menuManager}
+              stylesheet={encodingStylesheet}
               onReady={(c) => setCyInstance(c)}
             />
             <div
@@ -211,7 +250,7 @@ export function HealthcareDemo({ onBack }: { onBack: () => void }) {
                 maxWidth: 180,
               }}
             >
-              <CanvasLegend ugm={filteredUGM} encoding={DEFAULT_ENCODING} />
+              <CanvasLegend ugm={filteredUGM} encoding={encoding} />
             </div>
             <div
               style={{
@@ -273,7 +312,7 @@ export function HealthcareDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={neighborhoodUGM} />
+                <CytoscapeCanvas ugm={neighborhoodUGM} layout="breadthfirst" />
               </div>
             )}
           </div>

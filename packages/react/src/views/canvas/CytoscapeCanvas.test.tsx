@@ -71,4 +71,42 @@ describe("CytoscapeCanvas component (M0.E3.T1)", () => {
 
     expect(mockCy.destroy).toHaveBeenCalled();
   });
+
+  // Bugfix 8 regression test: prevent the OS-level browser context menu
+  // from showing alongside our custom one.
+  it("suppresses the native contextmenu on the canvas container", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    render(<CytoscapeCanvas ugm={ugm} />);
+
+    const container = screen.getByTestId("cytoscape-canvas");
+    const evt = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    container.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(true);
+  });
+
+  // Bugfix 8 regression test: the contextmenu listener must be removed
+  // when the component unmounts, so it doesn't outlive the container.
+  it("removes the contextmenu listener on unmount", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    const { unmount, container } = render(<CytoscapeCanvas ugm={ugm} />);
+
+    // Find the canvas container BEFORE unmount; after unmount it's gone
+    const canvasContainer = container.querySelector(
+      '[data-testid="cytoscape-canvas"]',
+    ) as HTMLElement;
+    expect(canvasContainer).toBeTruthy();
+
+    // Spy on removeEventListener so we can detect the cleanup
+    const removeSpy = vi.spyOn(canvasContainer, "removeEventListener");
+    unmount();
+    expect(removeSpy).toHaveBeenCalledWith(
+      "contextmenu",
+      expect.any(Function),
+    );
+  });
 });

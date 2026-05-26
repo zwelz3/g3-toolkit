@@ -293,16 +293,37 @@ export function DemoApp({
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const cy = cyInstance as any;
                   if (cy) {
+                    // Bugfix 15: LayoutManager exposes layouts the demo
+                    // canvas can't always run natively. Cytoscape ships
+                    // grid/circle/concentric/breadthfirst/cose; we also
+                    // register fcose at canvas init. dagre and elk need
+                    // their own cytoscape extensions which we don't load
+                    // (the elk/dagre engines in @g3t/core run pre-render,
+                    // not as cytoscape layouts). Map the logical names
+                    // to a sensible cytoscape equivalent so the user
+                    // doesn't hit "No such layout 'elk' found":
+                    const cyLayoutName =
+                      name === "force"
+                        ? "fcose"
+                        : name === "hierarchy" ||
+                          name === "dagre" ||
+                          name === "elk"
+                          ? "breadthfirst"
+                          : name;
                     cy.layout({
-                      name: name === "force" ? "cose" : name,
+                      name: cyLayoutName,
                       animate: opts.animate,
                       animationDuration: opts.animationDuration,
                       nodeRepulsion: opts.nodeRepulsion,
                       gravity: opts.gravity,
                       idealEdgeLength: opts.edgeLength,
+                      // breadthfirst uses 'directed' + 'spacingFactor'
+                      // rather than rankDir/nodesep/ranksep, but the
+                      // extras are ignored so we can pass everything.
                       rankDir: opts.direction,
                       nodesep: opts.nodeSeparation,
                       ranksep: opts.rankSeparation,
+                      directed: true,
                     }).run();
                   }
                 }}

@@ -9,7 +9,13 @@
  * @see specs/09-design-decisions.md D2, D3, D9, D13
  */
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import cytoscape, { type Core } from "cytoscape";
 import fcose from "cytoscape-fcose";
 import type { UGM } from "@g3t/core";
@@ -82,10 +88,12 @@ const DEFAULT_STYLESHEET: CyStylesheet[] = [
       "target-arrow-color": "#888",
       "target-arrow-shape": "triangle",
       // F8: curve-style set dynamically via buildEdgeStyle()
-      // Bugfix 2: plain bezier (Cytoscape auto-computes control points);
-      // unbundled-bezier with fixed distances produces invalid endpoints
-      // when nodes overlap.
-      "curve-style": "bezier",
+      // Bugfix 21: default to straight - cleaner for the common case of
+      // a single edge between two distinct nodes. The selector rule
+      // immediately below this one overrides to bezier when the edge
+      // is part of a parallel set, a bidirectional pair, or a loop;
+      // see ugmToCytoscapeElements which marks _curveStyle per edge.
+      "curve-style": "straight",
       "font-size": "8px",
       "text-rotation": "autorotate",
       opacity: "data(_confidence)",
@@ -97,6 +105,15 @@ const DEFAULT_STYLESHEET: CyStylesheet[] = [
       "text-border-width": 1,
       "text-border-opacity": 0.6,
       color: "#ddd",
+    } as any,
+  },
+  {
+    // Bugfix 21: bezier override for edges that need the curve.
+    // ugmToCytoscapeElements sets _curveStyle = "bezier" for self-loops,
+    // parallel multi-edges, and bidirectional pairs.
+    selector: 'edge[_curveStyle = "bezier"]',
+    style: {
+      "curve-style": "bezier",
     } as any,
   },
   {
@@ -143,7 +160,14 @@ export interface CytoscapeCanvasProps {
   animate?: boolean;
   /** F1: Animation duration in ms. Default 400. */
   animationDuration?: number;
-  /** F8: Edge curve style. Default "bezier". */
+  /**
+   * F8: Edge curve style override. When set, applies the given style
+   * to ALL edges regardless of their topology. When NOT set (default),
+   * edges auto-select straight vs bezier based on whether the curve
+   * is actually needed (see bugfix 21 in ugmToCytoscapeElements):
+   * straight for the common single-edge case, bezier for self-loops,
+   * parallel multi-edges, and bidirectional pairs.
+   */
   edgeStyle?: "bezier" | "straight" | "taxi";
 }
 
@@ -156,7 +180,7 @@ export function CytoscapeCanvas({
   className,
   animate = true,
   animationDuration = 400,
-  edgeStyle = "bezier",
+  edgeStyle,
 }: CytoscapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -205,29 +229,34 @@ export function CytoscapeCanvas({
       }
     }
 
-    // F8: Map edgeStyle prop to Cytoscape curve-style
-    const curveStyle =
-      edgeStyle === "taxi"
-        ? "taxi"
-        : edgeStyle === "straight"
-          ? "straight-triangle"
-          : "unbundled-bezier";
-    const edgeStyleOverride: CyStylesheet = {
-      selector: "edge",
-      style: {
-        "curve-style": curveStyle,
-        ...(edgeStyle === "taxi"
-          ? { "taxi-direction": "auto", "taxi-turn": "50px" }
-          : {}),
-      } as any,
-    };
-
-    const mergedStylesheet = [
-      ...DEFAULT_STYLESHEET,
-      edgeStyleOverride,
-      // Bugfix 3: read from ref (see comment near onReadyRef above)
-      ...(stylesheetRef.current ?? []),
-    ];
+    // F8: Map edgeStyle prop to Cytoscape curve-style.
+    // Bugfix 21: when edgeStyle is undefined (the new default), DON'T
+    // emit a global override - the per-edge _curveStyle in the data
+    // does the right thing via the selector rules in DEFAULT_STYLESHEET.
+    // The override only kicks in when the consumer explicitly forces
+    // a style for all edges.
+    const mergedStylesheet: CyStylesheet[] = [...DEFAULT_STYLESHEET];
+    if (edgeStyle !== undefined) {
+      const curveStyle =
+        edgeStyle === "taxi"
+          ? "taxi"
+          : edgeStyle === "straight"
+            ? "straight-triangle"
+            : "unbundled-bezier";
+      mergedStylesheet.push({
+        selector: "edge",
+        style: {
+          "curve-style": curveStyle,
+          ...(edgeStyle === "taxi"
+            ? { "taxi-direction": "auto", "taxi-turn": "50px" }
+            : {}),
+        } as any,
+      });
+    }
+    // Bugfix 3: read from ref (see comment near onReadyRef above)
+    if (stylesheetRef.current) {
+      mergedStylesheet.push(...stylesheetRef.current);
+    }
 
     const layoutName = layout ?? (fcoseRegistered ? "fcose" : "cose");
 
@@ -235,7 +264,15 @@ export function CytoscapeCanvas({
       container: containerRef.current,
       elements,
       style: mergedStylesheet,
-      // wheelSensitivity: use browser default
+      // Bugfix 14: enable scroll-wheel zoom + drag-pan explicitly.
+      // These are Cytoscape defaults but stating them defensively
+      // here makes the behavior intentional in case someone sets
+      // these elsewhere via cy.userZoomingEnabled() / etc.
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      // wheelSensitivity intentionally LEFT at cytoscape's default to
+      // avoid the "wheelSensitivity not recommended" warning. Override
+      // via cy.wheelSensitivity() after onReady if needed for trackpads.
       boxSelectionEnabled: true, // lasso multi-select (M1.E3.T3)
       layout: {
         name: layoutName,
@@ -262,6 +299,16 @@ export function CytoscapeCanvas({
     });
 
     // Wire right-click context menu (R2.1, R2.2, D3)
+    // Bugfix 8: suppress the browser's native contextmenu so it doesn't
+    // appear alongside our custom menu. Cytoscape's `cxttap` fires on
+    // right-mouse-up but does NOT preventDefault — without this listener
+    // both menus show.
+    const suppressNativeContextMenu = (e: MouseEvent) => e.preventDefault();
+    containerRef.current.addEventListener(
+      "contextmenu",
+      suppressNativeContextMenu,
+    );
+
     cy.on("cxttap", "node", (evt) => {
       const node = evt.target;
       const pos = evt.renderedPosition ?? evt.position;
@@ -394,8 +441,14 @@ export function CytoscapeCanvas({
     // Bugfix 3: read from ref (see comment near onReadyRef above)
     onReadyRef.current?.(cy);
 
-    // Return unsub for cleanup
-    return unsub;
+    // Return cleanup: unsubscribe store + remove the native-contextmenu
+    // listener (Bugfix 8). The container survives across cy rebuilds, so
+    // we'd accumulate listeners without explicit removal.
+    const container = containerRef.current;
+    return () => {
+      unsub();
+      container.removeEventListener("contextmenu", suppressNativeContextMenu);
+    };
     // Bugfix 3: dep array is data + config only. `stylesheet`, `onReady`,
     // and `manager` previously appeared here, but their identity changes
     // every parent render — those are now read from refs or treated as
@@ -413,13 +466,35 @@ export function CytoscapeCanvas({
     };
   }, [initCytoscape]);
 
+  // Bugfix 16: belt-and-suspenders contextmenu suppression. We already
+  // attach a native contextmenu listener inside initCytoscape (bugfix
+  // 8), but a user reported the OS menu STILL appearing behind ours -
+  // probably because the native listener was being cleaned up around
+  // re-renders, or because the event was firing on an element that
+  // didn't propagate to the container ref for whatever reason. React's
+  // synthetic onContextMenu runs at the document level and is
+  // guaranteed to fire as long as the div is mounted; it's also
+  // simpler than managing native listener lifecycle. We keep BOTH
+  // because:
+  //   - Native listener catches contextmenu events fired on
+  //     descendants that React's synthetic system might miss (e.g.
+  //     events on dynamically inserted canvases inside cytoscape).
+  //   - React handler covers anything the native handler doesn't.
+  const suppressContextMenu = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+  }, []);
+
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div
+      style={{ position: "relative", width: "100%", height: "100%" }}
+      onContextMenu={suppressContextMenu}
+    >
       <div
         ref={containerRef}
         className={className}
         style={{ width: "100%", height: "100%", minHeight: 400 }}
         data-testid="cytoscape-canvas"
+        onContextMenu={suppressContextMenu}
       />
       {menuState && (
         <ContextMenu

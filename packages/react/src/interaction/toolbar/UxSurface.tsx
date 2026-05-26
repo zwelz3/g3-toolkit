@@ -78,6 +78,18 @@ export interface ZoomControlsProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
+  /**
+   * Bugfix 19: optional slider for direct zoom-level control. When
+   * provided, a vertical range input shows below the buttons; current
+   * level shows as the thumb position. `min`/`max` bound the slider
+   * (defaults: 0.1x to 4x). The component is uncontrolled past initial
+   * sync: caller must update zoomLevel after cy.zoom changes (e.g.
+   * pinch-zoom, wheel-zoom).
+   */
+  zoomLevel?: number;
+  onZoomChange?: (level: number) => void;
+  zoomMin?: number;
+  zoomMax?: number;
   className?: string;
 }
 
@@ -85,6 +97,10 @@ export function ZoomControls({
   onZoomIn,
   onZoomOut,
   onFit,
+  zoomLevel,
+  onZoomChange,
+  zoomMin = 0.1,
+  zoomMax = 4,
   className,
 }: ZoomControlsProps) {
   const btnStyle: React.CSSProperties = {
@@ -100,6 +116,8 @@ export function ZoomControls({
     fontSize: 16,
   };
 
+  const showSlider = zoomLevel !== undefined && onZoomChange !== undefined;
+
   return (
     <div
       data-testid="zoom-controls"
@@ -107,35 +125,73 @@ export function ZoomControls({
       style={{
         display: "flex",
         flexDirection: "column",
-        borderRadius: 4,
-        overflow: "hidden",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+        alignItems: "center",
+        gap: showSlider ? 6 : 0,
       }}
     >
-      <button
-        data-testid="zoom-in"
-        onClick={onZoomIn}
-        style={btnStyle}
-        title="Zoom in"
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: 4,
+          overflow: "hidden",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+        }}
       >
-        +
-      </button>
-      <button
-        data-testid="zoom-out"
-        onClick={onZoomOut}
-        style={{ ...btnStyle, borderTop: "none" }}
-        title="Zoom out"
-      >
-        −
-      </button>
-      <button
-        data-testid="zoom-fit"
-        onClick={onFit}
-        style={{ ...btnStyle, borderTop: "none", fontSize: 12 }}
-        title="Fit to screen"
-      >
-        ⊞
-      </button>
+        <button
+          data-testid="zoom-in"
+          onClick={onZoomIn}
+          style={btnStyle}
+          title="Zoom in"
+        >
+          +
+        </button>
+        <button
+          data-testid="zoom-out"
+          onClick={onZoomOut}
+          style={{ ...btnStyle, borderTop: "none" }}
+          title="Zoom out"
+        >
+          −
+        </button>
+        <button
+          data-testid="zoom-fit"
+          onClick={onFit}
+          style={{ ...btnStyle, borderTop: "none", fontSize: 12 }}
+          title="Fit to screen"
+        >
+          ⊞
+        </button>
+      </div>
+      {showSlider && (
+        <input
+          data-testid="zoom-slider"
+          type="range"
+          min={zoomMin}
+          max={zoomMax}
+          step={0.05}
+          value={zoomLevel}
+          onChange={(e) => onZoomChange!(Number(e.target.value))}
+          title={`Zoom: ${Math.round(zoomLevel! * 100)}%`}
+          aria-label="Zoom level"
+          // Vertical-orientation hacks: writingMode + the legacy
+          // -webkit-appearance: slider-vertical. The latter isn't in
+          // React.CSSProperties' WebkitAppearance enum, so we build
+          // the style object with `as React.CSSProperties` rather
+          // than inline each property.
+          style={
+            {
+              writingMode: "vertical-lr",
+              WebkitAppearance: "slider-vertical",
+              width: 24,
+              height: 90,
+              padding: 0,
+              margin: 0,
+              cursor: "ns-resize",
+            } as React.CSSProperties
+          }
+        />
+      )}
     </div>
   );
 }
