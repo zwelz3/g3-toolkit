@@ -57,6 +57,7 @@ export function SearchBar({
   // AnalyticsDemo after we wired onSearchChange to selectNodes.)
   // Same ref-stash pattern as CytoscapeCanvas's onReady (bugfix 3).
   const onSearchChangeRef = useRef(onSearchChange);
+  // eslint-disable-next-line react-hooks/refs
   onSearchChangeRef.current = onSearchChange;
 
   // Build Fuse.js index from UGM
@@ -90,6 +91,7 @@ export function SearchBar({
   // Search on query change
   useEffect(() => {
     if (!query.trim()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([]);
       setShowDropdown(false);
       onSearchChangeRef.current({
@@ -112,7 +114,6 @@ export function SearchBar({
     onSearchChangeRef.current({ matchingIds, nonMatchingIds, query });
     // Bugfix 11: onSearchChange intentionally NOT in deps - read via
     // ref so inline-lambda callers don't cause infinite loops.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, fuse, ugm]);
 
   const handleKeyDown = useCallback(

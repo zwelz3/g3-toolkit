@@ -27,7 +27,9 @@ test.describe("Theme switching", () => {
     if (await themeSelect.isVisible()) {
       await themeSelect.selectOption("dark");
       const bg = await page.evaluate(() =>
-        getComputedStyle(document.documentElement).getPropertyValue("--g3t-bg-primary"),
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--g3t-bg-primary",
+        ),
       );
       expect(bg.trim()).not.toBe("");
     }
@@ -37,7 +39,9 @@ test.describe("Theme switching", () => {
     const themeSelect = page.locator("select").first();
     if (await themeSelect.isVisible()) {
       const options = await themeSelect.locator("option").allTextContents();
-      expect(options.some((o) => o.toLowerCase().includes("contrast"))).toBe(true);
+      expect(options.some((o) => o.toLowerCase().includes("contrast"))).toBe(
+        true,
+      );
     }
   });
 });
@@ -53,9 +57,9 @@ test.describe("Toolbar and controls", () => {
     await page.waitForTimeout(1000);
   });
 
-  test("zoom controls are visible on the canvas", async ({ page }) => {
+  test("zoom controls are visible on the canvas", async ({ page: _page }) => {
     // Zoom controls should overlay on the canvas
-    const zoomBtns = page.locator("button:has-text('−'), button:has-text('+'), button:has-text('Fit')");
+    // const zoomBtns = page.locator("button:has-text('−'), button:has-text('+'), button:has-text('Fit')");
     // At least one zoom-related button should exist
   });
 
@@ -75,7 +79,7 @@ test.describe("Demo scenario loading", () => {
     await page.goto("/");
     await page.waitForTimeout(1000);
     // Should see scenario cards
-    const cards = page.locator("[data-testid^='scenario-card']");
+    // const cards = page.locator("[data-testid^='scenario-card']");
     // Landing page should have content
     const body = await page.textContent("body");
     expect(body?.length).toBeGreaterThan(100);
@@ -160,7 +164,9 @@ test.describe("Context menu and neighborhood", () => {
     await page.waitForTimeout(1500);
   });
 
-  test("right-click on canvas triggers context menu or browser default", async ({ page }) => {
+  test("right-click on canvas triggers context menu or browser default", async ({
+    page,
+  }) => {
     const canvas = page.locator("[data-testid='cytoscape-canvas']");
     await canvas.click({ button: "right", position: { x: 150, y: 150 } });
     // Verify no errors thrown

@@ -139,7 +139,10 @@ export function wireCytoscapeContextActions(
       for (const id of nodeIds) {
         const node = ugm.getNode(id);
         if (node) {
-          subUGM.addNode(id, { types: node.types, properties: node.properties });
+          subUGM.addNode(id, {
+            types: node.types,
+            properties: node.properties,
+          });
         }
       }
       const idSet = new Set(nodeIds);
@@ -155,6 +158,7 @@ export function wireCytoscapeContextActions(
   if (options.onFindPath) {
     unsubs.push(
       eventBus.on("context:findPath", ({ sourceId, targetId }) => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         options.onFindPath!(sourceId, targetId);
       }),
     );
@@ -162,6 +166,7 @@ export function wireCytoscapeContextActions(
   if (options.onEditAppearance) {
     unsubs.push(
       eventBus.on("context:editAppearance", ({ nodeId }) => {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         options.onEditAppearance!(nodeId);
       }),
     );

@@ -4,11 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { UGM } from "../ugm";
-import {
-  validateShacl,
-  summarizeValidation,
-  type ShaclShape,
-} from "../shacl";
+import { validateShacl, summarizeValidation, type ShaclShape } from "../shacl";
 function makeUGM(): UGM {
   const ugm = new UGM();
   ugm.addNode("d1", {

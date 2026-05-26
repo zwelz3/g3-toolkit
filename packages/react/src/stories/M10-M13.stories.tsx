@@ -5,16 +5,13 @@
  * NodeStyleEditor, SearchBar, TemporalRangeFilter, DerivedPropertyPanel.
  */
 
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { UGM } from "@g3t/core";
 import { LinkedChart } from "@g3t/charts";
 import { FilterBuilder } from "../interaction/filter/FilterBuilder";
 import { SearchBar } from "../interaction/search/SearchBar";
 import { NodeStyleEditor } from "../interaction/encoding/NodeStyleEditor";
-import {
-  TemporalRangeFilter,
-  DerivedPropertyPanel,
-} from "@g3t/react";
+import { TemporalRangeFilter, DerivedPropertyPanel } from "@g3t/react";
 import { ShaclShapeBrowser } from "../views/schema/ShaclShapeBrowser";
 import { createCountByType, createPropertyCorrelation } from "@g3t/core";
 import { validateShacl, type ShaclShape } from "@g3t/core";
@@ -27,6 +24,7 @@ function makeUGM(): UGM {
   const types = ["Person", "Organization", "Location"];
   for (let i = 0; i < 20; i++) {
     ugm.addNode(`n${i}`, {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       types: [types[i % 3]!],
       properties: {
         name: `Node ${i}`,
@@ -58,6 +56,7 @@ type ChartStory = StoryObj<typeof LinkedChart>;
 export const BarChart: ChartStory = {
   args: {
     ugm,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pipeline: createCountByType() as any,
     type: "bar",
     height: 250,
@@ -67,6 +66,7 @@ export const BarChart: ChartStory = {
 export const ScatterWithTrend: ChartStory = {
   args: {
     ugm,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pipeline: createPropertyCorrelation("risk", "score") as any,
     type: "scatter",
     height: 250,
@@ -76,6 +76,7 @@ export const ScatterWithTrend: ChartStory = {
 export const PieChart: ChartStory = {
   args: {
     ugm,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pipeline: createCountByType() as any,
     type: "pie",
     height: 250,

@@ -25,7 +25,10 @@ import {
 } from "@tanstack/react-table";
 import type { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
-import type { ContextMenuManager, MenuTarget } from "../../interaction/context-menu";
+import type {
+  ContextMenuManager,
+  MenuTarget,
+} from "../../interaction/context-menu";
 import { ContextMenu } from "../../interaction/context-menu";
 
 /** A flat row representation of a UGM node. */
@@ -115,6 +118,7 @@ export function TableView({
     return cols;
   }, [ugm]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

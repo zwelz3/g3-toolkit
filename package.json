@@ -20,7 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "lint": "eslint src/ packages/*/src/ tests/ && prettier --check src/ packages/*/src/ tests/",
+    "lint": "eslint src/ packages/core/src/ packages/react/src/ packages/charts/src/ tests/ && prettier --check src/ packages/core/src/ packages/react/src/ packages/charts/src/ tests/",
     "lint:fix": "eslint --fix src/ tests/ && prettier --write src/ tests/",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",

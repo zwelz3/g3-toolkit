@@ -67,7 +67,9 @@ test.describe("Filter and search (M1)", () => {
   });
 
   test("unchecking a type hides those nodes", async ({ page }) => {
-    const checkbox = page.locator("[data-testid='facet-filter'] input[type='checkbox']").first();
+    const checkbox = page
+      .locator("[data-testid='facet-filter'] input[type='checkbox']")
+      .first();
     if (await checkbox.isVisible()) {
       await checkbox.uncheck();
       // Table row count should decrease
@@ -80,7 +82,7 @@ test.describe("Filter and search (M1)", () => {
       await searchInput.fill("alice");
       await page.waitForTimeout(300);
       // Dropdown should appear if matches found
-      const dropdown = page.locator("[data-testid='search-dropdown']");
+      // const dropdown = page.locator("[data-testid='search-dropdown']");
       // May or may not find "alice" depending on fixture data
     }
   });

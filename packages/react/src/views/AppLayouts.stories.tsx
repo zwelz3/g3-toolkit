@@ -6,7 +6,7 @@
  * they illustrate the composition patterns adopters will use.
  */
 
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { UGM } from "@g3t/core";
 import { TableView } from "./table";
 import { DetailInspector } from "./inspector";

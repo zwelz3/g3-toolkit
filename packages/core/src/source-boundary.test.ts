@@ -92,7 +92,7 @@ function topLevelPackageName(spec: string): string {
   if (spec.startsWith(".")) return ""; // relative — not a package
   if (spec.startsWith("@")) {
     const [scope, name] = spec.split("/");
-    return scope && name ? `${scope}/${name}` : scope ?? "";
+    return scope && name ? `${scope}/${name}` : (scope ?? "");
   }
   return spec.split("/")[0] ?? "";
 }

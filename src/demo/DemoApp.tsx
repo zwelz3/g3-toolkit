@@ -17,21 +17,12 @@ import { CytoscapeCanvas } from "@g3t/react";
 import { TableView } from "@g3t/react";
 import { DetailInspector } from "@g3t/react";
 import { SchemaView } from "@g3t/react";
-import { DiffRenderer } from "@g3t/react";
 import { MapView } from "@g3t/react";
 import { TreeView } from "@g3t/react";
 import { MatrixView } from "@g3t/react";
 import { QueryEditor } from "@g3t/react";
-import {
-  StatusBar,
-  KeyboardShortcutModal,
-  ZoomControls,
-} from "@g3t/react";
-import {
-  EncodingPanel,
-  CanvasLegend,
-  DEFAULT_ENCODING,
-} from "@g3t/react";
+import { StatusBar, KeyboardShortcutModal, ZoomControls } from "@g3t/react";
+import { EncodingPanel, CanvasLegend, DEFAULT_ENCODING } from "@g3t/react";
 import { FacetFilter } from "@g3t/react";
 import { SearchBar } from "@g3t/react";
 import { useSelectionStore } from "@g3t/react";
@@ -39,17 +30,12 @@ import { useThemeStore } from "@g3t/react";
 import { AriaCompanion } from "@g3t/react";
 import { ContextMenuManager } from "@g3t/react";
 import { G3tEventBus } from "@g3t/core";
-import {
-  registerToolkitActions,
-  buildNeighborhoodUGM,
-} from "@g3t/react";
+import { registerToolkitActions, buildNeighborhoodUGM } from "@g3t/react";
 import { AnnotationPanel } from "@g3t/react";
 import { PropertyEditor } from "@g3t/react";
 import { LayoutManager } from "@g3t/react";
-import type { LayoutOptions } from "@g3t/react";
 
 import type { EncodingConfig } from "@g3t/react";
-import type { DiffResult } from "@g3t/core";
 import type { SearchResult } from "@g3t/react";
 
 // ── Secondary View Tabs ─────────────────────────────────────────────
@@ -90,9 +76,7 @@ export function DemoApp({
   const [showBottom, setShowBottom] = useState(true);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
-  const [searchDimmedIds, setSearchDimmedIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [, setSearchDimmedIds] = useState<Set<string>>(new Set());
 
   // Cytoscape ref for zoom controls
   const [cyInstance, setCyInstance] = useState<unknown>(null);
@@ -113,6 +97,7 @@ export function DemoApp({
   }, [cyInstance]);
 
   const handleZoomOut = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cy = cyInstance as any;
     if (cy) {
       const currentZoom = cy.zoom();
@@ -124,6 +109,7 @@ export function DemoApp({
   }, [cyInstance]);
 
   const handleFit = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cy = cyInstance as any;
     if (cy) cy.fit(undefined, 40);
   }, [cyInstance]);
@@ -168,13 +154,16 @@ export function DemoApp({
   }, []);
 
   // Search: dim non-matching nodes
-  const handleSearch = useCallback((result: SearchResult) => {
-    if (!result.query) {
-      setSearchDimmedIds(new Set());
-    } else {
-      setSearchDimmedIds(new Set(result.nonMatchingIds));
-    }
-  }, []);
+  const handleSearch = useCallback(
+    (result: SearchResult) => {
+      if (!result.query) {
+        setSearchDimmedIds(new Set());
+      } else {
+        setSearchDimmedIds(new Set(result.nonMatchingIds));
+      }
+    },
+    [setSearchDimmedIds],
+  );
 
   // Filtered UGM (apply type filter)
   const filteredUGM = useMemo(() => {
@@ -306,8 +295,8 @@ export function DemoApp({
                       name === "force"
                         ? "fcose"
                         : name === "hierarchy" ||
-                          name === "dagre" ||
-                          name === "elk"
+                            name === "dagre" ||
+                            name === "elk"
                           ? "breadthfirst"
                           : name;
                     cy.layout({

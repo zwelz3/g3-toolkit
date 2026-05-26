@@ -312,4 +312,3 @@ describe("computeSchemaHash: edge cases (audit)", () => {
     expect(hash.length).toBeGreaterThan(0);
   });
 });
-

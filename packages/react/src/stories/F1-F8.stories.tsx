@@ -2,7 +2,7 @@
  * Stories for F1-F8 features.
  */
 
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { UGM } from "@g3t/core";
 import { ComboManager } from "@g3t/core";
@@ -69,6 +69,7 @@ export const ComboGrouping: Story = {
     });
     const [collapsed, setCollapsed] = useState(false);
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const combo = mgr.getAll()[0]!;
     const displayUGM = mgr.applyToUGM(ugm);
 

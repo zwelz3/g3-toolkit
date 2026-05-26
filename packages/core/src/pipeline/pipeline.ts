@@ -329,7 +329,9 @@ export function createActivityTimeline(
 
       // Bucket by equal intervals (10 buckets)
       if (events.length === 0) return { series: [] };
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const minTime = events[0]!.time;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const maxTime = events[events.length - 1]!.time;
       const range = maxTime - minTime || 1;
       const bucketCount = Math.min(10, events.length);

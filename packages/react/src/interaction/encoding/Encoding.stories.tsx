@@ -9,6 +9,7 @@ function makeUGM() {
   const types = ["Person", "Organization", "Location", "Event"];
   for (let i = 0; i < 20; i++) {
     ugm.addNode(`n${i}`, {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       types: [types[i % 4]!],
       properties: {
         name: `Node ${i}`,

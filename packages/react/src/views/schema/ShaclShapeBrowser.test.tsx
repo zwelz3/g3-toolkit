@@ -9,10 +9,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { UGM } from "@g3t/core";
-import {
-  validateShacl,
-  type ShaclShape,
-} from "@g3t/core";
+import { validateShacl, type ShaclShape } from "@g3t/core";
 import { ShaclShapeBrowser } from "./ShaclShapeBrowser";
 
 function makeUGM(): UGM {

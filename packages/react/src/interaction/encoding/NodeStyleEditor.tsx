@@ -69,7 +69,7 @@ export function NodeStyleEditor({
   const [shape, setShape] = useState<CytoscapeShape | "">("");
   const [size, setSize] = useState<number>(30);
   const [selectedIcon, setSelectedIcon] = useState<string>("");
-  const [iconColor, setIconColor] = useState<string>("#ffffff");
+  const [iconColor] = useState<string>("#ffffff");
 
   const handleApply = useCallback(() => {
     const override: NodeStyleOverride = {
@@ -79,6 +79,7 @@ export function NodeStyleEditor({
     if (shape) override.shape = shape;
     if (size !== 30) override.size = size;
     if (selectedIcon && ICONS[selectedIcon]) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       override.icon = { svg: ICONS[selectedIcon]!, color: iconColor };
     }
     add(override);

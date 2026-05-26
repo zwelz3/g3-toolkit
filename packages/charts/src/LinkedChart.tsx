@@ -9,7 +9,7 @@
  * - Bar, Scatter (with trend), Line/Area, Pie/Donut, Parallel Coords
  */
 
-import { useMemo, useCallback, useRef, useEffect } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
 import type { UGM } from "@g3t/core";
@@ -20,7 +20,6 @@ import type {
   TimeSeriesData,
   CategoricalSelection,
   PointSetSelection,
-  RangeSelection,
 } from "@g3t/core";
 import { useSelectionStore } from "@g3t/react";
 import { useThemeStore } from "@g3t/react";

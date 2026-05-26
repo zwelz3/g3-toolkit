@@ -5,10 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { UGM } from "../ugm";
 import { ComboManager } from "../combo";
-import {
-  computeIncrementalUpdate,
-  capturePositions,
-} from "../layout/incremental-layout";
+import { computeIncrementalUpdate } from "../layout/incremental-layout";
 
 function makeUGM(): UGM {
   const ugm = new UGM();

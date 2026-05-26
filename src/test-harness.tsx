@@ -21,10 +21,7 @@ import { SearchBar } from "@g3t/react";
 import { TagManager } from "@g3t/react";
 import { GroupingManager } from "@g3t/react";
 import { LayoutSwitcher } from "@g3t/react";
-import {
-  createDefaultMenuManager,
-  type ContextMenuManager,
-} from "@g3t/react";
+import { createDefaultMenuManager, type ContextMenuManager } from "@g3t/react";
 import { useSelectionStore } from "@g3t/react";
 import {
   ForceLayout,

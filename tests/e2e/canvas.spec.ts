@@ -33,7 +33,7 @@ test.describe("Canvas rendering", () => {
     await page.waitForTimeout(300);
 
     // Check selection info updated
-    const selectionInfo = page.locator("[data-testid='selection-info']");
+    // const selectionInfo = page.locator("[data-testid='selection-info']");
     // May or may not hit a node; screenshot captures the state
     await expect(
       page.locator("[data-testid='canvas-container']"),

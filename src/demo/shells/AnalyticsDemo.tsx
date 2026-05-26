@@ -24,7 +24,6 @@ import { FilterBuilder } from "@g3t/react";
 import { SearchBar } from "@g3t/react";
 import { LinkedChart } from "@g3t/charts";
 import { useSelectionStore } from "@g3t/react";
-import { LayoutManager } from "@g3t/react";
 import { useThemeStore } from "@g3t/react";
 import { ContextMenuManager } from "@g3t/react";
 import { G3tEventBus } from "@g3t/core";
@@ -33,10 +32,7 @@ import {
   buildNeighborhoodUGM,
   wireCytoscapeContextActions,
 } from "@g3t/react";
-import {
-  createCountByProperty,
-  createPropertyCorrelation,
-} from "@g3t/core";
+import { createCountByProperty, createPropertyCorrelation } from "@g3t/core";
 import { UGM } from "@g3t/core";
 import { buildAnalyticsUGM } from "../fixtures/analytics";
 import type { EncodingConfig } from "@g3t/react";
@@ -48,8 +44,8 @@ type LeftTab = "schema" | "filter" | "encoding";
 export function AnalyticsDemo({ onBack }: { onBack: () => void }) {
   const ugm = useMemo(() => buildAnalyticsUGM(), []);
   const { theme, setTheme } = useThemeStore();
-  const selected = useSelectionStore((s) => s.selectedNodeIds);
-  const selectedId = [...selected][0] ?? null;
+  // const selected = useSelectionStore((s) => s.selectedNodeIds);
+  // const selectedId = [...selected][0] ?? null;
 
   const [encoding, setEncoding] = useState<EncodingConfig>({
     ...DEFAULT_ENCODING,
@@ -100,7 +96,6 @@ export function AnalyticsDemo({ onBack }: { onBack: () => void }) {
       },
     );
   }, [cyInstance, eventBus, ugm]);
-
 
   const papersByTopic = useMemo(() => createCountByProperty("name"), []);
   const pagerankVsCitations = useMemo(

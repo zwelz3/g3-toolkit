@@ -104,9 +104,6 @@ describe("CytoscapeCanvas component (M0.E3.T1)", () => {
     // Spy on removeEventListener so we can detect the cleanup
     const removeSpy = vi.spyOn(canvasContainer, "removeEventListener");
     unmount();
-    expect(removeSpy).toHaveBeenCalledWith(
-      "contextmenu",
-      expect.any(Function),
-    );
+    expect(removeSpy).toHaveBeenCalledWith("contextmenu", expect.any(Function));
   });
 });

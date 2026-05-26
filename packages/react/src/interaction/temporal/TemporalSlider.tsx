@@ -51,7 +51,9 @@ export function TemporalSlider({
       }
     });
     if (min === Infinity) {
+      // eslint-disable-next-line react-hooks/purity
       min = Date.now() - 365 * DAY_MS;
+      // eslint-disable-next-line react-hooks/purity
       max = Date.now();
     }
     return { minTime: min, maxTime: max };
@@ -74,6 +76,7 @@ export function TemporalSlider({
   // Play/pause animation
   useEffect(() => {
     if (playing) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const step = 0.005 * SPEEDS[speedIdx]!.factor;
       timerRef.current = setInterval(() => {
         setPosition((prev) => {
@@ -148,7 +151,7 @@ export function TemporalSlider({
           onClick={cycleSpeed}
           style={{ fontSize: 10, padding: "2px 6px" }}
         >
-          {SPEEDS[speedIdx]!.label}
+          {SPEEDS[speedIdx]?.label ?? ""}
         </button>
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: "var(--g3t-text-muted)" }}>

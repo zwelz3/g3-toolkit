@@ -3,13 +3,8 @@
  * and selection CSS class verification.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { UGM } from "@g3t/core";
-import {
-  injectDesignTokens,
-  DESIGN_TOKENS,
-  DARK_SHADOWS,
-} from "@g3t/core";
+import { describe, it, expect } from "vitest";
+import { injectDesignTokens, DESIGN_TOKENS, DARK_SHADOWS } from "@g3t/core";
 import { SparqlAdapter } from "@g3t/core";
 import { CypherAdapter } from "@g3t/core";
 import type { Middleware } from "@g3t/core";

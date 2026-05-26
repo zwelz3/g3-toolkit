@@ -1,4 +1,8 @@
-export { validateShacl, summarizeValidation, ShaclValidator } from "./shacl-validator";
+export {
+  validateShacl,
+  summarizeValidation,
+  ShaclValidator,
+} from "./shacl-validator";
 export type {
   ShaclShape,
   ShaclPropertyConstraint,

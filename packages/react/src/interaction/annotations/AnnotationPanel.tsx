@@ -80,6 +80,7 @@ export function AnnotationPanel({
 
   useEffect(() => {
     if (!elementId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnnotation(null);
       setDraft("");
       return;

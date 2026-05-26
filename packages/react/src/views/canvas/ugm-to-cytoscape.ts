@@ -64,9 +64,7 @@ export function ugmToCytoscapeElements(ugm: UGM): ElementDefinition[] {
   ugm.forEachEdge((_edgeId, _attrs, source, target) => {
     const ordered = `${source}\x00${target}`;
     const unordered =
-      source < target
-        ? `${source}\x00${target}`
-        : `${target}\x00${source}`;
+      source < target ? `${source}\x00${target}` : `${target}\x00${source}`;
     orderedCount.set(ordered, (orderedCount.get(ordered) ?? 0) + 1);
     unorderedCount.set(unordered, (unorderedCount.get(unordered) ?? 0) + 1);
   });
@@ -85,9 +83,7 @@ export function ugmToCytoscapeElements(ugm: UGM): ElementDefinition[] {
     } else {
       const orderedKey = `${source}\x00${target}`;
       const unorderedKey =
-        source < target
-          ? `${source}\x00${target}`
-          : `${target}\x00${source}`;
+        source < target ? `${source}\x00${target}` : `${target}\x00${source}`;
       const ord = orderedCount.get(orderedKey) ?? 1;
       const unord = unorderedCount.get(unorderedKey) ?? 1;
       if (ord > 1 || unord > ord) curveStyle = "bezier";

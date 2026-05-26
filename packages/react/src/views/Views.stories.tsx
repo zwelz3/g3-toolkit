@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import { UGM } from "@g3t/core";
 import { TableView } from "./table";
 import { DetailInspector } from "./inspector";
@@ -9,7 +8,6 @@ import { MapView } from "./map";
 import { TreeView } from "./tree";
 import { QueryEditor } from "./query";
 import { MatrixView } from "./matrix";
-import { useSelectionStore } from "../state/selection-store";
 import type { ShaclShape } from "./schema";
 import type { DiffResult } from "@g3t/core";
 
@@ -18,6 +16,7 @@ function makeUGM() {
   const types = ["Person", "Organization", "Location"];
   for (let i = 0; i < 15; i++) {
     ugm.addNode(`n${i}`, {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       types: [types[i % 3]!],
       properties: {
         name: `Entity ${i}`,

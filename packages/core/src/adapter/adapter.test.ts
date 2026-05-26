@@ -25,10 +25,7 @@ interface GremlinResponse {
   result: { data: unknown };
   status: { code: number; message: string };
 }
-import {
-  virtualizeRelationalData,
-  parseCSV,
-} from "../relational-virtualizer";
+import { virtualizeRelationalData, parseCSV } from "../relational-virtualizer";
 
 // ── E1.T1: Interface compiles ───────────────────────────────────────
 
@@ -545,12 +542,12 @@ describe("GremlinAdapter (M10.5.E2.T3)", () => {
       status: { code: 200, message: "OK" },
     };
 
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(mockResponse),
-      text: () => Promise.resolve(JSON.stringify(mockResponse)),
-    });
+    // const mockFetch = vi.fn().mockResolvedValue({
+    //   ok: true,
+    //   status: 200,
+    //   json: () => Promise.resolve(mockResponse),
+    //   text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    // });
 
     const adapter = new GremlinAdapter({
       endpoint: "http://localhost:8182/gremlin",
@@ -558,14 +555,13 @@ describe("GremlinAdapter (M10.5.E2.T3)", () => {
     });
 
     // Override the internal fetcher for testing
-    (adapter as unknown as { fetcher: typeof mockFetch }).fetcher = vi.fn(
-      async () => ({
-        status: 200,
-        ok: true,
-        body: JSON.stringify(mockResponse),
-        headers: {},
-      }),
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (adapter as any).fetcher = vi.fn(async () => ({
+      status: 200,
+      ok: true,
+      body: JSON.stringify(mockResponse),
+      headers: {},
+    }));
 
     const ugm = await adapter.query("g.V().limit(2)");
     expect(ugm.nodeCount).toBe(2);

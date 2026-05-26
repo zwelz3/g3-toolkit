@@ -51,11 +51,7 @@ export {
   retryOnError,
   requestLogger,
 } from "./middleware";
-export type {
-  AdapterRequest,
-  AdapterResponse,
-  Middleware,
-} from "./middleware";
+export type { AdapterRequest, AdapterResponse, Middleware } from "./middleware";
 
 // ── Event bus ───────────────────────────────────────────────────────
 export { G3tEventBus, eventBus } from "./event-bus";
@@ -132,12 +128,7 @@ export {
 export type { DerivedProperty } from "./advanced";
 
 // ── Projection (RDF → LPG) ──────────────────────────────────────────
-export {
-  ProjectionPipeline,
-  localPart,
-  castLiteral,
-  RDF,
-} from "./projection";
+export { ProjectionPipeline, localPart, castLiteral, RDF } from "./projection";
 export type {
   RDFTriple,
   RDFGraph,
@@ -162,28 +153,15 @@ export type {
 
 // ── Diff ────────────────────────────────────────────────────────────
 export { diffGraphs, computeSchemaHash } from "./diff";
-export type {
-  DiffResult,
-  NodeDiff,
-  EdgeDiff,
-  PropertyChange,
-} from "./diff";
+export type { DiffResult, NodeDiff, EdgeDiff, PropertyChange } from "./diff";
 
 // ── Algorithms and utilities ────────────────────────────────────────
 export { ingestAlgorithmResults } from "./algorithm-adapter";
-export {
-  virtualizeRelationalData,
-  parseCSV,
-} from "./relational-virtualizer";
+export { virtualizeRelationalData, parseCSV } from "./relational-virtualizer";
 export type { VirtualizeOptions } from "./relational-virtualizer";
 
 // ── Layout engines (D6: pure compute) ───────────────────────────────
-export {
-  ForceLayout,
-  HierarchyLayout,
-  DagreLayout,
-  ElkLayout,
-} from "./layout";
+export { ForceLayout, HierarchyLayout, DagreLayout, ElkLayout } from "./layout";
 export type {
   LayoutEngine,
   LayoutOptions,
@@ -213,11 +191,7 @@ export type { UndoRedoOptions } from "./undo-redo";
 // ── Design tokens (D6 data; reclassified from @g3t/react in P3.2) ──
 // `injectDesignTokens` writes CSS custom properties to documentElement and
 // thus touches the DOM, but the values themselves are pure data.
-export {
-  DESIGN_TOKENS,
-  DARK_SHADOWS,
-  injectDesignTokens,
-} from "./theme";
+export { DESIGN_TOKENS, DARK_SHADOWS, injectDesignTokens } from "./theme";
 
 // ── Path analysis (D6; reclassified from @g3t/react in P3.2) ────────
 export { findShortestPath } from "./path-analysis";

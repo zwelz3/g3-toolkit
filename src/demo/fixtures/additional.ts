@@ -216,7 +216,9 @@ export function buildDataSciUGM(): UGM {
   const teams = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"];
 
   for (let i = 1; i <= 50; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const dept = depts[(i - 1) % 5]!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const team = teams[Math.floor((i - 1) / 10)]!;
     const community = Math.floor((i - 1) / 17) + 1; // 3 communities
     const pagerank = Math.max(0.01, 0.15 - i * 0.003 + Math.random() * 0.02);

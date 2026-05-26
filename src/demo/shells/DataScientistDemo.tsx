@@ -22,9 +22,6 @@ import { FilterBuilder } from "@g3t/react";
 import { SearchBar } from "@g3t/react";
 import { LinkedChart } from "@g3t/charts";
 import { useSelectionStore } from "@g3t/react";
-import { AnnotationPanel } from "@g3t/react";
-import { PropertyEditor } from "@g3t/react";
-import { LayoutManager } from "@g3t/react";
 import { useThemeStore } from "@g3t/react";
 import { ContextMenuManager } from "@g3t/react";
 import { G3tEventBus } from "@g3t/core";
@@ -33,11 +30,7 @@ import {
   buildNeighborhoodUGM,
   wireCytoscapeContextActions,
 } from "@g3t/react";
-import {
-  createCountByType,
-  createPropertyCorrelation,
-  createDegreeDistribution,
-} from "@g3t/core";
+import { createCountByType, createPropertyCorrelation } from "@g3t/core";
 import { UGM } from "@g3t/core";
 import { buildDataSciUGM } from "../fixtures/additional";
 import type { EncodingConfig } from "@g3t/react";
@@ -91,6 +84,7 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
     if (!cyInstance) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const c = cyInstance as any;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setZoomLevel(c.zoom());
     const handler = () => setZoomLevel(c.zoom());
     c.on("zoom", handler);
@@ -120,7 +114,6 @@ export function DataScientistDemo({ onBack }: { onBack: () => void }) {
       },
     );
   }, [cyInstance, eventBus, ugm]);
-
 
   // Pipelines
   const countByType = useMemo(() => createCountByType(), []);

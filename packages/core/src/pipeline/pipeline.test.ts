@@ -18,7 +18,6 @@ import {
   createDegreeDistribution,
   createEdgeTypeBreakdown,
   createPropertyCorrelation,
-  createCentralityVsProperty,
   createActivityTimeline,
   createCommunityBreakdown,
 } from "./pipeline";

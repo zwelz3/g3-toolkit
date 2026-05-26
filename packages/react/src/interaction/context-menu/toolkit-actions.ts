@@ -11,11 +11,9 @@
  */
 
 import type { ContextMenuManager } from "../../interaction/context-menu";
-import type { MenuTarget } from "../../interaction/context-menu";
 import { UGM } from "@g3t/core";
 import type { G3tEventBus } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
-import type { NodeStyleOverride } from "@g3t/core";
 import { useStyleOverrideStore } from "../../state/style-override-store";
 
 // ── Configuration ───────────────────────────────────────────────────
@@ -104,6 +102,7 @@ export function registerToolkitActions(
         if (others.length === 1) {
           config.eventBus.emit("context:findPath", {
             sourceId: t.id,
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             targetId: others[0]!,
           });
         }
@@ -218,7 +217,9 @@ export function registerToolkitActions(
         const ids = [...useSelectionStore.getState().selectedNodeIds];
         if (ids.length === 2) {
           config.eventBus.emit("context:findPath", {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             sourceId: ids[0]!,
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             targetId: ids[1]!,
           });
         }

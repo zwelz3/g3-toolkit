@@ -5,7 +5,7 @@
  * Both add LinkedChart panels and enhanced filtering to the generic DemoApp.
  */
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CytoscapeCanvas } from "@g3t/react";
 import { TableView } from "@g3t/react";
 import { DetailInspector } from "@g3t/react";
@@ -30,7 +30,7 @@ import {
   buildNeighborhoodUGM,
   wireCytoscapeContextActions,
 } from "@g3t/react";
-import { createCountByType, createPropertyCorrelation } from "@g3t/core";
+import { createCountByType } from "@g3t/core";
 import { UGM } from "@g3t/core";
 import {
   buildCyberGraph,
@@ -50,6 +50,7 @@ function useGraphDemo(buildFn: () => UGM, upgradeFn?: (u: UGM) => void) {
     const u = buildFn();
     upgradeFn?.(u);
     return u;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const { theme, setTheme } = useThemeStore();
   const selected = useSelectionStore((s) => s.selectedNodeIds);
@@ -87,7 +88,6 @@ function useGraphDemo(buildFn: () => UGM, upgradeFn?: (u: UGM) => void) {
       },
     );
   }, [cyInstance, eventBus, ugm]);
-
 
   const filteredUGM = useMemo(() => {
     if (hiddenTypes.size === 0) return ugm;
@@ -228,6 +228,7 @@ export function CyberDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={g.filteredUGM}
               menuManager={g.menuManager}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               stylesheet={g.encodingStylesheet as any}
               onReady={(c) => g.setCyInstance(c)}
             />
@@ -302,7 +303,10 @@ export function CyberDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={g.neighborhoodUGM} layout="breadthfirst" />
+                <CytoscapeCanvas
+                  ugm={g.neighborhoodUGM}
+                  layout="breadthfirst"
+                />
               </div>
             )}
           </div>
@@ -463,6 +467,7 @@ export function SupplyChainDemo({ onBack }: { onBack: () => void }) {
             <CytoscapeCanvas
               ugm={g.filteredUGM}
               menuManager={g.menuManager}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               stylesheet={g.encodingStylesheet as any}
               onReady={(c) => g.setCyInstance(c)}
             />
@@ -537,7 +542,10 @@ export function SupplyChainDemo({ onBack }: { onBack: () => void }) {
                     ✕
                   </button>
                 </div>
-                <CytoscapeCanvas ugm={g.neighborhoodUGM} layout="breadthfirst" />
+                <CytoscapeCanvas
+                  ugm={g.neighborhoodUGM}
+                  layout="breadthfirst"
+                />
               </div>
             )}
           </div>

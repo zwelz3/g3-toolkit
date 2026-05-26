@@ -310,21 +310,15 @@ describe("ugmToCytoscapeElements _curveStyle (bugfix 21)", () => {
     const elements = ugmToCytoscapeElements(ugm);
     const ab = elements.find(
       (e) =>
-        e.group === "edges" &&
-        e.data.source === "a" &&
-        e.data.target === "b",
+        e.group === "edges" && e.data.source === "a" && e.data.target === "b",
     );
     const cd = elements.find(
       (e) =>
-        e.group === "edges" &&
-        e.data.source === "c" &&
-        e.data.target === "d",
+        e.group === "edges" && e.data.source === "c" && e.data.target === "d",
     );
     const dc = elements.find(
       (e) =>
-        e.group === "edges" &&
-        e.data.source === "d" &&
-        e.data.target === "c",
+        e.group === "edges" && e.data.source === "d" && e.data.target === "c",
     );
     expect(ab!.data._curveStyle).toBe("straight");
     expect(cd!.data._curveStyle).toBe("bezier");

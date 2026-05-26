@@ -10,20 +10,16 @@ import { CytoscapeCanvas } from "@g3t/react";
 import { TableView } from "@g3t/react";
 import { DetailInspector } from "@g3t/react";
 import { TreeView } from "@g3t/react";
-import { SchemaView } from "@g3t/react";
 import { ShaclShapeBrowser } from "@g3t/react";
+import { ZoomControls, StatusBar, KeyboardShortcutModal } from "@g3t/react";
 import {
-  ZoomControls,
-  StatusBar,
-  KeyboardShortcutModal,
+  CanvasLegend,
+  DEFAULT_ENCODING,
+  encodingToCytoscapeStyle,
 } from "@g3t/react";
-import { CanvasLegend, DEFAULT_ENCODING, encodingToCytoscapeStyle } from "@g3t/react";
 import { FacetFilter } from "@g3t/react";
 import { SearchBar } from "@g3t/react";
 import { useSelectionStore } from "@g3t/react";
-import { AnnotationPanel } from "@g3t/react";
-import { PropertyEditor } from "@g3t/react";
-import { LayoutManager } from "@g3t/react";
 import { useThemeStore } from "@g3t/react";
 import { ContextMenuManager } from "@g3t/react";
 import { G3tEventBus } from "@g3t/core";
@@ -107,7 +103,6 @@ export function HealthcareDemo({ onBack }: { onBack: () => void }) {
       },
     );
   }, [cyInstance, eventBus, ugm]);
-
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {

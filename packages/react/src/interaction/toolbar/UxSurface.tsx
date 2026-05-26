@@ -171,7 +171,9 @@ export function ZoomControls({
           max={zoomMax}
           step={0.05}
           value={zoomLevel}
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           onChange={(e) => onZoomChange!(Number(e.target.value))}
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           title={`Zoom: ${Math.round(zoomLevel! * 100)}%`}
           aria-label="Zoom level"
           // Vertical-orientation hacks: writingMode + the legacy

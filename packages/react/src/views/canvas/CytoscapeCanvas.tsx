@@ -202,8 +202,10 @@ export function CytoscapeCanvas({
   // re-create initCytoscape, which would re-fire the useEffect, which
   // would destroy + rebuild the Cytoscape instance — a jitter loop.
   const onReadyRef = useRef(onReady);
+  // eslint-disable-next-line react-hooks/refs
   onReadyRef.current = onReady;
   const stylesheetRef = useRef(stylesheet);
+  // eslint-disable-next-line react-hooks/refs
   stylesheetRef.current = stylesheet;
 
   const initCytoscape = useCallback((): (() => void) | undefined => {
@@ -250,6 +252,7 @@ export function CytoscapeCanvas({
           ...(edgeStyle === "taxi"
             ? { "taxi-direction": "auto", "taxi-turn": "50px" }
             : {}),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
       });
     }

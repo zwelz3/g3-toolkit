@@ -42,8 +42,7 @@ export function TemporalRangeFilter({
     ugm.forEachNode((_id, attrs) => {
       const raw = attrs.properties[timeProperty];
       if (raw === undefined || raw === null) return;
-      const t =
-        typeof raw === "number" ? raw : new Date(String(raw)).getTime();
+      const t = typeof raw === "number" ? raw : new Date(String(raw)).getTime();
       if (!isNaN(t)) {
         if (t < mn) mn = t;
         if (t > mx) mx = t;
@@ -51,6 +50,7 @@ export function TemporalRangeFilter({
     });
     return {
       globalMin: isFinite(mn) ? mn : 0,
+      // eslint-disable-next-line react-hooks/purity
       globalMax: isFinite(mx) ? mx : Date.now(),
     };
   }, [ugm, timeProperty]);

@@ -147,6 +147,7 @@ export function capturePositions(
   cy: any, // eslint-disable-line @typescript-eslint/no-explicit-any
 ): Map<string, Position> {
   const positions = new Map<string, Position>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cy.nodes().forEach((node: any) => {
     const pos = node.position();
     positions.set(node.id(), { x: pos.x, y: pos.y });
@@ -177,7 +178,9 @@ export class IncrementalLayout {
   constructor(public options: IncrementalLayoutOptions = {}) {}
 
   /** Snapshot the current positions and node-ID set from a Cytoscape instance. */
-  captureFrom(cy: any /* eslint-disable-line @typescript-eslint/no-explicit-any */): void {
+  captureFrom(
+    cy: any /* eslint-disable-line @typescript-eslint/no-explicit-any */,
+  ): void {
     this.positions = capturePositions(cy);
     this.previousIds = new Set(this.positions.keys());
   }
@@ -187,7 +190,10 @@ export class IncrementalLayout {
    * given Cytoscape instance. After this returns the captured state is
    * NOT updated — call `captureFrom(cy)` again before the next call.
    */
-  apply(cy: any /* eslint-disable-line @typescript-eslint/no-explicit-any */, currentIds: Set<string>): void {
+  apply(
+    cy: any /* eslint-disable-line @typescript-eslint/no-explicit-any */,
+    currentIds: Set<string>,
+  ): void {
     const update = computeIncrementalUpdate(
       this.positions,
       currentIds,
