@@ -35,6 +35,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
-      - run: pnpm run test
       - run: pnpm run lint
+      # verify includes build:packages as its first step, so dist/ files
+      # exist by the time it finishes. Must run BEFORE test because
+      # public-api.test.ts checks that every exports-map target file
+      # exists on disk (existsSync on dist/*.mjs).
       - run: pnpm run verify
+      - run: pnpm run test
