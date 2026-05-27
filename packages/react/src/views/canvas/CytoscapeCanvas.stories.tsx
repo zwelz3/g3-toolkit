@@ -259,11 +259,9 @@ export const VisualEncoding: Story = {
     });
     const stylesheet = useMemo(
       () =>
-        encodingToCytoscapeStyle(
-          encoding,
-          ugm,
-          [...OKABE_ITO_COLORS],
-        ) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
+        encodingToCytoscapeStyle(encoding, ugm, [
+          ...OKABE_ITO_COLORS,
+        ]) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
       [encoding, ugm],
     );
     return (
