@@ -38,7 +38,7 @@ SECTION_PREFIXES = {
 RECOGNIZED_KEYS = {
     "priority", "acceptance", "verifiedBy", "constrains",
     "asA", "soThat", "owner", "recommendation", "status",
-    "rationale", "affects", "role",
+    "rationale", "affects", "role", "gap"
 }
 
 VALID_REQ_STATUS = {"proposed", "accepted", "in-progress", "implemented", "verified"}
