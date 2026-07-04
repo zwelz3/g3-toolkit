@@ -31,6 +31,11 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Acceptance-criteria caps (manual, with reasons):
 CAPS = {
+    "R1.2": "in-progress",  # aspect-test cap no. 4 (policy note below):
+    # the vendored-CSS sync test colocated with TimelineView is what
+    # upgraded its citation, and R1.2's own acceptance (scrubbing,
+    # animation, canvas filtered by temporal range) is not met; the
+    # playback gap matches R2.10's cap
     "R5.1": "in-progress",  # in-memory adapter; no Fuseki/Rdflib backend
     "R2.12": "in-progress",  # validation callback only; no commit-time SHACL
     "R2.10": "in-progress",  # timeline renders; playback animation absent
@@ -66,7 +71,7 @@ CAPS = {
     # does not yet render it)
 }
 
-# POLICY NOTE (after three aspect-test caps: R1.4, R1.3, R1.6): tests
+# POLICY NOTE (after FOUR aspect-test caps: R1.4, R1.3, R1.6, R1.2): tests
 # colocated with a view but verifying a cross-cutting aspect (density,
 # selection signature) trigger drift suggestions their requirement has
 # not earned. The caps valve handles this at review time and keeps the
@@ -76,7 +81,13 @@ CAPS = {
 # `implemented` credit.
 
 ORDER = ["proposed", "accepted", "in-progress", "implemented", "verified"]
-EXCLUDE_LINE = re.compile(r"planned|not yet|NOT implemented", re.IGNORECASE)
+# reqId: excludes FIXTURE DATA (the MBSE satellite model carries
+# requirement nodes with reqId: "R1.x" fields; model content is not
+# traceability, and the mbse directory has colocated tests, so every
+# fixture id was earning implemented-grade credit).
+EXCLUDE_LINE = re.compile(
+    r"planned|not yet|NOT implemented|reqId\s*:", re.IGNORECASE
+)
 RID = re.compile(r"\bR\d+\.\d+\b")
 
 

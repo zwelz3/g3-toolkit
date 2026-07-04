@@ -2,6 +2,9 @@
  * ProvenanceTrace: the drill-anywhere lineage panel (originated in the
  * retired flagship demo; demonstrated in the auditor shell).
  *
+ * @see specs/01-functional-views.md R1.11 (the provenance-chain
+ * acceptance leg; the inspector legs are cited from DetailInspector)
+ *
  * Given an ordered provenance chain (a pre-order flattening of the
  * provenance tree, each hop carrying its depth), render it as an indented
  * trail from a derived conclusion down to the raw evidence at the leaf:

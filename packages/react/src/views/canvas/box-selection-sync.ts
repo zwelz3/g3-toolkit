@@ -27,6 +27,10 @@
  * internal `:selected` state (this codebase highlights via the
  * .g3t-selected class, never `:selected`) and pushes the boxed node
  * ids into the store.
+ *
+ * @see specs/02-functional-interaction.md R2.8 (the lasso leg of
+ * multi-select; the tagging and grouping legs are cited from their
+ * own managers)
  */
 import type { Core, EventObject } from "cytoscape";
 

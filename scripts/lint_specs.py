@@ -38,7 +38,13 @@ SECTION_PREFIXES = {
 RECOGNIZED_KEYS = {
     "priority", "acceptance", "verifiedBy", "constrains",
     "asA", "soThat", "owner", "recommendation", "status",
-    "rationale", "affects", "role", "gap"
+    "rationale", "affects", "role",
+    # gap: a KNOWN delta between an item's stated guarantee and its
+    # current implementation (first used on D15: camera preservation is
+    # implemented for the structural path only). Keeping the delta in
+    # the spec beats silently overstating; a gap graduating to work
+    # should become a requirement owned by a roadmap file.
+    "gap",
 }
 
 VALID_REQ_STATUS = {"proposed", "accepted", "in-progress", "implemented", "verified"}
