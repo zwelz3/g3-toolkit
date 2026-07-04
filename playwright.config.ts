@@ -15,11 +15,15 @@ export default defineConfig({
   workers: 1, // single worker for screenshot consistency
   // Screenshot ARCHITECTURE: baselines are platform-specific (font
   // rendering alone guarantees Windows/macOS runs never match Linux
-  // baselines), so snapshot comparisons are OFF for local runs by
-  // default and belong to Linux CI once baselines are committed there
-  // (generation flow documented in .github/workflows/ci.yml). Opt in
-  // locally with PW_SNAPSHOTS=1 (e.g. to regenerate on a Linux box).
-  ignoreSnapshots: !process.env.CI && process.env.PW_SNAPSHOTS !== "1",
+  // baselines), and none are committed yet, so snapshot comparisons
+  // are OPT-IN everywhere (PW_SNAPSHOTS=1). This policy lives HERE,
+  // not as a CI flag: pnpm forwards `--` literally, so
+  // `pnpm run test:e2e -- --ignore-snapshots` handed playwright a
+  // positional regex and matched zero tests. ENABLEMENT (Phase 2):
+  // generate Linux baselines (CI or a Linux box, PW_SNAPSHOTS=1 with
+  // --update-snapshots), commit tests/e2e/__screenshots__, then change
+  // this line to: !process.env.CI && process.env.PW_SNAPSHOTS !== "1"
+  ignoreSnapshots: process.env.PW_SNAPSHOTS !== "1",
   reporter: [
     ["html", { outputFolder: "playwright-report" }],
     ["list"],

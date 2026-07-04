@@ -1,6 +1,12 @@
 # === Build artifacts ===
-dist/
-build/
+# ROOT-ANCHORED deliberately. Any-depth `dist/` and `coverage/` rules
+# silently swallowed SOURCE (tests/dist/public-api.test.ts, which is
+# how verify:exports lost its tests; packages/react/src/views/coverage/,
+# which broke CI typecheck on first push; scripts/storybook-static/).
+# If a new artifact dir appears somewhere deeper, add its explicit
+# path; never a bare directory name.
+/dist/
+/build/
 docs/build/
 packages/*/dist
 packages/*/tsconfig.tsbuildinfo
@@ -17,15 +23,14 @@ node_modules/
 # === Test outputs ===
 test-results/
 playwright-report/
-coverage/
-results/
+/coverage/
+/results/
 # Screenshot baselines are committed; only ignore temp files
 tests/e2e/__screenshots__/*-retry*
 
 # === Storybook ===
 *storybook.log
-storybook-static
-storybook-static/
+/storybook-static/
 
 # === Vite / dev caches ===
 .vite/

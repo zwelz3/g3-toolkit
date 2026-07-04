@@ -71,13 +71,13 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      # --ignore-snapshots: no Linux screenshot baselines are committed
-      # yet, and Playwright fails missing baselines under CI, which
-      # would make this a guaranteed-red (i.e. ignored) gate. The
-      # functional assertions gate now. To enable visual gating:
-      # run `pnpm exec playwright test --update-snapshots` on
-      # ubuntu, commit tests/e2e/__screenshots__/, remove this flag.
-      - run: pnpm run test:e2e -- --ignore-snapshots
+        # Snapshot policy lives in playwright.config.ts
+        # (ignoreSnapshots, opt-in via PW_SNAPSHOTS until Linux
+        # baselines are committed; the enablement flip is documented
+        # there). Do NOT reintroduce a `-- --flag` here: pnpm forwards
+        # the `--` literally and playwright reads the flag as a
+        # test-file regex, matching zero tests.
+      - run: pnpm run test:e2e
         env:
           CI: "true"
       - uses: actions/upload-artifact@v4

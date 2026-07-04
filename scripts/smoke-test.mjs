@@ -23,7 +23,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGES = ["core", "react", "charts"];
@@ -40,17 +40,19 @@ for (const pkg of PACKAGES) {
     if (SKIP_SUBPATHS.has(subpath)) continue;
     const entry = exportsMap[subpath];
     const importTarget =
-      typeof entry === "string" ? entry : entry.import ?? entry.require;
+      typeof entry === "string" ? entry : (entry.import ?? entry.require);
     if (!importTarget) continue;
 
     const absPath = resolve(dirname(pkgJsonPath), importTarget);
     const label =
-      subpath === "."
-        ? `@g3t/${pkg}`
-        : `@g3t/${pkg}/${subpath.slice(2)}`;
+      subpath === "." ? `@g3t/${pkg}` : `@g3t/${pkg}/${subpath.slice(2)}`;
 
     try {
-      const mod = await import(absPath);
+      // pathToFileURL: dynamic import() requires a file:// URL for
+      // absolute paths on Windows (a bare C:\... is rejected with
+      // "protocol 'c:'"); Linux tolerates the bare path, which is why
+      // CI never caught this. Canonical form works on both.
+      const mod = await import(pathToFileURL(absPath).href);
       const named = Object.keys(mod).filter((k) => k !== "default");
       if (named.length === 0) {
         console.error(`  ✗ ${label}: resolved but no named exports`);
