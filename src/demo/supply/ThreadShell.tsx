@@ -15,11 +15,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CytoscapeCanvas,
+  Minimap,
   useSelectionStore,
   useOverlayStore,
   categoricalColorMap,
 } from "@g3t/react";
 import type { EncodingSpec } from "@g3t/react";
+import type { Core } from "cytoscape";
 import { ingestAlgorithmResults } from "@g3t/core";
 import { buildDigitalThread } from "./model";
 import { supplyShapes } from "./shapes";
@@ -99,6 +101,9 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
 
   const [mode, setMode] = useState<Mode>("none");
   const [supplier, setSupplier] = useState<string>("");
+  // Cytoscape core from the canvas, feeding the Minimap overview inset
+  // (disabled placeholder until the canvas is ready).
+  const [core, setCore] = useState<Core | null>(null);
 
   // Cluster mode: materialize a `cluster` property on every node (overwriting
   // any prior mode's labels, with "Other" for nodes outside the clustering),
@@ -184,7 +189,10 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
 
       <div className="sc-body">
         <main className="sc-canvas-wrap">
-          <CytoscapeCanvas ugm={ugm} encodingSpec={spec} />
+          <CytoscapeCanvas ugm={ugm} encodingSpec={spec} onReady={setCore} />
+          <div className="sc-minimap">
+            <Minimap core={core} width={180} height={120} />
+          </div>
         </main>
 
         <aside className="sc-sidebar">
@@ -285,18 +293,28 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
             items={[
               {
                 mechanism: "encodingSpec",
+                anchor: "drive-the-encoding-from-app-state",
                 how: "drives node color from a materialized cluster property (ingestAlgorithmResults), so region / tier / component grouping is a restyle, not a rebuild.",
               },
               {
                 mechanism: "useOverlayStore",
+                anchor: "register-an-algorithm-result-from-your-backend",
                 how: "registers the merged SHACL + structural gap report as always-on severity overlays.",
               },
               {
                 mechanism: "node-local SHACL",
+                anchor:
+                  "visualize-a-shacl-validation-report-over-the-data-graph",
                 how: "checks cross-source facts (certificationStatus, supplierCount) derived during consolidation.",
               },
               {
+                mechanism: "Minimap",
+                anchor: "camera-control",
+                how: "overview inset fed by the canvas onReady core; its viewport rectangle tracks and drives the camera.",
+              },
+              {
                 mechanism: "useSelectionStore",
+                anchor: "select-and-focus-a-node-of-interest",
                 how: "highlights cluster members and the traced supplier-to-assembly path.",
               },
             ]}

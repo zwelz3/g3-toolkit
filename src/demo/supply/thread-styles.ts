@@ -52,6 +52,12 @@ export const THREAD_STYLES = `
 .sc-body { flex: 1 1 auto; display: flex; min-height: 0; }
 .sc-canvas-wrap { flex: 1 1 auto; position: relative; min-width: 0; min-height: 0; }
 .sc-canvas-wrap > * { position: absolute; inset: 0; }
+/* Minimap floats ABOVE the canvas (same stacking lesson as the bio
+   view toggle: the generic child rule stretches and the later canvas
+   sibling would otherwise intercept pointer events). */
+.sc-canvas-wrap > .sc-minimap {
+  inset: auto; right: 10px; bottom: 10px; z-index: 5;
+}
 .sc-sidebar {
   flex: 0 0 288px; display: flex; flex-direction: column; min-height: 0;
   background: var(--sc-panel-2); border-left: 1px solid var(--sc-line); overflow: auto;

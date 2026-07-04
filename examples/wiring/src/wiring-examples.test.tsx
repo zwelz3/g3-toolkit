@@ -59,6 +59,9 @@ import {
   applyEncodingSpec,
   createTheme,
   createCameraController,
+  ProvenanceTrace,
+  Minimap,
+  type ProvenanceChain,
 } from "@g3t/react";
 
 beforeEach(() => {
@@ -582,6 +585,50 @@ describe("projection pipeline (guide: Projection pipeline)", () => {
     expect(ugm.getNode(`${EX}p53`)?.types).toContain("Protein");
     // Steps are inspectable (BioShell renders these names in its caption).
     expect(p.getSteps().map((st) => st.name)).toEqual(["Type Collapse"]);
+  });
+});
+
+describe("provenance trace (guide: Render a provenance trace)", () => {
+  it("renders hops, edge details, and the absence hop", () => {
+    const chain: ProvenanceChain = [
+      { id: "rel", tier: "entity", label: "Release 1.2", depth: 0 },
+      {
+        id: "build",
+        tier: "activity",
+        label: "CI build",
+        detail: "wasGeneratedBy",
+        depth: 1,
+        parentId: "rel",
+      },
+      {
+        id: "rel::gap",
+        tier: "gap",
+        label: "No attribution recorded",
+        depth: 1,
+        parentId: "rel",
+        leaf: true,
+        absence: true,
+      },
+    ];
+    const onSelectHop = vi.fn();
+    render(
+      <ProvenanceTrace
+        chain={chain}
+        title="Lineage"
+        onSelectHop={onSelectHop}
+      />,
+    );
+    const panel = screen.getByTestId("g3t-provenance-trace");
+    expect(panel.textContent).toContain("Release 1.2");
+    expect(panel.textContent).toContain("wasGeneratedBy");
+    expect(panel.textContent).toContain("No attribution recorded");
+    fireEvent.click(screen.getByText("CI build"));
+    expect(onSelectHop).toHaveBeenCalledWith("build");
+  });
+
+  it("Minimap renders its disabled placeholder while the core is null (guide: Camera control)", () => {
+    render(<Minimap core={null} />);
+    expect(screen.getByTestId("minimap")).toBeDefined();
   });
 });
 

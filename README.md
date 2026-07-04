@@ -4,6 +4,19 @@ Composable graph visualization components for RDF, LPG, and Holonic architecture
 
 g3t is a **component library**, not an application framework. You install it, import the components you need, and compose them into your own application with your own layout, state management, and backend.
 
+## See it running
+
+- [Playground](https://zwelz3.github.io/g3-toolkit/playground/): four
+  domain shells (provenance auditing, an MBSE workbench, a supply-chain
+  digital thread, a biomedical knowledge graph) plus the two capability
+  dashboards, live in the browser.
+- [Storybook](https://zwelz3.github.io/g3-toolkit/storybook/): every
+  component and control in isolation.
+- [API reference](https://zwelz3.github.io/g3-toolkit/api/): typedoc,
+  including the rendered [wiring guide](https://github.com/zwelz3/g3-toolkit/blob/main/docs/wiring-guide.md).
+- [Docs landing](https://zwelz3.github.io/g3-toolkit/): all of the
+  above from one page.
+
 ## Packages
 
 | Package       | What it is                                                        | Peer dependencies           |
@@ -46,6 +59,12 @@ function MyGraphPage() {
 ```
 
 You decide the layout. You decide when to query. The toolkit components are leaf nodes in your component tree.
+
+This snippet is CI-verified twice over: every fenced code block in this
+README typechecks against the built packages (`verify:snippets`), and
+this one also RUNS as a test with a stubbed SPARQL endpoint
+(`examples/wiring/src/readme-quickstart.test.tsx`), so it cannot rot
+silently.
 
 ## What This Is NOT
 
@@ -136,16 +155,23 @@ Not sure which one shows your need? The
 [capability index](docs/capability-index.md) maps each adopter need to a
 demo, a wiring recipe, and a component story.
 
-- **Dev-server demo** (`pnpm run dev`): four scenario shells (Auditor,
-  MBSE, Supply Chain, Biomedical) showing the toolkit in domain
-  stories, with the graph toolbar, encoding controls, SHACL overlays, a
-  structural SysML view, custom raster/logo icons, and linked panels.
-- **Capability dashboards** (`examples/decision-dashboards`): two
-  capability-first dashboards (Analytics: stats/charts/algorithms;
-  Schema: schema/matrix/sankey/RDF export) foregrounding the views the
-  scenarios do not.
-- `examples/full-workspace` and `examples/wiring` show the integration
-  patterns and the executable wiring snippets.
+- **Playground** (`pnpm run dev`, or [live](https://zwelz3.github.io/g3-toolkit/playground/)):
+  four scenario shells (Auditor, MBSE, Supply Chain, Biomedical)
+  showing the toolkit in domain stories, plus the two capability
+  dashboards under "Capability surfaces" on the same landing page.
+  Every shell carries a "Built on the toolkit" panel whose mechanisms
+  deep-link into the wiring guide.
+- **Capability dashboards** (`examples/decision-dashboards`): the
+  Analytics and Schema dashboards as plain importable components
+  (stats/charts/algorithms/coverage; schema/matrix/sankey/RDF export).
+  Reachable from the playground landing; consumable directly from
+  their package (`vitest run` covers them headlessly).
+- **Application-shell example** (`examples/full-workspace`): the
+  multi-pane workspace pattern (flexlayout) that the published
+  packages deliberately do NOT include; source reference plus tests
+  (`pnpm --filter @g3t/example-full-workspace test`), not a hosted app.
+- **Executable wiring snippets** (`examples/wiring`): the CI-run twins
+  of every wiring-guide recipe and of the README quickstart above.
 
 The former cinematic flagship demo was retired 2026-07-03: the four
 scenario shells replaced it, and every public API it alone

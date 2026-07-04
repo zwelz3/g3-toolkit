@@ -213,14 +213,17 @@ export function BioShell({ onBack }: { onBack: () => void }) {
                 },
                 {
                   mechanism: "ProjectionPipeline",
+                  anchor: "projection-pipeline-rdf-to-lpg",
                   how: "names the standard preset's collapse steps in the canvas caption; the Raw toggle shows the triple view those steps fold away.",
                 },
                 {
                   mechanism: "useSelectionStore",
+                  anchor: "select-and-focus-a-node-of-interest",
                   how: "links the explorer, the chart bars, and the canvas: one selection, three views.",
                 },
                 {
                   mechanism: "encodingSpec",
+                  anchor: "drive-the-encoding-from-app-state",
                   how: "colors nodes by rdf:type with the shared categorical palette.",
                 },
               ]}

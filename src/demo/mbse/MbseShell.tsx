@@ -186,10 +186,12 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
             items={[
               {
                 mechanism: "layoutStructural",
+                anchor: "lay-out-a-structural-uml-style-view",
                 how: "lays out each diagram with ELK, emitting obstacle-aware edge routes.",
               },
               {
                 mechanism: "CytoscapeCanvas structural",
+                anchor: "lay-out-a-structural-uml-style-view",
                 how: "renders blocks with headers, compartments, and ports from the laid-out scene.",
               },
               {

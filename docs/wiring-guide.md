@@ -372,6 +372,44 @@ Canvas application (compound parents + preset row positions) is the
 next slice; the document is renderer-neutral, so you can already
 consume it for SVG export or your own drawing layer.
 
+### Render a provenance trace
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. The
+ProvenanceTrace panel renders a pre-order hop chain (any lineage your
+app derives; the auditor shell walks PROV-O edges) with tiers, edge
+details, and ABSENCE hops for evidence that should exist and does not:
+
+```tsx
+import { ProvenanceTrace, type ProvenanceChain } from "@g3t/react";
+
+const chain: ProvenanceChain = [
+  { id: "rel", tier: "entity", label: "Release 1.2", depth: 0 },
+  {
+    id: "build",
+    tier: "activity",
+    label: "CI build",
+    detail: "wasGeneratedBy",
+    depth: 1,
+    parentId: "rel",
+  },
+  {
+    id: "rel::gap",
+    tier: "gap",
+    label: "No attribution recorded",
+    depth: 1,
+    parentId: "rel",
+    leaf: true,
+    absence: true,
+  },
+];
+
+<ProvenanceTrace
+  chain={chain}
+  title="Lineage"
+  onSelectHop={(id) => console.log(id)}
+/>;
+```
+
 ## Box (lasso) selection: the gesture
 
 Box selection is on by default (`boxSelectionEnabled: true`), but with
@@ -502,7 +540,12 @@ camera.focusNodes(selectedIds); // zoom-to-subgraph
 camera.frameAll(); // fit everything
 ```
 
-`cy` is the Cytoscape core the canvas hands you through `onCore`.
+`cy` is the Cytoscape core the canvas hands you through `onReady`.
+The same core feeds the `Minimap` component (an overview inset whose
+viewport rectangle tracks and drives the camera): store the core from
+`onReady` in state and render `<Minimap core={core} />`; while the
+core is null it shows a disabled placeholder, so it mounts safely
+before the canvas is ready.
 
 ## Where the rest lives
 

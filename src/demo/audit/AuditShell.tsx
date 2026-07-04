@@ -176,22 +176,28 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
             items={[
               {
                 mechanism: "ProvenanceTrace",
+                anchor: "render-a-provenance-trace",
                 how: "renders the selected node's lineage; unattributed entities end in an absence hop, the same fact the report flags.",
               },
               {
                 mechanism: "hidden prop",
+                anchor: "filter-by-hiding-not-by-rebuilding",
                 how: "the range slider feeds hiddenForRange straight into the canvas, so the time window filters the graph itself, not just the table.",
               },
               {
                 mechanism: "node-local SHACL",
+                anchor:
+                  "visualize-a-shacl-validation-report-over-the-data-graph",
                 how: "audits the PROV-O record via derived facts (attributed, timestamps); findings group into this report.",
               },
               {
                 mechanism: "useOverlayStore",
+                anchor: "register-an-algorithm-result-from-your-backend",
                 how: "projects violations and warnings onto the graph as severity borders.",
               },
               {
                 mechanism: "useSelectionStore",
+                anchor: "select-and-focus-a-node-of-interest",
                 how: "clicking a finding or a timeline event selects the node on the canvas.",
               },
             ]}

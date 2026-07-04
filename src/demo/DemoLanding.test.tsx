@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { DemoLanding, SCENARIOS } from "./DemoLanding";
+import { DemoLanding, SCENARIOS, CAPABILITY_SURFACES } from "./DemoLanding";
 
 afterEach(cleanup);
 
@@ -36,6 +36,25 @@ describe("DemoLanding", () => {
     expect(mbse?.description).toContain("IBD");
     // Retired-demo phrases must not resurface on the card.
     expect(mbse?.description).not.toContain("context-menu");
+  });
+
+  it("lists the capability surfaces beneath the scenarios (P1.4)", () => {
+    expect(CAPABILITY_SURFACES.map((s) => s.id).sort()).toEqual([
+      "analytics-dashboard",
+      "schema-dashboard",
+    ]);
+    const { container } = render(<DemoLanding onSelect={() => {}} />);
+    expect(container.textContent).toContain("Capability surfaces");
+    for (const s of CAPABILITY_SURFACES) {
+      expect(screen.getByText(s.title)).toBeDefined();
+    }
+  });
+
+  it("hands a clicked capability surface to onSelect like any scenario", () => {
+    const onSelect = vi.fn();
+    render(<DemoLanding onSelect={onSelect} />);
+    fireEvent.click(screen.getByText("Analytics Dashboard"));
+    expect(onSelect.mock.calls[0]?.[0]?.id).toBe("analytics-dashboard");
   });
 
   it("hands the clicked scenario to onSelect", () => {

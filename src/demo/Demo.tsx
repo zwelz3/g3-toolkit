@@ -10,6 +10,7 @@ import { DemoLanding, type Scenario } from "./DemoLanding";
 import { MbseShell } from "./mbse/MbseShell";
 import { SupplyThreadShell } from "./supply/ThreadShell";
 import { BioShell } from "./bio/BioShell";
+import { AnalyticsSurface, SchemaSurface } from "./surfaces/DashboardSurfaces";
 import { AuditShell } from "./audit/AuditShell";
 import { useThemeStore } from "@g3t/react";
 import { injectDesignTokens } from "@g3t/react";
@@ -21,6 +22,8 @@ const SHELL_MAP: Record<string, React.ComponentType<{ onBack: () => void }>> = {
   auditor: AuditShell,
   "supply-chain": SupplyThreadShell,
   biomedical: BioShell,
+  "analytics-dashboard": AnalyticsSurface,
+  "schema-dashboard": SchemaSurface,
 };
 
 export function Demo() {

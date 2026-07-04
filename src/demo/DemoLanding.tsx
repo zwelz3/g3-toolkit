@@ -18,6 +18,38 @@ export interface Scenario {
   tags: string[];
 }
 
+/**
+ * Capability surfaces: where the scenarios above are domain stories,
+ * these foreground the toolkit surface the stories do not (analytics
+ * panels, schema/matrix/sankey views). They live in
+ * examples/decision-dashboards as plain importable components; the
+ * landing routes to thin wrappers around them.
+ */
+export const CAPABILITY_SURFACES: Scenario[] = [
+  {
+    id: "analytics-dashboard",
+    title: "Analytics Dashboard",
+    subtitle: "Charts, stats, algorithms, derived properties, coverage",
+    description:
+      "The supply network under the analytic surface: linked charts and stats, algorithm runs ingested as node properties, a derived-property panel, subgraph export, and origin-declaration coverage rendered with CoverageMeter.",
+    accent: "#e3b341",
+    accentGlow: "rgba(227, 179, 65, 0.15)",
+    icon: "\u2237",
+    tags: ["StatsPanel + charts", "AlgorithmPanel", "CoverageMeter"],
+  },
+  {
+    id: "schema-dashboard",
+    title: "Schema Dashboard",
+    subtitle: "Structure views over the same graphs",
+    description:
+      "Schema extraction, adjacency matrix, and sankey flow over the satellite and supply fixtures, with the RDF paradigm notes alongside: the structural counterpart to the analytics surface.",
+    accent: "#5cb8e4",
+    accentGlow: "rgba(92, 184, 228, 0.15)",
+    icon: "\u229e",
+    tags: ["SchemaView", "MatrixView", "SankeyView"],
+  },
+];
+
 export const SCENARIOS: Scenario[] = [
   {
     id: "auditor",
@@ -204,6 +236,38 @@ export function DemoLanding({
         }}
       >
         {SCENARIOS.map((scenario) => (
+          <ScenarioCard
+            key={scenario.id}
+            scenario={scenario}
+            onClick={() => onSelect(scenario)}
+          />
+        ))}
+      </div>
+      <h2
+        style={{
+          margin: "28px 0 4px",
+          fontSize: 15,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          opacity: 0.75,
+        }}
+      >
+        Capability surfaces
+      </h2>
+      <p style={{ margin: "0 0 12px", fontSize: 13, opacity: 0.65 }}>
+        The scenarios above are domain stories; these foreground the toolkit
+        surface directly.
+      </p>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+          gap: 20,
+          maxWidth: 760,
+          width: "100%",
+        }}
+      >
+        {CAPABILITY_SURFACES.map((scenario) => (
           <ScenarioCard
             key={scenario.id}
             scenario={scenario}
