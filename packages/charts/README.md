@@ -8,6 +8,11 @@ abstraction.
 Install only if you need non-graph visualizations alongside your
 graph views.
 
+Live: [playground](https://zwelz3.github.io/g3-toolkit/playground/) ·
+[Storybook](https://zwelz3.github.io/g3-toolkit/storybook/) ·
+[wiring guide](https://github.com/zwelz3/g3-toolkit/blob/main/docs/wiring-guide.md)
+(every guide snippet runs in CI).
+
 ## Install
 
 ```bash

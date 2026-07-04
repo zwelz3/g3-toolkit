@@ -1,7 +1,7 @@
 # Design Decision: Large Graph Visualization
 
 Date: 2026-05-24
-Status: Approved (post-v1.0)
+Status: Approved (post-v1.0). Approach 1 IMPLEMENTED 2026-07-04 (packages/core/src/scale/collapse-by-cluster.ts; demo path: the playground Scale surface; see CHANGELOG). Approach 4 not yet implemented.
 
 ## Context
 
@@ -57,10 +57,10 @@ becomes slow on the client; it should run server-side.
 function collapseByCluster(
   ugm: UGM,
   options?: {
-    threshold?: number;      // default 2000
-    maxSupernodes?: number;  // default 200
+    threshold?: number; // default 2000
+    maxSupernodes?: number; // default 200
     clusterProperty?: string; // default: auto-detect via Louvain
-  }
+  },
 ): UGM {
   if (ugm.nodeCount <= (options?.threshold ?? 2000)) return ugm;
 
@@ -99,6 +99,7 @@ function drillIntoCluster(
 ```
 
 **Integration points:**
+
 - `ProjectionPipeline.addTransform(collapseByCluster)`
 - Context menu: "Expand Cluster" / "Collapse to Cluster"
 - CanvasLegend: show cluster size indicators
@@ -192,6 +193,7 @@ function ViewportCulledCanvas({ ugm, positions }: Props) {
 ```
 
 **Integration points:**
+
 - `CytoscapeCanvas` needs an `onViewportChange` callback (new prop)
 - Layout engines need a `computeAsync` variant returning a Promise
 - The `layout="preset"` mode must accept a positions Map

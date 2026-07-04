@@ -20,6 +20,7 @@ const captured = vi.hoisted(() => ({
     allClustered: boolean;
     nodes: number;
     hasOnReady: boolean;
+    animate: boolean | undefined;
   }>,
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@g3t/react", async (importOriginal) => {
       ugm: UGM;
       encodingSpec?: SpecShape;
       onReady?: (cy: unknown) => void;
+      animate?: boolean;
     }) => {
       let nodes = 0;
       let allClustered = true;
@@ -43,6 +45,7 @@ vi.mock("@g3t/react", async (importOriginal) => {
         allClustered,
         nodes,
         hasOnReady: typeof props.onReady === "function",
+        animate: props.animate,
       });
       return <div data-testid="canvas-stub" />;
     },
@@ -88,6 +91,9 @@ describe("SupplyThreadShell canvas contract", () => {
     render(<SupplyThreadShell onBack={() => {}} />);
     // The shell hands the canvas an onReady to capture the core...
     expect(captured.calls.at(-1)?.hasOnReady).toBe(true);
+    // Reduced-motion wiring: jsdom has no matchMedia, so the hook
+    // reports full motion and the shell passes animate={true}.
+    expect(captured.calls.at(-1)?.animate).toBe(true);
     // ...and the Minimap renders its disabled placeholder meanwhile
     // (the stubbed canvas never delivers a core in jsdom).
     expect(screen.getByTestId("minimap")).toBeDefined();

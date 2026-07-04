@@ -48,6 +48,18 @@ export const CAPABILITY_SURFACES: Scenario[] = [
     icon: "\u229e",
     tags: ["SchemaView", "MatrixView", "SankeyView"],
   },
+
+  {
+    id: "scale",
+    title: "Scale",
+    subtitle: "8,000 nodes, clustered live to supernodes",
+    description:
+      "A generated 8,000-node graph collapsed in-browser by Louvain community detection: the renderer sees ~40 supernodes sized by member count while the full graph stays in the UGM. Drill into any cluster for its working-set-capped member subgraph. The header shows the real measured clustering time.",
+    accent: "#7ee081",
+    accentGlow: "rgba(126, 224, 129, 0.15)",
+    icon: "\u2b22",
+    tags: ["collapseByCluster", "Louvain", "drill-in"],
+  },
 ];
 
 export const SCENARIOS: Scenario[] = [

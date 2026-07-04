@@ -4,6 +4,11 @@ React components for graph visualization: canvas, table, inspector,
 tree, map, schema, timeline, and more. Pairs with `@g3t/core` for the
 underlying data model.
 
+Live: [playground](https://zwelz3.github.io/g3-toolkit/playground/) ·
+[Storybook](https://zwelz3.github.io/g3-toolkit/storybook/) ·
+[wiring guide](https://github.com/zwelz3/g3-toolkit/blob/main/docs/wiring-guide.md)
+(every guide snippet runs in CI).
+
 ## Install
 
 ```bash

@@ -1,6 +1,6 @@
 # Demo & Examples Enhancement Plan v1
 
-Status: P0 EXECUTED 2026-07-03; P1 EXECUTED 2026-07-04 (see CHANGELOG; P1.1's link resolution awaits the maintainer's push + Pages enablement). P2 pending. Supersedes the 2026-07-03 draft;
+Status: P0 EXECUTED 2026-07-03; P1 EXECUTED 2026-07-04 (P1.1 link resolution awaits push + Pages enablement); P2.1 / P2.4 EXECUTED and P2.2 motion slice EXECUTED 2026-07-04 (deeper keyboard/ARIA audit remains browser-verified follow-up); P2.3 stays deferred on demand. Supersedes the 2026-07-03 draft;
 all five draft decision points are resolved below. Destined for
 planning/demo-adoption-plan.md at the start of the first execution round.
 Prior art: planning/enhancement-plan.md (M10-M13, complete; no overlap),

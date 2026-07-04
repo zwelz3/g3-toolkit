@@ -31,6 +31,7 @@ import { BioChart } from "./BioChart";
 import { OntologyExplorer } from "./OntologyExplorer";
 import { BIO_STYLES } from "./bio-styles";
 import { CapabilityCallout } from "../components/CapabilityCallout";
+import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 
 const SPEC: EncodingSpec = {
   version: 1,
@@ -50,6 +51,7 @@ function cellText(term: Term | undefined): string {
 }
 
 export function BioShell({ onBack }: { onBack: () => void }) {
+  const reducedMotion = usePrefersReducedMotion();
   const ugm = useMemo(() => rdfToUgm(bioGraph), []);
 
   // Raw-vs-projected canvas toggle (the projection-pipeline story).
@@ -172,7 +174,11 @@ export function BioShell({ onBack }: { onBack: () => void }) {
                 : `standard projection (${pipelineSteps.join(", ")}); panels always query this view`}
             </span>
           </div>
-          <CytoscapeCanvas ugm={canvasUgm} encodingSpec={SPEC} />
+          <CytoscapeCanvas
+            ugm={canvasUgm}
+            encodingSpec={SPEC}
+            animate={!reducedMotion}
+          />
         </main>
 
         <aside className="bio-sparql">

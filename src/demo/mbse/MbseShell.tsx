@@ -22,6 +22,7 @@ import { ContainmentTree } from "./ContainmentTree";
 import type { DiagramType } from "./model";
 import { MBSE_STYLES } from "./styles";
 import { CapabilityCallout } from "../components/CapabilityCallout";
+import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 
 const DIRECTION: Record<DiagramType, "DOWN" | "RIGHT"> = {
   bdd: "DOWN",
@@ -90,6 +91,7 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
     [diagramId],
   );
 
+  const reducedMotion = usePrefersReducedMotion();
   const [laidOut, setLaidOut] = useState<{
     input: StructuralGraphInput;
     geometry: StructuralGeometry;
@@ -147,7 +149,11 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
 
         <main className="mbse-canvas-wrap">
           {scene ? (
-            <CytoscapeCanvas ugm={ugm} structural={scene} />
+            <CytoscapeCanvas
+              ugm={ugm}
+              structural={scene}
+              animate={!reducedMotion}
+            />
           ) : (
             <div className="mbse-empty">
               Laying out {diagram?.name ?? "diagram"}

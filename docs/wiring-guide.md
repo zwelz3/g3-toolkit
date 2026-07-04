@@ -487,6 +487,41 @@ The biomedical playground shell renders this live: its canvas toggle
 shows the raw triple view beside the projected one, and its caption
 lists the preset's step names straight from `getSteps()`.
 
+## Scaling: collapse large graphs to clusters
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. When a
+graph exceeds what the renderer handles comfortably (~5k nodes),
+collapse it to community supernodes; the full graph stays in your UGM
+and the canvas sees dozens of nodes. Drill in with `buildSubgraph`.
+The playground's Scale surface runs this live over 8,000 nodes with
+the measured timings on screen.
+
+```ts
+import { collapseByCluster, buildSubgraph } from "@g3t/core";
+
+const {
+  ugm: clustered,
+  members,
+  collapsed,
+} = collapseByCluster(big, {
+  threshold: 2000, // below this, returned unchanged
+  maxSupernodes: 200, // smallest communities pool into one "other"
+  rng: seededRng, // deterministic Louvain (optional)
+  // clusterProperty: "team",  // or skip detection: group by a property
+});
+
+// Drill-in: the induced member subgraph, working-set capped.
+const memberIds = members.get("cluster:c3") ?? [];
+const { ugm: sub, truncated } = buildSubgraph(big, memberIds, 1500);
+```
+
+Supernodes carry `memberCount` (drive the size channel with it),
+`typeBreakdown`, and a label like "Person cluster (847)"; inter-cluster
+edges aggregate into weighted `cluster-link` edges. This is Approach 1
+of planning/large-graph-design.md; Approach 4 (worker layout with
+viewport culling, for drilled sets past ~5k) is designed but not yet
+implemented.
+
 ## Programmatic APIs
 
 Every snippet here runs under CI in

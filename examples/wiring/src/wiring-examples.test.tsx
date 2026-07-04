@@ -37,6 +37,8 @@ import {
   createPresetPipeline,
   ProjectionPipeline,
   typeCollapse,
+  collapseByCluster,
+  buildSubgraph,
   type RDFGraph,
 } from "@g3t/core";
 import {
@@ -585,6 +587,41 @@ describe("projection pipeline (guide: Projection pipeline)", () => {
     expect(ugm.getNode(`${EX}p53`)?.types).toContain("Protein");
     // Steps are inspectable (BioShell renders these names in its caption).
     expect(p.getSteps().map((st) => st.name)).toEqual(["Type Collapse"]);
+  });
+});
+
+describe("scaling (guide: Scaling: collapse large graphs to clusters)", () => {
+  it("collapses past the threshold and drills back in, capped", () => {
+    const big = new UGM();
+    for (let c = 0; c < 3; c++) {
+      for (let i = 0; i < 40; i++) {
+        big.addNode(`x${c}-${i}`, {
+          types: ["Thing"],
+          properties: { name: `x${c}-${i}`, team: `t${c}` },
+        });
+        if (i > 0) big.addEdge(`x${c}-${i}`, `x${c}-0`, { type: "in" });
+      }
+    }
+    const {
+      ugm: clustered,
+      members,
+      collapsed,
+    } = collapseByCluster(big, {
+      threshold: 100,
+      clusterProperty: "team",
+    });
+    expect(collapsed).toBe(true);
+    expect(clustered.getNodeIds().length).toBe(3);
+    expect(members.get("cluster:t1")?.length).toBe(40);
+    expect(clustered.getNode("cluster:t1")?.properties.memberCount).toBe(40);
+
+    const { ugm: sub, truncated } = buildSubgraph(
+      big,
+      members.get("cluster:t1") ?? [],
+      25,
+    );
+    expect(truncated).toBe(true);
+    expect(sub.getNodeIds().length).toBe(25);
   });
 });
 

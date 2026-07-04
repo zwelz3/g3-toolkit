@@ -4,6 +4,11 @@ Framework-agnostic data model, adapters, projection pipeline, and
 algorithms for the g3-toolkit. Zero React dependency; usable from
 Vue, Angular, Svelte, or plain JavaScript.
 
+Live: [playground](https://zwelz3.github.io/g3-toolkit/playground/) ·
+[Storybook](https://zwelz3.github.io/g3-toolkit/storybook/) ·
+[wiring guide](https://github.com/zwelz3/g3-toolkit/blob/main/docs/wiring-guide.md)
+(every guide snippet runs in CI).
+
 ## Install
 
 ```bash

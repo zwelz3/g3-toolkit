@@ -32,6 +32,7 @@ import {
 import { RangeSlider } from "./RangeSlider";
 import { AUDIT_STYLES } from "./audit-styles";
 import { CapabilityCallout } from "../components/CapabilityCallout";
+import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import { provenanceChainFor } from "./chain";
 
 const SPEC: EncodingSpec = {
@@ -51,6 +52,7 @@ function fmt(t: number): string {
 }
 
 export function AuditShell({ onBack }: { onBack: () => void }) {
+  const reducedMotion = usePrefersReducedMotion();
   const ugm = useMemo(() => buildProvenance(), []);
   const events = useMemo(() => provenanceEvents(ugm), [ugm]);
   const bounds = useMemo(() => timeBounds(events), [events]);
@@ -205,7 +207,12 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
         </aside>
 
         <main className="au-canvas-wrap">
-          <CytoscapeCanvas ugm={ugm} encodingSpec={SPEC} hidden={hidden} />
+          <CytoscapeCanvas
+            ugm={ugm}
+            encodingSpec={SPEC}
+            hidden={hidden}
+            animate={!reducedMotion}
+          />
         </main>
 
         <aside className="au-timeline">

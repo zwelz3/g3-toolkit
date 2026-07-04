@@ -41,6 +41,7 @@ import {
 } from "./viz";
 import { THREAD_STYLES } from "./thread-styles";
 import { CapabilityCallout } from "../components/CapabilityCallout";
+import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 
 type Mode = "none" | ClusterMode;
 
@@ -103,6 +104,7 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   const [supplier, setSupplier] = useState<string>("");
   // Cytoscape core from the canvas, feeding the Minimap overview inset
   // (disabled placeholder until the canvas is ready).
+  const reducedMotion = usePrefersReducedMotion();
   const [core, setCore] = useState<Core | null>(null);
 
   // Cluster mode: materialize a `cluster` property on every node (overwriting
@@ -189,7 +191,12 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
 
       <div className="sc-body">
         <main className="sc-canvas-wrap">
-          <CytoscapeCanvas ugm={ugm} encodingSpec={spec} onReady={setCore} />
+          <CytoscapeCanvas
+            ugm={ugm}
+            encodingSpec={spec}
+            onReady={setCore}
+            animate={!reducedMotion}
+          />
           <div className="sc-minimap">
             <Minimap core={core} width={180} height={120} />
           </div>

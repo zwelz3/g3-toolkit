@@ -12,7 +12,7 @@ import {
   SchemaDashboard,
 } from "../../../examples/decision-dashboards/src";
 
-function SurfaceFrame({
+export function SurfaceFrame({
   title,
   subtitle,
   accent,

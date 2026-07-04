@@ -271,3 +271,9 @@ export {
 export { findShortestPath } from "./path-analysis";
 export type { PathResult, PathOptions } from "./path-analysis";
 export * from "./export";
+export { collapseByCluster, buildSubgraph } from "./scale/collapse-by-cluster";
+export type {
+  CollapseByClusterOptions,
+  CollapseResult,
+  SubgraphResult,
+} from "./scale/collapse-by-cluster";
