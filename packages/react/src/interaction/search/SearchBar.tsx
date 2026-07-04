@@ -11,6 +11,7 @@ import Fuse from "fuse.js";
 import type { FuseResult } from "fuse.js";
 import type { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { Icon } from "../../icons";
 
 export interface SearchResult {
   matchingIds: string[];
@@ -227,7 +228,7 @@ export function SearchBar({
               e.currentTarget.style.color = "var(--g3t-text-muted)";
             }}
           >
-            ×
+            <Icon name="close" size={14} label="Clear search" />
           </button>
         </>
       )}

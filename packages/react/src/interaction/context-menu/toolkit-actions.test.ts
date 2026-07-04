@@ -8,6 +8,7 @@ import { ContextMenuManager } from "../../interaction/context-menu";
 import { G3tEventBus } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { useStyleOverrideStore } from "../../state/style-override-store";
+import { usePositionPinStore } from "../../state/position-pin-store";
 import {
   //
   registerToolkitActions,
@@ -21,6 +22,7 @@ beforeEach(() => {
     hoveredNodeId: null,
   });
   useStyleOverrideStore.setState({ overrides: [] });
+  usePositionPinStore.setState({ pinnedIds: [], allPinned: false });
 });
 
 function makeUGM(): UGM {
@@ -354,5 +356,22 @@ describe("buildNeighborhoodUGM", () => {
     const ugm = makeUGM();
     const sub = buildNeighborhoodUGM(ugm, "a", 1);
     expect(sub.edgeCount).toBe(1);
+  });
+});
+
+describe("pin-position action (round 17)", () => {
+  it("toggles the node's position pin in the store", () => {
+    const bus = new G3tEventBus();
+    const manager = new ContextMenuManager();
+    registerToolkitActions(manager, { ugm: makeUGM(), eventBus: bus });
+
+    const target = { type: "node" as const, id: "a", position: { x: 0, y: 0 } };
+    const items = manager.resolve(target);
+    const pin = items.find((i) => i.id === "pin-position");
+    expect(pin).toBeTruthy();
+    pin!.action(target);
+    expect(usePositionPinStore.getState().pinnedIds).toEqual(["a"]);
+    pin!.action(target);
+    expect(usePositionPinStore.getState().pinnedIds).toEqual([]);
   });
 });

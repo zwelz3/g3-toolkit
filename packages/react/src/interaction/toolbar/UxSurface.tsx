@@ -11,6 +11,7 @@
 import { useEffect } from "react";
 import type { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { Icon } from "../../icons";
 
 // ── HoverTooltip (M8.5.E3.T1) ──────────────────────────────────────
 
@@ -144,7 +145,7 @@ export function ZoomControls({
           style={btnStyle}
           title="Zoom in"
         >
-          +
+          <Icon name="plus" size={14} label="Zoom in" />
         </button>
         <button
           data-testid="zoom-out"
@@ -152,7 +153,7 @@ export function ZoomControls({
           style={{ ...btnStyle, borderTop: "none" }}
           title="Zoom out"
         >
-          −
+          <Icon name="minus" size={14} label="Zoom out" />
         </button>
         <button
           data-testid="zoom-fit"

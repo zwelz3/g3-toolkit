@@ -35,8 +35,116 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const BUDGETS = {
-  core: 120 * 1024, // 120 KB
-  react: 200 * 1024, // 200 KB
+  core: 140 * 1024, // 140 KB
+  // Core ledger:
+  // - 130 -> 140 KB, 2026-07-03: measured 133.3 KB on gate revival.
+  //   verify:exports lost its test sources (tests/dist) in a packaging
+  //   round, so verify short-circuited and this gate did not run while
+  //   rounds 44+ shipped; growth accrued unledgered. Sourcemap audit:
+  //   zero node_modules bytes in dist; the growth is first-party
+  //   (structural layout/routing follow-ups and SHACL report surface).
+  //   Headroom set modestly (not the fresh-baseline +25%) so future
+  //   creep still trips the gate.
+  // - 128 -> 130 KB, 2026-06-12 (round 44): SHACL linked views (B4):
+  //   shacl-links (resultTargets, resultSelectionIds, resultDetail,
+  //   resultsForFocusNode) tying validation results to shape-view
+  //   targets and back, +0.1 KB over the 128 cap. Pure core; the
+  //   host wires the ids into the selection store (no new machinery).
+  // - 124 -> 128 KB, 2026-06-12 (round 39): SHACL validation REPORT
+  //   visualization (B1, R1.17): the versioned report document,
+  //   reportFromValidationResults adapter, severityOverlays,
+  //   shaclResultDrivers, report filtering helpers, +1.9 KB. Pure
+  //   core: reports-not-validation, the toolkit consumes a document
+  //   and reuses the overlay + encoding machinery.
+  // - 120 -> 124 KB, 2026-06-12 (round 37): SHACL shape view through
+  //   the compartment API (shaclShapesToStructural, shaclRowSeverities,
+  //   closedShapeIds, the row-text/cardinality/constraint-chip
+  //   formatters), +1.5 KB. The Group A exit criterion: SHACL is a
+  //   second client of the structural input model, so the mapper is
+  //   pure core with no new rendering engine.
+  // - within 120 KB, 2026-06-12 (round 31): structural rendering
+  //   geometry (StructuralGeometry v1 document, validated ELK
+  //   compartment builder, layoutStructural runner), core now
+  //   116.0 KB. elkjs itself is externalized by the build and adds
+  //   nothing here; only the builder/flattener code counts.
+  // Budget ledger (ratchets are deliberate, never silent; an
+  // unexplained breach is a regression, not a bump):
+  // - 200 -> 220 KB, 2026-06-11: encoding grammar (spec model +
+  //   EncodingSpecPanel + EncodingPreview, +11.4 KB).
+  // - 220 -> 226 KB, 2026-06-11: review round 10 (FixedNumberEditor,
+  //   edge.color categorical/fixed editors, ThemeSwitcher component,
+  //   +2.5 KB across four user-facing surfaces).
+  // - 226 -> 232 KB, 2026-06-11: spec->canvas application milestone
+  //   (applyEncodingSpec + edge rules + SpecLegend, +5.4 KB; the
+  //   feature the encoding grammar existed to enable).
+  // - 232 -> 240 KB, 2026-06-11: round 13 (canvas icon data-URI path,
+  //   shape channel: resolver + editor + legend glyphs, +6.3 KB).
+  // - 240 -> 244 KB, 2026-06-11: round 14 (override bypass
+  //   application wiring + SpecPort tier-3 surface, +1.4 KB).
+  // - 244 -> 248 KB, 2026-06-11: round 15 (GraphToolbar: the cy glue
+  //   composing search, layouts, force controls, zoom, +1.8 KB).
+  // - 248 -> 253 KB, 2026-06-11: round 16 (toolbar rebuild with
+  //   popover + pin-all, menu tokenization, settings glyph, +3.6 KB).
+  // - 253 -> 258 KB, 2026-06-11: round 17 (per-node pinning store +
+  //   canvas effect + menu action; compound containment mapping +
+  //   container rule, +2.5 KB).
+  // - 258 -> 262 KB, 2026-06-12: round 19 (workspace capture/restore
+  //   module, shuffle control, luminance-aware glyph path, +1.9 KB).
+  // - 262 -> 264 KB, 2026-06-12: round 20 (theme->canvas wiring:
+  //   themeColorRules + shared stylesheet assembly, +0.2 KB over the
+  //   previous ceiling).
+  // - 264 -> 274 KB, 2026-06-12: round 21 (algorithm story: overlay
+  //   store + canvas overlay effect + OVERLAY_RULES + AlgorithmPanel
+  //   with runners and ingest surface, +8.7 KB; the panel dominates).
+  // - 274 -> 276 KB, 2026-06-12: round 25 (pin badge stack composition,
+  //   property-key reporting, +0.8 KB).
+  // - 276 -> 280 KB, 2026-06-12: round 26 (filled theme-aware pin
+  //   badge, toolbar export control with three data formats + PNG,
+  //   +2.7 KB).
+  // - 280 -> 285 KB, 2026-06-12: round 32 (structural scene
+  //   rendering, slice A2: StructuralGeometry -> Cytoscape converter,
+  //   class-scoped structural stylesheet, preset-layout branch in
+  //   the canvas; +4.8 KB for a new view capability, in line with
+  //   the +5.4 KB spec-application ratchet. elkjs stays external.)
+  // - 285 -> 288 KB, 2026-06-12: round 35 (ports moved to top-level
+  //   siblings to live fully outside the container per VA-27 review;
+  //   wireStructuralPortDrag reattaches the drag-along siblings lose,
+  //   +1.2 KB). The round-34 entry warned this addition would force a
+  //   ledger decision; it did.
+  // - 288 -> 294 KB, 2026-06-12: round 36 (compartment collapse
+  //   canvas slice: compartment-collapse-store + the built-in
+  //   "Collapse/expand compartments" context-menu contribution,
+  //   +5.8 KB for the per-container runtime surface that R1.18's
+  //   third acceptance criterion needs).
+  // - 294 -> 297 KB, 2026-06-12 (round 40): VA-review fixes: the
+  //   overlay effect's per-canvas scoping guard (multiple canvases
+  //   sharing the global overlay store no longer cross-dim) and the
+  //   compartment-row-scoped collapse menu action (+1.5 KB).
+  // - 297 -> 300 KB, 2026-06-12 (round 45): A3 UML edge vocabulary
+  //   (composition/aggregation/generalization/dependency arrow rules
+  //   on structural edges) +0.1 KB over the 297 cap.
+  // - 300 -> 304 KB, 2026-06-16 (demo-fixes round): user-facing fixes
+  //   that touched library components: the TableView column-menu
+  //   close affordance (outside-click + Escape + close button), the
+  //   TreeView ancestor-path breadcrumb (parent-map derivation
+  //   replacing the click trail), the CytoscapeCanvas structural
+  //   cxttap container-resolution (so context actions get the real
+  //   node id in block view), the FacetFilter colorForType swatch
+  //   hook, and the categoricalColorMap encoding helper. +0.3 KB over
+  //   the 300 cap.
+  // React ledger (revival entry; older ratchets above):
+  // - 304 -> 384 KB, 2026-07-03: measured 365.4 KB on gate revival
+  //   (gate dead since tests/dist was lost; see the core entry).
+  //   Sourcemap audit of the two largest chunks (191 KB + 209 KB of
+  //   pre-minified source): zero node_modules bytes; the growth is
+  //   the structural renderer (structural-to-cytoscape.ts 49 KB,
+  //   CytoscapeCanvas.tsx 49 KB with structural mode, ports,
+  //   compartments, obstacle-aware routing) plus the encoding and
+  //   toolbar interaction surface (EncodingSpecPanel 33 KB,
+  //   GraphToolbar/UxSurface/VisualEncoding). All deliberate,
+  //   CHANGELOG-documented rounds. Modest headroom, same rationale
+  //   as core.
+  react: 384 * 1024, // 384 KB
   charts: 10 * 1024, // 10 KB
 };
 
@@ -78,7 +186,9 @@ for (const [pkg, budget] of Object.entries(BUDGETS)) {
   try {
     total = dirSize(dist, [".mjs", ".js"]);
   } catch (err) {
-    console.error(`  @g3t/${pkg}: dist/ missing — run pnpm run build:packages first`);
+    console.error(
+      `  @g3t/${pkg}: dist/ missing — run pnpm run build:packages first`,
+    );
     failures++;
     continue;
   }

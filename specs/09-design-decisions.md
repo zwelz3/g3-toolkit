@@ -36,7 +36,7 @@ Decisions with status "considering" are not yet finalized.
 
 - D3 The right-click context menu SHALL be the primary interaction surface for contextual actions across all views. "Show N-degree neighbors" (default 1) SHALL be the first item in the menu. The menu SHALL be extensible by plugins and Holonic portals.
   - status: accepted
-  - rationale: Discoverability research (Nielsen Norman) shows right-click menus reduce interaction cost for frequent actions. N-degree expansion is the single most common graph exploration action across all 8 capability clusters. Making it the first menu item and defaulting to 1 degree minimizes clicks for the dominant workflow.
+  - rationale: Context menus reduce interaction cost for frequent actions by keeping the action adjacent to its target (see the interaction-pattern comparison in research/technology-survey.md). N-degree expansion is the single most common graph exploration action across all 8 capability clusters (C1 through C8; research/use-case-survey.md, section B). Making it the first menu item and defaulting to 1 degree minimizes clicks for the dominant workflow.
   - affects: ContextMenuManager, PluginRegistry, HolonicAdapter
   - owner: UX Lead
 
@@ -84,7 +84,7 @@ Decisions with status "considering" are not yet finalized.
 
 - D11 The view layer SHALL be paradigm-neutral. All 12 archetype views consume a unified node/edge/property model. Paradigm-specific visual encodings (named-graph badges, holon-layer color coding, raw-triple inspection) are opt-in overlays, not structural assumptions. Where a design decision would restrict paradigm neutrality, it SHALL be deferred and documented rather than resolved.
   - status: accepted
-  - rationale: The foundational research identified that the RDF/LPG divide is a data-layer concern, not a visualization concern. Baking paradigm assumptions into the view layer would limit the toolkit to one paradigm and prevent the 90%+ use-case coverage target.
+  - rationale: The foundational research (research/use-case-survey.md; research/technology-survey.md) identified that the RDF/LPG divide is a data-layer concern, not a visualization concern. Baking paradigm assumptions into the view layer would limit the toolkit to one paradigm and prevent the 90%+ use-case coverage target.
   - affects: All renderers, UnifiedGraphModel
   - owner: Architecture Lead
 
@@ -104,4 +104,11 @@ Decisions with status "considering" are not yet finalized.
   - status: accepted
   - rationale: M0 acceptance testing revealed 4 bugs (invalid Cytoscape selector, zoom sensitivity, context menu wiring, layout density) that 90 passing unit tests did not catch. All were visual/interaction failures. M5-M10 are view-heavy milestones; automated visual regression is essential to avoid repeating the manual-only pattern. Robot Framework adds keyword-driven executable specifications tagged by requirement ID (R1.1, R2.5, etc.) for non-developer review.
   - affects: CI pipeline, test infrastructure, all view components
+  - owner: Architecture Lead
+
+- D15 The canvas SHALL preserve the camera (pan/zoom) and node positions whenever the INPUT GRAPH is unchanged. A same-graph change (theme, spec, decorations, selection, hover) SHALL NOT re-initialize the instance, refit, or recenter. The view SHALL re-initialize or refit ONLY when the input graph genuinely differs (its node-id set changes) or in response to an EXPLICIT user operation: a fit/zoom control, focus/zoom-to, layout reheat, or layout-algorithm selection.
+  - status: accepted
+  - rationale: Recreating the Cytoscape instance on every parent render reset the viewport and discarded manual node positions. Two triggers: (a) decoration props are passed as fresh object literals each render (e.g. structuralDecorations={{ collapsedContainers }}), so a selection or hover re-render changed the rebuild dependency by identity even when nothing relevant changed; (b) the recreated instance's preset layout fits by default. Reported by Zach (2026-06-20): collapsing a container, repositioning it, then selecting another container reverted the drag and the camera. Enforcers: theme/spec are restyle-only (style().fromJson, never re-init); decoration rebuilds key on decoration CONTENT, not object identity, and read the live decorations through a ref; structural rebuilds capture pan/zoom in the effect cleanup (cyRef is nulled before the next init runs, so the live camera cannot be read at init time) and restore it on a same-graph rebuild, fitting only on first mount or a different graph. Graph identity is the sorted top-level node-id set; it is stable across collapse/expand and re-layout and survives the asynchronous two-render geometry update (decorations land first, geometry second).
+  - gap: A genuine structural geometry change (collapse, re-layout direction) still recreates the instance from layout geometry, so manual drags are not preserved across it; preserving them needs in-place position updates rather than a recreate. The force-directed (non-structural) path does not yet capture/restore the camera across a same-graph re-init; today its re-init triggers are real graph or layout changes, so no spurious reset occurs, but the explicit guarantee is implemented only for the structural (preset) path.
+  - affects: CytoscapeCanvas, all canvas-hosting views, consumers passing decoration props
   - owner: Architecture Lead

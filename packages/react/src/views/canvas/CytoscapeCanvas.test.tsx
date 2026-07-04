@@ -8,15 +8,31 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { UGM } from "@g3t/core";
 
 // Mock cytoscape before importing the component
 const mockCy = {
   on: vi.fn(),
+  removeListener: vi.fn(),
   destroy: vi.fn(),
-  nodes: vi.fn(() => ({ length: 2 })),
+  nodes: vi.fn(() => ({ length: 2, forEach: vi.fn() })),
   edges: vi.fn(() => ({ length: 1 })),
+  batch: vi.fn((fn: () => void) => fn()),
+  style: vi.fn(() => ({
+    fromJson: vi.fn(() => ({ update: vi.fn() })),
+  })),
+  getElementById: vi.fn(() => ({ nonempty: () => false })),
+  // Viewport API used by the structural camera policy (fit on first mount,
+  // capture + restore pan/zoom across a collapse rebuild). Real cytoscape
+  // instances always provide these.
+  fit: vi.fn(),
+  pan: vi.fn(() => ({ x: 0, y: 0 })),
+  zoom: vi.fn(() => 1),
+  viewport: vi.fn(),
+  // Selection-highlight subscription path (exercised once a test
+  // actually changes the selection store while a canvas is mounted).
+  elements: vi.fn(() => ({ removeClass: vi.fn() })),
 };
 
 vi.mock("cytoscape", () => ({
@@ -105,5 +121,367 @@ describe("CytoscapeCanvas component (M0.E3.T1)", () => {
     const removeSpy = vi.spyOn(canvasContainer, "removeEventListener");
     unmount();
     expect(removeSpy).toHaveBeenCalledWith("contextmenu", expect.any(Function));
+  });
+});
+
+describe("encoding spec node glyph rule", () => {
+  it("targets only patched nodes via attribute presence", async () => {
+    const { ENCODING_NODE_RULES } = await import("./CytoscapeCanvas");
+    expect(ENCODING_NODE_RULES.map((r) => r.selector)).toContain("node[_icon]");
+    const style = (
+      ENCODING_NODE_RULES[0] as unknown as {
+        style: Record<string, string>;
+      }
+    ).style;
+    expect(style["background-image"]).toBe("data(_icon)");
+  });
+});
+
+describe("theme -> canvas wiring (round 20)", () => {
+  it("themeColorRules speaks the theme's canvas vocabulary with generic selectors", async () => {
+    const { themeColorRules } = await import("./CytoscapeCanvas");
+    const { THEME_PRESETS } = await import("../../theme/ThemeManager");
+    const dark = THEME_PRESETS["dark"]!;
+    const rules = themeColorRules(dark);
+    const bySelector = new Map(
+      rules.map((r) => [
+        r.selector,
+        (r as unknown as { style: Record<string, unknown> }).style,
+      ]),
+    );
+    expect(bySelector.get("node.g3t-selected")?.["outline-color"]).toBe(
+      dark.selectionHighlight,
+    );
+    expect(bySelector.get("edge")?.["line-color"]).toBe(dark.edgeColor);
+    expect(bySelector.get(":parent")?.["background-color"]).toBe(
+      dark.bgSecondary,
+    );
+    // Generic selectors only: nothing targets the spec's attribute
+    // mappers, so theming can never fight the encoding.
+    expect(rules.every((r) => !r.selector.includes("["))).toBe(true);
+  });
+
+  it("a theme switch restyles in place without re-initializing", async () => {
+    const { useThemeStore } = await import("../../theme/ThemeManager");
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: { calls: unknown[][] };
+    };
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["T"], properties: {} });
+    render(<CytoscapeCanvas ugm={ugm} />);
+    const initCalls = cytoscape.mock.calls.length;
+    act(() => {
+      useThemeStore.getState().setTheme("dark");
+    });
+    expect(mockCy.style).toHaveBeenCalled();
+    expect(cytoscape.mock.calls.length).toBe(initCalls);
+    act(() => {
+      useThemeStore.getState().setTheme("light");
+    });
+  });
+});
+
+describe("compound container rule (slice 1, round 17)", () => {
+  it("styles :parent as a UML-labeled container", async () => {
+    const { COMPOUND_CONTAINER_RULE } = await import("./CytoscapeCanvas");
+    expect(COMPOUND_CONTAINER_RULE.selector).toBe(":parent");
+    const style = (
+      COMPOUND_CONTAINER_RULE as unknown as { style: Record<string, unknown> }
+    ).style;
+    expect(style["label"]).toBe("data(_compoundLabel)");
+    expect(style["text-valign"]).toBe("top");
+  });
+});
+
+describe("position pin indicator rule (round 17)", () => {
+  it("targets pinned nodes by class with the badge stack (round 25)", async () => {
+    const { PIN_INDICATOR_RULE } = await import("./CytoscapeCanvas");
+    expect(PIN_INDICATOR_RULE.selector).toBe("node.g3t-pinned");
+    const style = (
+      PIN_INDICATOR_RULE as unknown as { style: Record<string, unknown> }
+    ).style;
+    expect(style["background-image"]).toBe("data(_bgStack)");
+    expect(style["background-clip"]).toBe("none");
+  });
+});
+
+describe("encoding spec edge rules", () => {
+  it("merges attribute-presence rules so unpatched edges keep legacy style", async () => {
+    const { ENCODING_EDGE_RULES } = await import("./CytoscapeCanvas");
+    const selectors = ENCODING_EDGE_RULES.map((r) => r.selector);
+    expect(selectors).toContain("edge[_ewidth]");
+    expect(selectors).toContain("edge[_ecolor]");
+    const colorRule = ENCODING_EDGE_RULES.find(
+      (r) => r.selector === "edge[_ecolor]",
+    );
+    const styleOf = (rule: unknown): Record<string, string> =>
+      (rule as { style?: Record<string, string>; css?: Record<string, string> })
+        .style ??
+      (rule as { css?: Record<string, string> }).css ??
+      {};
+    expect(styleOf(colorRule)["target-arrow-color"]).toBe("data(_ecolor)");
+  });
+});
+
+describe("structural scene rendering (slice A2, round 32)", () => {
+  // @see specs/01-functional-views.md R1.18
+  async function renderStructural() {
+    const { layoutStructural } = await import("@g3t/core");
+    const input = {
+      nodes: [
+        {
+          id: "sensor",
+          header: { stereotype: "Block", name: "Sensor" },
+          compartments: [
+            {
+              id: "attributes",
+              rows: [{ id: "sensor.cal", text: "calibrationDate" }],
+            },
+          ],
+        },
+      ],
+      edges: [],
+    };
+    const geometry = await layoutStructural(input);
+    const ugm = new UGM();
+    ugm.addNode("sensor.cal", { types: ["PropertyShape"] });
+    render(<CytoscapeCanvas ugm={ugm} structural={{ input, geometry }} />);
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: { calls: Array<[Record<string, unknown>]> };
+    };
+    return cytoscape.mock.calls.at(-1)![0] as {
+      elements: Array<{ data: { id?: string }; classes?: string }>;
+      layout: { name: string };
+    };
+  }
+
+  it("renders structural elements with the preset layout instead of the UGM projection", async () => {
+    const opts = await renderStructural();
+    expect(opts.layout.name).toBe("preset");
+    const ids = opts.elements.map((e) => e.data.id);
+    expect(ids).toContain("sensor");
+    expect(ids).toContain("sensor::header");
+    expect(ids).toContain("sensor.cal");
+  });
+
+  it("tap on a compartment row selects exactly that row", async () => {
+    const { useSelectionStore } = await import("../../state/selection-store");
+    useSelectionStore.getState().clearSelection();
+    await renderStructural();
+    // Find the registered tap handler for nodes and fire it for the row.
+    const tapCall = (
+      mockCy.on as unknown as {
+        mock: { calls: Array<[string, ...unknown[]]> };
+      }
+    ).mock.calls.find((c) => c[0] === "tap" && c[1] === "node")!;
+    const handler = tapCall[2] as (evt: {
+      target: { id: () => string; hasClass: (c: string) => boolean };
+      originalEvent: Record<string, unknown>;
+    }) => void;
+    handler({
+      target: { id: () => "sensor.cal", hasClass: () => false },
+      originalEvent: {},
+    });
+    expect([...useSelectionStore.getState().selectedNodeIds]).toEqual([
+      "sensor.cal",
+    ]);
+  });
+
+  it("merges the structural stylesheet rules into the composed stylesheet", async () => {
+    const opts = (await renderStructural()) as unknown as {
+      style: Array<{ selector: string }>;
+    };
+    const selectors = opts.style.map((r) => r.selector);
+    expect(selectors).toContain("node.g3t-structural-container");
+    expect(selectors).toContain("node.g3t-structural-row");
+  });
+});
+
+describe("structural camera preservation across rebuilds (round 56)", () => {
+  // A compartment collapse re-runs layoutStructural (often asynchronously),
+  // so a single collapse can land as two renders: decorations first, then the
+  // new geometry. Both keep the SAME input graph, so both must preserve the
+  // camera rather than refit. These guard against the refit regression.
+  const sensorInput = () => ({
+    nodes: [
+      {
+        id: "sensor",
+        header: { stereotype: "Block", name: "Sensor" },
+        compartments: [
+          {
+            id: "attributes",
+            rows: [{ id: "sensor.cal", text: "calibrationDate" }],
+          },
+        ],
+      },
+    ],
+    edges: [],
+  });
+
+  it("restores pan/zoom on a same-graph rebuild instead of refitting", async () => {
+    const { layoutStructural } = await import("@g3t/core");
+    const input = sensorInput();
+    const ugm = new UGM();
+    ugm.addNode("sensor.cal", { types: ["PropertyShape"] });
+    const geometry0 = await layoutStructural(input);
+    // The post-collapse geometry: a NEW geometry object for the SAME input.
+    const geometry1 = await layoutStructural(input, { direction: "DOWN" });
+
+    mockCy.fit.mockClear();
+    mockCy.viewport.mockClear();
+
+    const { rerender } = render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        structural={{ input, geometry: geometry0 }}
+        structuralDecorations={{ collapsedContainers: new Set() }}
+      />,
+    );
+    // First structural mount fits.
+    expect(mockCy.fit).toHaveBeenCalledTimes(1);
+    expect(mockCy.viewport).not.toHaveBeenCalled();
+
+    mockCy.fit.mockClear();
+    mockCy.viewport.mockClear();
+
+    // Same input, fresh geometry + decorations objects (the collapse rebuild,
+    // and the async geometry-update render that follows it).
+    await act(async () => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={ugm}
+          structural={{ input, geometry: geometry1 }}
+          structuralDecorations={{ collapsedContainers: new Set(["sensor"]) }}
+        />,
+      );
+    });
+    // Camera preserved: viewport restored, NOT refit.
+    expect(mockCy.viewport).toHaveBeenCalledTimes(1);
+    expect(mockCy.fit).not.toHaveBeenCalled();
+  });
+
+  it("fits when a genuinely different graph loads", async () => {
+    const { layoutStructural } = await import("@g3t/core");
+    const inputA = sensorInput();
+    const inputB = {
+      nodes: [
+        {
+          id: "actuator",
+          header: { stereotype: "Block", name: "Actuator" },
+          compartments: [
+            { id: "ops", rows: [{ id: "actuator.move", text: "move()" }] },
+          ],
+        },
+      ],
+      edges: [],
+    };
+    const ugm = new UGM();
+    const geomA = await layoutStructural(inputA);
+    const geomB = await layoutStructural(inputB);
+
+    const { rerender } = render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        structural={{ input: inputA, geometry: geomA }}
+      />,
+    );
+    mockCy.fit.mockClear();
+    mockCy.viewport.mockClear();
+
+    await act(async () => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={ugm}
+          structural={{ input: inputB, geometry: geomB }}
+        />,
+      );
+    });
+    // Different node ids => not the same graph => fit, do not preserve.
+    expect(mockCy.fit).toHaveBeenCalledTimes(1);
+    expect(mockCy.viewport).not.toHaveBeenCalled();
+  });
+});
+
+describe("structural decoration churn does not recreate the instance (round 57)", () => {
+  // structuralDecorations is typically a fresh object literal each render
+  // (e.g. {{ collapsedContainers }}). A re-render that does not change its
+  // CONTENT (a selection or hover) must not tear down and recreate the
+  // instance, which would reset the camera and any manual node positions.
+  const sensorScene = async () => {
+    const { layoutStructural } = await import("@g3t/core");
+    const input = {
+      nodes: [
+        {
+          id: "sensor",
+          header: { stereotype: "Block", name: "Sensor" },
+          compartments: [
+            {
+              id: "attributes",
+              rows: [{ id: "sensor.cal", text: "calibrationDate" }],
+            },
+          ],
+        },
+      ],
+      edges: [],
+    };
+    const geometry = await layoutStructural(input);
+    // A STABLE scene object: a selection re-render keeps the same scene.
+    return { input, geometry } as {
+      input: typeof input;
+      geometry: typeof geometry;
+    };
+  };
+
+  it("a fresh decorations object with unchanged content does not re-init", async () => {
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: { calls: unknown[] };
+    };
+    const scene = await sensorScene();
+    const ugm = new UGM();
+    const { rerender } = render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        structural={scene}
+        structuralDecorations={{ collapsedContainers: new Set() }}
+      />,
+    );
+    const initial = cytoscape.mock.calls.length;
+    // Same scene reference, a NEW decorations object with identical content.
+    await act(async () => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={ugm}
+          structural={scene}
+          structuralDecorations={{ collapsedContainers: new Set() }}
+        />,
+      );
+    });
+    expect(cytoscape.mock.calls.length).toBe(initial);
+  });
+
+  it("a real decoration content change does re-init", async () => {
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: { calls: unknown[] };
+    };
+    const scene = await sensorScene();
+    const ugm = new UGM();
+    const { rerender } = render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        structural={scene}
+        structuralDecorations={{ collapsedContainers: new Set() }}
+      />,
+    );
+    const initial = cytoscape.mock.calls.length;
+    await act(async () => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={ugm}
+          structural={scene}
+          structuralDecorations={{ collapsedContainers: new Set(["sensor"]) }}
+        />,
+      );
+    });
+    expect(cytoscape.mock.calls.length).toBe(initial + 1);
   });
 });

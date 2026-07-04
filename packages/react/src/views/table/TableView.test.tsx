@@ -132,7 +132,11 @@ describe("TableView selection linking (M1.E2.T2)", () => {
 
     const row = screen.getByTestId("table-row-node-2");
     // jsdom renders hex as rgb(); check for the blue indicator
-    expect(row.style.borderLeft).toMatch(/2563eb|37.*99.*235/);
+    expect(row.getAttribute("data-selected")).toBe("true");
+    // C1 selection signature: accent bar geometry from the token,
+    // color from the active theme (no hardcoded blue).
+    expect(row.style.borderLeft).toContain("--g3t-selection-bar-width");
+    expect(row.style.borderLeft).toContain("--g3t-accent-primary");
   });
 
   it("clicking a different row replaces the selection", () => {
@@ -210,5 +214,33 @@ describe("TableView: edge cases (audit)", () => {
 
     const pagination = screen.getByTestId("table-pagination");
     expect(pagination).toHaveTextContent("Page 1 of 1");
+  });
+});
+
+describe("TableView column-visibility menu (bugfix: closeable)", () => {
+  it("opens and closes via the toggle, a close button, and outside click", () => {
+    const ugm = createTestUGM(5);
+    render(<TableView ugm={ugm} />);
+    const toggle = screen.getByTestId("column-visibility-toggle");
+
+    // Open
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("column-visibility-menu")).toBeTruthy();
+
+    // Close via the ✕ button
+    fireEvent.click(screen.getByTestId("column-visibility-close"));
+    expect(screen.queryByTestId("column-visibility-menu")).toBeNull();
+
+    // Open again, then close via an outside pointerdown
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("column-visibility-menu")).toBeTruthy();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByTestId("column-visibility-menu")).toBeNull();
+
+    // Open again, then close via Escape
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("column-visibility-menu")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("column-visibility-menu")).toBeNull();
   });
 });

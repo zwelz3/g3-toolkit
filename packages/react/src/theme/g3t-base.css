@@ -77,6 +77,20 @@ body {
 
 .g3t-btn:active {
   transform: scale(0.97);
+  background: var(--g3t-accent-muted);
+}
+
+.g3t-btn:disabled,
+.g3t-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.g3t-btn:disabled:hover,
+.g3t-btn[aria-disabled="true"]:hover {
+  background: var(--g3t-bg-primary);
+  border-color: var(--g3t-border);
 }
 
 .g3t-btn-active {
@@ -233,4 +247,350 @@ body {
   box-shadow: var(--g3t-shadow-lg);
   max-width: 480px;
   width: 90%;
+}
+
+/* ── Encoding panel anatomy (encoding-controls.md) ──────────────────*/
+.g3t-enc-row {
+  display: flex;
+  align-items: center;
+  gap: var(--g3t-space-2, 8px);
+  padding: 3px 0;
+  font-size: var(--g3t-font-sm, 0.75rem);
+}
+.g3t-enc-channel {
+  width: 110px;
+  font-family: var(--g3t-font-mono);
+  color: var(--g3t-text-secondary);
+}
+.g3t-enc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--g3t-font-xs, 0.6875rem);
+}
+.g3t-enc-chipstrip {
+  display: inline-flex;
+  height: 12px;
+  width: 60px;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--g3t-border);
+}
+.g3t-enc-chipstrip span {
+  flex: 1;
+}
+.g3t-enc-editor {
+  border-left: 2px solid var(--g3t-border);
+  margin: 2px 0 8px 4px;
+}
+.g3t-enc-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: var(--g3t-font-xs, 0.6875rem);
+  color: var(--g3t-text-secondary);
+}
+.g3t-enc-valuename {
+  width: 90px;
+  font-family: var(--g3t-font-mono);
+}
+.g3t-enc-warning {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: var(--g3t-warning, #b45309);
+  font-size: var(--g3t-font-xs, 0.6875rem);
+  max-width: 42ch;
+  padding: 4px 0;
+}
+.g3t-enc-delegated {
+  color: var(--g3t-text-muted);
+  font-size: var(--g3t-font-xs, 0.6875rem);
+}
+.g3t-enc-sample {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-right: var(--g3t-space-4, 16px);
+}
+.g3t-enc-samplenode {
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--g3t-node-stroke, #94a3b8);
+}
+.g3t-enc-samplelabel {
+  font-size: var(--g3t-font-xs, 0.6875rem);
+  color: var(--g3t-text-secondary);
+}
+
+/* ── Spec legend (encoding-controls.md tier-1 mirror) ───────────────*/
+.g3t-legend-title {
+  font-size: var(--g3t-font-xs, 0.6875rem);
+  font-weight: var(--g3t-font-weight-semibold, 600);
+  color: var(--g3t-text-secondary);
+  margin: 6px 0 2px;
+}
+.g3t-legend-title code {
+  font-family: var(--g3t-font-mono);
+}
+.g3t-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--g3t-font-xs, 0.6875rem);
+  color: var(--g3t-text-primary);
+  padding: 1px 0;
+}
+.g3t-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--g3t-border);
+}
+.g3t-legend-ramp {
+  display: flex;
+  height: 10px;
+  width: 120px;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--g3t-border);
+}
+.g3t-legend-ramp span {
+  flex: 1;
+}
+.g3t-legend-dot {
+  border-radius: 50%;
+  background: var(--g3t-text-muted);
+  display: inline-block;
+}
+.g3t-legend-shapename {
+  color: var(--g3t-text-muted);
+  font-family: var(--g3t-font-mono);
+}
+.g3t-legend-line {
+  width: 28px;
+  background: var(--g3t-text-muted);
+  display: inline-block;
+  border-radius: 2px;
+}
+
+.g3t-spec-port-text {
+  width: 100%;
+  min-height: 180px;
+  font-family: var(--g3t-font-mono);
+  font-size: var(--g3t-font-xs, 0.6875rem);
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.g3t-spec-port-actions {
+  display: flex;
+  gap: var(--g3t-space-2, 8px);
+  margin-top: var(--g3t-space-1, 4px);
+}
+
+.g3t-graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--g3t-space-3, 12px);
+  padding: var(--g3t-space-1, 4px) var(--g3t-space-2, 8px);
+  border-bottom: 1px solid var(--g3t-border);
+  background: var(--g3t-bg-primary);
+  flex-wrap: wrap;
+}
+.g3t-graph-toolbar-search {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.g3t-graph-toolbar-search input {
+  height: 26px;
+  box-sizing: border-box;
+}
+.g3t-graph-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.g3t-graph-toolbar .g3t-btn,
+.g3t-graph-toolbar .g3t-select {
+  height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--g3t-font-xs, 0.6875rem);
+}
+.g3t-graph-toolbar-popover-host {
+  position: relative;
+}
+.g3t-graph-toolbar-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: var(--g3t-z-popover, 50);
+  background: var(--g3t-bg-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-md, 6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  padding: var(--g3t-space-2, 8px);
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.g3t-menu-item:hover {
+  background: var(--g3t-bg-secondary) !important;
+}
+
+/* ── Quality floor: focus and motion ──────────────────────────────────
+   One focus treatment for every interactive g3t element: the keyboard
+   counterpart of the selection halo. Uses :focus-visible so pointer
+   clicks stay quiet while keyboard navigation (R7.9) is unmistakable. */
+.g3t-btn:focus-visible,
+.g3t-select:focus-visible,
+.g3t-input:focus-visible,
+.g3t-tab:focus-visible,
+.g3t-menu-item:focus-visible,
+.g3t-row:focus-visible,
+.g3t-node-focus:focus-visible,
+[class^="g3t-"]:focus-visible {
+  outline: var(--g3t-focus-ring-width, 2px) solid
+    var(--g3t-accent-primary, #0072b2);
+  outline-offset: var(--g3t-focus-ring-offset, 2px);
+  border-radius: var(--g3t-radius-sm, 4px);
+}
+
+/* ── Panel anatomy (C4, design-system roadmap) ───────────────────────
+   One grammar for inspector-class panels: a panel surface, a section
+   header (disclosure button), and section content indentation. Panels
+   adopt these instead of per-component inline styling so chrome stays
+   consistent and themeable in one place. */
+.g3t-panel {
+  background: var(--g3t-bg-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-md, 6px);
+  padding: var(--g3t-space-2, 8px) var(--g3t-space-3, 12px);
+  font-size: var(--g3t-font-md, 0.8125rem);
+  color: var(--g3t-text-primary);
+}
+
+.g3t-panel-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--g3t-space-2, 8px);
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: var(--g3t-space-1, 4px) 0;
+  font-family: inherit;
+  font-size: var(--g3t-font-md, 0.8125rem);
+  font-weight: var(--g3t-font-weight-semibold, 600);
+  color: var(--g3t-text-primary);
+}
+
+.g3t-panel-section-header:hover {
+  color: var(--g3t-accent-primary);
+}
+
+.g3t-panel-section-content {
+  padding-left: var(--g3t-space-3, 12px);
+}
+
+.g3t-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--g3t-bg-tertiary) 25%,
+    var(--g3t-bg-secondary) 37%,
+    var(--g3t-bg-tertiary) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--g3t-radius-sm, 4px);
+  animation: g3t-skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes g3t-skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* ── Panel anatomy (C4, design-system roadmap) ───────────────────────
+   One grammar for inspector-class panels: a panel surface, a section
+   header (disclosure button), and section content indentation. Panels
+   adopt these instead of per-component inline styling so chrome stays
+   consistent and themeable in one place. */
+  .g3t-panel {
+    background: var(--g3t-bg-primary);
+    border: 1px solid var(--g3t-border);
+    border-radius: var(--g3t-radius-md, 6px);
+    padding: var(--g3t-space-2, 8px) var(--g3t-space-3, 12px);
+    font-size: var(--g3t-font-md, 0.8125rem);
+    color: var(--g3t-text-primary);
+  }
+
+  .g3t-panel-section-header {
+    display: flex;
+    align-items: center;
+    gap: var(--g3t-space-2, 8px);
+    width: 100%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    padding: var(--g3t-space-1, 4px) 0;
+    font-family: inherit;
+    font-size: var(--g3t-font-md, 0.8125rem);
+    font-weight: var(--g3t-font-weight-semibold, 600);
+    color: var(--g3t-text-primary);
+  }
+
+  .g3t-panel-section-header:hover {
+    color: var(--g3t-accent-primary);
+  }
+
+  .g3t-panel-section-content {
+    padding-left: var(--g3t-space-3, 12px);
+  }
+
+  .g3t-skeleton {
+    animation: none;
+  }
+}
+
+/* Native checkbox/radio pick up the theme accent; scoped to g3t
+   classes so the base stylesheet stays non-invasive for adopters. */
+.g3t-checkbox,
+[class^="g3t-"] input[type="checkbox"],
+[class^="g3t-"] input[type="radio"] {
+  accent-color: var(--g3t-accent-color-controls, #0072b2);
+}
+
+/* Respect prefers-reduced-motion by zeroing the motion tokens every
+   component reads, so one rule disables transitions toolkit-wide;
+   components animating outside the token system (Cytoscape layout
+   transitions) must also consult prefersReducedMotion() (see
+   roadmap/design/design-system.md, A2). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --g3t-transition-fast: 0ms;
+    --g3t-transition-base: 0ms;
+    --g3t-transition-slow: 0ms;
+  }
+  [class^="g3t-"],
+  [class^="g3t-"]::before,
+  [class^="g3t-"]::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

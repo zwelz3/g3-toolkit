@@ -46,3 +46,23 @@ export type { ExpandResult } from "./neighbors";
 //  registerMultiSelectMenu, applyBulkStyle: split from the former
 //  remaining-tickets.tsx in P3.5. Symbols flow in via the earlier
 //  `export * from` lines for ./context-menu, ./temporal, ./property-editor.)
+export * from "./feedback";
+export {
+  GraphToolbar,
+  runGraphLayout,
+  layoutConfig,
+} from "./toolbar/GraphToolbar";
+export type { GraphToolbarProps } from "./toolbar/GraphToolbar";
+export {
+  captureWorkspace,
+  applyWorkspace,
+  serializeWorkspace,
+  parseWorkspace,
+} from "./workspace/workspace";
+export type {
+  WorkspaceSnapshot,
+  CaptureContext,
+  ApplyContext,
+} from "./workspace/workspace";
+export { AlgorithmPanel } from "./algorithms/AlgorithmPanel";
+export type { AlgorithmPanelProps } from "./algorithms/AlgorithmPanel";

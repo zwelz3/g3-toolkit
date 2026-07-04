@@ -1,0 +1,70 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Overview" />
+
+# g3-toolkit
+
+g3-toolkit renders and explores knowledge graphs in the browser: a graph
+canvas, the views and panels around it, and the primitives they are built
+from. This page is the orientation; the rest of the sidebar is the library.
+
+## Core nouns
+
+- **UGM** (Universal Graph Model): the in-memory graph plus a type registry
+  that every view reads from. You build one (`new UGM()`, then `addNode` /
+  `addEdge`) and hand it to components.
+- **EncodingSpec**: a declarative grammar mapping data to visual channels
+  (color, size, shape, and so on). A single spec drives the canvas, the
+  legend, and the spec editor at once.
+
+## The wiring model (read this first)
+
+Most components coordinate through two shared mechanisms rather than prop
+drilling:
+
+1. A **Cytoscape handle** (`cy`), surfaced by `CytoscapeCanvas` through its
+   `onReady` callback. Toolbars, search, and overlays act on that handle.
+2. **Zustand stores** for cross-component state: selection, pins,
+   compartment-collapse, encoding. A component writes intent to a store and
+   others subscribe and react. For example, the on-container collapse chip
+   calls `toggleAll` on the collapse store; the host re-runs layout in
+   response, so the container actually shrinks.
+
+A typical app is therefore one `CytoscapeCanvas` plus a few molecules and
+compounds coordinating through stores over that shared `cy` handle.
+
+## How the stories are organized
+
+This taxonomy is provisional; the reshape is in progress, so some older
+stories still sit under their original sections.
+
+- **Atoms**: stateless presentational primitives (EmptyState, Skeleton,
+  SpecPort).
+- **Molecules**: small stateful compositions over a UGM (SearchBar,
+  FacetFilter, FilterBuilder, TemporalRangeFilter).
+- **Compounds**: full views and toolbars (CytoscapeCanvas, GraphToolbar, and
+  the table / tree / matrix / timeline views).
+- **Patterns**: assembled multi-component layouts.
+- **Reference**: supporting material, not part of the component taxonomy:
+  feature demos and chart examples kept for reference.
+
+To go the other way (from a need to the story, the demo, and the wiring
+recipe that satisfy it), see the capability index at
+`docs/capability-index.md`.
+
+## Reading a story
+
+Each story renders the shipped component against a small fixture. Use the
+**Controls** panel to drive real props, and the **Docs** tab for the prop
+table and notes. Interactive molecules include a small readout so you can see
+what they emit as you use them.
+
+## Scope and limits
+
+g3-toolkit is a component library over a labeled property graph; its
+strength is composable projection, encoding, cross-view selection, and
+provenance. It is deliberately not a full RDF stack and not a large-graph
+virtualization engine: there is no SHACL-over-RDF shapes parser, no
+in-process reasoning, and no canvas-level culling or windowed loading
+yet. The honest shipped/partial/gap map is in
+`docs/capabilities-and-limits.md` (linked from the README).

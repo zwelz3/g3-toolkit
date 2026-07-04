@@ -1,0 +1,66 @@
+/**
+ * Theme overrides for vis-timeline so it follows the active g3t theme
+ * (the base vis-timeline-graph2d.css ships light-only). Scoped to
+ * .g3t-timeline-view so it cannot leak onto an app's own vis instances.
+ */
+
+.g3t-timeline-view .vis-timeline {
+  border: 1px solid var(--g3t-border, #dee2e6);
+  border-radius: var(--g3t-radius-md, 6px);
+  font-family: var(--g3t-font, system-ui, sans-serif);
+  font-size: var(--g3t-font-xs, 11px);
+  background: var(--g3t-bg-primary, #ffffff);
+}
+
+.g3t-timeline-view .vis-panel.vis-center,
+.g3t-timeline-view .vis-panel.vis-left,
+.g3t-timeline-view .vis-panel.vis-right,
+.g3t-timeline-view .vis-panel.vis-top,
+.g3t-timeline-view .vis-panel.vis-bottom {
+  border-color: var(--g3t-border, #dee2e6);
+}
+
+.g3t-timeline-view .vis-time-axis .vis-text {
+  color: var(--g3t-text-secondary, #495057);
+}
+
+.g3t-timeline-view .vis-time-axis .vis-grid.vis-minor {
+  border-color: var(--g3t-border, #eceff1);
+}
+
+.g3t-timeline-view .vis-time-axis .vis-grid.vis-major {
+  border-color: var(--g3t-border, #cfd4d9);
+}
+
+.g3t-timeline-view .vis-labelset .vis-label {
+  color: var(--g3t-text-secondary, #495057);
+  border-color: var(--g3t-border, #dee2e6);
+}
+
+/* Items: a readable filled pill in the theme accent, brighter when
+   selected. */
+.g3t-timeline-view .vis-item {
+  background-color: var(--g3t-accent-muted, #e6f0fb);
+  border-color: var(--g3t-accent-primary, #0072b2);
+  color: var(--g3t-text-primary, #1a1a1a);
+  border-radius: var(--g3t-radius-sm, 4px);
+}
+
+.g3t-timeline-view .vis-item.vis-selected {
+  background-color: var(--g3t-accent-primary, #0072b2);
+  border-color: var(--g3t-accent-hover, #005a8e);
+  color: #ffffff;
+}
+
+.g3t-timeline-view .vis-item .vis-item-content {
+  padding: 2px 6px;
+}
+
+.g3t-timeline-view .vis-current-time {
+  background-color: var(--g3t-accent-primary, #0072b2);
+}
+
+/* Range-drag selection box. */
+.g3t-timeline-view .vis-range {
+  background-color: var(--g3t-accent-muted, #e6f0fb);
+}

@@ -45,7 +45,7 @@ const ugm = makeUGM();
 // ── LinkedChart ─────────────────────────────────────────────────────
 
 const chartMeta: Meta<typeof LinkedChart> = {
-  title: "Charts/LinkedChart",
+  title: "Reference/Charts",
   component: LinkedChart,
   parameters: { layout: "padded" },
 };

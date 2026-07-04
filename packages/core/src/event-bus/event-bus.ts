@@ -40,7 +40,9 @@ type EventHandler<T> = (data: T) => void;
 
 // ── Event Bus ───────────────────────────────────────────────────────
 
-// @see R6.2: multi-source federation via event bus
+// Groundwork for R6.2 multi-source federation (not yet implemented):
+// the bus carries cross-adapter events, but federation and entity
+// resolution do not exist; tracked as proposed in specs/06.
 export class G3tEventBus {
   private readonly handlers = new Map<string, Set<EventHandler<unknown>>>();
 

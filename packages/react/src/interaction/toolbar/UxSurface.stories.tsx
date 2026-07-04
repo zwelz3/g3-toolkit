@@ -79,9 +79,26 @@ export const Zoom: StoryObj = {
 
 // ── StatusBar ───────────────────────────────────────────────────────
 
-export const Status: StoryObj = {
+export const Status: StoryObj<typeof StatusBar> = {
   name: "StatusBar",
-  render: () => <StatusBar ugm={makeUGM()} zoomLevel={1.25} />,
+  argTypes: {
+    zoomLevel: {
+      control: { type: "number", min: 0.1, max: 4, step: 0.05 },
+      description: "Current zoom factor; rendered as a percentage.",
+    },
+  },
+  args: { zoomLevel: 1.25 },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Read-only status footer: node and edge counts from the UGM plus " +
+          "the current zoom percentage. The inline zoom slider appears only " +
+          "when both `zoomLevel` and `onZoomChange` are provided.",
+      },
+    },
+  },
+  render: (args) => <StatusBar ugm={makeUGM()} zoomLevel={args.zoomLevel} />,
 };
 
 // ── HoverTooltip ────────────────────────────────────────────────────
@@ -121,9 +138,27 @@ export const Shortcuts: StoryObj = {
 
 import { LayoutSwitcher } from "../../interaction/layout-switcher";
 
-export const LayoutSwitch: StoryObj = {
+export const LayoutSwitch: StoryObj<typeof LayoutSwitcher> = {
   name: "LayoutSwitcher",
-  render: () => (
+  argTypes: {
+    activeId: {
+      control: { type: "select" },
+      options: ["force", "dagre"],
+      description: "Id of the engine shown as active in the dropdown.",
+    },
+  },
+  args: { activeId: "force" },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Dropdown for choosing among registered layout engines. Selecting " +
+          "an engine calls `onSwitch(engineId)`; the host runs that engine " +
+          "and updates `activeId`.",
+      },
+    },
+  },
+  render: (args) => (
     <LayoutSwitcher
       engines={[
         {
@@ -137,7 +172,7 @@ export const LayoutSwitch: StoryObj = {
           compute: async () => new Map(),
         },
       ]}
-      activeId="force"
+      activeId={args.activeId}
       onSwitch={(id: string) => console.log("Switch to:", id)}
     />
   ),

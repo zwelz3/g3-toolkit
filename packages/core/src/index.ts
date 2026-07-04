@@ -92,12 +92,40 @@ export {
 export type { PropertyFilter, FilterGroup, ViewFilter } from "./filter";
 
 // ── SHACL ───────────────────────────────────────────────────────────
-export { validateShacl, summarizeValidation, ShaclValidator } from "./shacl";
+export {
+  validateShacl,
+  summarizeValidation,
+  ShaclValidator,
+  shaclShapesToStructural,
+  closedShapeIds,
+  shaclRowSeverities,
+  propertyRowText,
+  cardinalitySuffix,
+  valueConstraintCount,
+  shaclRowId,
+  parseShaclReport,
+  reportFromValidationResults,
+  severityOverlays,
+  severityOverlayId,
+  shaclResultDrivers,
+  reportFocusNodes,
+  resultsForShape,
+  resultTargets,
+  resultSelectionIds,
+  resultDetail,
+  resultsForFocusNode,
+} from "./shacl";
 export type {
   ShaclShape,
   ShaclPropertyConstraint,
   ShaclViolation,
   ShaclValidationResult,
+  ShaclToStructuralOptions,
+  ShaclReportDocument,
+  ShaclReportResult,
+  ShaclSeverity,
+  ShaclResultTargets,
+  ShaclResultDetail,
 } from "./shacl";
 
 // ── Style override (models only; React store is in @g3t/react/state) ──
@@ -156,7 +184,20 @@ export { diffGraphs, computeSchemaHash } from "./diff";
 export type { DiffResult, NodeDiff, EdgeDiff, PropertyChange } from "./diff";
 
 // ── Algorithms and utilities ────────────────────────────────────────
-export { ingestAlgorithmResults } from "./algorithm-adapter";
+export {
+  ingestAlgorithmResults,
+  parseAlgorithmResult,
+  overlayFromDocument,
+  overlayFromPath,
+  ingestEdgeAlgorithmResults,
+  applyAlgorithmResult,
+  connectedComponents,
+  degreeCentrality,
+} from "./algorithm-adapter";
+export type {
+  AlgorithmResultDocument,
+  StructuralOverlay,
+} from "./algorithm-adapter";
 export { virtualizeRelationalData, parseCSV } from "./relational-virtualizer";
 export type { VirtualizeOptions } from "./relational-virtualizer";
 
@@ -175,6 +216,31 @@ export {
   IncrementalLayout,
 } from "./layout/incremental-layout";
 export type { IncrementalLayoutOptions } from "./layout/incremental-layout";
+export {
+  buildStructuralElkGraph,
+  layoutStructural,
+  estimateTextSize,
+  isChainEdgeId,
+  edgePortId,
+  isEdgePortId,
+  compartmentKey,
+} from "./layout/structural";
+export type {
+  StructuralGraphInput,
+  StructuralNode,
+  StructuralCompartment,
+  StructuralRow,
+  StructuralPort,
+  StructuralEdge,
+  StructuralGeometry,
+  StructuralNodeGeometry,
+  StructuralPortGeometry,
+  StructuralEdgeGeometry,
+  StructuralLayoutOptions,
+  TextMeasure,
+  PortSide,
+  ElkEngine,
+} from "./layout/structural";
 
 // ── Combo (node grouping model) ─────────────────────────────────────
 export { ComboManager } from "./combo";
@@ -191,8 +257,17 @@ export type { UndoRedoOptions } from "./undo-redo";
 // ── Design tokens (D6 data; reclassified from @g3t/react in P3.2) ──
 // `injectDesignTokens` writes CSS custom properties to documentElement and
 // thus touches the DOM, but the values themselves are pure data.
-export { DESIGN_TOKENS, DARK_SHADOWS, injectDesignTokens } from "./theme";
+export {
+  DESIGN_TOKENS,
+  DARK_SHADOWS,
+  SEQUENTIAL_SCALE,
+  DIVERGING_SCALE,
+  scaleColor,
+  prefersReducedMotion,
+  injectDesignTokens,
+} from "./theme";
 
 // ── Path analysis (D6; reclassified from @g3t/react in P3.2) ────────
 export { findShortestPath } from "./path-analysis";
 export type { PathResult, PathOptions } from "./path-analysis";
+export * from "./export";

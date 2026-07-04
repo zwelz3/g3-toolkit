@@ -13,6 +13,7 @@ import { useState, useMemo } from "react";
 import type { ShaclShape, ShaclValidationResult } from "@g3t/core";
 import { summarizeValidation } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { Icon } from "../../icons";
 
 export interface ShaclShapeBrowserProps {
   shapes: ShaclShape[];
@@ -55,15 +56,32 @@ export function ShaclShapeBrowser({
         const optional = shape.properties.length - required;
 
         // Badge
-        let badge: { label: string; color: string };
+        // Pass/fail differ by glyph as well as color (R7.8 extended to
+        // badges, B4): icon + count, semantic theme colors.
+        let badge: {
+          icon: string | null;
+          srLabel: string;
+          count?: number;
+          color: string;
+        };
         if (!stats || stats.totalNodes === 0) {
-          badge = { label: "—", color: "var(--g3t-text-muted)" };
+          badge = {
+            icon: null,
+            srLabel: "Not validated",
+            color: "var(--g3t-text-muted)",
+          };
         } else if (stats.failing === 0) {
-          badge = { label: "✓", color: "#22c55e" };
+          badge = {
+            icon: "check",
+            srLabel: "All nodes pass",
+            color: "var(--g3t-success, #22c55e)",
+          };
         } else {
           badge = {
-            label: `✗ ${stats.failing}`,
-            color: "#ef4444",
+            icon: "close",
+            srLabel: `${stats.failing} failing`,
+            count: stats.failing,
+            color: "var(--g3t-error, #ef4444)",
           };
         }
 
@@ -85,23 +103,27 @@ export function ShaclShapeBrowser({
             <button
               data-testid={`shape-toggle-${shape.id}`}
               onClick={() => handleToggle(shape.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                width: "100%",
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                textAlign: "left",
-                padding: "4px 0",
-                fontFamily: "inherit",
-                fontSize: 12,
-                color: "var(--g3t-text-primary)",
-              }}
+              className="g3t-panel-section-header"
             >
               <span style={{ fontWeight: 600 }}>
-                {isExpanded ? "▾" : "▸"} {shape.name ?? shape.id}
+                <Icon
+                  name={isExpanded ? "chevron-down" : "chevron-right"}
+                  size={11}
+                />{" "}
+                {shape.name ?? shape.id}
+                {shape.closed ? (
+                  <span
+                    data-testid={`shape-closed-${shape.id}`}
+                    title="Closed shape (sh:closed): properties beyond those declared are violations"
+                    style={{
+                      color: "var(--g3t-text-muted)",
+                      display: "inline-flex",
+                      marginLeft: 4,
+                    }}
+                  >
+                    <Icon name="lock" size={10} label="Closed shape" />
+                  </span>
+                ) : null}
               </span>
               <span
                 style={{
@@ -114,13 +136,19 @@ export function ShaclShapeBrowser({
               <span style={{ flex: 1 }} />
               <span
                 data-testid={`shape-badge-${shape.id}`}
+                role="img"
+                aria-label={badge.srLabel}
                 style={{
                   fontWeight: 600,
                   color: badge.color,
                   fontSize: 11,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
                 }}
               >
-                {badge.label}
+                {badge.icon ? <Icon name={badge.icon} size={11} /> : "—"}
+                {badge.count !== undefined ? badge.count : null}
               </span>
             </button>
 

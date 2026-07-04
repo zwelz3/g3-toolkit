@@ -10,6 +10,7 @@
 import { useMemo } from "react";
 import type { UGM } from "@g3t/core";
 import type { SchemaModel } from "@g3t/core";
+import { EmptyState } from "../../interaction/feedback";
 
 export interface ShaclShape {
   id: string;
@@ -71,12 +72,12 @@ export function SchemaView({
 
   if (classes.length === 0) {
     return (
-      <div
-        data-testid="schema-view-empty"
-        style={{ padding: 16, color: "#888" }}
-      >
-        No schema data available.
-      </div>
+      <EmptyState
+        testId="schema-view-empty"
+        icon="layers"
+        title="No schema loaded"
+        description="The schema view renders the adapter's class hierarchy. Connect a source whose getSchema() returns node types to populate it."
+      />
     );
   }
 

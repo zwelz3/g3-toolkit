@@ -1,0 +1,156 @@
+/**
+ * Temporal range filter styling. The slider mode is a single-track
+ * dual-thumb range: two native range inputs overlaid on one track, with
+ * every native track/groove suppressed so only one custom track plus the
+ * two thumbs are visible. The track itself is non-interactive
+ * (pointer-events: none); only the thumbs capture input. All colors come
+ * from g3t tokens so both modes follow the active theme.
+ */
+
+.g3t-temporal-filter .g3t-temporal-slider {
+  position: relative;
+  height: 28px;
+  margin: 8px 2px 2px;
+}
+
+.g3t-temporal-filter .g3t-temporal-track {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--g3t-border, #dee2e6);
+  z-index: 0;
+}
+
+.g3t-temporal-filter .g3t-temporal-fill {
+  position: absolute;
+  top: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--g3t-accent-primary, #0072b2);
+  z-index: 1;
+}
+
+/* Both inputs overlay the same track and are fully transparent; only
+   their thumbs paint and receive pointer events. */
+.g3t-temporal-filter .g3t-temporal-slider input[type="range"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  pointer-events: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  z-index: 2;
+}
+
+/* Suppress every native track and progress fill across engines so no
+   second slider shows through. */
+.g3t-temporal-filter
+  .g3t-temporal-slider
+  input[type="range"]::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+  border: none;
+}
+.g3t-temporal-filter
+  .g3t-temporal-slider
+  input[type="range"]::-moz-range-track {
+  height: 28px;
+  background: transparent;
+  border: none;
+}
+.g3t-temporal-filter
+  .g3t-temporal-slider
+  input[type="range"]::-moz-range-progress {
+  background: transparent;
+}
+
+.g3t-temporal-filter
+  .g3t-temporal-slider
+  input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  position: relative;
+  z-index: 3;
+  margin-top: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--g3t-accent-primary, #0072b2);
+  border: 2px solid var(--g3t-bg-primary, #ffffff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.g3t-temporal-filter
+  .g3t-temporal-slider
+  input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+  position: relative;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--g3t-accent-primary, #0072b2);
+  border: 2px solid var(--g3t-bg-primary, #ffffff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.g3t-temporal-filter
+  .g3t-temporal-slider
+  input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--g3t-accent-hover, #005a8e);
+  outline-offset: 1px;
+}
+
+.g3t-temporal-filter .g3t-temporal-dates {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin: 8px 0 2px;
+}
+
+.g3t-temporal-filter .g3t-temporal-dates label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.g3t-temporal-filter .g3t-temporal-dates label span {
+  color: var(--g3t-text-muted, #868e96);
+  font-size: 10px;
+}
+
+.g3t-temporal-filter .g3t-temporal-dates input[type="date"] {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--g3t-border, #ced4da);
+  border-radius: var(--g3t-radius-sm, 4px);
+  background: var(--g3t-bg-primary, #ffffff);
+  color: var(--g3t-text-primary, #1a1a1a);
+}
+
+.g3t-temporal-filter .g3t-temporal-readout {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--g3t-text-secondary, #495057);
+  text-align: center;
+}
+
+.g3t-temporal-filter .g3t-temporal-readout span {
+  margin: 0 6px;
+  color: var(--g3t-accent-primary, #0072b2);
+}

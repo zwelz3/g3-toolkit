@@ -20,6 +20,7 @@ transitively (they're regular dependencies of the package, not peers).
 ## Quick start
 
 ```tsx
+import { useEffect, useState } from "react";
 import { UGM, SparqlAdapter } from "@g3t/core";
 import { CytoscapeCanvas, TableView } from "@g3t/react";
 
@@ -27,14 +28,20 @@ function MyGraphPage() {
   const [ugm, setUgm] = useState<UGM | null>(null);
 
   useEffect(() => {
-    new SparqlAdapter({ endpoint: "/sparql" })
+    new SparqlAdapter("/sparql")
       .query("SELECT * WHERE { ?s ?p ?o } LIMIT 200")
       .then(setUgm);
   }, []);
 
   if (!ugm) return <div>Loading...</div>;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", height: "100vh" }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 300px",
+        height: "100vh",
+      }}
+    >
       <CytoscapeCanvas ugm={ugm} />
       <TableView ugm={ugm} pageSize={20} />
     </div>
@@ -42,13 +49,33 @@ function MyGraphPage() {
 }
 ```
 
+## Controls and integration (the round-7+ surface)
+
+Beyond the views, the package ships the encoding grammar and its
+surfaces (`EncodingSpecPanel`, `SpecLegend`, `SpecPort`, the
+`encodingSpec` canvas prop: a versioned, serializable spec drives
+color/size/icon/shape/labels with reserved-channel guards), the
+connected `GraphToolbar` (search, layouts with force controls,
+Shuffle, Pin all, zoom), per-node position pinning with a context-menu
+action, structural algorithm overlays plus `AlgorithmPanel` and the
+algorithm-result interchange (networkx/GraphBLAS documents), workspace
+snapshots (`captureWorkspace`/`applyWorkspace`: spec + positions +
+pins + theme as one JSON document), and theme-aware canvas rendering.
+
+Integration happens through exported zustand stores (selection,
+position pins, overlays, style overrides, theme), props/callbacks,
+and the JSON contracts: a custom button controlling the toolkit is
+usually one store call in an `onClick`. **See
+[`docs/wiring-guide.md`](../../docs/wiring-guide.md)**: every snippet
+there runs in CI at `examples/wiring/`.
+
 ## Subpath imports
 
 ```ts
 import { CytoscapeCanvas } from "@g3t/react/views";
 import { FilterBuilder } from "@g3t/react/controls";
 import { useSelectionStore } from "@g3t/react/state";
-import { ThemeProvider } from "@g3t/react/theme";
+import { useThemeStore } from "@g3t/react/theme";
 import { AriaCompanion } from "@g3t/react/a11y";
 ```
 

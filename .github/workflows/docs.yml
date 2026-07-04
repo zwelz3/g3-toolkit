@@ -35,16 +35,11 @@ jobs:
       - run: pnpm run build:packages
 
       # Generate API reference (TypeDoc → docs-out/api/)
-      - run: pnpm run docs:api
-
-      # Build Storybook (→ docs-out/storybook/)
-      - run: pnpm run docs:storybook
-
-      # Build the live demo playground (→ docs-out/playground/)
-      - run: pnpm run docs:demo
-
-      # Copy landing page (→ docs-out/index.html)
-      - run: cp docs/landing.html docs-out/index.html
+      # One assembly path, shared with local builds: API reference,
+      # Storybook, playground, the visual-acceptance walkthrough, and
+      # the landing page (docs:build in package.json owns the steps,
+      # so CI and `pnpm run docs:build` cannot drift apart).
+      - run: pnpm run docs:build
 
       # Upload to GitHub Pages
       - uses: actions/upload-pages-artifact@v3

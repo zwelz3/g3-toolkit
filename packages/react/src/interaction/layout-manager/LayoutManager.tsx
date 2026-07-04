@@ -9,7 +9,7 @@
  * - Circle/Grid/Concentric: spacing, sort property
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -43,23 +43,26 @@ export interface LayoutManagerProps {
 
 // ── Layout Definitions ──────────────────────────────────────────
 
-interface LayoutDef {
+export interface LayoutDef {
   id: string;
   label: string;
   group: "force" | "hierarchical" | "simple";
 }
 
-const LAYOUTS: LayoutDef[] = [
+/** Selectable engines. Dagre and ELK were removed (round 15 review):
+ *  both silently degraded to breadthfirst, which misleads. Dagre
+ *  returns when the extension is bundled; ELK returns paired with
+ *  compound/UML-element-container rendering, where layered layouts
+ *  earn their keep (roadmap/design/toolbar-and-layouts.md). */
+export const LAYOUTS: LayoutDef[] = [
   { id: "force", label: "Force-Directed", group: "force" },
   { id: "hierarchy", label: "Hierarchy", group: "hierarchical" },
-  { id: "dagre", label: "Dagre (DAG)", group: "hierarchical" },
-  { id: "elk", label: "ELK (Layered)", group: "hierarchical" },
   { id: "circle", label: "Circle", group: "simple" },
   { id: "grid", label: "Grid", group: "simple" },
   { id: "concentric", label: "Concentric", group: "simple" },
 ];
 
-const DEFAULT_OPTIONS: LayoutOptions = {
+export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   animate: true,
   animationDuration: 400,
   edgeStyle: "bezier",
@@ -82,7 +85,7 @@ export function LayoutManager({
   className,
 }: LayoutManagerProps) {
   const [layout, setLayout] = useState(initialLayout);
-  const [options, setOptions] = useState<LayoutOptions>(DEFAULT_OPTIONS);
+  const [options, setOptions] = useState<LayoutOptions>(DEFAULT_LAYOUT_OPTIONS);
   const [frozen, setFrozen] = useState(false);
   const [showControls, setShowControls] = useState(false);
 
@@ -96,18 +99,33 @@ export function LayoutManager({
     [options, onLayoutChange],
   );
 
+  // Round-15 layout pass: committing on EVERY option tick re-ran the
+  // layout dozens of times during a single slider drag (layout runs
+  // fighting each other mid-animation). Display updates immediately;
+  // the engine re-run commits after the drag settles.
+  const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const update = useCallback(
     (key: keyof LayoutOptions, value: number | boolean | string) => {
       const updated = { ...options, [key]: value };
       setOptions(updated);
-      onLayoutChange(layout, updated);
+      if (commitTimer.current) clearTimeout(commitTimer.current);
+      commitTimer.current = setTimeout(
+        () => onLayoutChange(layout, updated),
+        250,
+      );
     },
     [options, layout, onLayoutChange],
   );
+  useEffect(
+    () => () => {
+      if (commitTimer.current) clearTimeout(commitTimer.current);
+    },
+    [],
+  );
 
   const handleReset = useCallback(() => {
-    setOptions(DEFAULT_OPTIONS);
-    onLayoutChange(layout, DEFAULT_OPTIONS);
+    setOptions(DEFAULT_LAYOUT_OPTIONS);
+    onLayoutChange(layout, DEFAULT_LAYOUT_OPTIONS);
     onResetLayout();
   }, [layout, onLayoutChange, onResetLayout]);
 
@@ -369,6 +387,7 @@ function Slider({
       </div>
       <input
         type="range"
+        aria-label={label}
         min={min}
         max={max}
         step={step}

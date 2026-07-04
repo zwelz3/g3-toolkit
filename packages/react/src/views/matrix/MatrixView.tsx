@@ -10,7 +10,9 @@
 
 import { useMemo, useCallback } from "react";
 import type { UGM } from "@g3t/core";
+import { scaleColor } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { EmptyState } from "../../interaction/feedback";
 
 export interface MatrixViewProps {
   ugm: UGM;
@@ -30,7 +32,7 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
   const { selectNodes } = useSelectionStore();
 
   // Build adjacency matrix by node type
-  const { types, matrix, maxCount } = useMemo(() => {
+  const { types, matrix, maxCount, totalTypes } = useMemo(() => {
     const typeCounts = new Map<string, Map<string, MatrixCell>>();
     const typeSet = new Set<string>();
 
@@ -56,7 +58,8 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
       if (!cell.nodeIds.includes(target)) cell.nodeIds.push(target);
     });
 
-    const sortedTypes = [...typeSet].sort().slice(0, maxSize);
+    const allTypes = [...typeSet].sort();
+    const sortedTypes = allTypes.slice(0, maxSize);
     const mtx: MatrixCell[][] = sortedTypes.map((rowType) =>
       sortedTypes.map((colType) => {
         return (
@@ -71,8 +74,14 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
     );
 
     const maxVal = Math.max(0, ...mtx.flat().map((c) => c.count));
-    return { types: sortedTypes, matrix: mtx, maxCount: maxVal };
+    return {
+      types: sortedTypes,
+      matrix: mtx,
+      maxCount: maxVal,
+      totalTypes: allTypes.length,
+    };
   }, [ugm, maxSize]);
+  const truncated = totalTypes > types.length;
 
   const handleCellClick = useCallback(
     (cell: MatrixCell) => {
@@ -85,9 +94,12 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
 
   if (types.length === 0) {
     return (
-      <div data-testid="matrix-empty" style={{ padding: 16, color: "#888" }}>
-        No matrix data. Graph needs edges between typed nodes.
-      </div>
+      <EmptyState
+        testId="matrix-empty"
+        icon="layers"
+        title="No co-occurrence data"
+        description="The matrix counts edges between typed nodes. Load a graph with typed nodes and at least one edge to populate it."
+      />
     );
   }
 
@@ -97,6 +109,20 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
       className={className}
       style={{ overflow: "auto", padding: 8 }}
     >
+      {truncated ? (
+        <div
+          data-testid="matrix-truncation-notice"
+          role="status"
+          style={{
+            fontSize: "var(--g3t-font-sm, 12px)",
+            color: "var(--g3t-text-muted, #888)",
+            padding: "4px 0",
+          }}
+        >
+          Showing {types.length} of {totalTypes} node types (working-set limit).
+          Raise maxSize or filter to specific types to see the rest.
+        </div>
+      ) : null}
       <table style={{ borderCollapse: "collapse", fontSize: 11 }}>
         <thead>
           <tr>
@@ -104,10 +130,23 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
             {types.map((t) => (
               <th
                 key={t}
+                scope="col"
                 style={{
-                  padding: "2px 4px",
-                  transform: "rotate(-45deg)",
+                  // Vertical column labels: the previous rotate(-45deg)
+                  // had no transform sizing, so labels overlapped cell
+                  // content and touched the table boundary
+                  // (visual-acceptance VA-4/VA-5, 2026-06-11).
+                  writingMode: "vertical-rl",
+                  transform: "rotate(180deg)",
+                  verticalAlign: "bottom",
+                  textAlign: "left",
+                  padding: "6px 2px 8px",
+                  fontFamily: "var(--g3t-font-mono, monospace)",
+                  fontSize: 10,
+                  fontWeight: 500,
+                  color: "var(--g3t-text-secondary, #666)",
                   whiteSpace: "nowrap",
+                  maxHeight: 120,
                 }}
               >
                 {t}
@@ -118,11 +157,31 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
         <tbody>
           {matrix.map((row, ri) => (
             <tr key={types[ri]}>
-              <td style={{ padding: "2px 8px", fontWeight: 600 }}>
+              <th
+                scope="row"
+                style={{
+                  padding: "2px 10px 2px 4px",
+                  textAlign: "right",
+                  fontFamily: "var(--g3t-font-mono, monospace)",
+                  fontSize: 10,
+                  fontWeight: 500,
+                  color: "var(--g3t-text-secondary, #666)",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {types[ri]}
-              </td>
+              </th>
               {row.map((cell, ci) => {
                 const intensity = maxCount > 0 ? cell.count / maxCount : 0;
+                // Sequential viridis scale (R7.8 extended to continuous
+                // encodings): perceptually uniform, colorblind-safe,
+                // legible in both light and dark themes; replaces the
+                // hardcoded alpha-blue ramp that washed out on dark
+                // backgrounds.
+                const bg =
+                  cell.count > 0
+                    ? scaleColor(intensity)
+                    : "var(--g3t-bg-secondary, #f8f9fa)";
                 return (
                   <td
                     key={`${ri}-${ci}`}
@@ -132,10 +191,12 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
                       width: 28,
                       height: 28,
                       textAlign: "center",
-                      background: `rgba(37, 99, 235, ${intensity * 0.8})`,
-                      color: intensity > 0.5 ? "white" : "#333",
+                      background: bg,
+                      // Viridis luminance is monotonic: dark text reads
+                      // on the bright high end, light text on the low end.
+                      color: intensity > 0.6 ? "#1a1a1a" : "#f5f5f5",
                       cursor: cell.count > 0 ? "pointer" : "default",
-                      border: "1px solid #eee",
+                      border: "1px solid var(--g3t-border, #eee)",
                     }}
                     title={`${types[ri]} → ${types[ci]}: ${cell.count}`}
                   >

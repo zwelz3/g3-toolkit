@@ -221,7 +221,40 @@ import { StatsPanel } from "./stats";
 export const Sankey: StoryObj = {
   name: "SankeyView",
   render: () => {
-    const ugm = makeUGM();
+    // Flows aggregate edges between node types, and ECharts sankey
+    // requires a DAG, so this fixture wires a consistent direction:
+    // Person -> Organization -> Location. The shared makeUGM() connects
+    // every edge within a single type, which produces no flows.
+    const ugm = new UGM();
+    const people = ["p0", "p1", "p2", "p3"];
+    const orgs = ["o0", "o1", "o2"];
+    const locations = ["l0", "l1"];
+    people.forEach((id, i) =>
+      ugm.addNode(id, {
+        types: ["Person"],
+        properties: { name: `Person ${i}` },
+      }),
+    );
+    orgs.forEach((id, i) =>
+      ugm.addNode(id, {
+        types: ["Organization"],
+        properties: { name: `Org ${i}` },
+      }),
+    );
+    locations.forEach((id, i) =>
+      ugm.addNode(id, {
+        types: ["Location"],
+        properties: { name: `Location ${i}` },
+      }),
+    );
+    people.forEach((p, i) => {
+      const o = orgs[i % orgs.length];
+      if (o) ugm.addEdge(p, o, { type: "worksAt" });
+    });
+    orgs.forEach((o, i) => {
+      const l = locations[i % locations.length];
+      if (l) ugm.addEdge(o, l, { type: "basedIn" });
+    });
     return (
       <div style={{ height: 300 }}>
         <SankeyView ugm={ugm} />
@@ -258,6 +291,8 @@ export const Stats: StoryObj = {
   name: "StatsPanel",
   render: () => {
     const ugm = makeUGM();
-    return <StatsPanel ugm={ugm} propertyKey="name" />;
+    // score is numeric; the histogram needs a numeric property (name is
+    // a string and would render the empty state).
+    return <StatsPanel ugm={ugm} propertyKey="score" />;
   },
 };

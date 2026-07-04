@@ -8,17 +8,10 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "types": [
-      "node",
-      "vite/client"
-    ],
+    "types": ["node", "vite/client"],
     "paths": {
-      "@g3t/core": [
-        "../core/src/index.ts"
-      ],
-      "@g3t/react": [
-        "../react/src/index.ts"
-      ]
+      "@g3t/core": ["../core/src/index.ts"],
+      "@g3t/react": ["../react/src/index.ts"]
     },
     "emitDeclarationOnly": true
   },
@@ -30,12 +23,6 @@
       "path": "../react"
     }
   ],
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "dist"
-  ]
+  "include": ["src"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx", "dist"]
 }

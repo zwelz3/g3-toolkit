@@ -127,11 +127,20 @@ test.describe("Lasso selection → table sync (bug fix)", () => {
   }) => {
     const canvas = page.locator("[data-testid='cytoscape-canvas']");
 
-    // Drag a lasso box across a region of the canvas
+    // Box selection is a MODIFIER gesture when panning is enabled:
+    // cytoscape's renderer enters box mode only when
+    // `multSelKeyDown || !panningEnabled || !userPanningEnabled`
+    // (cytoscape 3.33.4, mousemove handler), where the modifier is
+    // shift, ctrl, or meta. A plain drag pans. Hold Shift for the drag.
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("canvas has no bounding box");
+    const inset = 10; // inside the grid layout's ~30px fit padding: background
+    await page.keyboard.down("Shift");
     await canvas.dragTo(canvas, {
-      sourcePosition: { x: 200, y: 150 },
-      targetPosition: { x: 500, y: 350 },
+      sourcePosition: { x: inset, y: inset },
+      targetPosition: { x: box.width - inset, y: box.height - inset },
     });
+    await page.keyboard.up("Shift");
     await page.waitForTimeout(500);
 
     // Selection counter should show selected nodes

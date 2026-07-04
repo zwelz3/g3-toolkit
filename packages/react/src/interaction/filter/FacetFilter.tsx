@@ -16,12 +16,19 @@ export interface FacetFilterProps {
   ugm: UGM;
   /** Called when the visible types change. */
   onFilterChange: (hiddenTypes: Set<string>) => void;
+  /** Optional resolver so the swatch for each type matches the color
+   *  the graph encoding actually assigns it. Without this the filter
+   *  falls back to an independent Okabe-Ito index, which can disagree
+   *  with the canvas (the categorical scale assigns colors in data
+   *  insertion order, not sorted order). */
+  colorForType?: (type: string) => string | undefined;
   className?: string;
 }
 
 export function FacetFilter({
   ugm,
   onFilterChange,
+  colorForType,
   className,
 }: FacetFilterProps) {
   const types = useMemo(() => {
@@ -109,7 +116,10 @@ export function FacetFilter({
       {types.map((type, idx) => {
         const hidden = hiddenTypes.has(type);
         const count = typeCounts.get(type) ?? 0;
-        const color = OKABE_ITO_COLORS[idx % OKABE_ITO_COLORS.length] ?? "#999";
+        const color =
+          colorForType?.(type) ??
+          OKABE_ITO_COLORS[idx % OKABE_ITO_COLORS.length] ??
+          "#999";
 
         return (
           <label

@@ -187,6 +187,10 @@ export interface EncodingPanelProps {
   className?: string;
 }
 
+/** @deprecated Use EncodingSpecPanel over an EncodingSpec
+ *  (fromLegacyConfig lifts this config). No in-repo consumers remain
+ *  as of visual round 13 (shells and DemoApp migrated); kept for
+ *  external API stability, removal scheduled for the next major. */
 export function EncodingPanel({
   ugm,
   encoding,
@@ -217,7 +221,7 @@ export function EncodingPanel({
         borderRadius: 4,
       }}
     >
-      <div style={{ fontWeight: 600, color: "var(--g3t-text-primary)" }}>
+      <div className="g3t-panel-section-header" style={{ cursor: "default" }}>
         Visual Encoding
       </div>
 
@@ -327,13 +331,7 @@ export function CanvasLegend({ ugm, encoding, className }: CanvasLegendProps) {
       }}
     >
       {/* Type-color mapping */}
-      <div
-        style={{
-          fontWeight: 600,
-          marginBottom: 4,
-          color: "var(--g3t-text-primary)",
-        }}
-      >
+      <div className="g3t-panel-section-header" style={{ cursor: "default" }}>
         Types
       </div>
       {typeList.map((type, i) => (

@@ -5,21 +5,6 @@
  * hover elevation, click to enter full app view.
  */
 
-import type { UGM } from "@g3t/core";
-import {
-  buildIntelGraph,
-  buildSupplyChainGraph,
-  buildBiomedicalGraph,
-  buildCyberGraph,
-} from "./fixtures/scenarios";
-import { buildHealthcareUGM } from "./fixtures/healthcare";
-import { buildAnalyticsUGM } from "./fixtures/analytics";
-import {
-  buildMBSEUGM,
-  buildDataSciUGM,
-  buildAuditorUGM,
-} from "./fixtures/additional";
-
 // ── Scenario Definitions ────────────────────────────────────────────
 
 export interface Scenario {
@@ -30,118 +15,57 @@ export interface Scenario {
   accent: string;
   accentGlow: string;
   icon: string;
-  buildGraph: () => UGM;
   tags: string[];
 }
 
 export const SCENARIOS: Scenario[] = [
   {
-    id: "healthcare",
-    title: "Healthcare Ontology Explorer",
-    subtitle: "RDF ontology with SHACL validation",
+    id: "auditor",
+    title: "Provenance Auditor",
+    subtitle: "PROV-O audit trail with SHACL",
     description:
-      "Browse an ICD-10 disease ontology with drugs, genes, pathways, patients, and hospitals. Validate data quality with SHACL shapes. Navigate between tree, graph, and table views.",
-    accent: "#22c55e",
-    accentGlow: "rgba(34, 197, 94, 0.15)",
-    icon: "✚",
-    buildGraph: buildHealthcareUGM,
-    tags: ["40 entities", "45 relationships", "7 types", "SHACL"],
-  },
-  {
-    id: "analytics",
-    title: "Graph Analytics Workbench",
-    subtitle: "Full analytical pipeline on citation data",
-    description:
-      "Load an academic citation network, explore with charts (degree vs pagerank, papers by topic), run algorithms, compute derived properties, and build visual analytical pipelines.",
-    accent: "#8b5cf6",
-    accentGlow: "rgba(139, 92, 246, 0.15)",
-    icon: "⊛",
-    buildGraph: buildAnalyticsUGM,
-    tags: ["55 entities", "70 relationships", "6 types", "algorithms"],
-  },
-  {
-    id: "data-scientist",
-    title: "Data Scientist Dashboard",
-    subtitle: "Explore, filter, chart, derive",
-    description:
-      "Explore a 50-node social network with charts (degree vs pagerank), property filters, visual encoding, derived properties, and undo/redo. The full DataPipeline workflow.",
-    accent: "#06b6d4",
-    accentGlow: "rgba(6, 182, 212, 0.15)",
+      "Audit a PROV-O trail of artifacts, activities, and agents. SHACL flags provenance defects as violations and warnings and projects them onto the graph; a timeline lists every generation, start, and end; and a dual-range slider filters both the timeline and the graph to a time window.",
+    accent: "#2dd4bf",
+    accentGlow: "rgba(45, 212, 191, 0.15)",
     icon: "◈",
-    buildGraph: buildDataSciUGM,
-    tags: ["50 entities", "80 relationships", "charts", "filters"],
+    tags: ["PROV-O", "SHACL", "timeline slider"],
   },
   {
     id: "mbse",
-    title: "MBSE Satellite System",
-    subtitle: "SysML packages, blocks, and requirements",
+    title: "MBSE Satellite Workbench",
+    subtitle: "Cameo-style containment tree driving four diagram types",
     description:
-      "Navigate a satellite communication system model with package tree, block dependencies, requirement traces, and interface connections. Search and context menu navigation.",
+      "Browse a satellite model the way a systems engineer does: a containment tree of packages, blocks, constraint blocks, and requirements, where opening a diagram projects it into the structural renderer. BDD with typed compartments and composition, IBD with parts, ports, and connectors, parametrics with binding connectors, and a requirement breakdown with satisfy traces.",
     accent: "#f97316",
     accentGlow: "rgba(249, 115, 22, 0.15)",
     icon: "◫",
-    buildGraph: buildMBSEUGM,
-    tags: ["38 entities", "32 relationships", "tree+graph"],
-  },
-  {
-    id: "auditor",
-    title: "Auditor Provenance Certification",
-    subtitle: "PROV-O chain with temporal validation",
-    description:
-      "Verify the provenance chain of a regulated ML pipeline. Timeline shows activity sequence, SHACL validates provenance metadata, diff compares with previous certification.",
-    accent: "#ec4899",
-    accentGlow: "rgba(236, 72, 153, 0.15)",
-    icon: "◈",
-    buildGraph: buildAuditorUGM,
-    tags: ["30 entities", "35 relationships", "PROV-O", "SHACL"],
-  },
-  {
-    id: "intel",
-    title: "Counter-Threat Intelligence",
-    subtitle: "Network analysis and link discovery",
-    description:
-      "Track a transnational threat network across 8 operatives, 3 organizations, 5 cities, and 4 events. Map financial flows, travel patterns, and communication links to identify the handler.",
-    accent: "#22d3ee",
-    accentGlow: "rgba(34, 211, 238, 0.15)",
-    icon: "◈",
-    buildGraph: buildIntelGraph,
-    tags: ["20 entities", "21 relationships", "5 types"],
+    tags: [
+      "BDD / IBD / parametric / req",
+      "containment tree",
+      "structural renderer",
+    ],
   },
   {
     id: "supply-chain",
-    title: "Supply Chain Risk",
-    subtitle: "Dependency mapping and risk propagation",
+    title: "Supply Chain Digital Thread",
+    subtitle: "Multi-source consolidation with gap analysis",
     description:
-      "Monitor a semiconductor supply chain from rare-earth extraction through fabrication to final assembly. Identify single points of failure and geopolitical risk concentration across 5 ports.",
-    accent: "#f59e0b",
-    accentGlow: "rgba(245, 158, 11, 0.15)",
+      "Consolidate ERP, supplier, certification, sourcing, and logistics records into one provenance-tagged graph. SHACL flags parts with no certified supplier; analytics surface sole-source parts and single points of failure; color by region, tier, or component and trace a supplier's path to final assembly.",
+    accent: "#f4923b",
+    accentGlow: "rgba(244, 146, 59, 0.15)",
     icon: "⬡",
-    buildGraph: buildSupplyChainGraph,
-    tags: ["12 entities", "13 relationships", "4 types"],
+    tags: ["multi-source", "SHACL gaps", "clustering"],
   },
   {
     id: "biomedical",
     title: "Biomedical Knowledge Graph",
-    subtitle: "Gene-disease-drug interaction network",
+    subtitle: "RDF ontology with in-browser SPARQL",
     description:
-      "Explore oncology pathways connecting driver genes (BRCA1, TP53, EGFR, KRAS) to diseases, proteins, drugs, and signaling pathways. Identify therapeutic targets and drug repurposing candidates.",
-    accent: "#a78bfa",
-    accentGlow: "rgba(167, 139, 250, 0.15)",
+      "Query an RDF gene / protein / disease / drug / pathway graph with a curated in-browser SPARQL executor. Browse the class ontology and its object and data properties, run the default queries or edit your own, and see numeric results in a linked bar or scatter panel whose bars select the matching node.",
+    accent: "#b17ef0",
+    accentGlow: "rgba(177, 126, 240, 0.15)",
     icon: "◉",
-    buildGraph: buildBiomedicalGraph,
-    tags: ["18 entities", "20 relationships", "5 types"],
-  },
-  {
-    id: "cyber",
-    title: "Cyber Threat Landscape",
-    subtitle: "APT tracking and infrastructure mapping",
-    description:
-      "Map advanced persistent threats (APT28, APT41, Lazarus) across campaigns, malware deployments, C2 infrastructure, exploited vulnerabilities, and targeted sectors.",
-    accent: "#f43f5e",
-    accentGlow: "rgba(244, 63, 94, 0.15)",
-    icon: "◆",
-    buildGraph: buildCyberGraph,
-    tags: ["18 entities", "18 relationships", "6 types"],
+    tags: ["RDF", "SPARQL", "ontology explorer"],
   },
 ];
 
@@ -157,54 +81,116 @@ export function DemoLanding({
       style={{
         minHeight: "100vh",
         background:
-          "linear-gradient(170deg, #0a0e17 0%, #111827 50%, #0f172a 100%)",
+          "radial-gradient(1200px 600px at 50% -10%, rgba(99,102,241,0.12), transparent 60%), linear-gradient(170deg, #0a0e17 0%, #111827 55%, #0f172a 100%)",
         color: "#e2e8f0",
         fontFamily: "var(--g3t-font, 'IBM Plex Sans', sans-serif)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "64px 24px",
+        padding: "72px 24px 48px",
       }}
     >
       {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: 56 }}>
+      <div style={{ textAlign: "center", marginBottom: 36, maxWidth: 640 }}>
         <div
           style={{
-            fontSize: 14,
-            fontWeight: 500,
-            letterSpacing: "0.2em",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: "0.22em",
             textTransform: "uppercase",
-            color: "#64748b",
-            marginBottom: 12,
+            color: "#818cf8",
+            marginBottom: 18,
+            padding: "4px 12px",
+            border: "1px solid rgba(129,140,248,0.3)",
+            borderRadius: 9999,
+            background: "rgba(129,140,248,0.08)",
           }}
         >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#818cf8",
+              display: "inline-block",
+            }}
+          />
           g3-toolkit
         </div>
         <h1
           style={{
-            fontSize: 40,
+            fontSize: 44,
             fontWeight: 300,
-            letterSpacing: "-0.02em",
-            margin: "0 0 16px 0",
-            background: "linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%)",
+            letterSpacing: "-0.025em",
+            margin: "0 0 18px 0",
+            lineHeight: 1.1,
+            background:
+              "linear-gradient(135deg, #f1f5f9 0%, #818cf8 55%, #38bdf8 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
           }}
         >
-          Composable Graph Visualization
+          Composable graph visualization
         </h1>
         <p
           style={{
-            fontSize: 15,
+            fontSize: 16,
             color: "#94a3b8",
-            maxWidth: 520,
-            lineHeight: 1.6,
+            maxWidth: 560,
+            lineHeight: 1.65,
             margin: "0 auto",
           }}
         >
-          12 interactive views, 4 layout engines, RDF/LPG/Holonic paradigms.
-          Select a scenario to explore.
+          A toolkit of composable views, a declarative visual-encoding grammar,
+          and selection-linked panels for RDF, property-graph, and holonic data.
+          Pick a scenario to see the pieces working together.
         </p>
+
+        {/* Capability strip */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            flexWrap: "wrap",
+            gap: 0,
+            marginTop: 28,
+          }}
+        >
+          {[
+            ["10+", "linked views"],
+            ["5", "layout engines"],
+            ["SHACL", "validation"],
+            ["RDF · LPG", "+ holonic"],
+          ].map(([big, small], i) => (
+            <div
+              key={big}
+              style={{
+                padding: "0 20px",
+                borderLeft:
+                  i === 0 ? "none" : "1px solid rgba(100,116,139,0.25)",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 20, fontWeight: 600, color: "#e2e8f0" }}>
+                {big}
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#64748b",
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  marginTop: 2,
+                }}
+              >
+                {small}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Scenario cards */}
@@ -229,7 +215,7 @@ export function DemoLanding({
       {/* Footer */}
       <div
         style={{
-          marginTop: 64,
+          marginTop: 56,
           fontSize: 12,
           color: "#475569",
           textAlign: "center",

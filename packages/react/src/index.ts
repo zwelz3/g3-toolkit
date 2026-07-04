@@ -28,6 +28,8 @@ export * from "./views/matrix";
 export * from "./views/sankey";
 export * from "./views/query";
 export * from "./views/stats";
+export * from "./views/coverage";
+export * from "./views/provenance";
 
 // ── Controls (interaction subdirs) ──────────────────────────────────
 export * from "./interaction/encoding";
@@ -40,6 +42,7 @@ export * from "./interaction/search";
 export { SearchBar } from "./interaction/search/SearchBar";
 export type { SearchBarProps } from "./interaction/search/SearchBar";
 export * from "./interaction/toolbar";
+export * from "./interaction/camera";
 export * from "./interaction/context-menu";
 export {
   registerToolkitActions,
@@ -53,6 +56,8 @@ export * from "./interaction/layout-manager";
 export * from "./interaction/temporal";
 export * from "./interaction/property-editor";
 export * from "./interaction/annotations";
+export * from "./interaction/workspace/workspace";
+export * from "./interaction/algorithms/AlgorithmPanel";
 
 // path-analysis is D6 and was moved to @g3t/core in P3.x. Re-exported
 // here for backwards compatibility. Prefer importing from @g3t/core directly.
@@ -93,3 +98,4 @@ export {
   ElkLayout,
   WorkingSetManager,
 } from "@g3t/core";
+export * from "./icons";

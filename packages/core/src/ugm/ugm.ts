@@ -10,8 +10,6 @@
  * @see specs/09-design-decisions.md D1 (Qualified Edge), D6 (module boundary)
  */
 
-// R3.8: Document linkage via properties (documents stored as node properties).
-
 import { MultiGraph } from "graphology";
 import type {
   NodeAttributes,

@@ -42,3 +42,47 @@ jobs:
       # exists on disk (existsSync on dist/*.mjs).
       - run: pnpm run verify
       - run: pnpm run test
+
+  spec-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      # Both scripts exit non-zero on findings (the original linter
+      # returned 0 unconditionally; two audits flagged the gate as
+      # decorative before it was fixed).
+      - run: python scripts/lint_specs.py specs/
+      - run: python scripts/sync_spec_status.py
+      # Every in-progress/proposed requirement must be owned by exactly
+      # one roadmap file (contract in roadmap/CLAUDE.md).
+      - run: python scripts/check_roadmap_coverage.py
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # pnpm version from the packageManager field; do NOT set `version:`
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      # --ignore-snapshots: no Linux screenshot baselines are committed
+      # yet, and Playwright fails missing baselines under CI, which
+      # would make this a guaranteed-red (i.e. ignored) gate. The
+      # functional assertions gate now. To enable visual gating:
+      # run `pnpm exec playwright test --update-snapshots` on
+      # ubuntu, commit tests/e2e/__screenshots__/, remove this flag.
+      - run: pnpm run test:e2e -- --ignore-snapshots
+        env:
+          CI: "true"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

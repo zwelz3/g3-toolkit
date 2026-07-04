@@ -33,6 +33,7 @@ export default defineConfig({
         state: resolve(__dirname, "src/state/index.ts"),
         theme: resolve(__dirname, "src/theme/index.ts"),
         a11y: resolve(__dirname, "src/a11y/index.ts"),
+        icons: resolve(__dirname, "src/icons/index.ts"),
       },
       formats: ["es", "cjs"],
       fileName: (format, entryName) =>
@@ -57,7 +58,7 @@ export default defineConfig({
     cssCodeSplit: false,
     outDir: "dist",
     sourcemap: true,
-    emptyOutDir: true,
+    emptyOutDir: false,
     target: "es2022",
     minify: false,
   },

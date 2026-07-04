@@ -15,12 +15,13 @@ pnpm add @g3t/core
 ## Quick start
 
 ```ts
-import { UGM, SparqlAdapter } from "@g3t/core";
+import { SparqlAdapter } from "@g3t/core";
 
-const ugm = await new SparqlAdapter({ endpoint: "/sparql" })
-  .query("SELECT * WHERE { ?s ?p ?o } LIMIT 200");
+const ugm = await new SparqlAdapter("https://example.org/sparql").query(
+  "SELECT * WHERE { ?s ?p ?o } LIMIT 200",
+);
 
-console.log(`Graph has ${ugm.nodeCount()} nodes, ${ugm.edgeCount()} edges.`);
+console.log(`Graph has ${ugm.nodeCount} nodes, ${ugm.edgeCount} edges.`);
 ```
 
 ## Subpath imports

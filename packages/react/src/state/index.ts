@@ -7,3 +7,12 @@ export { UndoRedoStack } from "@g3t/core";
 export type { UndoRedoOptions } from "@g3t/core";
 
 export { useStyleOverrideStore } from "./style-override-store";
+export { usePositionPinStore, computeLockedIds } from "./position-pin-store";
+export { useOverlayStore, computeOverlayMembership } from "./overlay-store";
+export type { OverlayMembership } from "./overlay-store";
+export {
+  useCompartmentCollapseStore,
+  collapsedCompartmentSet,
+} from "./compartment-collapse-store";
+
+export { useInspectorSectionStore } from "./inspector-section-store";

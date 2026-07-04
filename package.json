@@ -1,19 +1,12 @@
 {
   "name": "g3-toolkit",
-  "version": "1.0.0-rc",
+  "version": "1.0.0-rc.2",
   "description": "A composable, paradigm-neutral graph visualization toolkit for RDF, LPG, and Holonic architectures.",
   "type": "module",
-  "files": [
-    "dist",
-    "README.md",
-    "ARCHITECTURE.md",
-    "LICENSE"
-  ],
-  "keywords": [],
-  "author": "",
   "license": "Apache-2.0",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
+ "gates": "pnpm run typecheck && pnpm run lint && pnpm run verify && pnpm run test",
     "dev": "vite",
     "build": "pnpm run build:packages && tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
@@ -25,56 +18,23 @@
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "build:packages": "tsc -b packages/core packages/react packages/charts --force && pnpm --filter \"./packages/*\" --workspace-concurrency=1 run build",
+    "build:packages": "node scripts/clean-dist.mjs && tsc -b packages/core packages/react packages/charts --force && pnpm --filter \"./packages/*\" --workspace-concurrency=1 run build && node scripts/fix-dts-extensions.mjs",
     "verify:treeshake": "node scripts/verify-treeshake.mjs",
     "verify:smoke": "node scripts/smoke-test.mjs",
     "verify:bundle": "node scripts/check-bundle-size.mjs",
     "verify:stats": "node scripts/workspace-stats.mjs",
-    "verify": "pnpm run build:packages && pnpm run verify:treeshake && pnpm run verify:smoke && pnpm run verify:bundle",
+    "verify": "pnpm run build:packages && pnpm run verify:exports && pnpm run verify:treeshake && pnpm run verify:smoke && pnpm run verify:types && pnpm run verify:snippets && pnpm run docs:check && pnpm run verify:bundle",
     "test:storybook": "vitest run --config vitest.storybook.config.ts",
     "docs:api": "typedoc",
+    "docs:check": "typedoc --emit none",
     "docs:storybook": "storybook build -o docs-out/storybook",
     "docs:demo": "vite build --base=/g3-toolkit/playground/ --outDir=docs-out/playground --emptyOutDir",
-    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && node -e \"require('fs').copyFileSync('docs/landing.html','docs-out/index.html')\""
-  },
-  "peerDependencies": {
-    "@tanstack/react-table": "^8.21.3",
-    "cytoscape": ">=3.28.0",
-    "echarts": ">=5.0.0",
-    "echarts-for-react": "^3.0.6",
-    "flexlayout-react": "^0.9.1",
-    "fuse.js": "^7.3.0",
-    "react": ">=18.0.0",
-    "react-dom": ">=18.0.0",
-    "vis-data": "^8.0.4",
-    "vis-timeline": "^8.5.1",
-    "zustand": ">=4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "echarts": {
-      "optional": true
-    },
-    "cytoscape": {
-      "optional": true
-    },
-    "flexlayout-react": {
-      "optional": true
-    },
-    "vis-data": {
-      "optional": true
-    },
-    "vis-timeline": {
-      "optional": true
-    },
-    "@tanstack/react-table": {
-      "optional": true
-    },
-    "fuse.js": {
-      "optional": true
-    },
-    "echarts-for-react": {
-      "optional": true
-    }
+    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && pnpm run visual-acceptance && node -e \"const fs=require('fs');fs.mkdirSync('docs-out/acceptance',{recursive:true});fs.copyFileSync('scripts/visual-acceptance/dist/visual-acceptance.html','docs-out/acceptance/index.html');fs.copyFileSync('docs/landing.html','docs-out/index.html')\"",
+    "verify:types": "node scripts/verify-types.mjs",
+    "verify:snippets": "node scripts/check-readme-snippets.mjs",
+    "verify:exports": "vitest run --config vitest.dist.config.ts",
+    "visual-acceptance": "vite build --config vite.va.config.ts && vite build --config vite.va-client.config.ts && node scripts/visual-acceptance/.build/emit.mjs",
+    "storybook-static": "vite build --config vite.sb-client.config.ts && node scripts/storybook-static/inline.mjs"
   },
   "dependencies": {
     "@g3t/charts": "workspace:*",
@@ -131,9 +91,6 @@
     "vitest": "^4.1.7",
     "zustand": ">=4.0.0"
   },
-  "sideEffects": [
-    "*.css"
-  ],
   "packageManager": "pnpm@11.3.0",
   "private": true,
   "engines": {

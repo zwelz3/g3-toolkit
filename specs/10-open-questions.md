@@ -27,7 +27,7 @@ criteria for eventual resolution.
   - owner: UX Lead
   - recommendation: Defer until user testing with MBSE engineers reveals the dominant interaction pattern. Candidate approaches: (a) user draws a boundary box and assigns a layout mode, (b) layout mode is inferred from edge types (containment = hierarchical, association = force-directed), (c) the user selects a "hybrid" layout that automatically nests hierarchical clusters.
 
-- OQ2 User-configurable ProjectionPipelines. Should end-users be able to create or modify ProjectionPipeline configurations from within the toolkit UI, or is this an admin/developer concern?
+- OQ2 User-configurable ProjectionPipelines. Should end-users be able to create or modify ProjectionPipeline configurations from within the toolkit UI, or is this an admin/developer concern? (Register of record; supersedes the duplicate formerly embedded in the Holonic integration spec.)
   - status: deferred
   - owner: Product Lead
   - recommendation: Initial release treats pipelines as pre-configured (admin-managed). User-configurable pipelines require a pipeline editor UI that is out of scope for v0.1. Revisit after initial adoption data is available.
@@ -62,7 +62,7 @@ criteria for eventual resolution.
   - owner: Architecture Lead
   - recommendation: Define a minimal `AlgorithmResult` protocol: `node_id -> dict[str, Any]` for node-level results (centrality, community ID, embedding vector) and `edge_id -> dict[str, Any]` for edge-level results (predicted probability, flow value). The view layer maps property keys to visual channels (size, color, opacity) via a configurable `VisualEncoding` declaration. Exact protocol definition is a prerequisite for the first plugin release.
 
-- OQ9 Write-back conflict resolution. D5 and R2.12 specify optimistic UI with rollback for write-back operations. What merge or conflict strategy applies when concurrent editors modify the same node/edge?
+- OQ9 Write-back conflict resolution. R2.12 specifies inline editing with SHACL validation on commit, and the M9 milestone plan (planning/m9-evaluation.md) proposes an optimistic UI with rollback for write-back. What merge or conflict strategy applies when concurrent editors modify the same node/edge?
   - status: open
   - owner: Architecture Lead
   - recommendation: Last-write-wins is the simplest strategy and acceptable for initial release. Operational merge (CRDT or OT) is complex and should be deferred unless multi-user concurrent editing is a launch requirement. If so, evaluate Yjs or Automerge for the conflict-resolution layer.
@@ -81,3 +81,13 @@ criteria for eventual resolution.
   - status: open
   - owner: UX Lead
   - recommendation: Yes, via the plugin extension mechanism (R2.3). Edge-type-specific actions register against a type filter. The question is whether to ship built-in actions for common edge types or leave this entirely to plugins. Recommend: leave to plugins initially; promote frequently-registered patterns to built-in in later releases.
+
+- OQ13 Export behavior under fog redaction. R8.1 fog mode renders redacted nodes as opaque placeholders in views, while R8.4's acceptance criterion specifies exports contain "no trace" of redacted elements. These are consistent for structural redaction but unspecified for fog mode: should an export include placeholder stubs (leaking existence, consistent with the rendered view) or omit them entirely (no leakage, inconsistent with what the analyst saw)? The inference-leakage concern in US8.1 suggests omission, but the discrepancy between view and export must then be communicated to the user.
+  - status: open
+  - owner: Security Lead
+  - recommendation: Default to omission (export contains no trace regardless of redaction mode) and annotate the export manifest with a count of withheld elements, so the analyst knows the export is intentionally incomplete without learning what was withheld.
+
+- OQ14 Cross-holarchy navigation transition. What visual transition should indicate cross-holarchy navigation (traversing a portal from one holarchy into another)? Candidate approaches: watermark change, border-color change, breadcrumb trail, or animated zoom-through transition. (Moved from the Holonic integration spec; this register is the record of open questions.)
+  - status: open
+  - owner: UX Lead
+  - recommendation: Breadcrumb trail with watermark change is the minimum viable design.

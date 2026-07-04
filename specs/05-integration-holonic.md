@@ -29,7 +29,7 @@ holonic-console's architecture stabilizes.
 ## Requirements
 
 - R5.1 The toolkit MUST implement a HolonicAdapter that wraps a `HolonicDataset` instance and exposes it through the GraphAdapter interface (R3.3). The adapter MUST support both RdflibBackend and FusekiBackend transparently.
-  - status: proposed
+  - status: in-progress
   - priority: MUST
   - role: Frontend Developer
   - constrains: HolonicAdapter, GraphAdapter
@@ -37,7 +37,7 @@ holonic-console's architecture stabilizes.
   - acceptance: Given a HolonicDataset with FusekiBackend, when the HolonicAdapter is initialized, then queries execute via SPARQL over HTTP.
 
 - R5.2 The toolkit MUST render Holonic holarchy topology (`project_holarchy()` output: holons as nodes, portals as edges) in the Link-Chart Canvas (R1.1). This serves as a meta-navigation map. Selecting a holon in the holarchy view MUST load that holon's projected interior into the working canvas.
-  - status: proposed
+  - status: implemented
   - priority: MUST
   - role: Analyst, Data Engineer
   - constrains: HolonicAdapter, CanvasRenderer
@@ -45,14 +45,14 @@ holonic-console's architecture stabilizes.
   - acceptance: Given a holon selected in the holarchy view, when double-clicked, then the holon's interior (projected via `project_holon()`) replaces the canvas content.
 
 - R5.3 The toolkit MUST use `project_to_lpg()` (or the holon's declared ProjectionPipeline) as the default rendering path for Holonic interior graphs. The toolkit's ProjectionPipeline (R4.1) MUST accept Holonic ProjectionPipeline instances as a drop-in replacement.
-  - status: proposed
+  - status: implemented
   - priority: MUST
   - role: Frontend Developer
   - constrains: ProjectionPipeline, HolonicAdapter
   - acceptance: Given a holon with an interior containing 500 RDF triples, when rendered through `project_to_lpg(collapse_types=True, collapse_literals=True, resolve_blanks=True, resolve_lists=True)`, then the canvas shows only named-resource nodes with collapsed properties.
 
 - R5.4 The toolkit MUST surface Holonic portals as right-click menu items on holon nodes. When a node is identified as a holon (via the HolonicAdapter), the right-click menu MUST include a "Traverse portal to..." submenu listing all discovered outbound portals (via `find_portals_from()`).
-  - status: proposed
+  - status: implemented
   - priority: MUST
   - role: Frontend Developer
   - constrains: ContextMenuManager, HolonicAdapter
@@ -60,7 +60,7 @@ holonic-console's architecture stabilizes.
   - acceptance: Given a portal selected from the submenu, when invoked, then the portal's CONSTRUCT query executes and the projected result animates into the canvas as an expanded neighborhood.
 
 - R5.5 The toolkit MUST render SHACL membrane validation results (from `validate_membrane()`) as visual annotations. Passing validation renders as a green badge on the holon node; failing validation renders as a red badge with a count of violations. Clicking the badge MUST open the Detail Inspector (R1.11) with the violation details.
-  - status: proposed
+  - status: implemented
   - priority: MUST
   - role: Ontology Engineer, Analyst
   - constrains: HolonicAdapter, SchemaRenderer, DetailInspector
@@ -74,7 +74,7 @@ holonic-console's architecture stabilizes.
   - acceptance: Given a holon with a Projection-layer triple declaring "use hierarchical layout," when the holon's interior is opened, then the canvas renders with hierarchical layout rather than force-directed.
 
 - R5.7 The Detail Inspector (R1.11) SHOULD display the Holonic layer (Interior, Boundary, Projection, Context) from which each triple originates when viewing a Holonic data source. This is a Holonic-specific overlay on the standard property/provenance view.
-  - status: proposed
+  - status: implemented
   - priority: SHOULD
   - role: Ontology Engineer
   - constrains: DetailInspector, HolonicAdapter
@@ -89,20 +89,12 @@ holonic-console's architecture stabilizes.
 
 ## Open Issues
 
-- OQ5.1 How should portal visualization scale when a holon has many (>10) outbound portals? Options: flat list, grouped by target type, or a portal-browser sub-panel.
-  - status: open
-  - owner: UX Lead
-  - recommendation: Begin with a flat list; add grouping if user testing shows >10 portals is common.
-
-- OQ5.2 What visual transition should indicate cross-holarchy navigation (traversing a portal from one holarchy into another)? Candidate approaches: watermark change, border-color change, breadcrumb trail, or animated "zoom-through" transition.
-  - status: open
-  - owner: UX Lead
-  - recommendation: Breadcrumb trail with watermark change is the minimum viable design.
-
-- OQ5.3 Should end-users be able to create or modify ProjectionPipeline configurations from within the toolkit UI, or is this an admin/developer concern?
-  - status: deferred
-  - owner: Product Lead
-  - recommendation: Initial release treats pipelines as pre-configured. User-configurable pipelines are a future capability.
+Open questions for this integration are tracked in the register of
+record, specs/10-open-questions.md: OQ2 (user-configurable
+ProjectionPipelines), OQ5 (portal grouping UX for >10 outbound
+portals), and OQ14 (cross-holarchy navigation transition). Earlier
+drafts duplicated these questions inline here; the duplicates were
+removed so each question has exactly one status and owner.
 
 ## User Stories
 

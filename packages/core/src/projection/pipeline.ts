@@ -12,6 +12,9 @@
  * @see specs/09-design-decisions.md D2
  */
 
+// @see specs/04-technical-projection.md R4.4: Holonic
+// ProjectionPipeline instances are accepted as drop-in replacements
+// (compatibility verified in projection.test.ts, M4.E3.T2).
 import { UGM } from "../ugm";
 
 // ── RDF Graph Model ─────────────────────────────────────────────────

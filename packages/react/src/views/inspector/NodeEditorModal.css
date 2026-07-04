@@ -1,0 +1,71 @@
+/**
+ * NodeEditorModal styling. The backdrop fills its nearest positioned
+ * ancestor (absolute, not fixed) so the overlay scopes to the canvas
+ * area rather than the whole page. The tab strip sits directly above the
+ * active panel; the panel's top corners are squared so the strip and the
+ * panel read as one surface.
+ */
+
+.g3t-node-editor-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6vh;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 50;
+}
+
+.g3t-node-editor-modal {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  max-height: 88%;
+}
+
+.g3t-node-editor-tabs {
+  display: flex;
+  background: var(--g3t-bg-secondary, #f1f3f5);
+  border: 1px solid var(--g3t-border, #dee2e6);
+  border-bottom: none;
+  border-radius: var(--g3t-radius-lg, 8px) var(--g3t-radius-lg, 8px) 0 0;
+  overflow: hidden;
+}
+
+.g3t-node-editor-tab {
+  flex: 1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--g3t-text-secondary, #495057);
+  cursor: pointer;
+}
+
+.g3t-node-editor-tab:hover {
+  color: var(--g3t-text-primary, #1a1a1a);
+}
+
+.g3t-node-editor-tab[data-active="true"] {
+  background: var(--g3t-bg-primary, #ffffff);
+  color: var(--g3t-text-primary, #1a1a1a);
+  box-shadow: inset 0 -2px 0 var(--g3t-accent-primary, #0072b2);
+}
+
+.g3t-node-editor-body {
+  overflow: auto;
+}
+
+/* Square the hosted panel's top corners so it meets the tab strip, and
+   make it fill the modal width: the two panels set different intrinsic
+   widths (inspector 300, style editor 280), so without this the Style
+   tab would be narrower than the tab strip. box-sizing is border-box
+   globally, so 100% keeps each panel's border/padding inside the width. */
+.g3t-node-editor-body > * {
+  width: 100% !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}

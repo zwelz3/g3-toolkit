@@ -51,7 +51,7 @@ export default defineConfig({
     },
     outDir: "dist",
     sourcemap: true,
-    emptyOutDir: true,
+    emptyOutDir: false,
     target: "es2022",
     minify: false,
   },

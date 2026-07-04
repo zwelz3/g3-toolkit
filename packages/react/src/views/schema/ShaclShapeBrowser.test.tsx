@@ -87,7 +87,9 @@ describe("ShaclShapeBrowser", () => {
     render(<ShaclShapeBrowser shapes={SHAPES} validationResults={results} />);
 
     const diseaseBadge = screen.getByTestId("shape-badge-disease-shape");
-    expect(diseaseBadge.textContent).toContain("✗"); // has failures
+    expect(
+      diseaseBadge.querySelector('[data-testid="g3t-icon-close"]'),
+    ).not.toBeNull(); // failure glyph (shape-redundant, not color-only)
   });
 
   it("expands shape to show violations", () => {
@@ -113,5 +115,30 @@ describe("ShaclShapeBrowser", () => {
 
     fireEvent.click(screen.getByTestId("shape-toggle-drug-shape"));
     expect(onSelect).toHaveBeenCalledWith("drug-shape");
+  });
+});
+
+describe("sh:closed indicator", () => {
+  it("shows a lock on closed shapes and none on open shapes", () => {
+    render(
+      <ShaclShapeBrowser
+        shapes={[
+          {
+            id: "Closed",
+            targetClass: "A",
+            closed: true,
+            properties: [],
+          },
+          { id: "Open", targetClass: "B", properties: [] },
+        ]}
+        validationResults={[]}
+      />,
+    );
+    const lock = screen.getByTestId("shape-closed-Closed");
+    expect(lock.querySelector('[data-testid="g3t-icon-lock"]')).not.toBeNull();
+    expect(screen.getByTestId("g3t-icon-lock").getAttribute("aria-label")).toBe(
+      "Closed shape",
+    );
+    expect(screen.queryByTestId("shape-closed-Open")).toBeNull();
   });
 });

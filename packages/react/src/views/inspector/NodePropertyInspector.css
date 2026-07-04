@@ -1,0 +1,44 @@
+/**
+ * Collapsible section chrome for NodePropertyInspector. The header is a
+ * button (keyboard-operable, aria-expanded); collapse state lives in the
+ * graph-wide inspector-section store, so it persists across selections.
+ */
+
+.g3t-inspector-section + .g3t-inspector-section {
+  border-top: 1px solid var(--g3t-border, #e9ecef);
+}
+
+.g3t-inspector-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--g3t-text-secondary, #495057);
+}
+
+.g3t-inspector-section-header:hover {
+  color: var(--g3t-text-primary, #1a1a1a);
+}
+
+.g3t-inspector-caret {
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+  color: var(--g3t-text-muted, #868e96);
+}
+
+.g3t-inspector-section-body {
+  padding-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

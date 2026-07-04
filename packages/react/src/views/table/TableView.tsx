@@ -10,7 +10,14 @@
  * @see specs/07-ux-defaults-accessibility.md R7.4
  */
 
-import { useMemo, useState, useCallback, useRef, type MouseEvent } from "react";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  type MouseEvent,
+} from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -30,6 +37,7 @@ import type {
   MenuTarget,
 } from "../../interaction/context-menu";
 import { ContextMenu } from "../../interaction/context-menu";
+import { Icon } from "../../icons";
 
 /** A flat row representation of a UGM node. */
 interface NodeRow {
@@ -44,6 +52,10 @@ export interface TableViewProps {
   menuManager?: ContextMenuManager;
   /** Page size (default 50; max working-set limit R7.4 is 10,000). */
   pageSize?: number;
+  /** Row density (B3, design-system roadmap): "comfortable" (default)
+   *  or "compact" for thin-client analyst deployments where row
+   *  count is the job. */
+  density?: "comfortable" | "compact";
   className?: string;
 }
 
@@ -51,12 +63,34 @@ export function TableView({
   ugm,
   menuManager,
   pageSize = 50,
+  density = "comfortable",
   className,
 }: TableViewProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
+  // Close the column-visibility menu on an outside click or Escape
+  // (bugfix: the menu previously had no way to close once it overlapped
+  // content). The toggle button stops propagation, so clicking it does
+  // not re-trigger this.
+  useEffect(() => {
+    if (!showColumnMenu) return;
+    const onDown = (e: PointerEvent) => {
+      if (!columnMenuRef.current?.contains(e.target as Node))
+        setShowColumnMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowColumnMenu(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showColumnMenu]);
   const {
     selectedNodeIds,
     selectNodes,
@@ -193,58 +227,84 @@ export function TableView({
         style={{
           display: "flex",
           alignItems: "center",
-          padding: "4px 8px",
+          padding: density === "compact" ? "2px 6px" : "4px 8px",
           gap: 8,
           fontSize: 11,
         }}
       >
-        <button
-          data-testid="column-visibility-toggle"
-          className="g3t-btn g3t-btn-ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowColumnMenu(!showColumnMenu);
-          }}
-          style={{ fontSize: 11 }}
-        >
-          Columns ▾
-        </button>
-        {showColumnMenu && (
-          <div
-            data-testid="column-visibility-menu"
-            style={{
-              position: "absolute",
-              zIndex: 100,
-              background: "var(--g3t-bg-primary, white)",
-              border: "1px solid var(--g3t-border, #dee2e6)",
-              borderRadius: 4,
-              padding: 8,
-              boxShadow: "var(--g3t-shadow-md, 0 2px 8px rgba(0,0,0,0.1))",
-              maxHeight: 200,
-              overflow: "auto",
+        <div ref={columnMenuRef} style={{ position: "relative" }}>
+          <button
+            data-testid="column-visibility-toggle"
+            className="g3t-btn g3t-btn-ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowColumnMenu(!showColumnMenu);
             }}
+            style={{ fontSize: 11 }}
           >
-            {table.getAllLeafColumns().map((col) => (
-              <label
-                key={col.id}
+            Columns ▾
+          </button>
+          {showColumnMenu && (
+            <div
+              data-testid="column-visibility-menu"
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                marginTop: 4,
+                zIndex: 100,
+                background: "var(--g3t-bg-primary, white)",
+                border: "1px solid var(--g3t-border, #dee2e6)",
+                borderRadius: 4,
+                padding: 8,
+                boxShadow: "var(--g3t-shadow-md, 0 2px 8px rgba(0,0,0,0.1))",
+                maxHeight: 240,
+                overflow: "auto",
+                minWidth: 160,
+              }}
+            >
+              <div
                 style={{
                   display: "flex",
+                  justifyContent: "space-between",
                   alignItems: "center",
-                  gap: 4,
-                  padding: "2px 0",
-                  cursor: "pointer",
+                  marginBottom: 6,
+                  fontWeight: 600,
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={col.getIsVisible()}
-                  onChange={col.getToggleVisibilityHandler()}
-                />
-                {String(col.columnDef.header ?? col.id)}
-              </label>
-            ))}
-          </div>
-        )}
+                <span>Columns</span>
+                <button
+                  data-testid="column-visibility-close"
+                  className="g3t-btn g3t-btn-ghost"
+                  onClick={() => setShowColumnMenu(false)}
+                  style={{ fontSize: 13, padding: "0 4px", lineHeight: 1 }}
+                  aria-label="Close column menu"
+                >
+                  ✕
+                </button>
+              </div>
+              {table.getAllLeafColumns().map((col) => (
+                <label
+                  key={col.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "2px 0",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={col.getIsVisible()}
+                    onChange={col.getToggleVisibilityHandler()}
+                  />
+                  {String(col.columnDef.header ?? col.id)}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <table
@@ -261,7 +321,7 @@ export function TableView({
                 <th
                   key={header.id}
                   style={{
-                    padding: "6px 8px",
+                    padding: density === "compact" ? "2px 6px" : "6px 8px",
                     borderBottom: "2px solid var(--g3t-border, #ddd)",
                     textAlign: "left",
                     cursor: "pointer",
@@ -274,11 +334,11 @@ export function TableView({
                       header.column.columnDef.header,
                       header.getContext(),
                     )}
-                    {header.column.getIsSorted() === "asc"
-                      ? " ▲"
-                      : header.column.getIsSorted() === "desc"
-                        ? " ▼"
-                        : ""}
+                    {header.column.getIsSorted() === "asc" ? (
+                      <Icon name="sort-asc" size={12} />
+                    ) : header.column.getIsSorted() === "desc" ? (
+                      <Icon name="sort-desc" size={12} />
+                    ) : null}
                   </div>
                   {/* Inline filter (M11.E4.T2) */}
                   {header.column.getCanFilter() && (
@@ -320,19 +380,23 @@ export function TableView({
                 onContextMenu={(e) => handleRowContextMenu(e, nodeId)}
                 style={{
                   cursor: "pointer",
+                  // C1 selection signature: accent bar + tinted fill,
+                  // geometry from tokens, color from the active theme
+                  // (the previous literals were a different blue than
+                  // the theme accent entirely).
                   backgroundColor: isSelected
-                    ? "rgba(37, 99, 235, 0.1)"
+                    ? "color-mix(in srgb, var(--g3t-accent-primary, #0072b2) 10%, transparent)"
                     : undefined,
                   borderLeft: isSelected
-                    ? "3px solid #2563eb"
-                    : "3px solid transparent",
+                    ? "var(--g3t-selection-bar-width, 3px) solid var(--g3t-accent-primary, #0072b2)"
+                    : "var(--g3t-selection-bar-width, 3px) solid transparent",
                 }}
               >
                 {row.getVisibleCells().map((cell) => (
                   <td
                     key={cell.id}
                     style={{
-                      padding: "4px 8px",
+                      padding: density === "compact" ? "2px 6px" : "4px 8px",
                       borderBottom: "1px solid #eee",
                     }}
                   >
@@ -357,6 +421,7 @@ export function TableView({
         data-testid="table-pagination"
       >
         <button
+          className="g3t-btn"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
@@ -367,12 +432,15 @@ export function TableView({
           {table.getPageCount()}
         </span>
         <button
+          className="g3t-btn"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
           Next →
         </button>
-        <span style={{ marginLeft: "auto", color: "#888" }}>
+        <span
+          style={{ marginLeft: "auto", color: "var(--g3t-text-muted, #888)" }}
+        >
           {data.length} nodes
         </span>
       </div>

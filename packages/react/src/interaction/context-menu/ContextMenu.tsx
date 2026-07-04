@@ -58,11 +58,13 @@ export function ContextMenu({ items, target, onClose }: ContextMenuProps) {
         position: "fixed",
         left: target.position.x,
         top: target.position.y,
-        zIndex: 9999,
-        background: "white",
-        border: "1px solid #ccc",
+        zIndex: "var(--g3t-z-popover, 9999)" as unknown as number,
+        background: "var(--g3t-bg-primary, white)",
+        border: "1px solid var(--g3t-border, #ccc)",
         borderRadius: 4,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.25)",
+        color: "var(--g3t-text-primary, #212529)",
+        colorScheme: "var(--g3t-color-scheme, light)" as never,
         minWidth: 180,
         padding: "4px 0",
       }}
@@ -74,12 +76,13 @@ export function ContextMenu({ items, target, onClose }: ContextMenuProps) {
               style={{
                 margin: "4px 8px",
                 border: "none",
-                borderTop: "1px solid #eee",
+                borderTop: "1px solid var(--g3t-border, #eee)",
               }}
             />
           )}
           <button
             role="menuitem"
+            className="g3t-menu-item"
             data-testid={`menu-item-${item.id}`}
             onClick={() => {
               item.action(target);
@@ -93,6 +96,7 @@ export function ContextMenu({ items, target, onClose }: ContextMenuProps) {
               padding: "6px 12px",
               border: "none",
               background: "none",
+              color: "var(--g3t-text-primary, inherit)",
               cursor: "pointer",
               fontSize: 13,
               textAlign: "left",

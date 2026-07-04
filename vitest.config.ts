@@ -30,12 +30,10 @@ export default mergeConfig(
         // and the demo source, not the legacy src/ tree.
         include: [
           "packages/*/src/**/*.{ts,tsx}",
-          "src/demo/**/*.{ts,tsx}",
         ],
         exclude: [
           "packages/*/src/**/*.test.{ts,tsx}",
           "packages/*/src/**/*.stories.{ts,tsx}",
-          "src/demo/main.tsx",
         ],
       },
     },

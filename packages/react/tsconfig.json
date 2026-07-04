@@ -8,14 +8,9 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "types": [
-      "node",
-      "vite/client"
-    ],
+    "types": ["node", "vite/client"],
     "paths": {
-      "@g3t/core": [
-        "../core/src/index.ts"
-      ]
+      "@g3t/core": ["../core/src/index.ts"]
     },
     "emitDeclarationOnly": true
   },
@@ -24,13 +19,6 @@
       "path": "../core"
     }
   ],
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.stories.tsx",
-    "dist"
-  ]
+  "include": ["src"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.stories.tsx", "dist"]
 }

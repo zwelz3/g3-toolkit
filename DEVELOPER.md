@@ -4,6 +4,15 @@
 
 Before writing any code, understand what goes where:
 
+**Integration surface convention:** adopter-facing behavior flows
+through three channels only: exported zustand stores (read, write,
+subscribe from anywhere), props/callbacks, and versioned JSON
+documents (encoding spec, workspace snapshots, algorithm results).
+When you add a capability, expose it through one of these and add a
+snippet to docs/wiring-guide.md WITH its executable twin in
+examples/wiring/ (the guide cannot rot: CI runs every snippet, and
+the round-22 pass caught three public-barrel gaps exactly this way).
+
 **Toolkit packages** (`packages/core`, `packages/react`, `packages/charts`)
 contain composable primitives that adopters `pnpm install` and use in
 their own applications. A toolkit component:
@@ -73,7 +82,9 @@ src/
 3. Write tests (unit for D6; RTL for D13)
 4. Add to the barrel export (`src/index.ts`)
 5. Add a Storybook story (if D13)
-6. Update PROGRESS.md
+6. Record the work: planning/visual-acceptance-1.md round entry,
+   CHANGELOG entry, and a STATUS.md refresh if numbers moved
+   (PROGRESS.md is retired; see planning/milestone-history.md)
 
 ## Adding a New Adapter
 
@@ -97,11 +108,11 @@ font-size: var(--g3t-font-sm);
 
 ## Testing
 
-| Layer | Tool | What it covers |
-|-------|------|----------------|
-| Unit | Vitest | Pure functions (D6 modules), store logic |
-| Component | RTL (@testing-library/react) | React components in jsdom |
-| E2E | Playwright | Full browser interactions |
+| Layer     | Tool                         | What it covers                           |
+| --------- | ---------------------------- | ---------------------------------------- |
+| Unit      | Vitest                       | Pure functions (D6 modules), store logic |
+| Component | RTL (@testing-library/react) | React components in jsdom                |
+| E2E       | Playwright                   | Full browser interactions                |
 
 ```bash
 pnpm test          # 556 unit + component tests
@@ -120,6 +131,30 @@ The demo has 9 scenarios on a landing page. 5 have custom shells
 (Healthcare, Data Scientist, Analytics, Auditor, MBSE); the rest
 use the generic DemoApp. Demo code lives in `src/demo/` and is
 NOT part of the published package.
+
+## Implementation Lore (promoted from the retired PROGRESS.md)
+
+Hard-won environment facts that bite repeatedly; verify before
+"fixing" any of them:
+
+- Cytoscape selectors do not support booleans: `_asserted` is stored
+  as numeric 0/1 and selected with `edge[_asserted = 0]`.
+- @types/cytoscape rejects `"data(x)"` strings for shape/opacity;
+  the `as any` casts in stylesheets are deliberate.
+- cytoscape-fcose has no @types package; the custom declaration
+  lives in src/types/cytoscape-fcose.d.ts.
+- jsdom lacks Canvas 2D, so Cytoscape component tests mock cytoscape
+  (the `canvas` npm package needs native compilation). Anything that
+  truly renders needs Playwright or the visual-acceptance page.
+- jsdom reports hex colors as rgb(); color assertions match either.
+- elkjs imports from `elkjs/lib/elk.bundled.js` (async API, works in
+  browser and Node without a worker file).
+- d3-force runs synchronously via a tick() loop; d3-hierarchy BFS
+  skips visited nodes to survive cycles.
+- UGM composes over graphology MultiGraph (never inherits);
+  QualifiedEdgeMeta lives in a `meta` sub-object on EdgeAttributes.
+- Non-null assertions are allowed in test files only (ESLint
+  override); Vitest mock typing uses `as Record<string, unknown>`.
 
 ## Relationship to CONTRIBUTING.md
 

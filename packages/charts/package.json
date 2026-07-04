@@ -1,6 +1,6 @@
 {
   "name": "@g3t/charts",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "Linked statistical charts (bar, scatter, line, pie) backed by ECharts. Consumes @g3t/core data pipelines and integrates with @g3t/react components.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -8,9 +8,9 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json"
   },
@@ -30,13 +30,13 @@
   "author": "g3-toolkit contributors",
   "repository": {
     "type": "git",
-    "url": "https://github.com/g3-toolkit/g3-toolkit.git",
+    "url": "https://github.com/zwelz3/g3-toolkit.git",
     "directory": "packages/charts"
   },
   "bugs": {
-    "url": "https://github.com/g3-toolkit/g3-toolkit/issues"
+    "url": "https://github.com/zwelz3/g3-toolkit/issues"
   },
-  "homepage": "https://github.com/g3-toolkit/g3-toolkit/tree/main/packages/charts#readme",
+  "homepage": "https://github.com/zwelz3/g3-toolkit/tree/main/packages/charts#readme",
   "scripts": {
     "build": "vite build",
     "test": "pnpm -w exec vitest run packages/charts/src",

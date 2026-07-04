@@ -72,58 +72,6 @@ test.describe("Toolbar and controls", () => {
   });
 });
 
-// ── Demo scenarios load correctly ───────────────────────────────
-
-test.describe("Demo scenario loading", () => {
-  test("landing page shows scenario cards", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(1000);
-    // Should see scenario cards
-    // const cards = page.locator("[data-testid^='scenario-card']");
-    // Landing page should have content
-    const body = await page.textContent("body");
-    expect(body?.length).toBeGreaterThan(100);
-  });
-
-  test("Healthcare demo loads with tree view", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(1000);
-    // Click healthcare card if visible
-    const healthCard = page.locator("text=Healthcare");
-    if (await healthCard.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await healthCard.click();
-      await page.waitForTimeout(2000);
-      // Should have canvas and sidebar
-      const canvas = page.locator("[data-testid='cytoscape-canvas']");
-      await expect(canvas).toBeVisible({ timeout: 10000 });
-    }
-  });
-
-  test("Data Scientist demo loads with charts", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(1000);
-    const dsCard = page.locator("text=Data Scientist");
-    if (await dsCard.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await dsCard.click();
-      await page.waitForTimeout(2000);
-      const canvas = page.locator("[data-testid='cytoscape-canvas']");
-      await expect(canvas).toBeVisible({ timeout: 10000 });
-    }
-  });
-
-  test("Analytics demo loads with schema view", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForTimeout(1000);
-    const card = page.locator("text=Analytics");
-    if (await card.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await card.click();
-      await page.waitForTimeout(2000);
-      const canvas = page.locator("[data-testid='cytoscape-canvas']");
-      await expect(canvas).toBeVisible({ timeout: 10000 });
-    }
-  });
-});
-
 // ── Secondary views ─────────────────────────────────────────────
 
 test.describe("Secondary views", () => {

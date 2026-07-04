@@ -22,12 +22,13 @@ and API integration.
 
 ## Requirements
 
-- R6.1 (Canonical: R3.7) The toolkit MUST support relational database virtualization by accepting JDBC/ODBC or SQL-over-HTTP query results and joining them to the UGM by a shared key (node ID or IRI). Virtualized relational data MUST be renderable in the Table view and as supplementary properties in the Detail Inspector.
-  - status: proposed
-  - priority: MUST
-  - role: Data Engineer
-  - constrains: RelationalVirtualizer
-  - acceptance: Given a Postgres table of financial transactions keyed by account IRI, when joined to a graph of account entities, then the Table view shows transaction columns alongside graph-derived properties.
+Formerly requirement 6.1 of this file (removed from the roadmap
+2026-06-12 by review direction): the
+relational connector requirement (JDBC/ODBC and SQL-over-HTTP joins,
+formerly canonicalized under the data-layer virtualization item) was
+descoped together with data-layer virtualization generally; the
+virtualization roadmap is now visualization-only (see the rescoped
+R3.7: source indication and provenance affordances).
 
 - R6.2 The toolkit SHOULD support multi-source federation such that a single workspace can combine data from multiple GraphAdapter instances (e.g., one SPARQL, one Cypher, one Holonic). Entity resolution across sources MUST be configurable by shared IRI, owl:sameAs, or user-defined key.
   - status: proposed
@@ -44,7 +45,7 @@ and API integration.
   - acceptance: Given a node with a `source_document_url` pointing to a PDF, when "Show source" is clicked, then an inline PDF viewer opens at the referenced page.
 
 - R6.4 The toolkit SHOULD support API integration by accepting JSON or GraphQL responses as supplementary data, mappable to UGM node/edge properties via a configurable transform.
-  - status: proposed
+  - status: implemented
   - priority: SHOULD
   - role: Data Engineer, Plugin Developer
   - constrains: APIAdapter

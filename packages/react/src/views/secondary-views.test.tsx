@@ -98,9 +98,13 @@ describe("MapView (M5.E2.T1)", () => {
     useSelectionStore.getState().selectNodes(["loc-1"]);
 
     render(<MapView ugm={ugm} />);
-    const marker = screen.getByTestId("map-marker-loc-1");
-    const circle = marker.querySelector("circle");
-    expect(circle?.getAttribute("fill")).toBe("#2563eb");
+    // Selection adds the accent halo; the marker keeps its
+    // categorical fill (C1 signature, 2026-06-11).
+    expect(screen.getByTestId("map-halo-loc-1")).toBeTruthy();
+    const marker = screen
+      .getByTestId("map-marker-loc-1")
+      .querySelectorAll("circle")[1];
+    expect(marker?.getAttribute("fill")).toContain("--g3t-type-1");
   });
 });
 

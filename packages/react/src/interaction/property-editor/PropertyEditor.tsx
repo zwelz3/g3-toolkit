@@ -6,6 +6,10 @@
  * the adopter persist or reject changes.
  */
 
+// Partially implements R2.12 (data entry and curation): inline
+// property editing with a backend validation callback. Commit-time
+// SHACL validation and relationship creation via drag are not yet
+// wired; R2.12 is tracked as in-progress in specs/02.
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { UGM } from "@g3t/core";
 

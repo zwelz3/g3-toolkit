@@ -1,0 +1,27 @@
+.g3t-minimap {
+  position: relative;
+  border: 1px solid var(--g3t-border, #dee2e6);
+  border-radius: 6px;
+  background: var(--g3t-bg-secondary, #f8f9fa);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  user-select: none;
+  touch-action: none;
+}
+
+.g3t-minimap-canvas {
+  display: block;
+  cursor: grab;
+}
+
+.g3t-minimap-canvas:active {
+  cursor: grabbing;
+}
+
+.g3t-minimap[data-disabled] {
+  opacity: 0.5;
+}
+
+.g3t-minimap[data-disabled] .g3t-minimap-canvas {
+  cursor: default;
+}

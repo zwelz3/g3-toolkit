@@ -12,8 +12,19 @@
 import { useRef, useEffect, useMemo, useCallback } from "react";
 import { Timeline, type TimelineOptions } from "vis-timeline/standalone";
 import { DataSet } from "vis-data/standalone";
+// vis-timeline's stylesheet is VENDORED (vis-timeline-vendor.css) rather
+// than imported from node_modules: vis-timeline is a build external, so a
+// bare import would survive into dist/*.mjs and break plain-Node/SSR
+// consumers (the WorkspaceShell/flexlayout precedent; see
+// scripts/smoke-test.mjs). As a local import it is extracted into the
+// exported ./style.css with the rest of the package CSS. vendor-css.test.ts
+// byte-compares the vendored copy against the installed package so a
+// vis-timeline upgrade fails loudly instead of drifting.
+import "./vis-timeline-vendor.css";
+import "./TimelineView.css";
 import type { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { EmptyState } from "../../interaction/feedback";
 
 export interface TimelineViewProps {
   ugm: UGM;
@@ -28,6 +39,34 @@ interface TimelineItem {
   group?: string;
 }
 
+// Property names recognized as the start/end of a temporal item, in
+// priority order. temporal_start/temporal_end are the documented keys;
+// the date/time aliases let ordinary graph data populate the timeline
+// without renaming properties first.
+const TEMPORAL_START_KEYS = [
+  "temporal_start",
+  "date",
+  "datetime",
+  "timestamp",
+  "time",
+  "start",
+] as const;
+const TEMPORAL_END_KEYS = ["temporal_end", "end"] as const;
+
+function readDate(
+  properties: Record<string, unknown>,
+  keys: readonly string[],
+): Date | null {
+  for (const key of keys) {
+    const value = properties[key];
+    if (typeof value === "string" || typeof value === "number") {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) return date;
+    }
+  }
+  return null;
+}
+
 export function TimelineView({ ugm, className }: TimelineViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<Timeline | null>(null);
@@ -37,23 +76,20 @@ export function TimelineView({ ugm, className }: TimelineViewProps) {
   const items = useMemo<TimelineItem[]>(() => {
     const result: TimelineItem[] = [];
     ugm.forEachNode((id, attrs) => {
-      const start = attrs.properties.temporal_start;
-      const end = attrs.properties.temporal_end;
-      if (start && (typeof start === "string" || typeof start === "number")) {
-        const item: TimelineItem = {
-          id,
-          content:
-            typeof attrs.properties.name === "string"
-              ? attrs.properties.name
-              : id,
-          start: new Date(start as string | number),
-          group: attrs.types[0],
-        };
-        if (end && (typeof end === "string" || typeof end === "number")) {
-          item.end = new Date(end as string | number);
-        }
-        result.push(item);
-      }
+      const start = readDate(attrs.properties, TEMPORAL_START_KEYS);
+      if (!start) return;
+      const item: TimelineItem = {
+        id,
+        content:
+          typeof attrs.properties.name === "string"
+            ? attrs.properties.name
+            : id,
+        start,
+        group: attrs.types[0],
+      };
+      const end = readDate(attrs.properties, TEMPORAL_END_KEYS);
+      if (end) item.end = end;
+      result.push(item);
     });
     return result;
   }, [ugm]);
@@ -107,16 +143,16 @@ export function TimelineView({ ugm, className }: TimelineViewProps) {
   return (
     <div
       data-testid="timeline-view"
-      className={className}
+      className={`g3t-timeline-view${className ? ` ${className}` : ""}`}
       style={{ width: "100%", height: "100%", minHeight: 200 }}
     >
       {items.length === 0 ? (
-        <div
-          data-testid="timeline-empty"
-          style={{ padding: 16, color: "#888", fontSize: 13 }}
-        >
-          No temporal data. Nodes need temporal_start/temporal_end properties.
-        </div>
+        <EmptyState
+          testId="timeline-empty"
+          icon="info"
+          title="No temporal data"
+          description="The timeline reads temporal_start/temporal_end or common date and time properties. Load time-stamped elements to populate it."
+        />
       ) : (
         <div
           ref={containerRef}

@@ -7,25 +7,20 @@
 
 import { useState, useEffect } from "react";
 import { DemoLanding, type Scenario } from "./DemoLanding";
-import { DemoApp } from "./DemoApp";
-import { HealthcareDemo } from "./shells/HealthcareDemo";
-import { DataScientistDemo } from "./shells/DataScientistDemo";
-import { AnalyticsDemo } from "./shells/AnalyticsDemo";
-import { AuditorDemo, MBSEDemo } from "./shells/AuditorMBSEDemo";
-import { CyberDemo, SupplyChainDemo } from "./shells/CyberSupplyDemo";
+import { MbseShell } from "./mbse/MbseShell";
+import { SupplyThreadShell } from "./supply/ThreadShell";
+import { BioShell } from "./bio/BioShell";
+import { AuditShell } from "./audit/AuditShell";
 import { useThemeStore } from "@g3t/react";
 import { injectDesignTokens } from "@g3t/react";
 import "@g3t/react";
 
 /** Map scenario IDs to dedicated demo shells. */
 const SHELL_MAP: Record<string, React.ComponentType<{ onBack: () => void }>> = {
-  healthcare: HealthcareDemo,
-  "data-scientist": DataScientistDemo,
-  analytics: AnalyticsDemo,
-  auditor: AuditorDemo,
-  mbse: MBSEDemo,
-  cyber: CyberDemo,
-  "supply-chain": SupplyChainDemo,
+  mbse: MbseShell,
+  auditor: AuditShell,
+  "supply-chain": SupplyThreadShell,
+  biomedical: BioShell,
 };
 
 export function Demo() {
@@ -46,12 +41,10 @@ export function Demo() {
     if (Shell) {
       return <Shell onBack={() => setActiveScenario(null)} />;
     }
-    return (
-      <DemoApp
-        scenario={activeScenario}
-        onBack={() => setActiveScenario(null)}
-      />
-    );
+    // Every shipped scenario has a dedicated shell; fall back to the
+    // landing if an unknown id is somehow active.
+    setActiveScenario(null);
+    return null;
   }
 
   return <DemoLanding onSelect={setActiveScenario} />;

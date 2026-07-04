@@ -145,7 +145,17 @@
         <h2>Live Playground</h2>
         <p>Five scenario shells driving the graph canvas: data science, analytics, supply chain, MBSE, healthcare.</p>
       </a>
-      <a class="card" href="https://github.com/graphistry/g3-toolkit">
+                  <a class="card" href="./api/documents/wiring-guide.html">
+        <span class="icon">🔌</span>
+        <h2>Wiring Guide</h2>
+        <p>Drive the toolkit from your app: custom buttons, store subscriptions, and the JSON contracts. Every snippet runs in CI.</p>
+      </a>
+      <a class="card" href="./acceptance/">
+        <span class="icon">✅</span>
+        <h2>Visual Acceptance</h2>
+        <p>The living feature walkthrough: live canvases for the encoding grammar, toolbar, containers, pinning, algorithms, and workspaces.</p>
+      </a>
+      <a class="card" href="https://github.com/zwelz3/g3-toolkit">
         <span class="icon">📂</span>
         <h2>Source &amp; Guides</h2>
         <p>README, ARCHITECTURE.md, specs, and planning docs on GitHub.</p>
@@ -156,11 +166,11 @@
     <div class="packages">
       <div class="pkg">
         <div class="name">@g3t/core</div>
-        <div class="desc">UGM, adapters, pipeline, algorithms, event bus, SHACL. Zero React.</div>
+        <div class="desc">UGM, adapters, projection pipeline, algorithm result interchange (networkx/GraphBLAS documents), event bus, SHACL, theming. Zero React.</div>
       </div>
       <div class="pkg">
         <div class="name">@g3t/react</div>
-        <div class="desc">12 views, controls, encoding, context menu, theming. React 18+.</div>
+        <div class="desc">Views and controls: the encoding-spec grammar (panel, legend, JSON port), graph toolbar with force controls, algorithm overlays, position pinning, workspace snapshots, compound containers, theme-aware canvas. React 19.</div>
       </div>
       <div class="pkg">
         <div class="name">@g3t/charts</div>
@@ -191,16 +201,16 @@ function App() {
       <code class="inline-code">@g3t/core</code> is framework-agnostic (no React imports).
       <code class="inline-code">@g3t/react</code> wraps it for React consumers.
       Source-boundary tests enforce this at build time. Read
-      <a href="https://github.com/graphistry/g3-toolkit/blob/main/ARCHITECTURE.md"
+      <a href="https://github.com/zwelz3/g3-toolkit/blob/main/ARCHITECTURE.md"
          style="color:var(--accent)">ARCHITECTURE.md</a>
       for the full design rationale.
     </p>
 
     <div class="links">
-      <a href="https://github.com/graphistry/g3-toolkit">GitHub</a>
-      <a href="https://github.com/graphistry/g3-toolkit/blob/main/ARCHITECTURE.md">Architecture</a>
-      <a href="https://github.com/graphistry/g3-toolkit/blob/main/planning/pre-publish-checklist.md">Pre-Publish Checklist</a>
-      <a href="https://github.com/graphistry/g3-toolkit/blob/main/specs/">Specs</a>
+      <a href="https://github.com/zwelz3/g3-toolkit">GitHub</a>
+      <a href="https://github.com/zwelz3/g3-toolkit/blob/main/ARCHITECTURE.md">Architecture</a>
+      <a href="https://github.com/zwelz3/g3-toolkit/blob/main/planning/pre-publish-checklist.md">Pre-Publish Checklist</a>
+      <a href="https://github.com/zwelz3/g3-toolkit/blob/main/specs/">Specs</a>
     </div>
 
     <footer>

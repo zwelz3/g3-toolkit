@@ -1,6 +1,6 @@
 {
   "name": "@g3t/react",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "React components for graph visualization: canvas, table, tree, map, schema, charts. Pairs with @g3t/core.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -8,34 +8,39 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./views": {
+      "types": "./dist/views/index.d.ts",
       "import": "./dist/views.mjs",
-      "require": "./dist/views.cjs",
-      "types": "./dist/views/index.d.ts"
+      "require": "./dist/views.cjs"
     },
     "./controls": {
+      "types": "./dist/interaction/index.d.ts",
       "import": "./dist/controls.mjs",
-      "require": "./dist/controls.cjs",
-      "types": "./dist/interaction/index.d.ts"
+      "require": "./dist/controls.cjs"
     },
     "./state": {
+      "types": "./dist/state/index.d.ts",
       "import": "./dist/state.mjs",
-      "require": "./dist/state.cjs",
-      "types": "./dist/state/index.d.ts"
+      "require": "./dist/state.cjs"
     },
     "./theme": {
+      "types": "./dist/theme/index.d.ts",
       "import": "./dist/theme.mjs",
-      "require": "./dist/theme.cjs",
-      "types": "./dist/theme/index.d.ts"
+      "require": "./dist/theme.cjs"
     },
     "./a11y": {
+      "types": "./dist/a11y/index.d.ts",
       "import": "./dist/a11y.mjs",
-      "require": "./dist/a11y.cjs",
-      "types": "./dist/a11y/index.d.ts"
+      "require": "./dist/a11y.cjs"
+    },
+    "./icons": {
+      "types": "./dist/icons/index.d.ts",
+      "import": "./dist/icons.mjs",
+      "require": "./dist/icons.cjs"
     },
     "./style.css": "./dist/style.css",
     "./package.json": "./package.json"
@@ -57,13 +62,13 @@
   "author": "g3-toolkit contributors",
   "repository": {
     "type": "git",
-    "url": "https://github.com/g3-toolkit/g3-toolkit.git",
+    "url": "https://github.com/zwelz3/g3-toolkit.git",
     "directory": "packages/react"
   },
   "bugs": {
-    "url": "https://github.com/g3-toolkit/g3-toolkit/issues"
+    "url": "https://github.com/zwelz3/g3-toolkit/issues"
   },
-  "homepage": "https://github.com/g3-toolkit/g3-toolkit/tree/main/packages/react#readme",
+  "homepage": "https://github.com/zwelz3/g3-toolkit/tree/main/packages/react#readme",
   "scripts": {
     "build": "vite build",
     "test": "pnpm -w exec vitest run packages/react/src",

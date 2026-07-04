@@ -17,24 +17,6 @@ importers:
       '@g3t/react':
         specifier: workspace:*
         version: link:packages/react
-      '@tanstack/react-table':
-        specifier: ^8.21.3
-        version: 8.21.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      echarts-for-react:
-        specifier: ^3.0.6
-        version: 3.0.6(echarts@6.1.0)(react@19.2.6)
-      flexlayout-react:
-        specifier: ^0.9.1
-        version: 0.9.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      fuse.js:
-        specifier: ^7.3.0
-        version: 7.3.0
-      vis-data:
-        specifier: ^8.0.4
-        version: 8.0.4(uuid@14.0.0)(vis-util@6.0.0(@egjs/hammerjs@2.0.17)(component-emitter@1.3.1))
-      vis-timeline:
-        specifier: ^8.5.1
-        version: 8.5.1(@egjs/hammerjs@2.0.17)(component-emitter@1.3.1)(keycharm@0.4.0)(moment@2.30.1)(propagating-hammerjs@3.0.0(@egjs/hammerjs@2.0.17))(uuid@14.0.0)(vis-data@8.0.4(uuid@14.0.0)(vis-util@6.0.0(@egjs/hammerjs@2.0.17)(component-emitter@1.3.1)))(vis-util@6.0.0(@egjs/hammerjs@2.0.17)(component-emitter@1.3.1))(xss@1.0.15)
     devDependencies:
       '@chromatic-com/storybook':
         specifier: ^5.2.1
@@ -180,6 +162,31 @@ importers:
       zustand:
         specifier: '>=4.0.0'
         version: 5.0.13(@types/react@19.2.15)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))
+
+  examples/decision-dashboards:
+    dependencies:
+      '@g3t/charts':
+        specifier: workspace:*
+        version: link:../../packages/charts
+      '@g3t/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@g3t/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      react:
+        specifier: '>=18.0.0'
+        version: 19.2.6
+      react-dom:
+        specifier: '>=18.0.0'
+        version: 19.2.6(react@19.2.6)
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.0.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@25.9.1)(@vitest/browser@4.1.7(vite@8.0.13(@types/node@25.9.1)(esbuild@0.27.7)(yaml@2.9.0))(vitest@4.1.7))(jsdom@29.1.1)(lightningcss@1.32.0)
 
   examples/full-workspace:
     dependencies:
@@ -2225,12 +2232,6 @@ packages:
     peerDependencies:
       react: ^18.0.0
       react-dom: ^18.0.0
-
-  flexlayout-react@0.9.1:
-    resolution: {integrity: sha512-sB/93gKvDUBcukvxeNsu88ziobdsBfZQCDk9tTaxZOruaefpCpjpkSjhrhgoomWmTrSz8xnpHj8QcUaRf0Begg==}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
 
   fsevents@2.3.2:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
@@ -4995,11 +4996,6 @@ snapshots:
   flatted@3.4.2: {}
 
   flexlayout-react@0.7.15(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
-    dependencies:
-      react: 19.2.6
-      react-dom: 19.2.6(react@19.2.6)
-
-  flexlayout-react@0.9.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)

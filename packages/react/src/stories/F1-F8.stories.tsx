@@ -50,7 +50,7 @@ function makeTemporalUGM(): UGM {
 }
 
 const meta: Meta = {
-  title: "Features/F1-F8",
+  title: "Reference/Features",
 };
 
 export default meta;
@@ -91,7 +91,9 @@ export const ComboGrouping: Story = {
           style={{
             marginTop: 12,
             padding: 8,
-            background: "#f5f5f5",
+            background: "var(--g3t-bg-secondary, #f5f5f5)",
+            border: "1px solid var(--g3t-border, #e0e0e0)",
+            color: "var(--g3t-text-primary, #1a1a1a)",
             borderRadius: 4,
           }}
         >

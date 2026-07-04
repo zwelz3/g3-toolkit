@@ -25,7 +25,6 @@ export interface WorkspaceState {
   savedAt: string;
 }
 
-// @see R2.15: investigation bookmarks
 export function saveWorkspace(
   name: string,
   model: Model,

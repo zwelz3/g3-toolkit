@@ -1,0 +1,121 @@
+/**
+ * Property field + widget styling for the inspector. Field rows are a
+ * two-column grid (label / control). The toggle is a switch built from
+ * an overlaid invisible checkbox plus a track and knob; its "on" color
+ * is the theme accent, passed in via the --g3t-toggle-accent custom
+ * property so it follows the active theme.
+ */
+
+.g3t-prop-field {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  min-height: 26px;
+}
+
+.g3t-prop-label {
+  color: var(--g3t-text-secondary, #495057);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g3t-prop-control {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.g3t-prop-value {
+  font-family: var(--g3t-font-mono, monospace);
+  word-break: break-word;
+  color: var(--g3t-text-primary, #1a1a1a);
+}
+
+.g3t-prop-input {
+  font: inherit;
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--g3t-border, #ced4da);
+  border-radius: var(--g3t-radius-sm, 4px);
+  background: var(--g3t-bg-primary, #ffffff);
+  color: var(--g3t-text-primary, #1a1a1a);
+}
+
+.g3t-prop-input:focus-visible {
+  outline: 2px solid var(--g3t-accent-primary, #0072b2);
+  outline-offset: -1px;
+}
+
+.g3t-prop-textarea {
+  resize: vertical;
+  font-family: var(--g3t-font-mono, monospace);
+}
+
+.g3t-prop-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.g3t-prop-checkbox:disabled {
+  cursor: default;
+}
+
+/* ── Toggle switch ─────────────────────────────────────────────── */
+
+.g3t-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 34px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.g3t-toggle input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.g3t-toggle[data-disabled="true"] {
+  opacity: 0.7;
+}
+
+.g3t-toggle[data-disabled="true"] input {
+  cursor: default;
+}
+
+.g3t-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--g3t-border, #ced4da);
+  transition: background 120ms ease;
+}
+
+.g3t-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--g3t-bg-primary, #ffffff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: left 120ms ease;
+}
+
+.g3t-toggle[data-on="true"] .g3t-toggle-track {
+  background: var(--g3t-toggle-accent, var(--g3t-accent-primary, #0072b2));
+}
+
+.g3t-toggle[data-on="true"] .g3t-toggle-knob {
+  left: 18px;
+}

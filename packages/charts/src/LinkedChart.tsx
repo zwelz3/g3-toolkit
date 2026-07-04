@@ -54,8 +54,8 @@ export function LinkedChart<TData, TSelection>({
 
   // Generate ECharts options based on chart type
   const options = useMemo(
-    () => buildOptions(type, data, theme.typePalette),
-    [type, data, theme.typePalette],
+    () => buildOptions(type, data, theme),
+    [type, data, theme],
   );
 
   // Handle chart click events
@@ -143,22 +143,33 @@ export function LinkedChart<TData, TSelection>({
 
 // ── Option Builders ─────────────────────────────────────────────────
 
+// Chart-relevant slice of the active theme. ECharts renders to canvas
+// and cannot resolve CSS custom properties, so axis and label colors
+// must be passed as concrete values from the theme (a var(--g3t-*)
+// string is invalid as a canvas fill and silently falls back to a fixed
+// default, which is why the axes did not follow dark mode).
+interface ChartTheme {
+  typePalette: string[];
+  textSecondary: string;
+  border: string;
+}
+
 function buildOptions(
   type: ChartType,
   data: unknown,
-  palette: string[],
+  theme: ChartTheme,
 ): EChartsOption {
   switch (type) {
     case "bar":
-      return buildBarOptions(data as CategoricalData, palette);
+      return buildBarOptions(data as CategoricalData, theme);
     case "scatter":
-      return buildScatterOptions(data as ScatterData, palette);
+      return buildScatterOptions(data as ScatterData, theme);
     case "line":
-      return buildLineOptions(data as TimeSeriesData, palette);
+      return buildLineOptions(data as TimeSeriesData, theme);
     case "pie":
-      return buildPieOptions(data as CategoricalData, palette);
+      return buildPieOptions(data as CategoricalData, theme);
     case "parallel":
-      return buildParallelOptions(data, palette);
+      return buildParallelOptions(data, theme);
     default:
       return {};
   }
@@ -168,25 +179,29 @@ function buildOptions(
 
 function buildBarOptions(
   data: CategoricalData,
-  palette: string[],
+  theme: ChartTheme,
 ): EChartsOption {
   return {
     tooltip: { trigger: "axis" },
     xAxis: {
       type: "category",
       data: data.categories.map((c) => c.label),
-      axisLabel: { fontSize: 11, color: "var(--g3t-text-secondary, #495057)" },
+      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLine: { lineStyle: { color: theme.border } },
+      axisTick: { lineStyle: { color: theme.border } },
     },
     yAxis: {
       type: "value",
-      axisLabel: { fontSize: 11, color: "var(--g3t-text-secondary, #495057)" },
+      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLine: { lineStyle: { color: theme.border } },
+      splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
     },
     series: [
       {
         type: "bar",
         data: data.categories.map((c, i) => ({
           value: c.count,
-          itemStyle: { color: palette[i % palette.length] },
+          itemStyle: { color: theme.typePalette[i % theme.typePalette.length] },
         })),
         barMaxWidth: 40,
       },
@@ -199,8 +214,9 @@ function buildBarOptions(
 
 function buildScatterOptions(
   data: ScatterData,
-  palette: string[],
+  theme: ChartTheme,
 ): EChartsOption {
+  const palette = theme.typePalette;
   const series: EChartsOption["series"] = [
     {
       type: "scatter",
@@ -231,8 +247,20 @@ function buildScatterOptions(
 
   return {
     tooltip: { trigger: "item" },
-    xAxis: { type: "value", scale: true },
-    yAxis: { type: "value", scale: true },
+    xAxis: {
+      type: "value",
+      scale: true,
+      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLine: { lineStyle: { color: theme.border } },
+      splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
+    },
+    yAxis: {
+      type: "value",
+      scale: true,
+      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLine: { lineStyle: { color: theme.border } },
+      splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
+    },
     series,
     brush: {
       toolbox: ["rect", "clear"],
@@ -246,17 +274,21 @@ function buildScatterOptions(
 
 function buildLineOptions(
   data: TimeSeriesData,
-  palette: string[],
+  theme: ChartTheme,
 ): EChartsOption {
+  const palette = theme.typePalette;
   return {
     tooltip: { trigger: "axis" },
     xAxis: {
       type: "time",
-      axisLabel: { fontSize: 11 },
+      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLine: { lineStyle: { color: theme.border } },
     },
     yAxis: {
       type: "value",
-      axisLabel: { fontSize: 11 },
+      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLine: { lineStyle: { color: theme.border } },
+      splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
     },
     series: [
       {
@@ -277,8 +309,9 @@ function buildLineOptions(
 
 function buildPieOptions(
   data: CategoricalData,
-  palette: string[],
+  theme: ChartTheme,
 ): EChartsOption {
+  const palette = theme.typePalette;
   return {
     tooltip: { trigger: "item" },
     series: [
@@ -290,7 +323,11 @@ function buildPieOptions(
           value: c.count,
           itemStyle: { color: palette[i % palette.length] },
         })),
-        label: { fontSize: 11, color: "var(--g3t-text-secondary, #495057)" },
+        // Label text takes its slice color so each label reads as its
+        // wedge. ECharts resolves "inherit" to the sector color at
+        // render time.
+        label: { fontSize: 11, color: "inherit" },
+        labelLine: { lineStyle: { color: theme.border } },
         emphasis: {
           itemStyle: {
             shadowBlur: 10,
@@ -310,7 +347,7 @@ interface ParallelData {
   records: Array<Record<string, number> & { nodeId: string }>;
 }
 
-function buildParallelOptions(data: unknown, palette: string[]): EChartsOption {
+function buildParallelOptions(data: unknown, theme: ChartTheme): EChartsOption {
   const pData = data as ParallelData;
   if (!pData.dimensions || !pData.records) return {};
 
@@ -318,13 +355,15 @@ function buildParallelOptions(data: unknown, palette: string[]): EChartsOption {
     parallelAxis: pData.dimensions.map((dim, i) => ({
       dim: i,
       name: dim,
-      nameTextStyle: { fontSize: 11 },
+      nameTextStyle: { fontSize: 11, color: theme.textSecondary },
+      axisLabel: { color: theme.textSecondary },
+      axisLine: { lineStyle: { color: theme.border } },
     })),
     series: [
       {
         type: "parallel",
         data: pData.records.map((r) => pData.dimensions.map((d) => r[d] ?? 0)),
-        lineStyle: { color: palette[0], opacity: 0.4, width: 1.5 },
+        lineStyle: { color: theme.typePalette[0], opacity: 0.4, width: 1.5 },
       },
     ],
   };

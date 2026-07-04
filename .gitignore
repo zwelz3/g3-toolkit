@@ -55,3 +55,8 @@ __pycache__/
 
 # Generated docs (TypeDoc + Storybook build)
 docs-out/
+.verify-types
+.verify-snippets
+scripts/visual-acceptance/.build
+scripts/visual-acceptance/dist
+test-results.json

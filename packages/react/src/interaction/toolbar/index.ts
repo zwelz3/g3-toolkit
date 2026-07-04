@@ -14,3 +14,5 @@ export type {
   StatusBarProps,
   KeyboardShortcutModalProps,
 } from "./UxSurface";
+export { GraphToolbar, runGraphLayout, layoutConfig } from "./GraphToolbar";
+export type { GraphToolbarProps } from "./GraphToolbar";

@@ -10,6 +10,7 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import * as echarts from "echarts";
 import type { UGM } from "@g3t/core";
+import { EmptyState } from "../../interaction/feedback";
 
 export type FlowMode = "sankey" | "chord";
 
@@ -61,7 +62,7 @@ export function SankeyView({
   }, [ugm]);
 
   useEffect(() => {
-    if (!chartRef.current || nodes.length === 0) return;
+    if (!chartRef.current || nodes.length === 0 || links.length === 0) return;
 
     const chart = echarts.init(chartRef.current);
 
@@ -108,11 +109,14 @@ export function SankeyView({
     };
   }, [nodes, links, currentMode]);
 
-  if (nodes.length === 0) {
+  if (nodes.length === 0 || links.length === 0) {
     return (
-      <div data-testid="sankey-empty" style={{ padding: 16, color: "#888" }}>
-        No flow data. Graph needs edges between typed nodes.
-      </div>
+      <EmptyState
+        testId="sankey-empty"
+        icon="layers"
+        title="No flows to draw"
+        description="Flows aggregate edges between different node types. Load a graph whose typed nodes connect across types to see them."
+      />
     );
   }
 

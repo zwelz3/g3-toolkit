@@ -11,6 +11,7 @@ import { useMemo, useCallback, useRef, useEffect } from "react";
 import * as echarts from "echarts";
 import type { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { EmptyState } from "../../interaction/feedback";
 
 export interface StatsPanelProps {
   ugm: UGM;
@@ -158,12 +159,12 @@ export function StatsPanel({
       style={{ width: "100%", height: "100%", minHeight: 200 }}
     >
       {histogram.length === 0 ? (
-        <div
-          data-testid="stats-empty"
-          style={{ padding: 16, color: "#888", fontSize: 13 }}
-        >
-          No numeric data for property "{propertyKey}".
-        </div>
+        <EmptyState
+          testId="stats-empty"
+          icon="info"
+          title={`No numeric values for "${propertyKey}"`}
+          description="Pick a property that carries numbers, or ingest algorithm results to add one."
+        />
       ) : (
         <div
           ref={chartRef}

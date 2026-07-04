@@ -13,7 +13,8 @@
 
 // Implements: R7.1 (canvas 500 node limit), R7.2 (tree 1000 node limit),
 // R7.3 (matrix 200x200 limit), R7.4 (table 10000 row limit),
-// R7.5 (sankey 100 path limit), R7.7 (configurable limits).
+// Sankey flow-path cap (requirement removed from the roadmap
+// 2026-06-12; behavior retained as-is), R7.7 (configurable limits).
 
 export type ViewType =
   | "canvas"

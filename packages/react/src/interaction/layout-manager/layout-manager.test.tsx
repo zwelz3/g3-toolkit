@@ -170,3 +170,29 @@ describe("LayoutManager", () => {
     fireEvent.change(edgeSelect, { target: { value: "taxi" } });
   });
 });
+
+describe("LayoutManager option-commit debounce (round-15 layout pass)", () => {
+  it("does not re-run the layout per slider tick; commits once after settling", () => {
+    vi.useFakeTimers();
+    const onLayoutChange = vi.fn();
+    render(
+      <LayoutManager
+        onLayoutChange={onLayoutChange}
+        onResetLayout={() => {}}
+      />,
+    );
+    // Open the parameter disclosure, then drag the repulsion slider.
+    fireEvent.click(screen.getByText(/Parameters/));
+    const slider = screen.getByLabelText("Repulsion");
+    fireEvent.change(slider, { target: { value: "9000" } });
+    fireEvent.change(slider, { target: { value: "10000" } });
+    fireEvent.change(slider, { target: { value: "11000" } });
+    expect(onLayoutChange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(300);
+    expect(onLayoutChange).toHaveBeenCalledTimes(1);
+    expect(onLayoutChange.mock.calls[0]![1]).toMatchObject({
+      nodeRepulsion: 11000,
+    });
+    vi.useRealTimers();
+  });
+});

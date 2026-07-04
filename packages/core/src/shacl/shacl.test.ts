@@ -135,3 +135,49 @@ describe("summarizeValidation", () => {
     expect(drugSummary?.failing).toBe(1); // p2 missing name
   });
 });
+
+// ── sh:closed (closed-world) enforcement, 2026-06-11 ────────────────
+
+describe("sh:closed enforcement", () => {
+  const closedShape: ShaclShape = {
+    id: "ClosedPerson",
+    targetClass: "Person",
+    closed: true,
+    ignoredProperties: ["label"],
+    properties: [{ path: "name", minCount: 1 }],
+  };
+
+  function personWith(props: Record<string, unknown>): UGM {
+    const ugm = new UGM();
+    ugm.addNode("p", { types: ["Person"], properties: props });
+    return ugm;
+  }
+
+  it("flags undeclared properties on closed shapes", () => {
+    const results = validateShacl(
+      personWith({ name: "Aris", label: "Aris", nickname: "Q" }),
+      [closedShape],
+    );
+    const r = results[0]!;
+    expect(r.valid).toBe(false);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0]!.path).toBe("nickname");
+    expect(r.violations[0]!.message).toContain("sh:closed");
+  });
+
+  it("exempts sh:ignoredProperties and declared paths", () => {
+    const results = validateShacl(personWith({ name: "Aris", label: "Aris" }), [
+      closedShape,
+    ]);
+    expect(results[0]!.valid).toBe(true);
+  });
+
+  it("leaves open shapes open-world (default)", () => {
+    const open: ShaclShape = { ...closedShape, closed: false };
+    const results = validateShacl(
+      personWith({ name: "Aris", anything: "goes" }),
+      [open],
+    );
+    expect(results[0]!.valid).toBe(true);
+  });
+});

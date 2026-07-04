@@ -6,8 +6,10 @@
  *
  * Framework-agnostic (D6).
  *
- * @see specs/03-technical-data-layer.md R3.7
- * @see specs/06-integration-connectors.md R6.1
+ * Roadmap note (2026-06-12): the virtualization requirement was
+ * rescoped to visualization-only affordances (source indication and
+ * provenance display); this data-join module remains as host-side
+ * utility code outside the roadmap.
  */
 
 import type { UGM } from "../ugm";
@@ -20,7 +22,8 @@ export interface VirtualizeOptions {
 /**
  * Merge tabular data as supplementary properties on UGM nodes.
  * @returns the number of nodes that were matched and updated.
- * @see R3.8, R6.3: unstructured data linkage
+ * (Document/unstructured linkage R3.8/R6.3 is NOT implemented here;
+ *  this module covers relational virtualization only.)
  */
 export function virtualizeRelationalData(
   ugm: UGM,

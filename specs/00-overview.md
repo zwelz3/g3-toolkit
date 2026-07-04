@@ -35,8 +35,10 @@ inspection) is available as opt-in overlays.
 ## Purpose
 
 The long-term goal is a comprehensive graph visualization toolkit that
-supports 90%+ of use cases for graph data and associated data
-interrogation, including:
+supports 90%+ of the 132 surveyed graph-visualization use cases
+(research/use-case-survey.md, sections A and B, which also define the
+capability clusters C1 through C8 referenced throughout these specs),
+including:
 
 - Graph algorithm result visualization (centrality, clustering, paths, flows)
 - Relational database virtualization layers and tabular views
@@ -52,7 +54,8 @@ analysts (link analysis, case management), ontology/data engineers
 (schema curation, validation), and operations analysts (monitoring,
 digital twin, streaming). These populations have fundamentally different
 interaction models; collapsing them into a single UI is an anti-pattern
-identified in the foundational research.
+identified in the foundational research (research/use-case-survey.md,
+cluster observation following section B.8).
 
 ## Design Considerations
 

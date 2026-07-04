@@ -9,5 +9,9 @@
 export {
   DESIGN_TOKENS,
   DARK_SHADOWS,
+  SEQUENTIAL_SCALE,
+  DIVERGING_SCALE,
+  scaleColor,
+  prefersReducedMotion,
   injectDesignTokens,
 } from "./design-tokens";

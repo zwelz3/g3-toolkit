@@ -24,10 +24,46 @@ import { buildTypeVisualMap } from "./palette";
  * cleaner. See CytoscapeCanvas DEFAULT_STYLESHEET for how this
  * data field gets consumed.
  */
-export function ugmToCytoscapeElements(ugm: UGM): ElementDefinition[] {
+/** Compound-container mapping (slice 1, round 17;
+ *  roadmap/design/toolbar-and-layouts.md). Edges of the named type
+ *  become Cytoscape parent assignments (containment) and are OMITTED
+ *  as rendered edges; container nodes carry a UML-style
+ *  «Stereotype» label. */
+export interface ContainmentOptions {
+  /** UGM edge type expressing containment. */
+  edgeType: string;
+  /** Whether the edge points parent→child or child→parent. */
+  direction: "parentToChild" | "childToParent";
+}
+
+export interface UgmToCytoscapeOptions {
+  containment?: ContainmentOptions;
+}
+
+export function ugmToCytoscapeElements(
+  ugm: UGM,
+  options?: UgmToCytoscapeOptions,
+): ElementDefinition[] {
   const registry = ugm.getRegistry();
   const typeMap = buildTypeVisualMap(registry.nodeTypes);
   const elements: ElementDefinition[] = [];
+
+  // Containment pre-pass: child -> parent, plus the parent id set
+  // (for «Stereotype» container labels).
+  const containment = options?.containment;
+  const parentOf = new Map<string, string>();
+  const parentIds = new Set<string>();
+  if (containment) {
+    ugm.forEachEdge((_edgeId, attrs, source, target) => {
+      if (attrs.type !== containment.edgeType) return;
+      const [parent, child] =
+        containment.direction === "parentToChild"
+          ? [source, target]
+          : [target, source];
+      parentOf.set(child, parent);
+      parentIds.add(parent);
+    });
+  }
 
   ugm.forEachNode((id, attrs) => {
     const primaryType = attrs.types[0] ?? "_default";
@@ -36,14 +72,17 @@ export function ugmToCytoscapeElements(ugm: UGM): ElementDefinition[] {
       shape: "ellipse" as const,
     };
 
+    const name =
+      typeof attrs.properties.name === "string" ? attrs.properties.name : id;
     elements.push({
       group: "nodes",
       data: {
         id,
-        label:
-          typeof attrs.properties.name === "string"
-            ? attrs.properties.name
-            : id,
+        label: name,
+        ...(parentOf.has(id) ? { parent: parentOf.get(id) } : {}),
+        ...(parentIds.has(id)
+          ? { _compoundLabel: `\u00AB${primaryType}\u00BB\n${name}` }
+          : {}),
         types: attrs.types,
         _color: visual.color,
         _shape: visual.shape,
@@ -70,6 +109,9 @@ export function ugmToCytoscapeElements(ugm: UGM): ElementDefinition[] {
   });
 
   ugm.forEachEdge((edgeId, attrs, source, target) => {
+    // Containment edges became parent assignments above: omit them
+    // from the rendered edge set.
+    if (containment && attrs.type === containment.edgeType) return;
     // Curve style decision:
     //   - self-loop (source === target): bezier (straight degenerates)
     //   - more than one edge in this ordered direction: bezier (parallels overlap)

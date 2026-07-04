@@ -1,20 +1,32 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Core } from "cytoscape";
-import { UGM, eventBus } from "@g3t/core";
+import {
+  UGM,
+  eventBus,
+  layoutStructural,
+  compartmentKey,
+  type StructuralGraphInput,
+  type StructuralGeometry,
+} from "@g3t/core";
 import { CytoscapeCanvas } from "./CytoscapeCanvas";
 import {
   ContextMenuManager,
   registerToolkitActions,
+  registerCompartmentCollapseActions,
   wireCytoscapeContextActions,
 } from "../../interaction/context-menu";
 import {
-  EncodingPanel,
-  encodingToCytoscapeStyle,
+  useCompartmentCollapseStore,
+  collapsedCompartmentSet,
+} from "../../state/compartment-collapse-store";
+import {
+  EncodingSpecPanel,
+  SpecLegend,
+  fromLegacyConfig,
   DEFAULT_ENCODING,
-  type EncodingConfig,
+  type EncodingSpec,
 } from "../../interaction/encoding";
-import { OKABE_ITO_COLORS } from "./palette";
 
 // Small graph used by Default / LayoutSwitching / Theming. The fixture
 // stays inline so the story is self-contained — pulling from
@@ -99,6 +111,17 @@ function buildEncodingUGM(): UGM {
   return ugm;
 }
 
+// Layout options shared by stories that expose a layout control.
+const LAYOUT_OPTIONS = [
+  "fcose",
+  "cose",
+  "grid",
+  "circle",
+  "breadthfirst",
+  "concentric",
+] as const;
+type LayoutName = (typeof LAYOUT_OPTIONS)[number];
+
 const meta: Meta<typeof CytoscapeCanvas> = {
   title: "Views/CytoscapeCanvas",
   component: CytoscapeCanvas,
@@ -124,36 +147,51 @@ type Story = StoryObj<typeof CytoscapeCanvas>;
 // ── Default ─────────────────────────────────────────────────────────
 
 export const Default: Story = {
+  argTypes: {
+    layout: {
+      control: { type: "select" },
+      options: LAYOUT_OPTIONS,
+      description: "Force/geometric layout algorithm.",
+    },
+    animate: {
+      control: "boolean",
+      description:
+        "Animate layout transitions (defaults to the OS reduced-motion preference).",
+    },
+    animationDuration: {
+      control: { type: "number", min: 0, max: 2000, step: 50 },
+      description: "Layout transition duration in milliseconds.",
+    },
+  },
+  args: {
+    layout: "fcose",
+    animate: true,
+    animationDuration: 400,
+  },
   parameters: {
     docs: {
       description: {
         story:
-          "Baseline render with the default `fcose` layout. Node " +
-          "color comes from the colorblind-safe Okabe-Ito palette " +
-          "(indexed by node type). Edges fade by confidence; inferred " +
-          "edges (`_asserted=0`) render dashed.",
+          "Baseline render. Use the Controls panel to switch layout and " +
+          "tune animation. Node color comes from the colorblind-safe " +
+          "Okabe-Ito palette (indexed by node type); edges fade by " +
+          "confidence and inferred edges (`_asserted=0`) render dashed.",
       },
     },
   },
-  render: () => (
-    <div style={{ width: "100%", height: 500 }}>
-      <CytoscapeCanvas ugm={buildBasicUGM()} />
-    </div>
-  ),
+  render: (args) => {
+    // ugm must be referentially stable (a new identity re-inits layout),
+    // so memoize it; the Controls drive only the props spread below.
+    const ugm = useMemo(() => buildBasicUGM(), []);
+    return (
+      <div style={{ width: "100%", height: 500 }}>
+        <CytoscapeCanvas {...args} ugm={ugm} />
+      </div>
+    );
+  },
 };
 
 // ── Layout switching ────────────────────────────────────────────────
-
-const LAYOUT_OPTIONS = [
-  "fcose",
-  "cose",
-  "grid",
-  "circle",
-  "breadthfirst",
-  "concentric",
-] as const;
-
-type LayoutName = (typeof LAYOUT_OPTIONS)[number];
 
 export const LayoutSwitching: Story = {
   argTypes: {
@@ -241,41 +279,36 @@ export const VisualEncoding: Story = {
     docs: {
       description: {
         story:
-          "`EncodingPanel` configures node size / color / edge width " +
-          "mappings. The resulting stylesheet (from " +
-          "`encodingToCytoscapeStyle`) is passed to `CytoscapeCanvas` " +
-          "via the `stylesheet` prop. Encoding selectors are scoped " +
-          "with `[<prop>]` so cytoscape doesn't warn on nodes that " +
-          "lack the property (pitfall #5).",
+          "`EncodingSpecPanel` edits an `EncodingSpec` (the channel/" +
+          "driver/scale grammar); `CytoscapeCanvas` applies it through " +
+          "the `encodingSpec` prop (restyle-only: spec edits never " +
+          "re-run layout), and `SpecLegend` mirrors it through the " +
+          "same resolvers, so legend and canvas cannot disagree.",
       },
     },
   },
   render: () => {
     const ugm = useMemo(() => buildEncodingUGM(), []);
-    const [encoding, setEncoding] = useState<EncodingConfig>({
-      ...DEFAULT_ENCODING,
-      nodeSizeProperty: "pagerank",
-      nodeSizeRange: [20, 80],
-    });
-    const stylesheet = useMemo(
-      () =>
-        encodingToCytoscapeStyle(encoding, ugm, [
-          ...OKABE_ITO_COLORS,
-        ]) as unknown as Parameters<typeof CytoscapeCanvas>[0]["stylesheet"],
-      [encoding, ugm],
+    const [spec, setSpec] = useState<EncodingSpec>(() =>
+      fromLegacyConfig({
+        ...DEFAULT_ENCODING,
+        nodeSizeProperty: "pagerank",
+        nodeSizeRange: [20, 80],
+      }),
     );
     return (
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "240px 1fr",
+          gridTemplateColumns: "260px 1fr 200px",
           gap: 12,
           width: "100%",
           height: 500,
         }}
       >
-        <EncodingPanel ugm={ugm} encoding={encoding} onChange={setEncoding} />
-        <CytoscapeCanvas ugm={ugm} stylesheet={stylesheet} />
+        <EncodingSpecPanel ugm={ugm} spec={spec} onChange={setSpec} />
+        <CytoscapeCanvas ugm={ugm} encodingSpec={spec} />
+        <SpecLegend ugm={ugm} spec={spec} />
       </div>
     );
   },
@@ -374,6 +407,175 @@ export const WithContextMenu: Story = {
               cyRef.current = cy;
             }}
           />
+        </div>
+      </div>
+    );
+  },
+};
+
+// Inline structural fixture (kept local so the story is self-contained,
+// like buildBasicUGM): two compartmented containers with a typed edge.
+function buildStructuralFixture(): StructuralGraphInput {
+  return {
+    nodes: [
+      {
+        id: "Sensor",
+        header: { stereotype: "Block", name: "Sensor" },
+        compartments: [
+          {
+            id: "attributes",
+            title: "attributes",
+            rows: [
+              { id: "Sensor.accuracy", text: "accuracy : xsd:double [0..1]" },
+              {
+                id: "Sensor.calibrationDate",
+                text: "calibrationDate : xsd:date",
+              },
+            ],
+          },
+          {
+            id: "operations",
+            title: "operations",
+            rows: [{ id: "Sensor.calibrate", text: "calibrate() : void" }],
+          },
+        ],
+        ports: [{ id: "Sensor.out", side: "EAST" }],
+      },
+      {
+        id: "Lens",
+        header: { stereotype: "Block", name: "Lens" },
+        compartments: [
+          {
+            id: "attributes",
+            title: "attributes",
+            rows: [
+              { id: "Lens.focalLength", text: "focalLength : xsd:double" },
+              { id: "Lens.coating", text: "coating : xsd:string" },
+            ],
+          },
+        ],
+        ports: [{ id: "Lens.in", side: "WEST" }],
+      },
+    ],
+    edges: [
+      {
+        id: "Sensor->Lens",
+        source: "Sensor",
+        target: "Lens",
+        sourcePort: "Sensor.out",
+        targetPort: "Lens.in",
+        kind: "association",
+      },
+    ],
+  };
+}
+
+export const StructuralCollapse: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Structural (ELK) view with an on-container collapse button. Each " +
+          "container draws a chip in its header: tap \u2212 to collapse all " +
+          "of that container's compartments, + to expand. The same " +
+          "action lives on the container's right-click menu. Collapse is a " +
+          "layout-time input, so the container physically shrinks " +
+          "(layoutStructural re-runs with the collapsed set), rather than a " +
+          "style hide.",
+      },
+    },
+  },
+  render: () => {
+    const ugm = useMemo(() => new UGM(), []);
+    const input = useMemo<StructuralGraphInput>(
+      () => buildStructuralFixture(),
+      [],
+    );
+
+    // Mirror the toolkit store into local state; clear on mount so the
+    // story starts expanded regardless of prior interaction.
+    const [collapsedKeys, setCollapsedKeys] = useState<string[]>([]);
+    useEffect(() => {
+      useCompartmentCollapseStore.getState().clear();
+      return useCompartmentCollapseStore.subscribe((s) =>
+        setCollapsedKeys(s.collapsedKeys),
+      );
+    }, []);
+
+    const [scene, setScene] = useState<{
+      input: StructuralGraphInput;
+      geometry: StructuralGeometry;
+    } | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      void layoutStructural(input, {
+        direction: "DOWN",
+        collapsedCompartments: collapsedCompartmentSet(collapsedKeys),
+      }).then((geometry) => {
+        if (!cancelled) setScene({ input, geometry });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [input, collapsedKeys]);
+
+    // A container shows + only when ALL its compartments are collapsed.
+    const collapsedContainers = useMemo(() => {
+      const set = new Set<string>();
+      for (const n of input.nodes) {
+        const comps = n.compartments ?? [];
+        if (
+          comps.length > 0 &&
+          comps.every((c) => collapsedKeys.includes(compartmentKey(n.id, c.id)))
+        ) {
+          set.add(n.id);
+        }
+      }
+      return set;
+    }, [input, collapsedKeys]);
+
+    const menu = useMemo(() => {
+      const m = new ContextMenuManager();
+      registerCompartmentCollapseActions(m);
+      return m;
+    }, []);
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          height: 520,
+        }}
+      >
+        <div
+          style={{
+            padding: "6px 10px",
+            fontSize: 12,
+            background: "var(--g3t-bg-secondary, #f8f9fa)",
+            color: "var(--g3t-text-primary)",
+            borderBottom: "1px solid var(--g3t-border, #dee2e6)",
+          }}
+        >
+          Tap a container's header chip to collapse (<strong>{"\u2212"}</strong>
+          ) or expand (<strong>+</strong>); right-click also works. Collapsed
+          containers: <strong>{collapsedContainers.size}</strong>
+        </div>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          {scene ? (
+            <CytoscapeCanvas
+              ugm={ugm}
+              structural={scene}
+              structuralDecorations={{ collapsedContainers }}
+              menuManager={menu}
+              onCompartmentToggle={(id, cids) =>
+                useCompartmentCollapseStore
+                  .getState()
+                  .toggleAll(cids.map((c) => compartmentKey(id, c)))
+              }
+            />
+          ) : null}
         </div>
       </div>
     );

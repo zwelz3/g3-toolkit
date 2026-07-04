@@ -132,13 +132,8 @@ export function AnnotationPanel({
       style={{ fontSize: 12, padding: 8 }}
     >
       <div
-        style={{
-          fontWeight: 600,
-          marginBottom: 4,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
+        className="g3t-panel-section-header"
+        style={{ justifyContent: "space-between", cursor: "default" }}
       >
         <span>Notes</span>
         {annotation && !editing && (

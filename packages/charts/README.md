@@ -20,19 +20,64 @@ npm install @g3t/core @g3t/react @g3t/charts react echarts
 ## Quick start
 
 ```tsx
-import { UGM } from "@g3t/core";
+import { UGM, createDegreeDistribution } from "@g3t/core";
 import { LinkedChart } from "@g3t/charts";
 
+const degreePipeline = createDegreeDistribution();
+
 function NodeDegreeChart({ ugm }: { ugm: UGM }) {
+  return <LinkedChart ugm={ugm} pipeline={degreePipeline} type="bar" />;
+}
+```
+
+## Embedding projection (recipe, not a component)
+
+Per the capability landscape (research/capability-landscape.md,
+section E), embedding projection is a pipeline recipe over the
+existing scatter chart, not a new component: the toolkit consumes
+algorithm results, it does not compute them (design principle P1).
+Reduce your embeddings to 2D upstream (UMAP, t-SNE, PCA), ingest the
+coordinates as node properties, then project:
+
+```tsx
+import {
+  UGM,
+  type DataPipeline,
+  type ScatterData,
+  type PointSetSelection,
+} from "@g3t/core";
+import { LinkedChart } from "@g3t/charts";
+
+const embeddingProjection: DataPipeline<ScatterData, PointSetSelection> = {
+  id: "embedding-2d",
+  name: "Embedding projection",
+  query: (ugm: UGM): ScatterData => ({
+    points: ugm
+      .getNodeIds()
+      .map((id) => {
+        const props = ugm.getNode(id)?.properties ?? {};
+        return {
+          x: Number(props["emb_x"]),
+          y: Number(props["emb_y"]),
+          nodeId: id,
+        };
+      })
+      .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)),
+  }),
+  reverseMap: (selection, data) =>
+    selection.indices.map((i) => data.points[i]?.nodeId ?? "").filter(Boolean),
+};
+
+function EmbeddingView({ ugm }: { ugm: UGM }) {
   return (
-    <LinkedChart
-      pipeline="node-degree"
-      chartType="bar"
-      ugm={ugm}
-    />
+    <LinkedChart ugm={ugm} pipeline={embeddingProjection} type="scatter" />
   );
 }
 ```
+
+Brush selection in the scatter maps back to node IDs through
+`reverseMap`, so lassoing a cluster of embeddings selects those nodes
+in the canvas and table.
 
 ## Documentation
 

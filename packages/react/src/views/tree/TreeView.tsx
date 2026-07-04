@@ -13,8 +13,12 @@ import { useState, useMemo, useCallback } from "react";
 import type { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
 import type { WorkingSetManager } from "@g3t/core";
+import { Icon } from "../../icons";
+import { EmptyState } from "../../interaction/feedback";
 
 export interface TreeViewProps {
+  /** Row density (B3): "comfortable" (default) or "compact". */
+  density?: "comfortable" | "compact";
   ugm: UGM;
   /** Root node ID for the tree. If omitted, auto-detects. */
   rootId?: string;
@@ -35,6 +39,7 @@ interface TreeNode {
 }
 
 export function TreeView({
+  density = "comfortable",
   ugm,
   rootId,
   initialDepth = 2,
@@ -43,9 +48,7 @@ export function TreeView({
 }: TreeViewProps) {
   const { selectedNodeIds, selectNodes } = useSelectionStore();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [breadcrumb, setBreadcrumb] = useState<
-    Array<{ id: string; label: string }>
-  >([]);
+  const selectedId = [...selectedNodeIds][0] ?? null;
 
   // Find root: explicit, or auto-detect (node with no incoming edges)
   const effectiveRootId = useMemo(() => {
@@ -115,13 +118,35 @@ export function TreeView({
     });
   }, []);
 
+  // True breadcrumb: the ancestor PATH (root -> ... -> selected) of
+  // the selected node, derived from containment edges. This replaces
+  // the former click-history trail, which showed an arbitrary sequence
+  // of clicked nodes rather than a hierarchy path and never reset to a
+  // real path when an ancestor was clicked.
+  const breadcrumb = useMemo<Array<{ id: string; label: string }>>(() => {
+    if (!selectedId || !ugm.hasNode(selectedId)) return [];
+    const parent = new Map<string, string>();
+    ugm.forEachEdge((_id, _attrs, source, target) => {
+      if (!parent.has(target)) parent.set(target, source);
+    });
+    const labelOf = (id: string): string => {
+      const n = ugm.getNode(id);
+      return typeof n?.properties.name === "string" ? n.properties.name : id;
+    };
+    const path: Array<{ id: string; label: string }> = [];
+    const seen = new Set<string>();
+    let cur: string | undefined = selectedId;
+    while (cur && !seen.has(cur)) {
+      seen.add(cur);
+      path.unshift({ id: cur, label: labelOf(cur) });
+      cur = parent.get(cur);
+    }
+    // A lone selected root is not a useful "path"; show nothing.
+    return path.length > 1 ? path : [];
+  }, [ugm, selectedId]);
+
   const navigateTo = useCallback(
-    (nodeId: string, label: string) => {
-      setBreadcrumb((prev) => {
-        const idx = prev.findIndex((b) => b.id === nodeId);
-        if (idx >= 0) return prev.slice(0, idx + 1);
-        return [...prev, { id: nodeId, label }];
-      });
+    (nodeId: string) => {
       selectNodes([nodeId]);
     },
     [selectNodes],
@@ -129,9 +154,12 @@ export function TreeView({
 
   if (!tree) {
     return (
-      <div data-testid="tree-view-empty" style={{ padding: 16, color: "#888" }}>
-        No tree data available.
-      </div>
+      <EmptyState
+        testId="tree-view-empty"
+        icon="layers"
+        title="No hierarchy to show"
+        description="The tree follows containment edges from a root node. Select a root or load a graph with containment relationships."
+      />
     );
   }
 
@@ -164,7 +192,7 @@ export function TreeView({
                   padding: 0,
                   fontSize: 12,
                 }}
-                onClick={() => navigateTo(b.id, b.label)}
+                onClick={() => navigateTo(b.id)}
               >
                 {b.label}
               </button>
@@ -175,6 +203,7 @@ export function TreeView({
 
       {/* Tree */}
       <TreeNodeRow
+        density={density}
         node={tree}
         selectedNodeIds={selectedNodeIds}
         onSelect={selectNodes}
@@ -192,7 +221,8 @@ interface TreeNodeRowProps {
   selectedNodeIds: Set<string>;
   onSelect: (ids: string[]) => void;
   onToggle: (nodeId: string) => void;
-  onNavigate: (nodeId: string, label: string) => void;
+  onNavigate: (nodeId: string) => void;
+  density: "comfortable" | "compact";
 }
 
 function TreeNodeRow({
@@ -201,6 +231,7 @@ function TreeNodeRow({
   onSelect,
   onToggle,
   onNavigate,
+  density,
 }: TreeNodeRowProps) {
   const isSelected = selectedNodeIds.has(node.id);
   const isExpanded = node.children.length > 0;
@@ -213,13 +244,16 @@ function TreeNodeRow({
           display: "flex",
           alignItems: "center",
           paddingLeft: indent,
-          padding: `2px 8px 2px ${indent + 8}px`,
+          padding:
+            density === "compact"
+              ? `0px 6px 0px ${indent + 6}px`
+              : `2px 8px 2px ${indent + 8}px`,
           backgroundColor: isSelected ? "rgba(37, 99, 235, 0.1)" : undefined,
           cursor: "pointer",
         }}
         onClick={() => {
           onSelect([node.id]);
-          onNavigate(node.id, node.label);
+          onNavigate(node.id);
         }}
       >
         {node.hasChildren && (
@@ -237,7 +271,11 @@ function TreeNodeRow({
               onToggle(node.id);
             }}
           >
-            {isExpanded ? "▼" : "▶"}
+            <Icon
+              name={isExpanded ? "chevron-down" : "chevron-right"}
+              size={12}
+              label={isExpanded ? "Collapse" : "Expand"}
+            />
           </button>
         )}
         {!node.hasChildren && (
@@ -251,6 +289,7 @@ function TreeNodeRow({
       {isExpanded &&
         node.children.map((child) => (
           <TreeNodeRow
+            density={density}
             key={child.id}
             node={child}
             selectedNodeIds={selectedNodeIds}

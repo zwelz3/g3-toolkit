@@ -9,6 +9,7 @@
 
 import { useMemo } from "react";
 import type { DiffResult } from "@g3t/core";
+import { EmptyState } from "../../interaction/feedback";
 
 export interface DiffRendererProps {
   diff: DiffResult;
@@ -44,9 +45,12 @@ export function DiffRenderer({ diff, className }: DiffRendererProps) {
 
   if (totalChanges === 0) {
     return (
-      <div data-testid="diff-empty" style={{ padding: 16, color: "#888" }}>
-        No differences found.
-      </div>
+      <EmptyState
+        testId="diff-empty"
+        icon="check"
+        title="No differences"
+        description="The two graph states match: no nodes or edges were added, removed, or changed."
+      />
     );
   }
 

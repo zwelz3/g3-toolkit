@@ -1,309 +1,185 @@
 # CLAUDE.md
 
-Context for coding agents working on g3-toolkit.
+Agent handoff for g3-toolkit. Current state: STATUS.md. History:
+planning/visual-acceptance-1.md (round log, authoritative);
+milestone-era tracking is archived in planning/milestone-history.md
+(do not update it). Design records: roadmap/design/ (indexed in
+roadmap/CLAUDE.md). Adopter surface: docs/wiring-guide.md (snippets
+run in CI at examples/wiring/). Hand-maintained counts have drifted
+several times; when a number disagrees with a gate script, the script
+is right.
 
-## What This Is
+**CURRENT FOCUS (2026-07-03): demo quality, reliability, and OSS
+adoptability.** The library is feature-stable (v1.0.0-rc.2). The
+cinematic flagship demo was RETIRED per maintainer ruling: the four
+dev-server shells replaced it, and every public API it alone
+demonstrated was folded first (planning/flagship-retirement.md is the
+audit; the flagship planning docs live in planning/archive/). The two
+standalone single-file demos (scripts/demo, scripts/thread-demo) were
+retired in the same round; the Pages-deployed playground supersedes
+them, and the projection-pipeline story they carried now lives in the
+wiring guide plus the biomedical shell's raw-vs-projected toggle. The
+active plan is planning/demo-adoption-plan.md.
 
-g3t is a composable graph visualization **component library** (not
-an application framework) for RDF, LPG, and Holonic graph paradigms.
-Teams `pnpm install` components and compose them into their own
-application. Read ARCHITECTURE.md for the toolkit/application
-boundary; this is the most important design decision.
+## What this is
 
-## Tech Stack
+A composable graph-visualization component LIBRARY (not a framework):
+@g3t/core (zero React), @g3t/react, @g3t/charts. Hosts integrate via
+three channels only: exported zustand stores, props/callbacks, and
+versioned JSON documents (encoding spec, workspace snapshots,
+algorithm results). New capability = expose through one of these +
+wiring-guide snippet + executable twin in examples/wiring/.
+TypeScript, React 19, Vite 8, pnpm (enforced), Cytoscape + Graphology,
+Zustand, Vitest + RTL.
 
-TypeScript, React 19, Vite 8. **pnpm** (content-addressable store, strict
-deps, workspace support). Graph: Graphology (data model), Cytoscape.js
-(canvas). State: Zustand. Charts: ECharts. Algorithms: graphology-metrics,
-simple-statistics. Search: Fuse.js. Expressions: expr-eval. Testing:
-Vitest + RTL (unit/component), Playwright (E2E).
+## Non-negotiable gates (run before claiming done)
 
-**Why pnpm:** Content-addressable store. Strict dependency isolation
-catches phantom-dep problems before adopters hit them. Native workspace
-support for the @g3t/core, @g3t/react, @g3t/charts split. The root
-package.json sets `packageManager: "pnpm@11.3.0"` and has a
-`preinstall: "npx only-allow pnpm"` script that rejects `npm install` /
-`yarn install` outright.
+    pnpm run gates
+    # = typecheck && lint && verify && test, the exact ci.yml order.
+    # verify builds the packages and runs the dist/export/smoke/bundle
+    # checks; a round is not done on unit tests alone. Environment
+    # self-test if typecheck seems suspiciously quiet: inject a
+    # deliberate type error in src/ and confirm the gate goes red.
+    pnpm run verify          # build, exports, snippets, typedoc, bundle ledger
+    python3 scripts/lint_specs.py specs/
+    python3 scripts/sync_spec_status.py
+    python3 scripts/check_roadmap_coverage.py
+    pnpm run visual-acceptance
 
-## Architecture Rules
+NEVER pipe gate scripts through tail/head: it masks exit codes (this
+shipped a red zip once). Check `$?` directly. Bundle growth requires
+a written rationale in scripts/check-bundle-size.mjs (the ledger).
 
-**D6 (framework-agnostic):** `packages/core/src/` has zero React, zero
-Zustand imports. Pure TypeScript usable from any framework. Tests use
-`.test.ts`. Source-boundary tests in `packages/core/src/source-boundary.test.ts`
-enforce this at build time (no exemptions).
+## Editing discipline (every lesson here was paid for)
 
-**D13 (React):** `packages/react/src/` and `packages/charts/src/` are
-React components. Tests use `.test.tsx`. Boundary test in
-`packages/react/src/source-boundary.test.ts` enforces no imports from
-demo/ or the workspace root into the published packages.
+- Every programmatic string replace gets an assert that the anchor
+  exists, INCLUDING boring import edits. Prettier reflows anchors;
+  silent no-ops recurred six times before this rule.
+- Heredoc `cat >>` to a wrong filename creates an importless orphan
+  test. Verify the target exists first.
+- View a file immediately before editing it; re-view after edits.
+- Spec citation policy: R-IDs in packages/ or scripts/ source strings
+  COUNT as implementation citations (sync gate). Cite only what is
+  truly implemented; otherwise reword. planning/ is exempt.
+- Status changes ripple: flipping a requirement to implemented
+  requires removing it from its roadmap Owns header AND the
+  roadmap/CLAUDE.md index row (coverage gate enforces).
 
-**Selection sync:** Canvas uses CSS class `.g3t-selected` (NOT
-`:selected` pseudo-class) to avoid event loops. Never call
-`cy.select()`/`cy.unselect()` in the store subscription.
+## Architecture doctrine (do not violate casually)
 
-**Theming:** All visual values use CSS custom properties
-(`--g3t-*`). Never hardcode colors or spacing.
+- core stays React-free. Heavy graph algorithms stay EXTERNAL
+  (networkx/GraphBLAS); the toolkit consumes result documents.
+- Canvas precedence by mechanism + namespace: theme = generic-selector
+  stylesheet colors; spec = element data via attribute mappers
+  (out-specifics theme by construction); instance overrides = bypass;
+  overlays = g3t-ov-\* classes; pins = badge rule + node:locked.
+  Instance pins shadow overlay borders BY DECISION.
+- SAME INPUT GRAPH => the camera (pan/zoom) and node positions HOLD.
+  Never re-init the canvas, refit, or recenter on a same-graph change
+  (theme, spec, decorations, selection, hover). Re-init/refit ONLY on a
+  genuinely different input graph (the node-id set changes) or an EXPLICIT
+  user op: fit/zoom buttons, focus/zoom-to, reheat, or layout-algorithm
+  selection. Enforcers in CytoscapeCanvas: theme/spec changes are
+  restyle-only (style().fromJson, never re-init); decoration rebuilds key
+  on CONTENT, not object identity (structuralDecorations is a fresh literal
+  each render, so selection/hover must not recreate the instance);
+  structural rebuilds capture pan/zoom in the effect cleanup and restore it
+  on a same-graph rebuild, fitting only on first mount or a different graph.
+  Fixture graphs in React are useMemo'd (referential stability contract).
+  GAP: manual drags still reset on a genuine geometry change (collapse
+  recreates from layout geometry); the force-directed path does not yet
+  restore the camera across a same-graph re-init. See
+  specs/09-design-decisions.md (camera/position stability).
+- Data-mapped style props (`width: data(_size)`, `opacity:
+  data(_confidence)`) MUST sit on a `[field]`-scoped selector
+  (`node[_size]`, `edge[_confidence]`), never a bare `node`/`edge` rule.
+  Cytoscape warns for every element missing the field on EVERY render
+  frame; in the block view (structural elements carry _w/_h/_label, not
+  the force-graph fields) that console flood stalled the canvas
+  (~1.7s/toggle, diagnosed 2026-06-17). Negative `outline-offset` is
+  rejected by Cytoscape (parse-time discard + one warning); an inset ring
+  needs a border, not a negative offset.
+- Reserved encoding channels reject by owner name; keep it that way.
 
-**Toolkit boundary:** If an adopter would use it as-is (pass a
-UGM, get output), it goes in a `@g3t/*` package. If they'd need
-to configure, replace, or orchestrate it, it goes in `src/demo/`
-or `examples/`.
+## Working agreement with Zach
 
-## Directory Layout (post-Phase-2 workspace split)
+Analytical tone, no sycophancy, no em-dashes in authored content, no
+day estimates (priority ordering only), plain immediate correction of
+mistakes, complete verified outputs. Visual changes ship through the
+visual-acceptance page (live islands in scripts/visual-acceptance/)
+with copy that tells the reviewer what to exercise; every round gets
+a planning log entry, CHANGELOG entry, and a packaged zip + page in
+outputs. Findings from his review get root-caused, not patched.
 
-```
-packages/
-  core/                @g3t/core - framework-agnostic UGM, adapters,
-    src/               pipeline, filter, middleware, event-bus,
-                       style-override, shacl, algorithms, layouts,
-                       projection, diff, holonic-adapter, undo-redo
-  react/               @g3t/react - views + controls + state
-    src/
-      views/           12 views (canvas, table, map, tree, etc.)
-      interaction/     controls (encoding, filter, toolbar, menu,
-                       search, layout-manager, context-menu)
-      state/           Zustand stores (selection, theme, overrides)
-      theme/           ThemeManager
-      a11y/            accessibility helpers
-  charts/              @g3t/charts - LinkedChart + ECharts
-    src/
+## Open threads (head of queue; full queue in STATUS.md)
 
-src/demo/              Demo app + scenario shells (NOT published)
-  DemoApp.tsx          Landing page + LayoutManager wiring
-  shells/              Per-scenario layouts
-                       (DataScientist, Analytics, CyberSupply,
-                        AuditorMBSE, Healthcare)
-  fixtures/            Test data per scenario
+**Structural-view rendering (current active thread, 2026-06-21).** Full
+state in STATUS.md and `roadmap/design/structural-rendering.md`. Landed and
+gate-green: camera/position stability (D15), port-based body-edge
+attachment with perpendicular exit, and the obstacle-aware routing CORE
+slice (`layoutStructural` emits ELK node-avoiding routes into
+`geometry.edges`, option `routeEdges`, default on); and (2026-06-22) the
+CONVERTER slice that renders them: `structural-to-cytoscape.ts` projects
+each route polyline onto `curve-style: segments` (enum, so via a class) for
+body and synthetic-point-port edges, taxi as fallback when routeEdges is off
+or a route has no interior bend; declared-port edges keep the taxi exit on
+purpose (the port fixes a perpendicular the projection would fight). Edge
+rendering is NOT headlessly verifiable: IMMEDIATE NEXT is Zach's review via
+the visual-acceptance page (VA-31, packaged in outputs), then A3 polish.
+ALSO landed 2026-06-22: a Minimap component (@g3t/react interaction/camera;
+Molecules/Minimap) wired into the gallery and the standalone demo, which
+also gained a Graph/Structural view-switch. ALSO active: the Storybook
+atomic-design reshape (Atoms/Molecules titled, Minimap included; Toolbar
+moved to Compounds and Charts/Features to Reference; Coordinated Selection
+and Node Editor Modal now in Patterns; remaining legacy retitles,
+CytoscapeCanvas/Views/UX-Surface/Layouts, tracked in STATUS.md).
 
-examples/              Standalone consumer-style examples
-  full-workspace/      WorkspaceShell (extracted from a demo)
+**Perf/warning fixes (2026-06-17, UNVERIFIED — await live review).**
+Block-view lag and console floods were traced (via an instrumented
+build) to per-frame Cytoscape data-mapping warnings, not React. Landed
+and gate-green, but rendered behavior NOT yet confirmed by Zach: (1)
+type-filtering is now a canvas `hidden` visibility op (a restyle, not a
+re-init) with `animate={false}` on the demo canvases; (2) `data(_size)`
+width/height scoped to `node[_size]`; (3) `data(_confidence)` opacity
+scoped to `edge[_confidence]`; (4) inert `outline-offset: -2` removed
+from the selected structural-row rule. LIVE CHECK NEEDED: filter hides in
+place without re-layout, force view interactive immediately, block-view
+console clean (no per-frame _size/_confidence warnings, no outline-offset
+warning). DEFERRED, needs sign-off: theme-driven border inset for the
+selected structural row (the Round-43 intent, which never rendered
+because Cytoscape rejects negative outline-offset); a stable
+structuralScene ref to drop the double structural re-init on
+block-view-on; routing the Cytoscape Core out of React state/props
+(changes GraphToolbar's public `cy` contract; profiling hygiene only,
+not the felt runtime cost). The earlier block-view *freeze* (slow load)
+fix from this session IS verified (Zach confirmed load is fast).
 
-scripts/               Verify scripts (smoke, treeshake, bundle-size,
-                       workspace-stats)
-```
+**Flagship demo (RETIRED 2026-07-03).** Removed per maintainer ruling
+after the fold audit (planning/flagship-retirement.md): CoverageMeter
+demonstrates in the decision-dashboards, ProvenanceTrace in the
+auditor shell, and the camera/encoding/theme/path/export programmatic
+APIs in the wiring guide with CI-executed examples. The beat-runner
+narrative was deliberately dropped, recoverable from history.
 
-## Subpath Exports
+**Demo/examples surface (supporting).** Four dev-server scenario shells
+(`pnpm run dev`: Auditor, MBSE, Supply Chain, Biomedical) plus two
+capability dashboards (examples/decision-dashboards: Analytics,
+Schema). Showcase example deleted. Custom raster/logo icons supported
+(isImageRef passthrough) and shown in Supply Chain. These are
+desktop-only and AWAIT VISUAL REVIEW — the build can verify
+compile/test/bundle but not rendered output; the reviewer (Zach) checks
+cinematics, layout, and legibility live.
 
-Each package has subpaths for tree-shakable imports:
-
-- **@g3t/core** (12): `adapters`, `middleware`, `events`, `projection`,
-  `pipeline`, `shacl`, `diff`, `layout`, `algorithms`, `undo-redo`,
-  `theme`, `path-analysis`
-- **@g3t/react** (5): `views`, `controls`, `state`, `theme`, `a11y`
-- **@g3t/charts** (0): top-level only
-
-A smoke test (`scripts/smoke-test.mjs`) verifies every subpath resolves
-cleanly via Node's resolver, and a treeshake test
-(`scripts/verify-treeshake.mjs`) confirms imports get stripped when unused.
-
-## Commands
-
-```bash
-pnpm install            # Cold install (rejects npm/yarn via preinstall)
-pnpm dev                # Demo at localhost:5173
-pnpm storybook          # Components at localhost:6006
-pnpm test               # 600 Vitest tests (jsdom only)
-pnpm run test:storybook # Storybook+browser tests; requires
-                        # `pnpm exec playwright install chromium`
-pnpm typecheck          # TypeScript strict
-pnpm lint               # ESLint + Prettier
-pnpm run build:packages # tsc -b across the workspace + per-package Vite
-                        # builds (core → react → charts in topo order)
-pnpm run verify         # build:packages + smoke + treeshake + bundle-size
-                        # This is what CI runs.
-
-# Docs
-pnpm run docs:api       # TypeDoc → docs-out/api/ (API reference)
-pnpm run docs:storybook # Storybook build → docs-out/storybook/
-pnpm run docs:demo      # Demo app (vite build) → docs-out/playground/
-                        # Uses --base=/g3-toolkit/playground/ for Pages
-pnpm run docs:build     # All docs: api + storybook + demo + landing page
-                        # Output: docs-out/ (deploy to GitHub Pages)
-```
-
-The legacy `pnpm build:lib` (monolithic ESM/CJS bundle) was removed in
-Phase 2. Do not reintroduce it — per-package builds are the only
-supported topology.
-
-The storybook tests are split from `pnpm test` (commit bugfix 22) so
-contributors without Playwright Chromium installed can still run the
-unit suite. Run them together via `pnpm test && pnpm test:storybook`
-when you have Playwright installed.
-
-## Current State
-
-**25 commits past the v1.0.0-rc baseline.** 600 tests passing in 52
-files. Bundle sizes (within budget):
-- @g3t/core: 95.2 KB / 120 KB
-- @g3t/react: 172.1 KB / 200 KB
-- @g3t/charts: 5.8 KB / 10 KB
-
-Components: UGM, 5 adapters, RDF projection, 12 views, CytoscapeCanvas
-(with auto straight/bezier per edge - bugfix 21, scroll-wheel zoom,
-zoom slider, context-menu suppression, ref-stashed callbacks),
-LayoutManager (7 layouts with cytoscape-name translation in DemoApp),
-ComboManager, PropertyEditor, AnnotationPanel, TemporalSlider,
-incremental layout engine, SearchBar (Fuse.js + clear button +
-infinite-loop fix), FacetFilter (setState-in-render fix), EncodingPanel
-(with `node[<prop>]` selector + null-on-no-numeric to silence cytoscape
-warnings), LinkedChart, FilterBuilder, NodeStyleEditor, ShaclValidator,
-DataPipeline, event bus, `wireCytoscapeContextActions` helper
-(translates context-menu events to cy operations), middleware, theming
-(3 presets + CSS custom properties).
-
-5 demo shells (DataScientist, Analytics, CyberSupply, AuditorMBSE,
-Healthcare) all with: visual encoding wired to canvas, context menu
-events wired to cy via wireCytoscapeContextActions, search wired to
-selection, neighborhood views render with `breadthfirst` (different
-layout from primary fcose to demo layout flexibility).
-
-## Documentation Deployment
-
-Docs deploy to GitHub Pages via `.github/workflows/docs.yml` on every
-push to `main`. Four artifacts are built and deployed:
-
-```
-https://<org>.github.io/g3-toolkit/
-├── index.html     ← landing page (docs/landing.html)
-├── api/           ← TypeDoc auto-generated API reference (278 pages)
-├── storybook/     ← Storybook component gallery (includes
-│                    CytoscapeCanvas stories: layout switching,
-│                    visual encoding, theming, context menu)
-└── playground/    ← Vite build of the demo app (5 scenario shells)
-```
-
-**Demo playground** builds the existing `DemoApp` (the same thing
-`pnpm dev` serves) as a static site. The `docs:demo` script invokes
-`vite build` with `--base=/g3-toolkit/playground/` so asset paths
-resolve correctly under the GitHub Pages subdirectory. No backend —
-fixtures are programmatic UGMs.
-
-**TypeDoc** reads the TypeScript source and JSDoc comments directly;
-no separate schema. Config at `typedoc.json`. To preview locally:
-`pnpm run build:packages && pnpm run docs:api`, then open
-`docs-out/api/index.html`.
-
-**Storybook** builds from `packages/react/src/**/*.stories.tsx`.
-Config at `.storybook/main.ts` + `.storybook/preview.tsx`. To preview
-locally: `pnpm storybook` (dev server) or `pnpm run docs:storybook`
-(static build).
-
-**Landing page** is a single HTML file at `docs/landing.html` with
-install instructions, package descriptions, and links to the API
-reference and Storybook. Edit this directly; it has no build step.
-
-To enable: go to GitHub repo Settings → Pages → Source → GitHub
-Actions. The workflow handles the rest.
-
-## Immediate Next Work
-
-**Not bugfixes**: the four rounds of bugfix work (commits 979f990 →
-fc24744) are believed-complete pending a real browser smoke test.
-Anything found in a live `pnpm dev` session is fair game for a
-round 5.
-
-**Demo-content overhaul** (deferred from the engagement): per-persona
-styling so the five demos look distinct rather than "the same
-application with different fixtures". Each shell would pick:
-- Different node-shape mix (e.g. Healthcare = rounded rectangles for
-  facilities + circles for people; MBSE = hexagons for components)
-- Different palette (not just the type-palette default)
-- Different default layout (Healthcare = `breadthfirst`, Analytics =
-  `fcose`, etc.)
-- A demo-specific story arc on the landing page
-
-**Holonic-paradigm demo**: HolonicAdapter exists in @g3t/core but no
-demo shell exercises it. Add a "Holonic Architecture" shell with a
-hierarchical fixture and the adapter wired up.
-
-**Pre-publish work**: see `planning/pre-publish-checklist.md`. Key
-gates: clean install → verify → per-package isolation → pnpm pack
-inspect → publish in topology order (core → react → charts) via
-`pnpm --filter @g3t/<pkg> publish`.
-
-## Known Pitfalls
-
-1. **Cytoscape in jsdom:** Canvas 2D is mocked. Component tests
-   verify props/events, not rendering. Use Playwright for visual.
-
-2. **ECharts in jsdom:** Charts render empty (warns about width/height).
-   RTL tests verify container only. Chart interaction needs Playwright.
-
-3. **Selection loops:** Canvas subscription uses `addClass` /
-   `removeClass`, never `cy.select()`. See "ONE-WAY data flow"
-   comment in CytoscapeCanvas.tsx.
-
-4. **Callbacks in useEffect deps cause infinite loops:** Several
-   components (CytoscapeCanvas, SearchBar) ref-stash their callback
-   props because callers commonly pass inline lambdas. If you add a
-   new component that takes a callback prop AND uses it inside a
-   useEffect, follow that pattern. Write a regression test that
-   re-renders the parent with a fresh-identity callback.
-
-5. **Cytoscape mapping warnings:** When applying a `mapData()` style
-   over a property that some nodes don't have, cytoscape spams "Do
-   not assign mappings to elements without corresponding data" every
-   frame. Always scope the selector with `[<property>]`, e.g.
-   `node[pagerank]` rather than `node`. encodingToCytoscapeStyle does
-   this already.
-
-6. **Cytoscape doesn't ship dagre/elk:** LayoutManager exposes
-   `dagre`, `elk`, `hierarchy` as logical names; DemoApp.tsx
-   translates them to `breadthfirst` because we don't load the
-   cytoscape-dagre / cytoscape-elk extensions. (The dagre/elk
-   engines in @g3t/core are pre-render layouts, not cytoscape
-   layouts.) If you need real hierarchical layout, register the
-   extension or run the @g3t/core elk-layout module and feed the
-   positions in via `layout: 'preset'`.
-
-7. **Bezier curves are expensive aesthetically:** As of bugfix 21,
-   ugmToCytoscapeElements marks each edge with `_curveStyle:
-   "straight" | "bezier"`. Curves only happen for self-loops,
-   parallel multi-edges, and bidirectional pairs. Don't undo this
-   by setting `edgeStyle="bezier"` everywhere - that prop is a
-   force-override.
-
-8. **expr-eval (not mathjs):** DerivedPropertyEngine uses expr-eval
-   for safe expressions. mathjs was removed in M14 (17 MB savings).
-   Don't re-add it.
-
-9. **Graphology edge IDs:** Auto-generated (geid_*). `_asserted`
-   stored as 0/1 numeric for Cytoscape selector compatibility.
-
-10. **GitHub Actions pnpm version:** `pnpm/action-setup@v4` MUST NOT
-    have a `version:` argument; it conflicts with the `packageManager`
-    field in package.json. The fix is committed in ci.yml and
-    publish.yml; don't reintroduce the `version:` key.
-
-11. **Node 22 required:** pnpm 11.3.0 (pinned via `packageManager`)
-    requires Node ≥22.13 because it imports `node:sqlite` (a Node 22+
-    built-in). Both CI workflows use `node-version: 22`, and root
-    package.json has `engines.node: ">=22.13"` so a wrong-version
-    local install fails fast rather than crashing with
-    `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` mid-resolve. If you
-    need to support older Node (you probably shouldn't), downgrade
-    pnpm — don't loosen the engines field.
-
-## Engagement History
-
-The codebase went through several distinct phases of work after the
-v1.0.0-rc baseline. PLAN-PROGRESS.md has the full ledger. Highlights:
-
-- **Phase 1-8 (commits c1f7345 → a3ba534):** physical workspace split,
-  subpath exports, boundary tests, verify scripts, pre-publish
-  checklist.
-- **Self-audit (89d2b01):** found 4 doc/build issues missed during
-  the refactor; added build idempotency.
-- **Bugfix rounds 1-4 (979f990 → 6b7451b):** external patch
-  application, CI fixes, then three rounds of UX wiring fixes for
-  issues found during manual browser testing.
-- **Bugfix 21 (fc24744):** per-edge straight-vs-bezier auto-selection.
-
-## Reading Order
-
-1. This file
-2. ARCHITECTURE.md (boundary rules + current dep classification)
-3. PLAN-PROGRESS.md (engagement history, what's been done/deferred)
-4. planning/pre-publish-checklist.md (operational gates)
-5. The module you're modifying + its test file
-6. specs/ (if you need requirement context)
+**Library roadmap (valid, not the current focus).** The grouped roadmap
+(Groups A-G in STATUS.md) covers SHACL views, structural rendering,
+provenance/virtualization affordances, analyst workflow, viz
+algorithms, and streaming. Group A (structural rendering) and the SHACL
+shape+report pair shipped. Remaining library items of note: SHACL B4
+(linked shape/data views), the RDF SHACL shapes PARSER (fuller R1.16;
+the biggest RDF gap, bounds in roadmap/design/shacl-views.md), and the
+data-paradigm/scale gaps catalogued honestly in
+planning/rdf-lpg-virtualization-audit.md (no shapes parser, no
+reasoning, no canvas-level virtualization). Descope note: "Sankey
+removed" / "virtualization rescoped" in older docs meant removed from
+the ROADMAP, not the codebase — SankeyView and the virtualizer/
+incremental-layout APIs are still shipped and exported.

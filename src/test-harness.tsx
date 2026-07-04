@@ -22,7 +22,7 @@ import { TagManager } from "@g3t/react";
 import { GroupingManager } from "@g3t/react";
 import { LayoutSwitcher } from "@g3t/react";
 import { createDefaultMenuManager, type ContextMenuManager } from "@g3t/react";
-import { useSelectionStore } from "@g3t/react";
+import { useSelectionStore, useThemeStore } from "@g3t/react";
 import {
   ForceLayout,
   HierarchyLayout,
@@ -115,6 +115,16 @@ export function TestHarness() {
           gap: 8,
         }}
       >
+        <select
+          data-testid="toolbar-theme"
+          defaultValue="light"
+          onChange={(e) => useThemeStore.getState().setTheme(e.target.value)}
+          style={{ fontSize: 11, padding: "2px 4px", marginBottom: 8 }}
+        >
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="high-contrast">High Contrast</option>
+        </select>
         <SearchBar
           ugm={ugm}
           onSearchChange={(r) =>
@@ -158,6 +168,9 @@ export function TestHarness() {
         >
           Selected: {selection.selectedNodeIds.size} nodes
         </div>
+        <div style={{ fontSize: 11, color: "#999" }}>
+          shift+drag on the canvas box-selects; plain drag pans
+        </div>
       </div>
 
       {/* Center */}
@@ -168,7 +181,15 @@ export function TestHarness() {
           onSwitch={handleLayoutSwitch}
         />
         <div data-testid="canvas-container" style={{ flex: 1 }}>
-          <CytoscapeCanvas ugm={ugm} menuManager={menuManager} />
+          {/* grid layout + no animation: positions are a pure function
+              of the (deterministic) data, so e2e screenshots and
+              coordinate-based interactions (lasso) are run-stable. */}
+          <CytoscapeCanvas
+            ugm={ugm}
+            menuManager={menuManager}
+            layout="grid"
+            animate={false}
+          />
         </div>
         <div
           data-testid="table-container"

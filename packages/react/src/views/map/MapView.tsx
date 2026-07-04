@@ -14,7 +14,9 @@
 
 import { useMemo, useCallback, useRef } from "react";
 import type { UGM } from "@g3t/core";
+import { DESIGN_TOKENS } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { EmptyState } from "../../interaction/feedback";
 
 export interface MapViewProps {
   ugm: UGM;
@@ -124,18 +126,22 @@ export function MapView({ ugm, showEdges = true, className }: MapViewProps) {
       style={{ width: "100%", height: "100%", minHeight: 200 }}
     >
       {geoNodes.length === 0 ? (
-        <div
-          data-testid="map-empty"
-          style={{ padding: 16, color: "#888", fontSize: 13 }}
-        >
-          No geographic data. Nodes need lat/lon properties.
-        </div>
+        <EmptyState
+          testId="map-empty"
+          icon="info"
+          title="No geographic data"
+          description="The map places nodes by their lat and lon properties. Load geo-tagged nodes to see them positioned."
+        />
       ) : (
         <svg
           ref={svgRef}
           data-testid="map-svg"
           viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-          style={{ width: "100%", height: "100%", background: "#e8f4f8" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            background: "var(--g3t-canvas-bg, #e8f4f8)",
+          }}
         >
           {/* F6a: Edge arcs */}
           {geoEdges.map((edge, i) => (
@@ -146,7 +152,7 @@ export function MapView({ ugm, showEdges = true, className }: MapViewProps) {
               y1={edge.sourcePos.y}
               x2={edge.targetPos.x}
               y2={edge.targetPos.y}
-              stroke="#94a3b8"
+              stroke="var(--g3t-border, #94a3b8)"
               strokeWidth={0.8}
               strokeDasharray="2,1"
               opacity={0.6}
@@ -159,22 +165,39 @@ export function MapView({ ugm, showEdges = true, className }: MapViewProps) {
             const isSelected = selectedNodeIds.has(node.id);
             return (
               <g key={node.id} data-testid={`map-marker-${node.id}`}>
+                {/* C1 selection signature (channel-allocation table,
+                    design/projection-and-encoding.md): selection adds
+                    the accent HALO; it never recolors the marker. The
+                    previous code swapped fill to a hardcoded blue,
+                    which both violated the allocation and destroyed
+                    the marker's categorical color on selection. */}
+                {isSelected ? (
+                  <circle
+                    data-testid={`map-halo-${node.id}`}
+                    cx={x}
+                    cy={y}
+                    r={9}
+                    fill="none"
+                    stroke="var(--g3t-accent-primary, #0072b2)"
+                    strokeWidth={parseInt(DESIGN_TOKENS.selectionHaloWidth, 10)}
+                  />
+                ) : null}
                 <circle
                   cx={x}
                   cy={y}
-                  r={isSelected ? 8 : 5}
-                  fill={isSelected ? "#2563eb" : "#e67e22"}
-                  stroke={isSelected ? "#1d4ed8" : "#d35400"}
-                  strokeWidth={isSelected ? 2 : 1}
+                  r={5}
+                  fill="var(--g3t-type-1, #e67e22)"
+                  stroke="var(--g3t-node-stroke, #94a3b8)"
+                  strokeWidth={1}
                   style={{ cursor: "pointer" }}
                   onClick={() => handleMarkerClick(node.id)}
                 />
                 <text
                   x={x}
-                  y={y - 10}
+                  y={y - 12}
                   textAnchor="middle"
-                  fontSize={4}
-                  fill="#333"
+                  fontSize={8}
+                  fill="var(--g3t-text-secondary, #666)"
                 >
                   {node.name}
                 </text>

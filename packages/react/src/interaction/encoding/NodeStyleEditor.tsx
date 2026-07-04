@@ -5,7 +5,7 @@
  * Scope toggle: "This node only" vs "All [Type] nodes" (T2).
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import type { UGM } from "@g3t/core";
 import {
   ICONS,
@@ -51,6 +51,34 @@ const SHAPES: CytoscapeShape[] = [
   "star",
   "octagon",
 ];
+
+// Small SVG glyph per shape so the shape buttons read visually instead
+// of by name. Keyed loosely so an unmapped shape falls back to ellipse.
+const SHAPE_GLYPHS: Record<string, ReactNode> = {
+  ellipse: <ellipse cx="12" cy="12" rx="10" ry="7" />,
+  rectangle: <rect x="3" y="6" width="18" height="12" />,
+  roundrectangle: <rect x="3" y="6" width="18" height="12" rx="4" />,
+  diamond: <polygon points="12,2 22,12 12,22 2,12" />,
+  hexagon: <polygon points="7,3 17,3 22,12 17,21 7,21 2,12" />,
+  triangle: <polygon points="12,3 22,21 2,21" />,
+  star: <polygon points="12,2 15,9 22,9 16,14 18,21 12,17 6,21 8,14 2,9 9,9" />,
+  octagon: <polygon points="8,2 16,2 22,8 22,16 16,22 8,22 2,16 2,8" />,
+};
+
+function ShapeGlyph({ shape }: { shape: CytoscapeShape }): ReactNode {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      style={{ display: "block" }}
+    >
+      {SHAPE_GLYPHS[shape] ?? SHAPE_GLYPHS["ellipse"]}
+    </svg>
+  );
+}
 
 // ── Component ───────────────────────────────────────────────────────
 
@@ -187,9 +215,10 @@ export function NodeStyleEditor({
               data-testid={`shape-${s}`}
               className={`g3t-btn ${shape === s ? "g3t-btn-active" : ""}`}
               onClick={() => setShape(s)}
-              style={{ fontSize: 10, padding: "2px 6px" }}
+              title={s}
+              style={{ padding: 4, lineHeight: 0 }}
             >
-              {s}
+              <ShapeGlyph shape={s} />
             </button>
           ))}
         </div>
@@ -235,10 +264,19 @@ export function NodeStyleEditor({
               data-testid={`icon-${name}`}
               className={`g3t-btn ${selectedIcon === name ? "g3t-btn-active" : ""}`}
               onClick={() => setSelectedIcon(name)}
-              style={{ fontSize: 10, padding: "2px 6px" }}
+              style={{ padding: 4, lineHeight: 0 }}
               title={name}
             >
-              {name.slice(0, 4)}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+                style={{ display: "block" }}
+              >
+                <path d={ICONS[name] ?? ""} />
+              </svg>
             </button>
           ))}
         </div>

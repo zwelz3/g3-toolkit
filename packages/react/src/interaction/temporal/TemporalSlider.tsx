@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { UGM } from "@g3t/core";
+import { Icon } from "../../icons";
 
 export interface TemporalSliderProps {
   ugm: UGM;
@@ -143,7 +144,11 @@ export function TemporalSlider({
           onClick={togglePlay}
           style={{ fontSize: 12, padding: "2px 8px", minWidth: 32 }}
         >
-          {playing ? "⏸" : "▶"}
+          <Icon
+            name={playing ? "pause" : "play"}
+            size={12}
+            label={playing ? "Pause" : "Play"}
+          />
         </button>
         <button
           data-testid="temporal-speed"

@@ -9,10 +9,15 @@
  */
 
 import { create } from "zustand";
+import { prefersReducedMotion, DESIGN_TOKENS } from "@g3t/core";
 
 // ── Theme Definition ────────────────────────────────────────────────
 
 export interface G3tTheme {
+  /** Native-control rendering scheme ("light" | "dark"): without it,
+   *  checkboxes, selects, and scrollbars keep the UA's light styling
+   *  under a dark theme (visual-acceptance finding, 2026-06-11). */
+  colorScheme: "light" | "dark";
   id: string;
   name: string;
 
@@ -52,6 +57,7 @@ export interface G3tTheme {
 // ── Presets ──────────────────────────────────────────────────────────
 
 export const LIGHT_THEME: G3tTheme = {
+  colorScheme: "light",
   id: "light",
   name: "Light",
   bgPrimary: "#ffffff",
@@ -86,6 +92,7 @@ export const LIGHT_THEME: G3tTheme = {
 };
 
 export const DARK_THEME: G3tTheme = {
+  colorScheme: "dark",
   id: "dark",
   name: "Dark",
   bgPrimary: "#1a1b1e",
@@ -120,6 +127,10 @@ export const DARK_THEME: G3tTheme = {
 };
 
 export const HIGH_CONTRAST_THEME: G3tTheme = {
+  // White background: native controls must render light (the "dark"
+  // value set in visual round 1 was wrong and produced the odd
+  // control coloring reported in round 3).
+  colorScheme: "light",
   id: "high-contrast",
   name: "High Contrast",
   bgPrimary: "#ffffff",
@@ -188,6 +199,8 @@ function injectCssVariables(theme: G3tTheme): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
 
+  root.style.colorScheme = theme.colorScheme;
+  root.style.setProperty("--g3t-accent-color-controls", theme.accentPrimary);
   root.style.setProperty("--g3t-bg-primary", theme.bgPrimary);
   root.style.setProperty("--g3t-bg-secondary", theme.bgSecondary);
   root.style.setProperty("--g3t-bg-tertiary", theme.bgTertiary);
@@ -216,6 +229,74 @@ function injectCssVariables(theme: G3tTheme): void {
 
 // ── Cytoscape Stylesheet Derivation ─────────────────────────────────
 
+// ── Theme creation (customization layer 1, design-system roadmap E) ──
+
+/** Relative luminance per WCAG 2.x. Hex #rgb/#rrggbb only. */
+function relativeLuminance(hex: string): number | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  let h = m[1] ?? "";
+  if (h.length === 3)
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  const channel = (i: number) => {
+    const c = parseInt(h.slice(i * 2, i * 2 + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
+}
+
+/** WCAG contrast ratio between two hex colors (1..21); null if either
+ *  color is not plain hex (e.g. rgba() strings are skipped, not failed). */
+export function contrastRatio(a: string, b: string): number | null {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  if (la === null || lb === null) return null;
+  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * Build a theme from a partial over a base preset (default: light).
+ * Validates key WCAG pairs and WARNS (never blocks) when a pair falls
+ * below its threshold: brand themes start from a checked baseline
+ * instead of a copied preset. Thresholds: body text 4.5:1 (AA),
+ * secondary text 4.5:1, muted text and accent-as-UI 3:1 (AA
+ * non-text/large).
+ */
+export function createTheme(
+  overrides: Partial<G3tTheme> & { id: string; name: string },
+  base: G3tTheme = LIGHT_THEME,
+): G3tTheme {
+  const theme: G3tTheme = { ...base, ...overrides };
+  const checks: Array<[string, string, string, number]> = [
+    ["textPrimary/bgPrimary", theme.textPrimary, theme.bgPrimary, 4.5],
+    ["textSecondary/bgPrimary", theme.textSecondary, theme.bgPrimary, 4.5],
+    ["textMuted/bgPrimary", theme.textMuted, theme.bgPrimary, 3],
+    ["accentPrimary/bgPrimary", theme.accentPrimary, theme.bgPrimary, 3],
+  ];
+  const failures = checks
+    .map(([label, fg, bg, min]) => {
+      const ratio = contrastRatio(fg, bg);
+      return ratio !== null && ratio < min
+        ? `${label} ${ratio.toFixed(2)}:1 (needs ${min}:1)`
+        : null;
+    })
+    .filter((f): f is string => f !== null);
+  if (failures.length > 0) {
+    console.warn(
+      `createTheme("${theme.id}"): WCAG contrast below threshold: ${failures.join("; ")}`,
+    );
+  }
+  return theme;
+}
+
+/** Standalone theme derivation for hosts composing their own
+ *  Cytoscape stylesheets. CytoscapeCanvas itself themes through
+ *  themeColorRules + its shared stylesheet assembly (round 20), not
+ *  through this export. */
 export function deriveCytoscapeStyle(
   theme: G3tTheme,
 ): Record<string, unknown>[] {
@@ -234,10 +315,35 @@ export function deriveCytoscapeStyle(
       },
     },
     {
+      // C1 selection signature: halo geometry from the shared token so
+      // canvas and table selection agree by construction (Cytoscape
+      // cannot read CSS variables; the token constant is the bridge).
       selector: "node.g3t-selected",
       style: {
-        "border-color": theme.accentPrimary,
-        "border-width": 3,
+        // Gasket halo (round-4 finding; replaces the double ring,
+        // which blurred at small widths and stayed adjacent to dark
+        // fills): the node keeps its own border, and the accent ring
+        // sits OFFSET from it, separated by a canvas-colored gap.
+        // The ring therefore contrasts with the canvas, and the gap
+        // separates it from any node fill, black included.
+        "outline-color": theme.accentPrimary,
+        "outline-width": parseInt(DESIGN_TOKENS.selectionHaloWidth, 10),
+        "outline-offset": parseInt(DESIGN_TOKENS.selectionGapWidth, 10),
+        "outline-opacity": 1,
+      },
+    },
+    {
+      // Compound containers (slice 1, round 17): theme-resolved
+      // colors for the UML element look. Geometry/label structure
+      // lives in COMPOUND_CONTAINER_RULE (CytoscapeCanvas); this rule
+      // re-states only the COLORS because Cytoscape cannot read CSS
+      // variables and the theme object is the bridge.
+      selector: ":parent",
+      style: {
+        "background-color": theme.bgSecondary,
+        "background-opacity": 0.35,
+        "border-color": theme.border,
+        color: theme.textPrimary,
       },
     },
     {
@@ -262,6 +368,18 @@ export function deriveCytoscapeStyle(
 
 export function deriveEChartsTheme(theme: G3tTheme): Record<string, unknown> {
   return {
+    // A2: charts honor the OS motion preference at the theme level.
+    animation: !prefersReducedMotion(),
+    // C1 selection signature: selected elements take the accent;
+    // non-selected de-emphasize to the shared opacity token, so a
+    // brushed chart reads exactly like a selected canvas.
+    blendMode: undefined,
+    select: {
+      itemStyle: { borderColor: theme.accentPrimary, borderWidth: 2 },
+    },
+    emphasis: {
+      itemStyle: { borderColor: theme.accentPrimary },
+    },
     backgroundColor: "transparent",
     textStyle: { color: theme.textPrimary },
     title: { textStyle: { color: theme.textPrimary } },

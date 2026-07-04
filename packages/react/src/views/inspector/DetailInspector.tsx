@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import type { UGM } from "@g3t/core";
+import { Icon } from "../../icons";
 
 export interface DetailInspectorProps {
   /** The UGM instance to read data from. */
@@ -111,19 +112,13 @@ function PropertySection({ label, value }: { label: string; value: unknown }) {
         <button
           onClick={() => setExpanded(!expanded)}
           data-testid={`section-${label}`}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            fontWeight: 600,
-            fontSize: 13,
-            padding: "4px 12px",
-          }}
+          className="g3t-panel-section-header"
         >
-          {expanded ? "▼" : "▶"} {label} ({entries.length})
+          <Icon name={expanded ? "chevron-down" : "chevron-right"} size={12} />{" "}
+          {label} ({entries.length})
         </button>
         {expanded && (
-          <div style={{ paddingLeft: 12 }}>
+          <div className="g3t-panel-section-content">
             {entries.map(([k, v]) => (
               <PropertyRow key={k} label={k} value={v} />
             ))}

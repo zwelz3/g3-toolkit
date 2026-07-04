@@ -1,18 +1,27 @@
 /**
  * Holonic adapter (M3.E2.T3, M3.E2.T4).
  *
- * Wraps a HolonicDataset (P6 four-graph model) and maps it to UGM.
- * Holons become nodes; portals become edges. Interior graphs are
- * projected via project_to_lpg().
+ * Maps an in-memory Holonic dataset shape (holons, portals, interior
+ * graphs) to UGM: holons become nodes, portals become edges, and
+ * interior graphs are projected to a flat LPG.
+ *
+ * SCOPE (honest accounting after the v1.0.0-rc audit): this adapter
+ * consumes the simplified `HolonicDataset` interface defined below,
+ * not the `holonic` Python library's four-graph model. It has no
+ * SPARQL transport and therefore does NOT satisfy R5.1's acceptance
+ * criteria (RdflibBackend / FusekiBackend over HTTP); R5.1 is tracked
+ * as in-progress in specs/05. A backend-connected adapter would
+ * compose this mapping with the SPARQL middleware stack.
  *
  * Framework-agnostic (D6).
  *
- * @see specs/05-integration-holonic.md R5.1, R5.2, R5.3, R5.4
+ * @see specs/05-integration-holonic.md
+ *   R5.2 (holarchy topology rendering) — implemented here
+ *   R5.3 (project_to_lpg as default rendering path) — implemented here
+ *   R5.4 (portal context-menu surfacing) — data side implemented here;
+ *        menu wiring in @g3t/react holonic-portal-menu
+ *   R5.1 (backend transparency) — NOT met; in-memory only
  */
-
-// Implements: R4.4 (Holonic projection pipeline), R5.5 (SHACL membrane),
-// R5.6 (per-holon view config), R5.7 (holonic layer in inspector),
-// R5.8 (multi-interior rendering).
 
 import { UGM } from "../ugm";
 import type { PropertyMap } from "../ugm";
@@ -56,15 +65,26 @@ export interface HolonicDataset {
   holons: Holon[];
 }
 
-// @see R4.4, R5.6, R5.8: holonic projection
+// @see R5.2, R5.3: holarchy topology and interior projection
 export class HolonicAdapter implements GraphAdapter {
   readonly name = "Holonic Dataset";
   readonly id = "holonic";
 
   constructor(public readonly dataset: HolonicDataset) {}
 
-  async query(_q: string): Promise<UGM> {
-    // For Holonic datasets, query returns the top-level holon graph
+  /**
+   * NOTE: the in-memory dataset has no query engine; the query string
+   * is currently ignored and the top-level holarchy projection is
+   * returned. Callers that need real query semantics should use a
+   * backend-connected adapter. Logged (not thrown) so existing view
+   * wiring keeps working while making the limitation observable.
+   */
+  async query(q: string): Promise<UGM> {
+    if (q && q.trim().length > 0) {
+      console.warn(
+        "HolonicAdapter.query: in-memory adapter ignores query strings; returning holarchy projection",
+      );
+    }
     return this.projectToLPG();
   }
 

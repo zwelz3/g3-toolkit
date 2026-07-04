@@ -14,6 +14,7 @@ import type { ContextMenuManager } from "../../interaction/context-menu";
 import { UGM } from "@g3t/core";
 import type { G3tEventBus } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { usePositionPinStore } from "../../state/position-pin-store";
 import { useStyleOverrideStore } from "../../state/style-override-store";
 
 // ── Configuration ───────────────────────────────────────────────────
@@ -42,6 +43,18 @@ export function registerToolkitActions(
   // ── Single-Node Actions ─────────────────────────────────────────
 
   manager.register("toolkit-node", [
+    {
+      id: "pin-position",
+      // Label resolves at render time would be nicer; MenuItem labels
+      // are static strings, so the action TOGGLES and the label says
+      // so (roadmap/design/toolbar-and-layouts.md, per-node pinning).
+      label: "Pin / unpin position",
+      icon: "📌",
+      filter: (t) => t.type === "node",
+      action: (t) => {
+        if (t.id) usePositionPinStore.getState().toggle(t.id);
+      },
+    },
     {
       id: "inspect",
       label: "Inspect",

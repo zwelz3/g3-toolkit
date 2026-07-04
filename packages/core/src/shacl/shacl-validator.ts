@@ -23,6 +23,11 @@ export interface ShaclPropertyConstraint {
   minInclusive?: number;
   maxInclusive?: number;
   in?: unknown[];
+  /** sh:severity for this constraint's results. When set, it
+   *  OVERRIDES the per-check default (e.g. a missing required value
+   *  defaults to violation, but sh:severity sh:Info downgrades it).
+   *  Absent means the per-check default applies. */
+  severity?: "violation" | "warning" | "info";
 }
 
 export interface ShaclShape {
@@ -31,6 +36,13 @@ export interface ShaclShape {
   name?: string;
   description?: string;
   properties: ShaclPropertyConstraint[];
+  /** sh:closed - when true, the shape is closed-world: node properties
+   *  beyond the declared constraint paths (and ignoredProperties) are
+   *  violations. Absent/false = open (SHACL's default). */
+  closed?: boolean;
+  /** sh:ignoredProperties - paths exempt from the closed-world check
+   *  (only meaningful when closed is true). */
+  ignoredProperties?: string[];
 }
 
 export interface ShaclViolation {
@@ -68,6 +80,11 @@ export function validateShacl(
       for (const constraint of shape.properties) {
         const value = attrs.properties[constraint.path];
         const exists = value !== undefined && value !== null && value !== "";
+        // sh:severity override: a constraint may declare its result
+        // severity; absent, the per-check default applies.
+        const sev = (
+          dflt: "violation" | "warning" | "info",
+        ): "violation" | "warning" | "info" => constraint.severity ?? dflt;
 
         // minCount
         if (constraint.minCount !== undefined && constraint.minCount > 0) {
@@ -75,7 +92,7 @@ export function validateShacl(
             violations.push({
               path: constraint.path,
               message: `Required property "${constraint.name ?? constraint.path}" is missing`,
-              severity: "violation",
+              severity: sev("violation"),
             });
             continue;
           }
@@ -110,7 +127,7 @@ export function validateShacl(
             violations.push({
               path: constraint.path,
               message: `"${constraint.path}" should be ${constraint.datatype}, got ${actualType}`,
-              severity: "violation",
+              severity: sev("violation"),
             });
           }
         }
@@ -121,7 +138,7 @@ export function validateShacl(
             violations.push({
               path: constraint.path,
               message: `"${constraint.path}" does not match pattern ${constraint.pattern}`,
-              severity: "warning",
+              severity: sev("warning"),
             });
           }
         }
@@ -135,7 +152,7 @@ export function validateShacl(
             violations.push({
               path: constraint.path,
               message: `"${constraint.path}" (${value}) is below minimum ${constraint.minInclusive}`,
-              severity: "violation",
+              severity: sev("violation"),
             });
           }
           if (
@@ -145,7 +162,7 @@ export function validateShacl(
             violations.push({
               path: constraint.path,
               message: `"${constraint.path}" (${value}) exceeds maximum ${constraint.maxInclusive}`,
-              severity: "violation",
+              severity: sev("violation"),
             });
           }
         }
@@ -155,8 +172,27 @@ export function validateShacl(
           violations.push({
             path: constraint.path,
             message: `"${constraint.path}" value "${value}" not in allowed set`,
-            severity: "violation",
+            severity: sev("violation"),
           });
+        }
+      }
+
+      // sh:closed (closed-world): values are allowed only for the
+      // declared constraint paths plus sh:ignoredProperties. SHACL's
+      // default is open-world, so absent/false changes nothing.
+      if (shape.closed) {
+        const allowed = new Set<string>([
+          ...shape.properties.map((c) => c.path),
+          ...(shape.ignoredProperties ?? []),
+        ]);
+        for (const key of Object.keys(attrs.properties)) {
+          if (!allowed.has(key)) {
+            violations.push({
+              path: key,
+              message: `Property "${key}" is not declared on closed shape "${shape.name ?? shape.id}" (sh:closed)`,
+              severity: "violation",
+            });
+          }
         }
       }
 

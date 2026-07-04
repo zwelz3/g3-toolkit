@@ -7,11 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import { Model } from "flexlayout-react";
-import {
-  saveWorkspace,
-  loadWorkspace,
-  getDefaultLayoutForRole,
-} from "./index";
+import { saveWorkspace, loadWorkspace, getDefaultLayoutForRole } from "./index";
 
 describe("Workspace save/load (M6.E1.T2)", () => {
   it("round-trips workspace state through JSON", () => {
