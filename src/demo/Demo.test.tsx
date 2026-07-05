@@ -37,4 +37,11 @@ describe("Demo routing to capability surfaces", () => {
     // required); pin a real section heading.
     expect(container.textContent).toContain("Adjacency matrix");
   });
+
+  it("routes landing -> Ontology Workbench", () => {
+    const { container } = render(<Demo />);
+    fireEvent.click(screen.getByText("Ontology Workbench"));
+    expect(container.textContent).toContain("Ontology statistics");
+    expect(screen.getByTestId("ow-class-tree")).toBeTruthy();
+  });
 });

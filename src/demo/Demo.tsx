@@ -12,6 +12,7 @@ import { SupplyThreadShell } from "./supply/ThreadShell";
 import { BioShell } from "./bio/BioShell";
 import { AnalyticsSurface, SchemaSurface } from "./surfaces/DashboardSurfaces";
 import { ScaleSurface } from "./scale/ScaleSurface";
+import { OntologyShell } from "./ontology/OntologyShell";
 import { AuditShell } from "./audit/AuditShell";
 import { useThemeStore } from "@g3t/react";
 import { injectDesignTokens } from "@g3t/react";
@@ -26,6 +27,7 @@ const SHELL_MAP: Record<string, React.ComponentType<{ onBack: () => void }>> = {
   "analytics-dashboard": AnalyticsSurface,
   "schema-dashboard": SchemaSurface,
   scale: ScaleSurface,
+  "ontology-workbench": OntologyShell,
 };
 
 export function Demo() {

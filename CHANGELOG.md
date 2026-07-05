@@ -1,5 +1,48 @@
 # Changelog
 
+## Ontology Workbench capability surface
+
+- New demo shell at `src/demo/ontology/` (fourth capability card,
+  routed as `ontology-workbench`): Protege-style browsing over a
+  seeded spacecraft ontology. Left rail: entity search plus
+  class-tree / properties / individuals tabs. Center: class hierarchy
+  (breadthfirst, dashed inferred subclass edges), k-hop neighborhood,
+  class-scoped instance graph with TableView, SHACL shape view, and
+  SPARQL. Right rail: annotations, axioms with inferred chips,
+  targeting shapes, per-class instances, and ontology statistics
+  (chips plus a deterministic div-bar chart; deliberately not echarts
+  so the rail stays jsdom-verifiable).
+- Demo RDFS-plus reasoner (`reasoner.ts`): fixpoint materialization of
+  subclass/equivalence closure, type inheritance, subPropertyOf,
+  domain/range, inverse, symmetric, and transitive rules; returns only
+  new triples so every inference is flagged. The seeded model carries
+  deliberate gaps the reasoner must close (untyped gsAlpha via range
+  entailment, one-directional communicatesWith, a transitive partOf
+  chain, an inverse-only subsystem assertion, an equivalent-class
+  alias). An Asserted|Inferred toggle drives graphs, SPARQL scope,
+  validation input, and the details rail uniformly.
+- SHACL view composes the CORE pipeline end to end for the first time
+  in the playground: `shaclShapesToStructural` (cardinality rows,
+  reference edges) -> `layoutStructural` (ELK, lazily run when the
+  view opens) -> canvas `structural` prop with `closedShapeIds` and
+  `shaclRowSeverities` decorations; `ShaclShapeBrowser` serves as the
+  property browser. UI copy states that shapes are toolkit ShaclShape
+  structures and that validation is not inference.
+- RDF import (`import.ts`): Turtle/N-Triples/N-Quads/TriG via n3 and
+  JSON-LD via jsonld, both loaded lazily so they stay out of the
+  initial playground chunk (jsonld splits to its own ~116 KB chunk);
+  RDF/XML is declined with a riot-conversion message rather than
+  shipping a stream-shim parser. Both parsers are playground-only
+  dependencies; toolkit package budgets are unaffected.
+- Tests: 22 pure (reasoner rules, store classification/hierarchy/
+  flags/stats, import roundtrips and rejections) plus 4 shell contract
+  tests (toggle semantics in the details rail, SPARQL execution,
+  structural handoff with decorations) and a landing routing case.
+  Suite: 117 files / 1112 tests. Test-hygiene note: a shell that
+  subscribes to `useSelectionStore` directly must reset the store
+  AFTER `cleanup()`, or the reset re-renders the mounted shell outside
+  `act()`.
+
 - Toolkit context actions demonstrated across the demos (maintainer directive following the context-menu contract round). The placement design keyed off one classification: registerToolkitActions' items split into store-backed (pin, inspect, expand-neighbors, select-endpoints, bulk color: visible with zero app cooperation) and emit-only (view-neighbors, focus, hide, find-path, view-subgraph, edit-appearance, pin-node: dead without a host consumer), so mounting the registrar bare anywhere would have recreated the dead-item defect one level deeper. PLACEMENTS: the AnalyticsDashboard (capability-first surface) hosts the FULL registrar with all seven emitted events consumed: focus and view-subgraph hide the complement of the neighborhood/selection through a new hidden-set state on its canvas (with a Show all chip), hide accumulates into the same set, find-path runs core findShortestPath and selects the route with a status chip, view-neighbors selects the k-hop hood (BFS over ugm.getNeighbors), edit-appearance mounts NodeStyleEditor in a closable panel (style overrides apply through the store the canvas already consumes), and pin toggles the position-pin store. The supply-chain shell registers a domain-framed pair through the documented register() API instead of the wholesale set: "Expand suppliers (1-hop)" grows the selection by direct neighbors, and "Shortest route to selected" (filtered to exactly one other selected node) runs findShortestPath, selects the route, and reports hop count in a status chip. The audit, scale, harness rulings from the prior round stand. DELIBERATELY DEFERRED with rationale: MBSE compartment-collapse (registerCompartmentCollapseActions is store-backed and store-tested, but the visible consumer requires recomputing the structural scene with collapsed keys and layoutStructural currently accepts no collapse state; that is an integration round of its own, recorded in the review checklist's open decisions). TESTS: dashboard contract tests drive the captured manager end to end (full label set; Focus hides and Show all restores via the captured hidden prop; Find Paths selects and reports; Edit Appearance mounts the editor); supply tests pin the filter semantics (route item absent on empty selection, appears with exactly one other selected) and the route outcome; a wiring twin proves the registrar's emit path onto a real G3tEventBus; the guide gained "The full toolkit action set" section warning that exposed events must be consumed. Browser-verified residue and the per-surface checklist items are appended to the P1/P2 review checklist (section 3b).
 
 - Context menus: dead-by-default fixed at the component contract, then wired deliberately per surface (maintainer audit finding: every canvas showed one of two menu variants, and in nearly all cases the items did nothing). ROOT CAUSE: createDefaultMenuManager registered "Inspect properties" and "Copy IRI" unconditionally while their actions were optional callbacks, and CytoscapeCanvas synthesizes a default manager whenever the prop is omitted, so every menuManager-less surface rendered two no-op items; even the harness (the only surface passing a manager) wired Inspect but left Copy dead. NEW CONTRACT (packages/react): base items are functional or absent. The copy item is ALWAYS present and clipboard-wired with zero config, labeled per element id shape ("Copy IRI" for schemed ids, the RDF case; "Copy ID" otherwise, colon-prefixed LPG ids deliberately not counting; idLabel overrides, onCopy replaces the clipboard); "Inspect properties" is included ONLY when onInspect is provided, because the canvas cannot conjure a detail surface into the host layout and an unwired Inspect must be omitted rather than rendered dead. MenuItem gained dynamicLabel, materialized in resolve() for built-in and registered items alike, so the renderer stays label-dumb. PER-SURFACE RULINGS: harness (Inspect already wired to its inspector; copy now functional automatically); AuditShell wires Inspect to selection because selection IS its inspect surface (the Lineage panel renders the target, absence hops included); AnalyticsDashboard wires Inspect to selection (the table is its property surface and highlights the row); ScaleSurface registers an app item "Drill into cluster" through the documented manager.register() API (the wiring-guide custom-action recipe, live) with no Inspect (no property panel); MBSE, biomedical, supply-chain, and full-workspace stay copy-only (no property-displaying surface; bio's full-IRI node ids read "Copy IRI" from the heuristic, giving the RDF/LPG distinction with zero config). TESTS: the default-manager unit suite rewritten to the contract (clipboard stub, label heuristic incl. the ent:legacy non-IRI case, override paths, inspect ordering); shell/dashboard contract tests drive the CAPTURED manager end to end headlessly (audit: resolve then invoke Inspect and the lineage panel renders; scale: the registered item resolves after built-ins and drills the canvas; dashboard: Inspect lands in the selection store); TableView's stale copy-iri testid updated; wiring-guide section prefaced with the base contract and two CI-executed twins. Browser-verified residue: menu positioning/appearance on right-click, and the clipboard write itself (requires a secure context; jsdom exercises it via stub).

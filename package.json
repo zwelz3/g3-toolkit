@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
- "gates": "pnpm run typecheck && pnpm run lint && pnpm run verify && pnpm run test && pnpm run gates:spec",
+    "gates": "pnpm run typecheck && pnpm run lint && pnpm run verify && pnpm run test && pnpm run gates:spec",
     "gates:spec": "python scripts/lint_specs.py specs/ && python scripts/sync_spec_status.py && python scripts/check_roadmap_coverage.py",
     "dev": "vite",
     "build": "pnpm run build:packages && tsc --noEmit && vite build",
@@ -39,7 +39,11 @@
   "dependencies": {
     "@g3t/charts": "workspace:*",
     "@g3t/core": "workspace:*",
-    "@g3t/react": "workspace:*"
+    "@g3t/react": "workspace:*",
+    "@types/jsonld": "^1.5.15",
+    "@types/n3": "^1.26.1",
+    "jsonld": "^9.0.0",
+    "n3": "^2.1.1"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.2.1",

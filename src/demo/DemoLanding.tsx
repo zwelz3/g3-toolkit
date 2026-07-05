@@ -60,6 +60,17 @@ export const CAPABILITY_SURFACES: Scenario[] = [
     icon: "\u2b22",
     tags: ["collapseByCluster", "Louvain", "drill-in"],
   },
+  {
+    id: "ontology-workbench",
+    title: "Ontology Workbench",
+    subtitle: "Protege-style browsing, SHACL, SPARQL, and a demo reasoner",
+    description:
+      "Full ontology browsing (classes, properties, individuals, axioms, annotations) over a seeded spacecraft ontology, with an Asserted|Inferred toggle backed by a demo RDFS-plus reasoner. Class hierarchy and k-hop neighborhood canvases, class-scoped instance graphs with a table view, the core SHACL structural pipeline (ELK, cardinality rows, per-row validation severity), scoped SPARQL with presets, and Turtle/JSON-LD import.",
+    accent: "#7048e8",
+    accentGlow: "rgba(112, 72, 232, 0.15)",
+    icon: "\u2726",
+    tags: ["RDFS-plus", "SHACL", "SPARQL", "import"],
+  },
 ];
 
 export const SCENARIOS: Scenario[] = [
