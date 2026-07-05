@@ -449,9 +449,13 @@ export interface CytoscapeCanvasProps {
   layout?: string;
   /** Optional additional stylesheet rules to merge. */
   stylesheet?: CyStylesheet[];
-  /** Optional ContextMenuManager. If omitted, a default is created.
-   *  Pass a menuManager with callbacks to handle "Inspect properties"
-   *  and "Copy IRI" actions. */
+  /** Optional ContextMenuManager. If omitted, a default is created
+   *  whose base menu is FUNCTIONAL with zero config: one copy item
+   *  wired to the clipboard, labeled "Copy IRI" or "Copy ID" from the
+   *  element's id shape. "Inspect properties" appears only when a
+   *  manager built with createDefaultMenuManager({ onInspect }) is
+   *  passed (an unwired Inspect is omitted, never rendered dead);
+   *  app-specific items go through manager.register(). */
   menuManager?: ContextMenuManager;
   /** Callback when the Cytoscape core is ready. */
   onReady?: (cy: Core) => void;

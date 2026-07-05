@@ -7,14 +7,35 @@
  * cytoscape mock could not express.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  act,
+} from "@testing-library/react";
 import type { UGM } from "@g3t/core";
 
 interface SpecShape {
   node?: { color?: { driver?: string } };
 }
 
+type CapturedMenu = {
+  resolve: (t: {
+    type: string;
+    id?: string;
+    position: { x: number; y: number };
+  }) => Array<{
+    label: string;
+    action: (t: {
+      type: string;
+      id?: string;
+      position: { x: number; y: number };
+    }) => void;
+  }>;
+};
 const captured = vi.hoisted(() => ({
+  menus: [] as CapturedMenu[],
   calls: [] as Array<{
     driver: string | undefined;
     allClustered: boolean;
@@ -33,6 +54,7 @@ vi.mock("@g3t/react", async (importOriginal) => {
       encodingSpec?: SpecShape;
       onReady?: (cy: unknown) => void;
       animate?: boolean;
+      menuManager?: CapturedMenu;
     }) => {
       let nodes = 0;
       let allClustered = true;
@@ -47,16 +69,19 @@ vi.mock("@g3t/react", async (importOriginal) => {
         hasOnReady: typeof props.onReady === "function",
         animate: props.animate,
       });
+      if (props.menuManager) captured.menus.push(props.menuManager);
       return <div data-testid="canvas-stub" />;
     },
   };
 });
 
 import { SupplyThreadShell } from "./ThreadShell";
+import { buildDigitalThread } from "./model";
 import { useSelectionStore } from "@g3t/react";
 
 beforeEach(() => {
   captured.calls.length = 0;
+  captured.menus.length = 0;
 });
 afterEach(() => {
   useSelectionStore.getState().selectNodes([]);
@@ -85,6 +110,52 @@ describe("SupplyThreadShell canvas contract", () => {
     expect(container.textContent).toContain("(choose a mode)");
     fireEvent.click(screen.getByRole("button", { name: "Region" }));
     expect(container.textContent).not.toContain("(choose a mode)");
+  });
+
+  it("context menu: expand grows the selection; shortest route selects the path", () => {
+    render(<SupplyThreadShell onBack={() => {}} />);
+    const manager = captured.menus.at(-1);
+    expect(manager).toBeDefined();
+    const ugm = buildDigitalThread();
+    // Pick a node with at least one neighbor, and one of its neighbors.
+    const start = ugm
+      .getNodeIds()
+      .find((id) => ugm.getNeighbors(id).length > 0);
+    expect(start).toBeDefined();
+    const neighbor = ugm.getNeighbors(start!)[0]!;
+    const at = (id: string) => ({
+      type: "node",
+      id,
+      position: { x: 0, y: 0 },
+    });
+
+    // Empty selection: base copy plus expand; route is filtered out.
+    let items = manager!.resolve(at(start!));
+    expect(items.map((i) => i.label)).toEqual([
+      "Copy ID",
+      "Expand suppliers (1-hop)",
+    ]);
+
+    act(() => {
+      items[1]!.action(at(start!));
+    });
+    const sel = useSelectionStore.getState().selectedNodeIds;
+    expect(sel.has(neighbor)).toBe(true);
+
+    // With exactly one OTHER node selected, the route item appears.
+    act(() => {
+      useSelectionStore.getState().selectNodes([neighbor]);
+    });
+    items = manager!.resolve(at(start!));
+    expect(items.map((i) => i.label)).toContain("Shortest route to selected");
+    act(() => {
+      items
+        .find((i) => i.label === "Shortest route to selected")!
+        .action(at(start!));
+    });
+    // Adjacent nodes: a 1-hop route, selected and reported.
+    expect(useSelectionStore.getState().selectedNodeIds.has(start!)).toBe(true);
+    expect(screen.getByTestId("route-status").textContent).toContain("1 hop");
   });
 
   it("mounts the Minimap over the canvas, placeholder until the core arrives", () => {

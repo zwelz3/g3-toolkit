@@ -55,6 +55,11 @@ export const THREAD_STYLES = `
 /* Minimap floats ABOVE the canvas (same stacking lesson as the bio
    view toggle: the generic child rule stretches and the later canvas
    sibling would otherwise intercept pointer events). */
+.sc-canvas-wrap > .sc-route-status {
+  inset: auto; left: 10px; bottom: 10px; z-index: 5;
+  font-size: 11px; padding: 4px 8px; border-radius: 4px;
+  background: rgba(0,0,0,0.55); color: #fff;
+}
 .sc-canvas-wrap > .sc-minimap {
   inset: auto; right: 10px; bottom: 10px; z-index: 5;
 }

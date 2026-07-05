@@ -16,14 +16,32 @@ import {
 } from "@testing-library/react";
 import type { UGM } from "@g3t/core";
 
-const captured = vi.hoisted(() => ({ counts: [] as number[] }));
+type CapturedMenu = {
+  resolve: (t: {
+    type: string;
+    id?: string;
+    position: { x: number; y: number };
+  }) => Array<{
+    label: string;
+    action: (t: {
+      type: string;
+      id?: string;
+      position: { x: number; y: number };
+    }) => void;
+  }>;
+};
+const captured = vi.hoisted(() => ({
+  counts: [] as number[],
+  menus: [] as CapturedMenu[],
+}));
 
 vi.mock("@g3t/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@g3t/react")>();
   return {
     ...actual,
-    CytoscapeCanvas: (props: { ugm: UGM }) => {
+    CytoscapeCanvas: (props: { ugm: UGM; menuManager?: CapturedMenu }) => {
       captured.counts.push(props.ugm.getNodeIds().length);
+      if (props.menuManager) captured.menus.push(props.menuManager);
       return <div data-testid="canvas-stub" />;
     },
   };
@@ -80,6 +98,31 @@ describe("ScaleSurface", () => {
     const back = captured.counts.at(-1) ?? 0;
     expect(back).toBeLessThanOrEqual(200);
     expect(back).toBeGreaterThan(1);
+  });
+
+  it("context menu: base copy plus the registered drill item, which drills", () => {
+    render(<ScaleSurface onBack={() => {}} />);
+    const manager = captured.menus.at(-1);
+    expect(manager).toBeDefined();
+    const target = {
+      type: "node",
+      id: "cluster:c0",
+      position: { x: 0, y: 0 },
+    };
+    const items = manager!.resolve(target);
+    // Built-ins first (functional copy; no dead Inspect), then the
+    // app-registered action.
+    expect(items.map((i) => i.label)).toEqual([
+      "Copy ID",
+      "Drill into cluster",
+    ]);
+    fireEvent.click(screen.getByTestId("canvas-stub")); // no-op; keeps RTL happy
+    act(() => {
+      items[1]!.action(target);
+    });
+    expect(screen.getByTestId("scale-status").textContent).toContain("Showing");
+    expect(captured.counts.at(-1) ?? 0).toBeLessThan(8000);
+    expect(captured.counts.at(-1) ?? 0).toBeGreaterThan(1);
   });
 
   it("drills when a supernode is selected on the canvas", () => {

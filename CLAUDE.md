@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Agent handoff for g3-toolkit. Current state: STATUS.md. History:
-planning/visual-acceptance-1.md (round log, authoritative);
+planning/ round logs (see planning/archive/ for retired efforts);
 milestone-era tracking is archived in planning/milestone-history.md
 (do not update it). Design records: roadmap/design/ (indexed in
 roadmap/CLAUDE.md). Adopter surface: docs/wiring-guide.md (snippets
@@ -44,7 +44,6 @@ Zustand, Vitest + RTL.
     python3 scripts/lint_specs.py specs/
     python3 scripts/sync_spec_status.py
     python3 scripts/check_roadmap_coverage.py
-    pnpm run visual-acceptance
 
 NEVER pipe gate scripts through tail/head: it masks exit codes (this
 shipped a red zip once). Check `$?` directly. Bundle growth requires
@@ -106,7 +105,7 @@ a written rationale in scripts/check-bundle-size.mjs (the ledger).
 Analytical tone, no sycophancy, no em-dashes in authored content, no
 day estimates (priority ordering only), plain immediate correction of
 mistakes, complete verified outputs. Visual changes ship through the
-visual-acceptance page (live islands in scripts/visual-acceptance/)
+Pages playground (and Playwright screenshots once baselines land); the visual-acceptance page was RETIRED 2026-07-04
 with copy that tells the reviewer what to exercise; every round gets
 a planning log entry, CHANGELOG entry, and a packaged zip + page in
 outputs. Findings from his review get root-caused, not patched.
@@ -125,7 +124,7 @@ body and synthetic-point-port edges, taxi as fallback when routeEdges is off
 or a route has no interior bend; declared-port edges keep the taxi exit on
 purpose (the port fixes a perpendicular the projection would fight). Edge
 rendering is NOT headlessly verifiable: IMMEDIATE NEXT is Zach's review via
-the visual-acceptance page (VA-31, packaged in outputs), then A3 polish.
+the Pages playground (the visual-acceptance surface is retired), then A3 polish.
 ALSO landed 2026-06-22: a Minimap component (@g3t/react interaction/camera;
 Molecules/Minimap) wired into the gallery and the standalone demo, which
 also gained a Graph/Structural view-switch. ALSO active: the Storybook

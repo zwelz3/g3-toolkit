@@ -20,6 +20,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const READMES = [
@@ -78,12 +79,24 @@ writeFileSync(
 );
 
 try {
+  // Spawn node with TypeScript's JS entry instead of the .bin shim:
+  // patched Node (CVE-2024-27980) throws EINVAL when spawning .cmd/.bat
+  // on Windows without a shell, and a shell brings quoting hazards;
+  // node + tsc.js is shell-free and identical on every platform.
   execFileSync(
-    resolve(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc"),
-    ["-p", dir],
+    process.execPath,
+    [
+      createRequire(resolve(root, "package.json")).resolve(
+        "typescript/lib/tsc.js",
+      ),
+      "-p",
+      dir,
+    ],
     { stdio: "pipe", cwd: root },
   );
-  console.log(`check-readme-snippets: ${files.length} snippet(s) typecheck cleanly`);
+  console.log(
+    `check-readme-snippets: ${files.length} snippet(s) typecheck cleanly`,
+  );
   rmSync(dir, { recursive: true, force: true });
 } catch (err) {
   console.error("README snippet typecheck FAILED:");

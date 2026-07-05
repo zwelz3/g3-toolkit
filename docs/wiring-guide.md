@@ -185,6 +185,31 @@ async function showCommunities(ugm: UGM) {
 
 ### Add your action to the canvas context menu
 
+The base menu is functional with zero config, and follows a strict
+contract: items are wired or absent, never rendered dead. With no
+menuManager the canvas shows one item, a clipboard-wired copy whose
+label follows the element id ("Copy IRI" for schemed ids, the RDF
+case; "Copy ID" otherwise). "Inspect properties" appears only when
+you wire it, because only the host app knows its detail surface:
+
+```tsx
+import { createDefaultMenuManager } from "@g3t/react";
+
+const manager = createDefaultMenuManager({
+  // Selection IS the inspect surface in most g3t apps: the inspector,
+  // table, or lineage panel renders whatever is selected.
+  onInspect: (t) => {
+    if (t.id) useSelectionStore.getState().selectNodes([t.id]);
+  },
+  // idLabel: "iri" | "id" overrides the heuristic; onCopy replaces
+  // the clipboard behavior.
+});
+// <CytoscapeCanvas menuManager={manager} ... />
+```
+
+Register app-specific actions on the same manager (the playground's
+Scale surface does this live with "Drill into cluster"):
+
 ```tsx
 import { ContextMenuManager } from "@g3t/react";
 
@@ -198,6 +223,39 @@ manager.register("my-app", [
   },
 ]);
 // <CytoscapeCanvas menuManager={manager} ... />
+```
+
+### The full toolkit action set
+
+`registerToolkitActions` registers the complete node/edge/multi-select
+menu (pin, inspect, neighbors, focus, paths, appearance, hide, bulk
+color). Store-backed items work immediately; the rest EMIT events, and
+mounting the set without consuming them recreates dead menu items, so
+wire every event you expose. The Analytics Dashboard in the playground
+consumes all seven (CI-tested there); the pattern:
+
+```tsx
+import { ContextMenuManager, registerToolkitActions } from "@g3t/react";
+import { G3tEventBus } from "@g3t/core";
+
+const bus = new G3tEventBus();
+const manager = new ContextMenuManager();
+registerToolkitActions(manager, { ugm, eventBus: bus, defaultHops: 2 });
+
+useEffect(() => {
+  const unsubs = [
+    bus.on("context:focusNode", ({ nodeId, hops }) => {
+      // hide everything outside the k-hop neighborhood
+    }),
+    bus.on("context:findPath", ({ sourceId, targetId }) => {
+      // findShortestPath + select the route
+    }),
+    // context:viewNeighbors, context:hideNodes, context:viewSubgraph,
+    // context:editAppearance (mount NodeStyleEditor),
+    // context:pinNodes
+  ];
+  return () => unsubs.forEach((u) => u());
+}, [bus]);
 ```
 
 ### Lay out a structural (UML-style) view

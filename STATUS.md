@@ -28,7 +28,7 @@ shipped-vs-gap accounting and the reconciliation.
 
 This document is the current-state snapshot for humans; agents start
 at CLAUDE.md. The authoritative round-by-round history is
-planning/visual-acceptance-1.md; per-area design records live in
+planning/archive/visual-acceptance-1.md (surface retired 2026-07-04); per-area design records live in
 roadmap/design/; milestone-era tracking (the former PROGRESS.md and
 planning/status.md) is archived verbatim in
 planning/milestone-history.md.
@@ -59,7 +59,7 @@ when `routeEdges` is off or a route has no interior bend. Declared-port
 edges keep the taxi exit ON PURPOSE: the port already fixes a perpendicular
 direction the projected basis would fight. This is the visible payoff
 ("edges route around blocks, not behind") and is NOT headlessly verifiable;
-it ships for Zach through the visual-acceptance page (VA-31, packaged in
+it shipped for Zach through the visual-acceptance page (RETIRED 2026-07-04; VA-31, packaged in
 outputs). IMMEDIATE NEXT STEP: that review, then A3 polish from findings.
 
 **Storybook atomic-design reshape.** Target taxonomy (in
@@ -239,7 +239,7 @@ custom themes; deriveCytoscapeStyle remains a host-facing export.
 **Documentation and deployment.** GitHub Pages site
 (.github/workflows/docs.yml, single docs:build assembly): landing
 page, TypeDoc API reference (wiring guide rendered inside it),
-Storybook, demo playground, and the visual-acceptance walkthrough.
+Storybook and the demo playground (the visual-acceptance walkthrough is retired).
 typedoc validation (docs:check) is in the verify chain. The legacy
 Sphinx skeleton in docs/source/ belongs to the old toolkit and is
 flagged for next-major removal.
@@ -255,7 +255,7 @@ scripts/lint_specs.py, scripts/sync_spec_status.py (status vs
 citation drift; exits nonzero on drift), and
 scripts/check_roadmap_coverage.py (every open requirement singly
 owned; closed requirements must leave Owns headers and the
-roadmap/CLAUDE.md index). pnpm run visual-acceptance builds the
+roadmap/CLAUDE.md index). (Historical: pnpm run visual-acceptance built the
 living review page with live Cytoscape islands and a string-marker
 self-check.
 

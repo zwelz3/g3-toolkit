@@ -36,7 +36,7 @@ jobs:
 
       # Generate API reference (TypeDoc → docs-out/api/)
       # One assembly path, shared with local builds: API reference,
-      # Storybook, playground, the visual-acceptance walkthrough, and
+      # Storybook, the playground, and
       # the landing page (docs:build in package.json owns the steps,
       # so CI and `pnpm run docs:build` cannot drift apart).
       - run: pnpm run docs:build

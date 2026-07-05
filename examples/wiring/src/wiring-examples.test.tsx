@@ -39,6 +39,7 @@ import {
   typeCollapse,
   collapseByCluster,
   buildSubgraph,
+  G3tEventBus,
   type RDFGraph,
 } from "@g3t/core";
 import {
@@ -63,6 +64,8 @@ import {
   createCameraController,
   ProvenanceTrace,
   Minimap,
+  createDefaultMenuManager,
+  registerToolkitActions,
   type ProvenanceChain,
 } from "@g3t/react";
 
@@ -587,6 +590,78 @@ describe("projection pipeline (guide: Projection pipeline)", () => {
     expect(ugm.getNode(`${EX}p53`)?.types).toContain("Protein");
     // Steps are inspectable (BioShell renders these names in its caption).
     expect(p.getSteps().map((st) => st.name)).toEqual(["Type Collapse"]);
+  });
+});
+
+describe("context menu base contract (guide: Add your action to the canvas context menu)", () => {
+  it("zero config: one clipboard-wired copy item, labeled by id shape", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const manager = createDefaultMenuManager();
+    const rdf = manager.resolve({
+      type: "node",
+      id: "http://example.org/p53",
+      position: { x: 0, y: 0 },
+    });
+    expect(rdf.map((i) => i.label)).toEqual(["Copy IRI"]);
+    const lpg = manager.resolve({
+      type: "node",
+      id: "supplier-7",
+      position: { x: 0, y: 0 },
+    });
+    expect(lpg.map((i) => i.label)).toEqual(["Copy ID"]);
+    lpg[0]!.action({
+      type: "node",
+      id: "supplier-7",
+      position: { x: 0, y: 0 },
+    });
+    expect(writeText).toHaveBeenCalledWith("supplier-7");
+    vi.unstubAllGlobals();
+  });
+
+  it("registerToolkitActions: the full set resolves; emit-only items reach the bus", () => {
+    const bus = new G3tEventBus();
+    const manager = new ContextMenuManager();
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["T"], properties: {} });
+    ugm.addNode("b", { types: ["T"], properties: {} });
+    ugm.addEdge("a", "b", { type: "r" });
+    registerToolkitActions(manager, { ugm, eventBus: bus, defaultHops: 2 });
+    const seen: unknown[] = [];
+    bus.on("context:focusNode", (d) => seen.push(d));
+    const items = manager.resolve({
+      type: "node",
+      id: "a",
+      position: { x: 0, y: 0 },
+    });
+    expect(items.map((i) => i.label)).toContain("Focus (2-hop)");
+    items
+      .find((i) => i.label === "Focus (2-hop)")!
+      .action({ type: "node", id: "a", position: { x: 0, y: 0 } });
+    expect(seen).toEqual([{ nodeId: "a", hops: 2 }]);
+  });
+
+  it("Inspect appears only when wired; registered app items resolve after built-ins", () => {
+    const onInspect = vi.fn();
+    const manager = createDefaultMenuManager({ onInspect });
+    manager.register("my-app", [
+      {
+        id: "open-dossier",
+        label: "Open dossier",
+        filter: (t) => t.type === "node",
+        action: () => undefined,
+      },
+    ]);
+    const items = manager.resolve({
+      type: "node",
+      id: "n1",
+      position: { x: 0, y: 0 },
+    });
+    expect(items.map((i) => i.label)).toEqual([
+      "Inspect properties",
+      "Copy ID",
+      "Open dossier",
+    ]);
   });
 });
 

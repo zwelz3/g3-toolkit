@@ -20,6 +20,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
+  createDefaultMenuManager,
   CytoscapeCanvas,
   useSelectionStore,
   type EncodingSpec,
@@ -90,6 +91,27 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
   const model = useMemo(() => buildModel(), []);
   const reducedMotion = usePrefersReducedMotion();
   const [view, setView] = useState<View>({ kind: "clusters" });
+
+  // Context menu: the base copy item plus an app-registered
+  // "Drill into cluster" on supernodes (the wiring-guide custom-action
+  // recipe, live). No Inspect: this surface has no property panel, and
+  // the base contract omits unwired items rather than rendering them
+  // dead.
+  const menuManager = useMemo(() => {
+    const manager = createDefaultMenuManager();
+    manager.register("scale-demo", [
+      {
+        id: "drill-into-cluster",
+        label: "Drill into cluster",
+        icon: "\u2b22",
+        filter: (t) => t.id !== undefined && model.members.has(t.id),
+        action: (t) => {
+          if (t.id !== undefined) setView({ kind: "drill", superId: t.id });
+        },
+      },
+    ]);
+    return manager;
+  }, [model]);
 
   const drill = useMemo(() => {
     if (view.kind !== "drill") return null;
@@ -202,6 +224,11 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
                 how: "drill-in returns the induced member subgraph, working-set capped so a huge cluster cannot overwhelm the canvas.",
               },
               {
+                mechanism: "menuManager.register",
+                anchor: "add-your-action-to-the-canvas-context-menu",
+                how: "right-click a supernode: the base copy item plus an app-registered Drill into cluster action.",
+              },
+              {
                 mechanism: "encodingSpec",
                 anchor: "drive-the-encoding-from-app-state",
                 how: "supernode size rides the memberCount property through the sequential size channel.",
@@ -214,6 +241,7 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
             ugm={canvasUgm}
             encodingSpec={SPEC}
             animate={!reducedMotion}
+            menuManager={menuManager}
           />
         </main>
       </div>

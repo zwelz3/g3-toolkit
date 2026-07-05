@@ -90,14 +90,50 @@ describe("ContextMenuManager (M0.E4.T1)", () => {
   });
 });
 
-describe("createDefaultMenuManager (M0.E4.T1)", () => {
-  it("includes Inspect and Copy IRI for nodes", () => {
+describe("createDefaultMenuManager (M0.E4.T1; functional-or-absent contract, 2026-07 audit)", () => {
+  it("with no options: exactly one item, the wired copy action", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const manager = createDefaultMenuManager();
+    const items = manager.resolve(nodeTarget);
+
+    // Inspect is OMITTED when unwired; a dead menu item reads as a
+    // broken application.
+    expect(items.map((i) => i.id)).toEqual(["copy-id"]);
+    items[0]!.action(nodeTarget);
+    expect(writeText).toHaveBeenCalledWith(nodeTarget.id);
+    vi.unstubAllGlobals();
+  });
+
+  it("labels the copy item by id shape: IRI for schemed ids, ID otherwise", () => {
+    const manager = createDefaultMenuManager();
+    const lpg = manager.resolve(nodeTarget); // fixture id is plain
+    expect(lpg[0]!.label).toBe("Copy ID");
+    const rdf = manager.resolve({
+      ...nodeTarget,
+      id: "http://example.org/p53",
+    });
+    expect(rdf[0]!.label).toBe("Copy IRI");
+    // Colon-prefixed LPG-style ids (ent:legacy) stay "Copy ID": only
+    // real schemes count.
+    const colonish = manager.resolve({ ...nodeTarget, id: "ent:legacy" });
+    expect(colonish[0]!.label).toBe("Copy ID");
+  });
+
+  it("idLabel overrides the heuristic; onCopy replaces the clipboard", () => {
+    const onCopy = vi.fn();
+    const manager = createDefaultMenuManager({ idLabel: "iri", onCopy });
+    const items = manager.resolve(nodeTarget);
+    expect(items[0]!.label).toBe("Copy IRI");
+    items[0]!.action(nodeTarget);
+    expect(onCopy).toHaveBeenCalledWith(nodeTarget);
+  });
+
+  it("includes Inspect ahead of Copy when wired", () => {
     const onInspect = vi.fn();
     const manager = createDefaultMenuManager({ onInspect });
     const items = manager.resolve(nodeTarget);
-
-    expect(items.map((i) => i.id)).toContain("inspect-properties");
-    expect(items.map((i) => i.id)).toContain("copy-iri");
+    expect(items.map((i) => i.id)).toEqual(["inspect-properties", "copy-id"]);
   });
 
   it("excludes Inspect and Copy IRI for background", () => {

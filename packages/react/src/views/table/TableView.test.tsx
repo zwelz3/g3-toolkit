@@ -169,7 +169,9 @@ describe("TableView right-click menu (M1.E2.T3)", () => {
     expect(
       screen.getByTestId("menu-item-inspect-properties"),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("menu-item-copy-iri")).toBeInTheDocument();
+    // Base copy item (id copy-id since the 2026-07 functional-or-absent
+    // rework; label resolves per element id shape).
+    expect(screen.getByTestId("menu-item-copy-id")).toBeInTheDocument();
   });
 
   it("does not show menu when no menuManager is provided", () => {

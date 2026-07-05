@@ -23,7 +23,7 @@
  * @see examples/decision-dashboards/README.md
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   degreeCentrality,
   connectedComponents,
@@ -32,9 +32,16 @@ import {
   createCentralityVsProperty,
   DerivedPropertyEngine,
   type UGM,
+  G3tEventBus,
+  findShortestPath,
 } from "@g3t/core";
 import {
   CoverageMeter,
+  ContextMenuManager,
+  registerToolkitActions,
+  NodeStyleEditor,
+  useSelectionStore,
+  usePositionPinStore,
   CytoscapeCanvas,
   TableView,
   StatsPanel,
@@ -76,6 +83,101 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
   // properties (UGM mutates in place; bump to recompute memos).
   const [revision, setRevision] = useState(0);
   const bump = () => setRevision((r) => r + 1);
+
+  // Context menu: the FULL toolkit action set (registerToolkitActions),
+  // with every event-emitting item consumed below; this capability
+  // surface is where the everything-menu belongs, while the domain
+  // shells register targeted picks. Inspect and Copy ID are part of
+  // the set, so the base default manager is not layered on top (it
+  // would duplicate them).
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
+  const [menuStatus, setMenuStatus] = useState<string | null>(null);
+  const [editNodeId, setEditNodeId] = useState<string | null>(null);
+  const { menuManager, bus } = useMemo(() => {
+    const eventBus = new G3tEventBus();
+    const manager = new ContextMenuManager();
+    registerToolkitActions(manager, { ugm, eventBus, defaultHops: 2 });
+    return { menuManager: manager, bus: eventBus };
+  }, [ugm]);
+
+  // Event consumers: every emit-only action lands somewhere visible.
+  useEffect(() => {
+    const all = () => new Set(ugm.getNodeIds());
+    // k-hop neighborhood over the UGM (breadth-first, hops bounded).
+    const neighborhood = (rootId: string, hops: number): Set<string> => {
+      const seen = new Set([rootId]);
+      let frontier = [rootId];
+      for (let h = 0; h < hops; h++) {
+        const next: string[] = [];
+        for (const id of frontier) {
+          for (const n of ugm.getNeighbors(id)) {
+            if (!seen.has(n)) {
+              seen.add(n);
+              next.push(n);
+            }
+          }
+        }
+        frontier = next;
+      }
+      return seen;
+    };
+    const unsubs = [
+      bus.on("context:viewNeighbors", (d) => {
+        const { nodeId, hops } = d as { nodeId: string; hops: number };
+        const hood = neighborhood(nodeId, hops);
+        useSelectionStore.getState().selectNodes([...hood]);
+        setMenuStatus(
+          `Neighborhood of ${nodeId} (${hops}-hop): ${hood.size} nodes selected`,
+        );
+      }),
+      bus.on("context:focusNode", (d) => {
+        const { nodeId, hops } = d as { nodeId: string; hops: number };
+        const hood = neighborhood(nodeId, hops);
+        const hidden = new Set([...all()].filter((id) => !hood.has(id)));
+        setHiddenIds(hidden);
+        setMenuStatus(
+          `Focused on ${nodeId} (${hops}-hop): ${hidden.size} nodes hidden`,
+        );
+      }),
+      bus.on("context:hideNodes", (d) => {
+        const { nodeIds } = d as { nodeIds: string[] };
+        setHiddenIds((prev) => new Set([...prev, ...nodeIds]));
+        setMenuStatus(`Hidden: ${nodeIds.join(", ")}`);
+      }),
+      bus.on("context:viewSubgraph", (d) => {
+        const { nodeIds } = d as { nodeIds: string[] };
+        const keep = new Set(nodeIds);
+        setHiddenIds(new Set([...all()].filter((id) => !keep.has(id))));
+        setMenuStatus(`Subgraph view: ${nodeIds.length} selected nodes`);
+      }),
+      bus.on("context:findPath", (d) => {
+        const { sourceId, targetId } = d as {
+          sourceId: string;
+          targetId: string;
+        };
+        const path = findShortestPath(ugm, sourceId, targetId);
+        if (path.found) {
+          useSelectionStore.getState().selectNodes(path.nodeIds);
+          setMenuStatus(
+            `Path ${sourceId} \u2192 ${targetId}: ${path.length} hop(s)`,
+          );
+        } else {
+          setMenuStatus(`No path from ${sourceId} to ${targetId}`);
+        }
+      }),
+      bus.on("context:editAppearance", (d) => {
+        setEditNodeId((d as { nodeId: string }).nodeId);
+      }),
+      bus.on("context:pinNodes", (d) => {
+        const { nodeIds } = d as { nodeIds: string[] };
+        for (const id of nodeIds) usePositionPinStore.getState().toggle(id);
+        setMenuStatus(`Toggled pin: ${nodeIds.join(", ")}`);
+      }),
+    ];
+    return () => {
+      for (const u of unsubs) u();
+    };
+  }, [bus, ugm]);
 
   const [engine] = useState(() => new DerivedPropertyEngine());
 
@@ -126,7 +228,73 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           position: "relative",
         }}
       >
-        <CytoscapeCanvas ugm={ugm} encodingSpec={spec} />
+        <CytoscapeCanvas
+          ugm={ugm}
+          encodingSpec={spec}
+          menuManager={menuManager}
+          hidden={hiddenIds}
+        />
+        {(menuStatus !== null || hiddenIds.size > 0) && (
+          <div
+            data-testid="menu-status"
+            style={{
+              position: "absolute",
+              bottom: 8,
+              left: 8,
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              fontSize: 11,
+              background: "rgba(0,0,0,0.55)",
+              color: "#fff",
+              padding: "4px 8px",
+              borderRadius: 4,
+            }}
+          >
+            <span>{menuStatus}</span>
+            {hiddenIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setHiddenIds(new Set());
+                  setMenuStatus(null);
+                }}
+                style={{
+                  font: "inherit",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  border: "1px solid #fff",
+                  borderRadius: 3,
+                  background: "transparent",
+                  color: "inherit",
+                  padding: "1px 6px",
+                }}
+              >
+                Show all ({hiddenIds.size} hidden)
+              </button>
+            )}
+          </div>
+        )}
+        {editNodeId !== null && (
+          <div
+            data-testid="dashboard-style-editor"
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              width: 260,
+              maxHeight: "70%",
+              overflow: "auto",
+              zIndex: 6,
+            }}
+          >
+            <NodeStyleEditor
+              ugm={ugm}
+              nodeId={editNodeId}
+              onClose={() => setEditNodeId(null)}
+            />
+          </div>
+        )}
         <div
           style={{
             position: "absolute",

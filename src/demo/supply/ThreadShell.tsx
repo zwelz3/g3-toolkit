@@ -14,6 +14,8 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
+  ContextMenuManager,
+  createDefaultMenuManager,
   CytoscapeCanvas,
   Minimap,
   useSelectionStore,
@@ -22,7 +24,7 @@ import {
 } from "@g3t/react";
 import type { EncodingSpec } from "@g3t/react";
 import type { Core } from "cytoscape";
-import { ingestAlgorithmResults } from "@g3t/core";
+import { ingestAlgorithmResults, findShortestPath } from "@g3t/core";
 import { buildDigitalThread } from "./model";
 import { supplyShapes } from "./shapes";
 import {
@@ -106,6 +108,57 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   // (disabled placeholder until the canvas is ready).
   const reducedMotion = usePrefersReducedMotion();
   const [core, setCore] = useState<Core | null>(null);
+  const [routeStatus, setRouteStatus] = useState<string | null>(null);
+
+  // Context menu: base copy plus two domain actions in supply terms.
+  // "Expand suppliers" grows the selection by the node's direct
+  // neighbors (impact spreading); "Shortest route" runs core
+  // findShortestPath between the right-clicked node and the one other
+  // selected node, then selects the route. No Inspect: this shell has
+  // no property surface, and the base contract omits unwired items.
+  const menuManager = useMemo(() => {
+    const manager: ContextMenuManager = createDefaultMenuManager();
+    manager.register("supply-analysis", [
+      {
+        id: "expand-suppliers",
+        label: "Expand suppliers (1-hop)",
+        icon: "\u2295",
+        filter: (t) => t.type === "node",
+        action: (t) => {
+          if (t.id === undefined) return;
+          const store = useSelectionStore.getState();
+          store.addNodesToSelection(ugm.getNeighbors(t.id));
+        },
+      },
+      {
+        id: "shortest-route",
+        label: "Shortest route to selected",
+        icon: "\u27f6",
+        filter: (t) =>
+          t.type === "node" &&
+          [...useSelectionStore.getState().selectedNodeIds].filter(
+            (id) => id !== t.id,
+          ).length === 1,
+        action: (t) => {
+          if (t.id === undefined) return;
+          const other = [
+            ...useSelectionStore.getState().selectedNodeIds,
+          ].filter((id) => id !== t.id)[0];
+          if (other === undefined) return;
+          const path = findShortestPath(ugm, t.id, other);
+          if (path.found) {
+            useSelectionStore.getState().selectNodes(path.nodeIds);
+            setRouteStatus(
+              `Route ${t.id} \u2192 ${other}: ${path.length} hop(s)`,
+            );
+          } else {
+            setRouteStatus(`No route from ${t.id} to ${other}`);
+          }
+        },
+      },
+    ]);
+    return manager;
+  }, [ugm]);
 
   // Cluster mode: materialize a `cluster` property on every node (overwriting
   // any prior mode's labels, with "Other" for nodes outside the clustering),
@@ -196,7 +249,13 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
             encodingSpec={spec}
             onReady={setCore}
             animate={!reducedMotion}
+            menuManager={menuManager}
           />
+          {routeStatus !== null && (
+            <div className="sc-route-status" data-testid="route-status">
+              {routeStatus}
+            </div>
+          )}
           <div className="sc-minimap">
             <Minimap core={core} width={180} height={120} />
           </div>
@@ -313,6 +372,11 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
                 anchor:
                   "visualize-a-shacl-validation-report-over-the-data-graph",
                 how: "checks cross-source facts (certificationStatus, supplierCount) derived during consolidation.",
+              },
+              {
+                mechanism: "manager.register",
+                anchor: "add-your-action-to-the-canvas-context-menu",
+                how: "right-click a node: Expand suppliers grows the selection; with one other node selected, Shortest route runs findShortestPath and selects it.",
               },
               {
                 mechanism: "Minimap",

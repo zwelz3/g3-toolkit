@@ -30,11 +30,10 @@
     "docs:check": "typedoc --emit none",
     "docs:storybook": "storybook build -o docs-out/storybook",
     "docs:demo": "vite build --base=/g3-toolkit/playground/ --outDir=docs-out/playground --emptyOutDir",
-    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && pnpm run visual-acceptance && node -e \"const fs=require('fs');fs.mkdirSync('docs-out/acceptance',{recursive:true});fs.copyFileSync('scripts/visual-acceptance/dist/visual-acceptance.html','docs-out/acceptance/index.html');fs.copyFileSync('docs/landing.html','docs-out/index.html')\"",
+    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && node -e \"const fs=require('fs');fs.copyFileSync('docs/landing.html','docs-out/index.html')\"",
     "verify:types": "node scripts/verify-types.mjs",
     "verify:snippets": "node scripts/check-readme-snippets.mjs",
     "verify:exports": "vitest run --config vitest.dist.config.ts",
-    "visual-acceptance": "vite build --config vite.va.config.ts && vite build --config vite.va-client.config.ts && node scripts/visual-acceptance/.build/emit.mjs",
     "storybook-static": "vite build --config vite.sb-client.config.ts && node scripts/storybook-static/inline.mjs"
   },
   "dependencies": {

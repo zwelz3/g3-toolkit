@@ -22,6 +22,7 @@ import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dir = resolve(root, ".verify-types");
@@ -47,7 +48,10 @@ export { ugm, adapter, ProjectionPipeline, CytoscapeCanvas, TableView, useSelect
 
 const modes = [
   { name: "node16", options: { module: "node16", moduleResolution: "node16" } },
-  { name: "bundler", options: { module: "esnext", moduleResolution: "bundler" } },
+  {
+    name: "bundler",
+    options: { module: "esnext", moduleResolution: "bundler" },
+  },
 ];
 
 let failed = false;
@@ -71,15 +75,27 @@ for (const mode of modes) {
     ),
   );
   try {
+    // Spawn node with TypeScript's JS entry instead of the .bin shim:
+    // patched Node (CVE-2024-27980) throws EINVAL when spawning .cmd/.bat
+    // on Windows without a shell, and a shell brings quoting hazards;
+    // node + tsc.js is shell-free and identical on every platform.
     execFileSync(
-      resolve(root, "node_modules", ".bin", process.platform === "win32" ? "tsc.cmd" : "tsc"),
-      ["-p", dir],
+      process.execPath,
+      [
+        createRequire(resolve(root, "package.json")).resolve(
+          "typescript/lib/tsc.js",
+        ),
+        "-p",
+        dir,
+      ],
       { stdio: "pipe", cwd: root },
     );
     console.log(`  \u2713 consumer types resolve under ${mode.name}`);
   } catch (err) {
     failed = true;
-    console.error(`  \u2717 consumer type resolution FAILED under ${mode.name}:`);
+    console.error(
+      `  \u2717 consumer type resolution FAILED under ${mode.name}:`,
+    );
     console.error(String(err.stdout ?? err.message));
   }
 }
@@ -91,4 +107,6 @@ if (failed) {
   );
   process.exit(1);
 }
-console.log("consumer type-resolution check: all packages typed under node16 and bundler");
+console.log(
+  "consumer type-resolution check: all packages typed under node16 and bundler",
+);

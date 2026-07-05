@@ -28,6 +28,13 @@ export interface MenuItem {
   id: string;
   /** Display label. */
   label: string;
+  /**
+   * Optional per-target label. When present, resolve() materializes
+   * the final label from the right-clicked target (e.g. "Copy IRI" vs
+   * "Copy ID" depending on the element's id shape); `label` remains
+   * the static fallback.
+   */
+  dynamicLabel?: (target: MenuTarget) => string;
   /** Optional icon (CSS class or emoji). */
   icon?: string;
   /** Action to invoke when clicked. */

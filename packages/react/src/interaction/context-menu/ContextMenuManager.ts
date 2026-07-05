@@ -44,19 +44,22 @@ export class ContextMenuManager {
    */
   resolve(target: MenuTarget): MenuItem[] {
     const result: MenuItem[] = [];
+    // Materialize per-target labels so the renderer stays label-dumb.
+    const finalize = (item: MenuItem): MenuItem =>
+      item.dynamicLabel ? { ...item, label: item.dynamicLabel(target) } : item;
 
     // Built-in items first
     for (const item of this.builtinItems) {
       if (!item.filter || item.filter(target)) {
-        result.push(item);
+        result.push(finalize(item));
       }
     }
 
     // Plugin items, grouped by pluginId
     for (const [, items] of this.pluginRegistrations) {
-      const filtered = items.filter(
-        (item) => !item.filter || item.filter(target),
-      );
+      const filtered = items
+        .filter((item) => !item.filter || item.filter(target))
+        .map(finalize);
       if (filtered.length > 0) {
         // Add separator before plugin group
         const first = filtered[0];
@@ -77,41 +80,80 @@ export class ContextMenuManager {
 }
 
 /**
- * Create a ContextMenuManager with the default built-in items
- * for the g3-toolkit (R2.1).
+ * Create a ContextMenuManager with the toolkit's BASE items (R2.1).
  *
- * Default items:
- * - "Inspect properties" (nodes and edges)
- * - "Copy IRI" (nodes and edges)
+ * Contract: base items are either functional or absent; a menu entry
+ * that renders and does nothing reads as a broken application (2026
+ * demo audit finding: every menuManager-less canvas showed two dead
+ * items).
+ *
+ * - "Copy ID" / "Copy IRI": ALWAYS present and wired by default to
+ *   the clipboard. The label follows the element id: ids carrying a
+ *   scheme (http://, urn:, mailto:) read "Copy IRI" (the RDF case),
+ *   everything else "Copy ID" (the LPG case); override with idLabel.
+ *   Pass onCopy to replace the clipboard behavior entirely.
+ * - "Inspect properties": present ONLY when onInspect is provided;
+ *   the canvas cannot conjure a detail surface into the host layout,
+ *   so an unwired Inspect is omitted rather than rendered dead.
  */
+export interface DefaultMenuOptions {
+  /** Wire "Inspect properties"; omitted from the menu when absent. */
+  onInspect?: (target: MenuTarget) => void;
+  /** Replace the default clipboard copy. */
+  onCopy?: (target: MenuTarget) => void;
+  /** Force the copy label; "auto" (default) inspects the id shape. */
+  idLabel?: "auto" | "id" | "iri";
+}
+
+const IRI_LIKE = /^(https?|urn|mailto|ftp|doi):/i;
+
+function copyLabel(target: MenuTarget, mode: "auto" | "id" | "iri"): string {
+  if (mode === "iri") return "Copy IRI";
+  if (mode === "id") return "Copy ID";
+  return target.id !== undefined &&
+    (IRI_LIKE.test(target.id) || target.id.includes("://"))
+    ? "Copy IRI"
+    : "Copy ID";
+}
+
+function defaultCopy(target: MenuTarget): void {
+  if (target.id === undefined) return;
+  // Clipboard requires a secure context; fall back silently (the menu
+  // item still closed the menu, and there is nothing useful to do).
+  void navigator.clipboard?.writeText(target.id).catch(() => undefined);
+}
+
 export function createDefaultMenuManager(
-  callbacks: {
-    onInspect?: (target: MenuTarget) => void;
-    onCopyIRI?: (target: MenuTarget) => void;
-  } = {},
+  options: DefaultMenuOptions = {},
 ): ContextMenuManager {
   const manager = new ContextMenuManager();
+  const idLabel = options.idLabel ?? "auto";
 
-  manager.addBuiltinItems([
+  const items: MenuItem[] = [
     {
-      id: "inspect-properties",
-      label: "Inspect properties",
-      icon: "🔍",
-      action: (target) => callbacks.onInspect?.(target),
-      filter: (target) => target.type !== "background",
-    },
-    {
-      id: "copy-iri",
-      label: "Copy IRI",
-      icon: "📋",
+      id: "copy-id",
+      label: "Copy ID", // resolved per-target below
+      dynamicLabel: (target: MenuTarget) => copyLabel(target, idLabel),
+      icon: "\ud83d\udccb",
       action: (target) => {
-        if (target.id) {
-          callbacks.onCopyIRI?.(target);
-        }
+        if (options.onCopy) options.onCopy(target);
+        else defaultCopy(target);
       },
       filter: (target) => target.type !== "background",
     },
-  ]);
+  ];
 
+  if (options.onInspect) {
+    const onInspect = options.onInspect;
+    items.unshift({
+      id: "inspect-properties",
+      label: "Inspect properties",
+      icon: "\ud83d\udd0d",
+      action: (target) => onInspect(target),
+      filter: (target) => target.type !== "background",
+    });
+  }
+
+  manager.addBuiltinItems(items);
   return manager;
 }

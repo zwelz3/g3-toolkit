@@ -34,6 +34,7 @@ import { AUDIT_STYLES } from "./audit-styles";
 import { CapabilityCallout } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import { provenanceChainFor } from "./chain";
+import { createDefaultMenuManager } from "@g3t/react";
 
 const SPEC: EncodingSpec = {
   version: 1,
@@ -53,6 +54,16 @@ function fmt(t: number): string {
 
 export function AuditShell({ onBack }: { onBack: () => void }) {
   const reducedMotion = usePrefersReducedMotion();
+  // Context menu: Inspect selects the element, and selection is this
+  // shell's inspect surface (the "Lineage of selection" panel).
+  const [menuManager] = useState(() =>
+    createDefaultMenuManager({
+      onInspect: (t) => {
+        if (t.id !== undefined)
+          useSelectionStore.getState().selectNodes([t.id]);
+      },
+    }),
+  );
   const ugm = useMemo(() => buildProvenance(), []);
   const events = useMemo(() => provenanceEvents(ugm), [ugm]);
   const bounds = useMemo(() => timeBounds(events), [events]);
@@ -212,6 +223,7 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
             encodingSpec={SPEC}
             hidden={hidden}
             animate={!reducedMotion}
+            menuManager={menuManager}
           />
         </main>
 

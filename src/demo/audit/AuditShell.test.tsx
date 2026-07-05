@@ -19,14 +19,33 @@ import type { UGM } from "@g3t/core";
 
 const captured = vi.hoisted(() => ({
   hidden: [] as Array<ReadonlySet<string> | undefined>,
+  menuManagers: [] as Array<{
+    resolve: (t: {
+      type: string;
+      id?: string;
+      position: { x: number; y: number };
+    }) => Array<{
+      label: string;
+      action: (t: {
+        type: string;
+        id?: string;
+        position: { x: number; y: number };
+      }) => void;
+    }>;
+  }>,
 }));
 
 vi.mock("@g3t/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@g3t/react")>();
   return {
     ...actual,
-    CytoscapeCanvas: (props: { ugm: UGM; hidden?: ReadonlySet<string> }) => {
+    CytoscapeCanvas: (props: {
+      ugm: UGM;
+      hidden?: ReadonlySet<string>;
+      menuManager?: (typeof captured.menuManagers)[number];
+    }) => {
       captured.hidden.push(props.hidden);
+      if (props.menuManager) captured.menuManagers.push(props.menuManager);
       return <div data-testid="canvas-stub" />;
     },
   };
@@ -39,6 +58,7 @@ import { useSelectionStore } from "@g3t/react";
 
 beforeEach(() => {
   captured.hidden.length = 0;
+  captured.menuManagers.length = 0;
 });
 afterEach(() => {
   useSelectionStore.getState().selectNodes([]);
@@ -79,6 +99,34 @@ describe("AuditShell slider-to-graph wiring", () => {
     expect(container.textContent).toContain("violations");
     expect(screen.getByTestId("capability-callout").textContent).toContain(
       "hidden prop",
+    );
+  });
+
+  it("context menu: copy is functional base, Inspect selects and renders lineage", () => {
+    render(<AuditShell onBack={() => {}} />);
+    const manager = captured.menuManagers.at(-1);
+    expect(manager).toBeDefined();
+    const items = manager!.resolve({
+      type: "node",
+      id: "ent:legacy",
+      position: { x: 0, y: 0 },
+    });
+    // Base contract: Inspect (wired here) then Copy ID (colon-prefixed
+    // LPG ids are not IRIs).
+    expect(items.map((i) => i.label)).toEqual([
+      "Inspect properties",
+      "Copy ID",
+    ]);
+    act(() => {
+      items[0]!.action({
+        type: "node",
+        id: "ent:legacy",
+        position: { x: 0, y: 0 },
+      });
+    });
+    // Inspect = select, and selection IS this shell's inspect surface.
+    expect(screen.getByTestId("g3t-provenance-trace").textContent).toContain(
+      "No attribution recorded",
     );
   });
 
