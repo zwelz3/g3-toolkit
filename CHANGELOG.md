@@ -1,5 +1,33 @@
 # Changelog
 
+## G3L Round 39: overlay-paths fix, CI verdict recorded, rulings executed
+
+- **CI VERDICT (the arbiter ruled): perf job GREEN. PRF-001 = 159
+  ms vs the 300 budget on the ruling machine: 47% margin.** Every
+  asserting key green (frame-mbse 3.37, style 11.14/~0). The
+  container-red was machine-class, as recorded.
+- **The one e2e failure fixed at its root** (zero overlay paths on
+  the MBSE shell, local + CI): Brandes-Koepf straightens chains so
+  well that cross-aligned anchors dedupe the jog away and the g3t
+  route is a legitimate 2-POINT STRAIGHT LINE, which the
+  converter's elk-era >= 3 gate treated as "no route" (taxi), so
+  nothing earned the routed class the overlay draws. Better
+  placement was producing FEWER drawn edges. Contract evolved:
+  2-point routes are routes, rendered straight via a degenerate
+  on-baseline segment; the old keep-taxi oracle was rewritten to
+  the new contract with the rationale inline, and a chain-fixture
+  regression pin now guards it at the converter level.
+- **Bench honesty**: PRF-001b's elk leg now requests elk explicitly
+  (post-flip, {} defaults to g3t; the first post-flip CI artifact
+  mislabeled a warm g3t run as "elk" at 196 ms). The stale
+  elkjs-era PRF-001 finding string replaced with the post-flip
+  truth.
+- **Rulings executed**: core 196 RATIFIED (ledger updated); D3b
+  pre-authorized in full (remove elkjs; no external imports to
+  preserve; budget-rebase authority granted). Owner queue reduced
+  to the e2e re-run and the browser ratification session, both on
+  this tree.
+
 ## G3L Round 38: WS-D D3a: THE DEFAULT ENGINE IS g3t
 
 - **The flip**: layoutStructural defaults to the in-house engine;

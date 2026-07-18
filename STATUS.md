@@ -1,5 +1,17 @@
 # g3-toolkit Status
 
+**As of:** 2026-07-18 (active: G3L Round 39 executed: CI ruled the
+flip GREEN (PRF-001 = 159 ms vs 300; all asserting keys green). The
+one e2e failure fixed at its root: 2-point straight g3t routes now
+earn the routed class (the elk-era >= 3 gate made better placement
+draw fewer edges); converter regression pin added; old oracle
+evolved. PRF-001b elk leg made explicit post-flip. Core 196
+ratified; D3b fully pre-authorized (elkjs removal, no external
+imports, rebase authority). Awaiting: e2e 58/58 on this tree + the
+flip/MR-11 browser ratification; then D3b closes WS-D.)
+
+## PRIOR SNAPSHOT (Round 38)
+
 **As of:** 2026-07-18 (active: G3L Round 38 executed: WS-D D3a
 LANDED: THE DEFAULT ENGINE IS g3t. Gap routing + grid escalation
 under threshold/budget; direction support; engine-agnostic caching

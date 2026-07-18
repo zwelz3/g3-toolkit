@@ -153,8 +153,8 @@ const BUDGETS = {
   //   node id in block view), the FacetFilter colorForType swatch
   //   hook, and the categoricalColorMap encoding helper. +0.3 KB over
   //   the 300 cap.
-  // Core ledger, 2026-07-18 (BRIDGE raise, OWNER RATIFICATION
-  // PENDING): 184 -> 196. D3a landed the engine flip and the code
+  // Core ledger, 2026-07-18 (BRIDGE raise; OWNER RATIFIED same day:
+  // "ratify core 196"): 184 -> 196. D3a landed the engine flip and the code
   // it forced (scene routing, direction support, engine dispatch,
   // cache-key growth): +8.3 KB on a package that was at 99%. Raised
   // per the ledger doctrine (same commit, with rationale) rather
@@ -232,7 +232,7 @@ for (const [pkg, budget] of Object.entries(BUDGETS)) {
     total = dirSize(dist, [".mjs", ".js"]);
   } catch (err) {
     console.error(
-      `  @g3t/${pkg}: dist/ missing — run pnpm run build:packages first`,
+      `  @g3t/${pkg}: dist/ missing; run pnpm run build:packages first`,
     );
     failures++;
     continue;

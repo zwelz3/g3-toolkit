@@ -683,17 +683,29 @@ export function structuralToCytoscapeElements(
     const portAttached = e.sourcePort != null || e.targetPort != null;
     const pts = portAttached ? undefined : geometry.edges?.[e.id]?.points;
     let seg: { distances: number[]; weights: number[] } | null = null;
-    if (pts && pts.length >= 3) {
+    if (pts && pts.length >= 2) {
       const sCenter = positionById.get(sourceId);
       const tCenter = positionById.get(targetId);
       const sBox = geometry.ports[sourceId] ?? geometry.nodes[sourceId];
       const tBox = geometry.ports[targetId] ?? geometry.nodes[targetId];
       if (sCenter && tCenter && sBox && tBox) {
-        seg = routeToSegments(
-          pts,
-          clipToBox(sCenter, sBox, tCenter),
-          clipToBox(tCenter, tBox, sCenter),
-        );
+        if (pts.length === 2) {
+          // A 2-point route is a REAL route under the g3t engine
+          // (Brandes-Koepf straightens chains, so cross-aligned
+          // anchors dedupe the jog away; elk never emitted these,
+          // which is why the old gate was >= 3). Without this,
+          // better placement produced FEWER drawn edges: the MR-11
+          // flip finding (zero overlay paths on the MBSE shell). A
+          // degenerate on-baseline control point renders it
+          // straight through the same routed rule.
+          seg = { distances: [0], weights: [0.5] };
+        } else {
+          seg = routeToSegments(
+            pts,
+            clipToBox(sCenter, sBox, tCenter),
+            clipToBox(tCenter, tBox, sCenter),
+          );
+        }
       }
     }
 

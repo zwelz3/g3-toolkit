@@ -507,7 +507,13 @@ describe("structuralToCytoscapeElements", () => {
     expect(edge.data.source).toBe("a.p");
   });
 
-  it("keeps taxi for a straight 2-point route (no bend to route around)", () => {
+  it("a straight 2-point route earns the routed class via a degenerate segment", () => {
+    // CONTRACT EVOLVED at the D3a flip (was: keep taxi, elk-era
+    // reasoning: elk never emitted 2-point routes). Under g3t,
+    // Brandes-Koepf cross-aligns chain anchors and the straight
+    // route IS the route; taxi would add a detour, and the overlay
+    // only draws routed-class edges (the zero-overlay-paths MR-11
+    // finding).
     const input: StructuralGraphInput = {
       nodes: [
         { id: "a", width: 60, height: 40 },
@@ -535,8 +541,10 @@ describe("structuralToCytoscapeElements", () => {
     const edge = structuralToCytoscapeElements(input, geometry).find(
       (e) => e.data.id === "e",
     )!;
-    expect(edge.classes).not.toContain("routed");
-    expect(edge.data._segDist).toBeUndefined();
+    expect(edge.classes).toContain("routed");
+    // The degenerate on-baseline control point that renders straight.
+    expect(String(edge.data._segDist)).toBe("0");
+    expect(String(edge.data._segWeight)).toBe("0.5");
   });
 
   it("ships UML edge stylesheet rules with the canonical arrow ends (A3)", () => {
@@ -1476,5 +1484,36 @@ describe("g3t-shaped geometry (WS-D D3a: the default engine)", () => {
     // Rows survive conversion as children of their container.
     const row = els.find((e) => e.data.id === "r0")!;
     expect(row.data.parent).toBeDefined();
+  });
+
+  it("straightened g3t chains still earn the routed class (MR-11 flip finding)", async () => {
+    // A pure chain: Brandes-Koepf cross-aligns the anchors, the jog
+    // dedupes away, and the route is a 2-point straight line. The
+    // converter must treat that as a ROUTE (degenerate on-baseline
+    // segment), not fall back to taxi: the zero-overlay-paths bug.
+    const input: StructuralGraphInput = {
+      nodes: ["a", "b", "c"].map((id) => ({
+        id,
+        header: { name: id.toUpperCase() },
+        width: 120,
+        height: 60,
+      })),
+      edges: [
+        { id: "e1", source: "a", target: "b" },
+        { id: "e2", source: "b", target: "c" },
+      ],
+    };
+    const geometry = await layoutStructural(input); // default: g3t
+    const els = structuralToCytoscapeElements(input, geometry);
+    const routed = els.filter(
+      (el) =>
+        typeof el.classes === "string" &&
+        el.classes.includes("g3t-structural-edge-routed"),
+    );
+    expect(routed.length).toBe(2);
+    for (const r of routed) {
+      expect(String(r.data._segDist ?? "")).not.toBe("");
+      expect(String(r.data._segWeight ?? "")).not.toBe("");
+    }
   });
 });

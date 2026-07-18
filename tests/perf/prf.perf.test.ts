@@ -127,7 +127,10 @@ describe.skipIf(!ENABLED)("PRF benchmarks (spec section 14)", () => {
         };
       };
       const tElk0 = performance.now();
-      await layoutStructural(flat(), {});
+      // Post-flip: {} defaults to g3t, so the elk leg must ask for
+      // elk explicitly (the first post-flip CI artifact mislabeled
+      // a warm g3t run as elk at 196 ms).
+      await layoutStructural(flat(), { engineKind: "elk" });
       const elkMs = performance.now() - tElk0;
       const { g3tLayoutFlat } =
         await import("../../packages/core/src/layout/g3t-engine/g3t-layered");
@@ -151,7 +154,7 @@ describe.skipIf(!ENABLED)("PRF benchmarks (spec section 14)", () => {
     const ms = await median(() => layoutStructural(mkR1()), 1, 0);
     record("PRF-001-R1-layout", ms, budgets);
     results["PRF-001-finding"] =
-      "far over budget as-implemented via elkjs on R1; the WS-D in-house layered engine (P0) is the planned path to the 300 ms target";
+      "post-flip: measures the g3t DEFAULT engine; CI 2026-07-18: 159 ms vs the 300 budget (GREEN, 47% margin). The elkjs-era finding (7.3 s CI) is history; PRF-001b keeps the explicit two-engine comparison";
   });
 
   it(
