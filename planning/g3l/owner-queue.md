@@ -15,49 +15,43 @@ paths: the straightened-chains contract gap) is FIXED in round 39.
 
 Resolved earlier: see MR log.
 
-## 1. Re-run e2e on the ROUND-40 tree (round 39 was insufficient)
+## 1. Re-run e2e on the ROUND-43 tree
 
-WHAT: Round 39 fixed the converter gate but missed a second root
-cause: containers are cy compounds with no drawn position, so the
-projection-center lookup failed for every container-attached edge.
-Round 40 falls back to geometry-box centers; headless replication
-of the exact failing pipeline now yields 5/5 routed edges (was
-0/5). Straight talk: round 39's pin used plain nodes and passed
-while the browser failed; the pin now uses containers.
+WHAT: Round 43 removes the drag path's last dependencies on real-cy
+values (padded compound bbox endpoints and dimensions): the exact
+class of browser-only divergence the failures kept exposing. The
+e2e's choreography now runs headlessly against a HOSTILE cy fake
+and passes only through the carried truth. Expect 58/58; the
+screenshot's SmallSat-on-Payload overlap is the spec's own drop
+position (legitimate), and its routes should now be clean around
+it.
 
-WHAT TO DO: Push round 40, re-run e2e locally and in CI. Expect
-58/58.
+WHAT TO DO: Push round 43; e2e local + CI; failures: attach the
+retry trace.zip (that workflow is working well).
 
 UNBLOCKS: Item 2.
 
 ## 2. Browser session: flip ratification + MR-11 round 4 + the parity list
 
-WHAT: Unchanged checklist, on round 40. You mentioned several
-rendering-parity issues across the Style Lab and MBSE: bring the
-list (screenshots where cheap); each gets a root cause and a
-disposition, same as every prior MR-11 finding.
+WHAT: Unchanged checklist. Watch specifically: edges orthogonal at
+first paint AND during drags, endpoints ON the drawn borders (not
+floating slightly off: that was the padded-bbox skew).
 
-UNBLOCKS: MR-11; D3b proceeds on ratification.
+UNBLOCKS: MR-11; D3b on ratification.
 
-## 3. Scale surface: paste the instrumented switch numbers
+## 3. Scale: one more paste (the watch now covers the freeze window)
 
-WHAT: The scale example runs the UGM/fcose pipeline, NOT
-layoutStructural: WS-D never touched its switch path (perspective
-in the round-40 conversation). The surface already logs
-"[scale] <view> ready in Nms" to the browser console on every
-switch: the measurement protocol recorded in the file itself.
+WHAT: Your paste named the first-visit costs (drill extraction
+~710 ms + fcose ~1145 ms) and clusters returns are fixed. The
+freeze you hit AFTER settled was invisible because the longtask
+watch disconnected at settled; it now runs 15 s past settlement
+and logs "longtask-watch off (15s quiet)" when it retires.
 
-WHAT TO DO: Open the scale example, switch clusters -> drill ->
-back a few times, paste the console lines. With numbers, the fix
-is chosen from: (a) route the surface through the g3t engine with
-preset positions (layout collapses to ms and becomes cache-hit on
-revisits; aesthetics change from organic to layered: judgment
-call), (b) fcose position caching (organic look kept, near-instant
-revisits), (c) keep-alive instances across switches (kills
-re-ingestion), (d) the WebGL cluster (P2, the real scale
-renderer). Not exclusive; (b)+(c) is the conservative pair.
+WHAT TO DO: Reproduce the freeze; paste everything including any
+longtask lines AFTER "settled(idle)" and whether the "watch off"
+line appears before or after interactivity returns.
 
-UNBLOCKS: A measured scale round instead of another theory.
+UNBLOCKS: The named fix for the post-settle freeze.
 
 ---
 

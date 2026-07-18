@@ -1,5 +1,38 @@
 # g3-toolkit Status
 
+**As of:** 2026-07-18 (active: G3L Round 43 executed: drag basis is
+truth-carried end-to-end (_geomBox stamped; capture from _routePts;
+padded-cy values out of the loop; straight results write via the
+degenerate doctrine). NEW integration oracle: real BDD, real
+converter, real handlers, e2e's exact choreography, HOSTILE fake
+(padded dims, corrupted endpoints). Scale longtask watch runs 15 s
+past settled. 1,356 tests. Awaiting: e2e on round 43, browser
+session, scale paste. D3b holds for flip ratification.)
+
+## PRIOR SNAPSHOT (Round 42)
+
+**As of:** 2026-07-18 (active: G3L Round 42 executed: the zigzag
+root cause fixed (absolute _routePts end-to-end: converter writes,
+overlay renders verbatim, drag rewrites, MR-9 restores; seg data is
+hit-testing only now). Scale: preset restores snap; longtask +
+layoutstart diagnostics land the next paste on the culprit. 1,355
+tests. Awaiting: e2e on round 42, the browser session, fresh scale
+console lines. D3b holds for flip ratification.)
+
+## PRIOR SNAPSHOT (Round 41)
+
+**As of:** 2026-07-18 (active: G3L Round 41 executed: MR-8 drag
+reroute fixed under g3t (host-attached capture; no eports to find;
+the owner's "routes to center" parity item and the e2e crossing
+failure were one defect; stub oracle added). Scale surface gains
+phase instrumentation (cy-init/layoutstop/settled) and a
+position cache: returns mount PRESET from settled positions. 1,355
+tests. Awaiting: e2e on round 41 (drag-reroute spec should flip),
+the parity list, fresh scale console lines. D3b holds for flip
+ratification.)
+
+## PRIOR SNAPSHOT (Round 40)
+
 **As of:** 2026-07-18 (active: G3L Round 40 executed: the overlay
 bug's REAL root cause fixed (compound containers carry no cy
 position; projection centers now fall back to geometry boxes;

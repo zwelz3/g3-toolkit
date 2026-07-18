@@ -486,6 +486,10 @@ export function structuralToCytoscapeElements(
         data: {
           id,
           _structuralContainer: true,
+          // Geometry truth for the drag path (D3a doctrine: carry
+          // the writer's boxes in data instead of reading cy's
+          // padded compound bbox): "x y w h" in model space.
+          _geomBox: `${g.x} ${g.y} ${g.width} ${g.height}`,
         },
         classes: closed?.has(id)
           ? "g3t-structural-container g3t-structural-closed"
@@ -569,7 +573,13 @@ export function structuralToCytoscapeElements(
       // Plain node: positioned box, ordinary selection semantics.
       elements.push({
         group: "nodes",
-        data: { id, _label: g.text ?? "", _w: g.width, _h: g.height },
+        data: {
+          id,
+          _label: g.text ?? "",
+          _w: g.width,
+          _h: g.height,
+          _geomBox: `${g.x} ${g.y} ${g.width} ${g.height}`,
+        },
         position: center(g),
         classes: "g3t-structural-node",
         selectable: true,
@@ -742,6 +752,14 @@ export function structuralToCytoscapeElements(
           ...baseData,
           _segDist: seg.distances.join(" "),
           _segWeight: seg.weights.join(" "),
+          // ABSOLUTE route points (D3a parity fix): the seg
+          // parameterization reconstructs against cy's LIVE
+          // endpoints, and for compound-attached edges that basis
+          // does not match the writer's (compound bboxes include
+          // padding and derive from children), skewing bends into
+          // diagonals. The overlay renders THESE verbatim; seg data
+          // remains only for cy's suppressed hit-testable edge.
+          _routePts: (pts ?? []).map((pt) => `${pt.x},${pt.y}`).join(" "),
         },
         classes:
           baseClasses +
@@ -1445,7 +1463,10 @@ export function wireStructuralPortDrag(cy: Core): () => void {
     tgtMoved: boolean;
     // The eport on the dragged node (to reposition), its original side, and
     // the fixed endpoint's eport + side (to face / route against).
-    movedEport: NodeRef;
+    // OPTIONAL since the g3t engine (D3a): its geometry has no synth
+    // eport point nodes; routed edges attach to the host compound
+    // directly, and the anchor lives only in the seg data.
+    movedEport?: NodeRef;
     movedEportOld: PointLike;
     movedSide: AttachmentSide;
     otherEport: PointLike;
@@ -1457,6 +1478,7 @@ export function wireStructuralPortDrag(cy: Core): () => void {
      *  the browser pin caught a 76px mismatch on exactly that. */
     rawDist: string;
     rawWeight: string;
+    rawPts: string;
   }
   const parseNums = (v: unknown): number[] =>
     typeof v === "string" && v.trim() !== ""
@@ -1481,7 +1503,24 @@ export function wireStructuralPortDrag(cy: Core): () => void {
 
   const onGrab = (evt: { target: NodeRef }) => {
     const host = evt.target.id();
-    const half = { w: evt.target.width() / 2, h: evt.target.height() / 2 };
+    const hostGeom = (
+      evt.target as unknown as { data?: (k: string) => unknown }
+    ).data?.("_geomBox");
+    const hostGeomBox = ((): { w: number; h: number } | null => {
+      if (typeof hostGeom !== "string") return null;
+      const ns = hostGeom.trim().split(/\s+/).map(Number);
+      const w = ns[2];
+      const h = ns[3];
+      return ns.length === 4 && w !== undefined && h !== undefined
+        ? { w, h }
+        : null;
+    })();
+    // Geometry half when stamped (D3a doctrine): cy's compound
+    // width/height include padding, which floated drag anchors off
+    // the drawn border in the browser while jsdom oracles passed.
+    const half = hostGeomBox
+      ? { w: hostGeomBox.w / 2, h: hostGeomBox.h / 2 }
+      : { w: evt.target.width() / 2, h: evt.target.height() / 2 };
     const ports = cy
       .nodes(".g3t-structural-port, .g3t-structural-edge-port")
       .filter(
@@ -1519,6 +1558,7 @@ export function wireStructuralPortDrag(cy: Core): () => void {
           bends: segmentsToPoints(distances, weights, oldSource, oldTarget),
           rawDist: String(edge.data("_segDist") ?? ""),
           rawWeight: String(edge.data("_segWeight") ?? ""),
+          rawPts: String(edge.data("_routePts") ?? ""),
           oldSource,
           oldTarget,
           srcMoved,
@@ -1530,6 +1570,142 @@ export function wireStructuralPortDrag(cy: Core): () => void {
           otherSide: toSide((srcMoved ? t : s).data("_side")),
         });
       }
+    }
+    // g3t capture (D3a; the MR-8 e2e "crosses" failure): under the
+    // g3t engine routed edges attach to the HOST COMPOUND itself, so
+    // the eport loop above finds nothing and, uncaptured, stale seg
+    // data re-projected against the moving center-line during drags
+    // ("routes to the center of the target", diagonal bends). The
+    // endpoints' basis is cy's LIVE drawn anchors and sides derive
+    // from anchor-vs-box geometry, since there is no eport _side.
+    const parseGeomBox = (node: {
+      data: (k: string) => unknown;
+    }): { x: number; y: number; width: number; height: number } | null => {
+      const raw = node.data("_geomBox");
+      if (typeof raw !== "string") return null;
+      const ns = raw.trim().split(/\s+/).map(Number);
+      const [x, y, w, h] = ns;
+      if (
+        ns.length !== 4 ||
+        x === undefined ||
+        y === undefined ||
+        w === undefined ||
+        h === undefined ||
+        ns.some(Number.isNaN)
+      ) {
+        return null;
+      }
+      return { x, y, width: w, height: h };
+    };
+    const sideOfAnchor = (
+      pt: PointLike,
+      center: PointLike,
+      halfBox: { w: number; h: number },
+    ): AttachmentSide => {
+      const ndx = (pt.x - center.x) / (halfBox.w || 1);
+      const ndy = (pt.y - center.y) / (halfBox.h || 1);
+      return Math.abs(ndx) >= Math.abs(ndy)
+        ? ndx >= 0
+          ? "EAST"
+          : "WEST"
+        : ndy >= 0
+          ? "SOUTH"
+          : "NORTH";
+    };
+    const hostEdges =
+      (
+        evt.target as unknown as {
+          connectedEdges?: () => Iterable<EdgeLike>;
+        }
+      ).connectedEdges?.() ?? [];
+    for (const edge of hostEdges) {
+      if (!edge.hasClass("g3t-structural-edge-routed")) continue;
+      const id = edge.id();
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const distances = parseNums(edge.data("_segDist"));
+      const weights = parseNums(edge.data("_segWeight"));
+      if (distances.length === 0 || distances.length !== weights.length) {
+        continue;
+      }
+      const sNode = edge.source();
+      const tNode = edge.target();
+      const srcMoved = sNode.id() === host;
+      const tgtMoved = tNode.id() === host;
+      if (srcMoved === tgtMoved) continue;
+      // Capture basis: the WRITER'S truth (_routePts), never cy's
+      // live endpoints. Real cy clips compound endpoints against the
+      // PADDED bbox, which skewed the captured baseline in browsers
+      // while idealized jsdom fakes passed (the round-42/43 lesson).
+      const rawPtsStr = String(edge.data("_routePts") ?? "");
+      const truthPts: PointLike[] = rawPtsStr
+        .trim()
+        .split(/\s+/)
+        .map((pair) => {
+          const [px, py] = pair.split(",").map(Number);
+          return { x: px ?? NaN, y: py ?? NaN };
+        })
+        .filter((pt) => Number.isFinite(pt.x) && Number.isFinite(pt.y));
+      const ep = edge as unknown as {
+        sourceEndpoint?: () => PointLike;
+        targetEndpoint?: () => PointLike;
+      };
+      let oldSource: PointLike;
+      let oldTarget: PointLike;
+      if (truthPts.length >= 2) {
+        oldSource = { ...(truthPts[0] as PointLike) };
+        oldTarget = { ...(truthPts[truthPts.length - 1] as PointLike) };
+      } else {
+        try {
+          oldSource = { ...(ep.sourceEndpoint?.() ?? sNode.position()) };
+        } catch {
+          oldSource = { ...sNode.position() };
+        }
+        try {
+          oldTarget = { ...(ep.targetEndpoint?.() ?? tNode.position()) };
+        } catch {
+          oldTarget = { ...tNode.position() };
+        }
+      }
+      const movedAnchor = srcMoved ? oldSource : oldTarget;
+      const otherAnchor = srcMoved ? oldTarget : oldSource;
+      const otherNode = (srcMoved ? tNode : sNode) as unknown as {
+        data: (k: string) => unknown;
+        position: () => PointLike;
+        width?: () => number;
+        height?: () => number;
+      };
+      const otherGeom = parseGeomBox(otherNode);
+      const otherHalf = otherGeom
+        ? { w: otherGeom.width / 2 || 1, h: otherGeom.height / 2 || 1 }
+        : {
+            w: (otherNode.width?.() ?? 0) / 2 || 1,
+            h: (otherNode.height?.() ?? 0) / 2 || 1,
+          };
+      const otherCenter = otherGeom
+        ? {
+            x: otherGeom.x + otherGeom.width / 2,
+            y: otherGeom.y + otherGeom.height / 2,
+          }
+        : otherNode.position();
+      routed.push({
+        edge,
+        bends:
+          truthPts.length >= 2
+            ? truthPts.slice(1, -1).map((pt) => ({ ...pt }))
+            : segmentsToPoints(distances, weights, oldSource, oldTarget),
+        rawDist: String(edge.data("_segDist") ?? ""),
+        rawWeight: String(edge.data("_segWeight") ?? ""),
+        rawPts: String(edge.data("_routePts") ?? ""),
+        oldSource,
+        oldTarget,
+        srcMoved,
+        tgtMoved,
+        movedEportOld: movedAnchor,
+        movedSide: sideOfAnchor(movedAnchor, evt.target.position(), half),
+        otherEport: otherAnchor,
+        otherSide: sideOfAnchor(otherAnchor, otherCenter, otherHalf),
+      });
     }
     // Obstacle capture (G3L:RTE-011 / MR-8): every top-level
     // structural node's box, by id, so per-edge rerouting can exclude
@@ -1672,13 +1848,16 @@ export function wireStructuralPortDrag(cy: Core): () => void {
       const newSource = resolved.source;
       const newTarget = resolved.target;
       const movedEport: PointLike = r.srcMoved ? newSource : newTarget;
-      r.movedEport.position(movedEport);
+      r.movedEport?.position(movedEport);
+      // Straight results have no interior points; the converter's
+      // 2-point doctrine applies here too (degenerate on-baseline
+      // control), or straight edges silently stop updating.
       const seg = routeToSegments(
         [newSource, ...bends, newTarget],
         newSource,
         newTarget,
-      );
-      if (seg) {
+      ) ?? { distances: [0], weights: [0.5] };
+      {
         // Write control values to data, not a style bypass: the routed rule
         // maps segment-distances/weights FROM data(_segDist/_segWeight), so
         // this renders live AND keeps the data truthful, so a subsequent grab
@@ -1686,6 +1865,9 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         // endpoints (a style bypass would leave data stale relative to the
         // original endpoint line, skewing the next drag's reconstruction).
         r.edge.data({
+          _routePts: [newSource, ...bends, newTarget]
+            .map((pt) => `${pt.x},${pt.y}`)
+            .join(" "),
           _segDist: seg.distances.join(" "),
           _segWeight: seg.weights.join(" "),
         });
@@ -1734,13 +1916,17 @@ export function wireStructuralPortDrag(cy: Core): () => void {
       hostEle.position({ ...sess.from });
       for (const p of sess.ports) p.node.position({ ...p.from });
       for (const r of sess.routed) {
-        r.movedEport.position({ ...r.movedEportOld });
+        r.movedEport?.position({ ...r.movedEportOld });
         // VERBATIM restore of the grab-time data: reconstruction via
         // the parameterization helpers is exact only when the
         // endpoint conventions match the original writer's, and the
         // MR-9 browser pin caught a real mismatch there. The raw
         // strings ARE the pre-drag truth; write them back untouched.
-        r.edge.data({ _segDist: r.rawDist, _segWeight: r.rawWeight });
+        r.edge.data({
+          _segDist: r.rawDist,
+          _segWeight: r.rawWeight,
+          _routePts: r.rawPts,
+        });
         applyRoutedSegmentBypass(r.edge);
       }
       return;
@@ -1798,14 +1984,17 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         sameSide: false,
         obstacles,
       });
-      r.movedEport.position(r.srcMoved ? resolved.source : resolved.target);
+      r.movedEport?.position(r.srcMoved ? resolved.source : resolved.target);
       const seg = routeToSegments(
         [resolved.source, ...resolved.bends, resolved.target],
         resolved.source,
         resolved.target,
-      );
-      if (seg) {
+      ) ?? { distances: [0], weights: [0.5] };
+      {
         r.edge.data({
+          _routePts: [resolved.source, ...resolved.bends, resolved.target]
+            .map((pt) => `${pt.x},${pt.y}`)
+            .join(" "),
           _segDist: seg.distances.join(" "),
           _segWeight: seg.weights.join(" "),
         });

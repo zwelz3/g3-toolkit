@@ -789,6 +789,105 @@ describe("wireStructuralPortDrag", () => {
     return { cy, handlers, selectors, portPos };
   }
 
+  it("g3t compound-attached routed edges are captured and re-anchored during drags (MR-8 under the flip)", async () => {
+    // Under the g3t engine there are NO eport point nodes: routed
+    // edges attach to the host compound directly. The first flip
+    // rollout missed this (edges were never captured; stale seg data
+    // re-projected against the moving center-line: "routes to the
+    // center of the target", diagonal bends, the e2e crossing list).
+    const { wireStructuralPortDrag } =
+      await import("./structural-to-cytoscape");
+    const dataWrites: Record<string, string>[] = [];
+    const store: Record<string, string> = {
+      // A straight degenerate route: host (0,0) EAST border (10,0)
+      // to fixed block WEST border (190,0).
+      _segDist: "0",
+      _segWeight: "0.5",
+      _routePts: "10,0 190,0",
+    };
+    const hostPos = { x: 0, y: 0 };
+    const fixedPos = { x: 200, y: 0 };
+    const hostNodeEnd = {
+      id: () => "hostBox",
+      data: () => undefined,
+      position: () => hostPos,
+      width: () => 20,
+      height: () => 20,
+    };
+    const fixedNodeEnd = {
+      id: () => "fixedBox",
+      data: () => undefined,
+      position: () => fixedPos,
+      width: () => 20,
+      height: () => 20,
+    };
+    const routedEdge = {
+      id: () => "eG",
+      data: ((k?: string | Record<string, string>) => {
+        if (typeof k === "string") return store[k];
+        if (k) {
+          dataWrites.push(k);
+          Object.assign(store, k);
+        }
+        return undefined;
+      }) as never,
+      hasClass: (c: string) => c === "g3t-structural-edge-routed",
+      style: () => undefined,
+      source: () => hostNodeEnd,
+      target: () => fixedNodeEnd,
+      sourceEndpoint: () => ({ x: 10, y: 0 }),
+      targetEndpoint: () => ({ x: 190, y: 0 }),
+    };
+    const handlers: Record<string, ((evt: unknown) => void) | undefined> = {};
+    const cy = {
+      on: (evt: string, _sel: string, fn: (e: unknown) => void) => {
+        handlers[evt] = fn;
+      },
+      removeListener: () => undefined,
+      nodes: () => ({ filter: () => [] }),
+      $id: () => ({ length: 0 }),
+    };
+    const dispose = wireStructuralPortDrag(cy as never);
+    const target = {
+      id: () => "hostBox",
+      data: () => undefined,
+      position: () => hostPos,
+      width: () => 20,
+      height: () => 20,
+      connectedEdges: () => [routedEdge],
+    };
+    handlers["grab"]!({ target });
+    // Drag the host straight down: the moved end must re-anchor on
+    // the HOST BORDER (not its center) and the route must stay
+    // orthogonal.
+    hostPos.y = 120;
+    handlers["drag"]!({ target });
+    expect(dataWrites.length).toBeGreaterThan(0);
+    const dist = String(store._segDist).trim();
+    const weight = String(store._segWeight).trim();
+    expect(dist).not.toBe("");
+    expect(weight).not.toBe("");
+    // Reconstruct the written route and check anchoring: endpoints
+    // sit ON box borders, every segment is axis-aligned.
+    const distances = dist.split(/\s+/).map(Number);
+    const weights = weight.split(/\s+/).map(Number);
+    expect(distances.some(Number.isNaN)).toBe(false);
+    expect(weights.some(Number.isNaN)).toBe(false);
+    // The absolute points were rewritten for the drag frame.
+    expect(String(store._routePts)).not.toBe("10,0 190,0");
+    expect(String(store._routePts).split(/\s+/).length).toBeGreaterThanOrEqual(
+      2,
+    );
+    // Return-to-grab must restore the raw baseline without throwing
+    // (no eport to reposition: the guard under test).
+    hostPos.y = 0;
+    handlers["free"]!({ target });
+    expect(store._segDist).toBe("0");
+    expect(store._segWeight).toBe("0.5");
+    expect(store._routePts).toBe("10,0 190,0"); // MR-9 verbatim
+    dispose();
+  });
+
   it("offsets a host's ports by the box drag delta", async () => {
     const { wireStructuralPortDrag } =
       await import("./structural-to-cytoscape");
@@ -1524,6 +1623,14 @@ describe("g3t-shaped geometry (WS-D D3a: the default engine)", () => {
     for (const r of routed) {
       expect(String(r.data._segDist ?? "")).not.toBe("");
       expect(String(r.data._segWeight ?? "")).not.toBe("");
+      // ABSOLUTE points ride the data and match the geometry route
+      // VERBATIM (the diagonal-zigzag parity fix: no basis
+      // reconstruction anywhere in the visual path).
+      const id = String(r.data.id);
+      const expected = (geometry.edges?.[id]?.points ?? [])
+        .map((pt) => `${pt.x},${pt.y}`)
+        .join(" ");
+      expect(String(r.data._routePts)).toBe(expected);
     }
   });
 });

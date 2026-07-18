@@ -268,6 +268,28 @@ export function isDashedKind(kind: UmlEdgeKind): boolean {
 export function liveRoutedPoints(
   edge: EdgeSingular,
 ): { x: number; y: number }[] | null {
+  // ABSOLUTE route points win when present (D3a parity fix): the
+  // seg reconstruction below measures against cy's LIVE endpoints,
+  // and for compound-attached edges (the g3t engine: no eport point
+  // nodes) that basis differs from the writer's, skewing bends into
+  // diagonals. _routePts is the writer's truth, verbatim; the drag
+  // path rewrites it every frame, so liveness holds.
+  const raw = edge.data("_routePts") as unknown;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const pts = raw
+      .trim()
+      .split(/\s+/)
+      .map((pair) => {
+        const [x, y] = pair.split(",").map(Number);
+        return { x: x ?? NaN, y: y ?? NaN };
+      });
+    if (
+      pts.length >= 2 &&
+      pts.every((pt) => Number.isFinite(pt.x) && Number.isFinite(pt.y))
+    ) {
+      return pts;
+    }
+  }
   const dist = edge.data("_segDist") as unknown;
   const weight = edge.data("_segWeight") as unknown;
   if (typeof dist !== "string" || typeof weight !== "string") return null;

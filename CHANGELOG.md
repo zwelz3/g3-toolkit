@@ -1,5 +1,90 @@
 # Changelog
 
+## G3L Round 43: truth-carried drag basis; the integration oracle; scale watch extended
+
+- **The remaining browser-only drag failures came from the last two
+  places the drag path still trusted real cy over the writer**:
+  capture read cy's live sourceEndpoint/targetEndpoint (compounds
+  clip against the PADDED bbox, not the geometry box) and host
+  sizing read cy's padded width/height. Both now come from truth
+  carried in data: the converter stamps _geomBox ("x y w h") on
+  every top-level structural node, and capture takes endpoints AND
+  bends from _routePts (cy endpoints only as a legacy fallback).
+  Sides derive against geometry boxes. Straight resolver results
+  now write via the converter's 2-point degenerate doctrine at both
+  drag sites (they previously went silent).
+- **The missing verification layer exists now**: an INTEGRATION
+  oracle drives the real satellite BDD through the real converter
+  and the real grab/drag/free handlers with the e2e's exact
+  choreography (+170/+90 in 8 steps, which drops smallsat
+  OVERLAPPING imager: the owner's screenshot), then applies the
+  e2e's own three assertions headlessly. The fake is HOSTILE by
+  design: padded dimensions and corrupted live endpoints, so the
+  test passes only through the truth path. This is the third
+  hardening of the same lesson (plain-node pin round 39, stub
+  oracle round 41): idealized fakes pass while browsers fail.
+- Headless BDD reproduction confirmed the LAYOUT is clean (all four
+  directions, no overlaps): the screenshot's overlap is the e2e's
+  own post-drag drop position, legitimate free placement.
+- **Scale**: the freeze-after-settled had nothing logged because
+  the longtask watch disconnected AT settled. It now runs 15 s past
+  settlement (offsets from the switch persist) and logs its own
+  retirement, so post-settle blocks get named.
+
+## G3L Round 42: absolute route points (the zigzag root cause); scale named or fixed
+
+- **The MBSE zigzag edges ("odd non-90-deg angles", the trace's
+  crossing list, and the weird post-drag routing are ONE root
+  cause): the seg parameterization reconstructs bends against cy's
+  LIVE endpoints, and for compound-attached edges (g3t: no eport
+  point nodes) that basis differs from the writer's (compound
+  bboxes include padding and derive from children, unlike the
+  geometry boxes the converter clips against), skewing every bend
+  into diagonals.** Fixed by removing reconstruction from the
+  visual path entirely: routed edges carry ABSOLUTE points
+  (_routePts) written by the converter, rendered verbatim by the
+  overlay, rewritten each drag frame, canonicalized on settle, and
+  restored verbatim on return-to-grab (MR-9). Seg data remains only
+  for cy's suppressed hit-testable edge. Oracles: converter pin
+  asserts _routePts equals the geometry route byte-for-byte; the
+  drag oracle asserts rewrite-on-drag and verbatim restore.
+- **Scale**: the owner's phase paste both FIXED and SPLIT the
+  problem: return-to-clusters settles in 137 ms (fcose owned that
+  hang; position cache works), but return-to-drill showed 2.8 s of
+  rAF starvation AFTER preset-applied with relocation continuing
+  past "settled". Shipped: preset restores snap (animate: false); a
+  longtask observer logs every main-thread block >= 100 ms with its
+  offset; a layoutstart listener names EVERY layout that runs (if a
+  stray layout fires after preset, the log convicts it). The next
+  paste attributes the block instead of us theorizing.
+
+## G3L Round 41: drag reroute under g3t (the parity root cause); scale phases + cache
+
+- **MR-8 drag reroute fixed for the g3t engine** (the e2e crossing
+  list AND the owner's parity description: "routes to center of
+  target, doesn't route orthogonally, strange bend angles" are ONE
+  defect): the drag sync captured routed edges only via the host's
+  eport point nodes, which the g3t engine does not emit, so
+  compound-attached edges were never captured and stale seg data
+  re-projected against the moving center-line. onGrab now has a
+  host-attached capture pass: endpoints from cy's LIVE drawn
+  anchors, sides derived from anchor-vs-box geometry, eport
+  repositioning made optional and guarded at all three touch points
+  (drag, return-to-grab restore, canonicalize). Stub-harness oracle
+  pins capture, re-anchoring, and the throw-free MR-9 restore.
+- **Scale surface, measured not theorized**: "clusters ready in
+  91ms then the tab hung" exposed that markReady fires at cy INIT,
+  before layout and post-ready effects. Phase markers now bracket
+  cy-init -> layoutstop -> settled(idle), and a module-scope
+  position cache mounts revisited views with the PRESET layout fed
+  from settled positions: fcose never re-runs on returns (the
+  owner's exact repro path), and first-visit hangs, if any remain,
+  get named by the phase log. The clusters graph itself is 40
+  nodes/370 edges (measured): scale of the view was never the
+  cause.
+- Trace instructions delivered: attach the retry trace.zip (plus
+  error-context.md) directly to chat.
+
 ## G3L Round 40: the REAL overlay root cause (compound centers); scale perspective
 
 - **The zero-overlay-paths bug had a second, deeper root cause and

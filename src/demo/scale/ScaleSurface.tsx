@@ -101,22 +101,80 @@ type View = { kind: "clusters" } | { kind: "drill"; superId: string };
 // measurement, not another theory. Every view switch logs
 // click -> canvas-ready to the console; Zach's next pass reports
 // the numbers per direction.
+/** Position cache (owner repro: the hang was on RETURN to a view).
+ *  A revisited view mounts with the PRESET layout fed from its
+ *  cached settled positions: fcose (and its animation) never runs
+ *  on returns, which both fixes the return path and A/B-isolates
+ *  the hang: if a FIRST visit still hangs, the phase markers name
+ *  the phase; if returns are instant, fcose owned it. Module scope
+ *  (render-safe unlike a ref read, and it survives surface
+ *  remounts; ~41 small entries, memory-trivial). */
+const POS_CACHE = new Map<string, Record<string, { x: number; y: number }>>();
+
 let switchStart = 0;
+let switchBase = 0; // survives settled: longtask offsets stay meaningful
+/** Long-task watch for the switch window: the owner's second paste
+ *  showed 2.8 s of rAF starvation AFTER preset-applied with no
+ *  phase attributed; every main-thread block >= 100 ms now logs its
+ *  duration and offset so the expensive phase names itself. */
+let ltObserver: PerformanceObserver | null = null;
+function startLongTaskWatch(label: string) {
+  try {
+    ltObserver?.disconnect();
+    ltObserver = new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        console.info(
+          `[scale] ${label} longtask ${e.duration.toFixed(0)}ms at +${(e.startTime - switchBase).toFixed(0)}ms`,
+        );
+      }
+    });
+    ltObserver.observe({ entryTypes: ["longtask"] });
+  } catch {
+    /* longtask unsupported: phase markers still bracket the window */
+  }
+}
 function markSwitch(label: string) {
   switchStart = performance.now();
+  switchBase = switchStart;
   console.info(`[scale] switch -> ${label}`);
+  startLongTaskWatch(label);
 }
-function markReady(label: string) {
+/** Phase markers (owner finding, 2026-07-18: "clusters ready in
+ *  91ms" printed and the tab then hung relocating nodes: "ready"
+ *  fires at cy INIT, before layout and post-ready effects, so the
+ *  hang lived in an unmeasured phase). The clock now runs until
+ *  "settled" (double-rAF after layoutstop); each phase logs its
+ *  offset so the next console paste pinpoints the expensive one. */
+function markPhase(label: string, phase: string, done = false) {
   if (switchStart > 0) {
     console.info(
-      `[scale] ${label} ready in ${(performance.now() - switchStart).toFixed(0)}ms`,
+      `[scale] ${label} ${phase} at +${(performance.now() - switchStart).toFixed(0)}ms`,
     );
-    switchStart = 0;
+    if (done) {
+      switchStart = 0;
+      // Owner finding (third paste): the view froze AFTER settled
+      // with nothing logged, because the watch disconnected AT
+      // settled. Keep watching 15 s past settlement (offsets keep
+      // counting from the switch) so post-settle blocks are named
+      // too; the observer logs its own retirement.
+      const owned = ltObserver;
+      window.setTimeout(() => {
+        if (ltObserver === owned && owned !== null) {
+          console.info(`[scale] ${label} longtask-watch off (15s quiet)`);
+          owned.disconnect();
+          ltObserver = null;
+        }
+      }, 15_000);
+    }
   }
+}
+function markReady(label: string) {
+  markPhase(label, "cy-init(ready)");
 }
 
 export function ScaleSurface({ onBack }: { onBack: () => void }) {
   const model = useMemo(() => buildModel(), []);
+
   const reducedMotion = usePrefersReducedMotion();
   // Live instance for the GraphToolbar (review 4.1; also the 5.14
   // preview: layout switching and search AT scale, against whatever
@@ -155,15 +213,21 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
   // positions; reduced-motion still suppresses via the canvas's
   // animate=false, which layoutOptions must not override, hence the
   // conditional spread.
+  const viewKey = view.kind === "clusters" ? "clusters" : view.superId;
+  const cachedPositions = POS_CACHE.get(viewKey);
   const layoutOptions = useMemo<Record<string, unknown>>(
-    () => ({
-      ...(view.kind === "clusters"
-        ? // 12.5: Zach's ruling from the pass.
-          { idealEdgeLength: 300, nodeRepulsion: 50000, padding: 60 }
-        : { idealEdgeLength: 55, nodeRepulsion: 15000, padding: 50 }),
-      ...(reducedMotion ? {} : { animate: "end" }),
-    }),
-    [view.kind, reducedMotion],
+    () =>
+      cachedPositions
+        ? // A cache restore is a RESTORE, not a transition: snap.
+          { positions: cachedPositions, animate: false }
+        : {
+            ...(view.kind === "clusters"
+              ? // 12.5: Zach's ruling from the pass.
+                { idealEdgeLength: 300, nodeRepulsion: 50000, padding: 60 }
+              : { idealEdgeLength: 55, nodeRepulsion: 15000, padding: 50 }),
+            ...(reducedMotion ? {} : { animate: "end" }),
+          },
+    [view.kind, reducedMotion, cachedPositions],
   );
 
   // Context menu: the base copy item plus an app-registered
@@ -386,9 +450,54 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
                 : [{ selector: "edge", style: { label: "" } }]
             }
             layoutOptions={layoutOptions}
+            layout={cachedPositions ? "preset" : undefined}
             onReady={(c) => {
               markReady(view.kind);
               setCore(c);
+              const label = view.kind;
+              const key = viewKey;
+              // Name EVERY layout that runs on this instance: the
+              // second paste's "settled fired but the layout kept
+              // going" means a layout ran that no marker attributed;
+              // if one starts after preset, this log convicts it.
+              (
+                c as unknown as {
+                  on: (ev: string, fn: (e: unknown) => void) => void;
+                }
+              ).on("layoutstart", (e) => {
+                const name =
+                  (
+                    e as {
+                      layout?: { options?: { name?: string } };
+                    }
+                  ).layout?.options?.name ?? "?";
+                markPhase(label, `layoutstart(${name})`);
+              });
+              const settle = () => {
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() =>
+                    markPhase(label, "settled(idle)", true),
+                  ),
+                );
+              };
+              if (cachedPositions) {
+                // The canvas forces fit:false for preset layouts
+                // (structural camera policy); fit here instead.
+                c.fit(undefined, 50);
+                markPhase(label, "preset-applied");
+                settle();
+                return;
+              }
+              c.one("layoutstop", () => {
+                markPhase(label, "layoutstop");
+                const positions: Record<string, { x: number; y: number }> = {};
+                c.nodes().forEach((n) => {
+                  const pt = n.position();
+                  positions[n.id()] = { x: pt.x, y: pt.y };
+                });
+                POS_CACHE.set(key, positions);
+                settle();
+              });
             }}
             animate={!reducedMotion}
             menuManager={menuManager}
