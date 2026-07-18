@@ -1,5 +1,28 @@
 # Changelog
 
+## G3L Round 40: the REAL overlay root cause (compound centers); scale perspective
+
+- **The zero-overlay-paths bug had a second, deeper root cause and
+  round 39's fix was insufficient**: the converter's projection
+  basis reads drawn positions, but CONTAINERS are cy compounds with
+  no explicit position, so the center lookup missed for every
+  container-attached edge and the routed gate never entered. Under
+  elk this path never ran (body edges attached to positioned synth
+  POINT ports); removing synth ports exposed it. Centers now fall
+  back to the geometry box's center. Headless replication of the
+  exact e2e pipeline (default BDD, default engine): 5/5 edges earn
+  the routed class (was 0/5), degenerate and multi-point alike.
+- **Round 39's regression pin was too weak and is now hardened**:
+  it used plain nodes (positioned point elements) and passed while
+  the browser failed; it now uses compartmented CONTAINERS with a
+  straight-chain edge AND a multi-point long edge, asserting all
+  three route.
+- Scale-surface finding recorded for the owner conversation: the
+  scale example runs the UGM/fcose pipeline, NOT layoutStructural;
+  WS-D never touched its switch path. Its own instrumentation
+  ([scale] ready-in-ms console lines) is the agreed measurement
+  protocol; options analysis in the owner queue.
+
 ## G3L Round 39: overlay-paths fix, CI verdict recorded, rulings executed
 
 - **CI VERDICT (the arbiter ruled): perf job GREEN. PRF-001 = 159

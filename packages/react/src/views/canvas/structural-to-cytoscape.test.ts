@@ -1491,16 +1491,24 @@ describe("g3t-shaped geometry (WS-D D3a: the default engine)", () => {
     // dedupes away, and the route is a 2-point straight line. The
     // converter must treat that as a ROUTE (degenerate on-baseline
     // segment), not fall back to taxi: the zero-overlay-paths bug.
+    // CONTAINERS, deliberately: the first version of this pin used
+    // plain nodes and passed while the browser failed. Containers
+    // are cy COMPOUNDS with no explicit position, which killed the
+    // projection-center lookup for every container-attached edge
+    // (the second zero-overlay-paths CI failure); centers now fall
+    // back to the geometry box.
     const input: StructuralGraphInput = {
       nodes: ["a", "b", "c"].map((id) => ({
         id,
-        header: { name: id.toUpperCase() },
-        width: 120,
-        height: 60,
+        header: { stereotype: "Block", name: id.toUpperCase() },
+        compartments: [
+          { id: `${id}.v`, rows: [{ id: `${id}.r0`, text: "x: X" }] },
+        ],
       })),
       edges: [
         { id: "e1", source: "a", target: "b" },
         { id: "e2", source: "b", target: "c" },
+        { id: "e3", source: "a", target: "c" },
       ],
     };
     const geometry = await layoutStructural(input); // default: g3t
@@ -1510,7 +1518,9 @@ describe("g3t-shaped geometry (WS-D D3a: the default engine)", () => {
         typeof el.classes === "string" &&
         el.classes.includes("g3t-structural-edge-routed"),
     );
-    expect(routed.length).toBe(2);
+    // EVERY body edge routes: straight chain edges (degenerate seg)
+    // AND the multi-point long edge alike.
+    expect(routed.length).toBe(3);
     for (const r of routed) {
       expect(String(r.data._segDist ?? "")).not.toBe("");
       expect(String(r.data._segWeight ?? "")).not.toBe("");

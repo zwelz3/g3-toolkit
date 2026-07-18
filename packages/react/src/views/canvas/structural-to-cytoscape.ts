@@ -684,10 +684,23 @@ export function structuralToCytoscapeElements(
     const pts = portAttached ? undefined : geometry.edges?.[e.id]?.points;
     let seg: { distances: number[]; weights: number[] } | null = null;
     if (pts && pts.length >= 2) {
-      const sCenter = positionById.get(sourceId);
-      const tCenter = positionById.get(targetId);
       const sBox = geometry.ports[sourceId] ?? geometry.nodes[sourceId];
       const tBox = geometry.ports[targetId] ?? geometry.nodes[targetId];
+      // Drawn positions are the projection basis for POINT elements
+      // (they carry converter nudges). CONTAINERS are cy compounds
+      // with no explicit position, so fall back to the geometry
+      // box's center: under elk this path never ran (body edges
+      // attached to positioned synth ports), and the miss silently
+      // killed routing for every container-attached edge under g3t
+      // (the second zero-overlay-paths CI failure, 2026-07-18).
+      const boxCenter = (
+        b: { x: number; y: number; width: number; height: number } | undefined,
+      ): { x: number; y: number } | undefined =>
+        b === undefined
+          ? undefined
+          : { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      const sCenter = positionById.get(sourceId) ?? boxCenter(sBox);
+      const tCenter = positionById.get(targetId) ?? boxCenter(tBox);
       if (sCenter && tCenter && sBox && tBox) {
         if (pts.length === 2) {
           // A 2-point route is a REAL route under the g3t engine

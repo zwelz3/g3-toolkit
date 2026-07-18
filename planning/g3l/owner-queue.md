@@ -15,25 +15,49 @@ paths: the straightened-chains contract gap) is FIXED in round 39.
 
 Resolved earlier: see MR log.
 
-## 1. Re-run e2e on the round-39 tree (the one failing spec)
+## 1. Re-run e2e on the ROUND-40 tree (round 39 was insufficient)
 
-WHAT: The zero-overlay-paths bug is fixed (2-point g3t routes now
-earn the routed class; converter-level regression pin added). One
-spec should flip red -> green; expect 58/58.
+WHAT: Round 39 fixed the converter gate but missed a second root
+cause: containers are cy compounds with no drawn position, so the
+projection-center lookup failed for every container-attached edge.
+Round 40 falls back to geometry-box centers; headless replication
+of the exact failing pipeline now yields 5/5 routed edges (was
+0/5). Straight talk: round 39's pin used plain nodes and passed
+while the browser failed; the pin now uses containers.
 
-WHAT TO DO: Usual routine on the round-39 tree; upload the JSON.
-CI e2e should also go green on the same push.
+WHAT TO DO: Push round 40, re-run e2e locally and in CI. Expect
+58/58.
 
 UNBLOCKS: Item 2.
 
-## 2. Browser session: ratify the flip + MR-11 round 4
+## 2. Browser session: flip ratification + MR-11 round 4 + the parity list
 
-WHAT/WHAT TO DO: unchanged from the previous entry (the full
-checklist stands); now on the round-39 tree, where the MBSE overlay
-draws edges again. Reply "flip ratified, MR-11 pass" or the list.
+WHAT: Unchanged checklist, on round 40. You mentioned several
+rendering-parity issues across the Style Lab and MBSE: bring the
+list (screenshots where cheap); each gets a root cause and a
+disposition, same as every prior MR-11 finding.
 
-UNBLOCKS: MR-11 closes; D3b (elkjs removal + ARC-009 extraction,
-already pre-authorized) proceeds on ratification.
+UNBLOCKS: MR-11; D3b proceeds on ratification.
+
+## 3. Scale surface: paste the instrumented switch numbers
+
+WHAT: The scale example runs the UGM/fcose pipeline, NOT
+layoutStructural: WS-D never touched its switch path (perspective
+in the round-40 conversation). The surface already logs
+"[scale] <view> ready in Nms" to the browser console on every
+switch: the measurement protocol recorded in the file itself.
+
+WHAT TO DO: Open the scale example, switch clusters -> drill ->
+back a few times, paste the console lines. With numbers, the fix
+is chosen from: (a) route the surface through the g3t engine with
+preset positions (layout collapses to ms and becomes cache-hit on
+revisits; aesthetics change from organic to layered: judgment
+call), (b) fcose position caching (organic look kept, near-instant
+revisits), (c) keep-alive instances across switches (kills
+re-ingestion), (d) the WebGL cluster (P2, the real scale
+renderer). Not exclusive; (b)+(c) is the conservative pair.
+
+UNBLOCKS: A measured scale round instead of another theory.
 
 ---
 

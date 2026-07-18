@@ -1,5 +1,18 @@
 # g3-toolkit Status
 
+**As of:** 2026-07-18 (active: G3L Round 40 executed: the overlay
+bug's REAL root cause fixed (compound containers carry no cy
+position; projection centers now fall back to geometry boxes;
+headless replication of the exact e2e pipeline goes 0/5 -> 5/5
+routed). Regression pin hardened to containers. Owner reports
+rendering-parity issues (detail incoming next round) and
+scale-surface switch lag (fcose pipeline, not layoutStructural;
+instrumented numbers requested; options analysis in queue).
+Awaiting: e2e 58/58 on round 40, parity list, scale numbers. D3b
+holds until flip ratification.)
+
+## PRIOR SNAPSHOT (Round 39)
+
 **As of:** 2026-07-18 (active: G3L Round 39 executed: CI ruled the
 flip GREEN (PRF-001 = 159 ms vs 300; all asserting keys green). The
 one e2e failure fixed at its root: 2-point straight g3t routes now
