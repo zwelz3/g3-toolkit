@@ -75,4 +75,22 @@ describe("RangeSlider", () => {
     expect(fill.style.left).toBe("0%");
     expect(fill.style.width).toBe("0%");
   });
+
+  it("ticks carry glyphs and hover tooltips (6.3)", () => {
+    render(
+      <RangeSlider
+        min={0}
+        max={100}
+        start={0}
+        end={100}
+        ticks={[
+          { time: 10, kind: "generated", label: "Reqs: generated 2025-01-15" },
+        ]}
+        onChange={() => {}}
+      />,
+    );
+    const tick = screen.getByTestId("au-tick");
+    expect(tick.getAttribute("title")).toContain("generated");
+    expect(tick.textContent).not.toBe("");
+  });
 });

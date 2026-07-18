@@ -101,13 +101,19 @@ button.mbse-tree-row { cursor: pointer; }
 
 /* Canvas (blueprint grid backdrop) */
 .mbse-canvas-wrap {
-  flex: 1 1 auto; position: relative; min-width: 0; min-height: 0;
+  flex: 1 1 auto; display: flex; flex-direction: column;
+  min-width: 0; min-height: 0;
   background:
     linear-gradient(var(--mb-line-soft) 1px, transparent 1px) 0 0 / 26px 26px,
     linear-gradient(90deg, var(--mb-line-soft) 1px, transparent 1px) 0 0 / 26px 26px,
     radial-gradient(1200px 600px at 30% 0%, #12203300, #0b111c);
 }
-.mbse-canvas-wrap > * { position: absolute; inset: 0; }
+.mbse-canvas-toolbar {
+  flex: 0 0 auto; padding: 6px 10px; display: flex; gap: 6px;
+  align-items: center; color: var(--mb-ink-dim); font-size: 12px;
+}
+.mbse-canvas-host { flex: 1 1 auto; position: relative; min-height: 0; }
+.mbse-canvas-host > * { position: absolute; inset: 0; }
 .mbse-empty {
   display: flex; align-items: center; justify-content: center;
   color: var(--mb-ink-dim); font-size: 13px;

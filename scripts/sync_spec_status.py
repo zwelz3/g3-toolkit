@@ -37,6 +37,7 @@ CAPS = {
     # animation, canvas filtered by temporal range) is not met; the
     # playback gap matches R2.10's cap
     "R5.1": "in-progress",  # in-memory adapter; no Fuseki/Rdflib backend
+    "R1.8": "in-progress",  # histogram + brush tested (review 3.5); embedding scatter plots absent
     "R2.12": "in-progress",  # validation callback only; no commit-time SHACL
     "R2.10": "in-progress",  # timeline renders; playback animation absent
     "R2.11": "in-progress",  # serialization only; export formats absent (M10)
@@ -107,7 +108,7 @@ def collect_citations() -> tuple[set[str], set[str]]:
             has_colocated_test = any(
                 ".test." in s.name for s in f.parent.iterdir() if s.is_file()
             )
-            for line in f.read_text(errors="ignore").split("\n"):
+            for line in f.read_text(encoding="utf-8", errors="ignore").split("\n"):
                 if EXCLUDE_LINE.search(line):
                     continue
                 for rid in RID.findall(line):
@@ -136,7 +137,7 @@ def main() -> int:
     drift: list[str] = []
     counts: dict[str, int] = defaultdict(int)
     for spec in sorted((ROOT / "specs").glob("*.md")):
-        text = spec.read_text()
+        text = spec.read_text(encoding="utf-8")
         for block in re.split(r"\n(?=- R\d)", text):
             m = re.match(r"- (R\d+\.\d+) ", block)
             if not m:

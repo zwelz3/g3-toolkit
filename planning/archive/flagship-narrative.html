@@ -1,352 +1,1020 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Flagship Demo — Narrative &amp; Story Design</title>
-<style>
-  :root {
-    --bg: #0b0e16;
-    --panel: #141925;
-    --panel2: #1b2130;
-    --ink: #e7ebf5;
-    --ink-dim: #9aa3b8;
-    --line: #283145;
-    --accent: #5b8cff;
-    --accent2: #46d8c5;
-    --good: #43d9a3;
-    --warn: #ffc857;
-    --bad: #ff6b8b;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
-  }
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.6; font-size: 16px;
-  }
-  .wrap { max-width: 940px; margin: 0 auto; padding: 56px 28px 120px; }
-  header.hero {
-    border-bottom: 1px solid var(--line); padding-bottom: 32px; margin-bottom: 8px;
-  }
-  .eyebrow {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
-    color: var(--accent); font-weight: 600;
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
-    padding: 4px 12px; border-radius: 999px; margin-bottom: 20px;
-  }
-  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-  h1 {
-    font-size: 40px; font-weight: 300; letter-spacing: -.02em; line-height: 1.12;
-    margin: 0 0 14px;
-    background: linear-gradient(120deg, #f3f6ff, var(--accent) 60%, var(--accent2));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  h1 b { font-weight: 600; }
-  .lede { font-size: 18px; color: var(--ink-dim); max-width: 68ch; }
-  h2 {
-    font-size: 13px; letter-spacing: .16em; text-transform: uppercase;
-    color: var(--accent2); margin: 56px 0 14px; font-weight: 700;
-  }
-  h3 { font-size: 21px; font-weight: 600; margin: 30px 0 8px; letter-spacing: -.01em; }
-  p { margin: 0 0 14px; }
-  .dim { color: var(--ink-dim); }
-  strong { color: #fff; font-weight: 600; }
-  .panel {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    padding: 22px 24px; margin: 16px 0;
-  }
-  .panel.tight { padding: 16px 18px; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } h1 { font-size: 30px; } }
-  .kv { display: flex; gap: 10px; font-size: 14px; padding: 3px 0; }
-  .kv .k { color: var(--ink-dim); min-width: 130px; }
-  .kv .v { color: var(--ink); }
-  .mono { font-family: var(--mono); font-size: 13px; }
-  code {
-    font-family: var(--mono); font-size: .86em;
-    background: var(--panel2); padding: 2px 6px; border-radius: 5px; color: #cdd6ec;
-  }
-  .act {
-    border-left: 3px solid var(--accent); padding-left: 22px; margin: 28px 0;
-    position: relative;
-  }
-  .act .num {
-    font-family: var(--mono); font-size: 12px; color: var(--accent);
-    letter-spacing: .1em; text-transform: uppercase;
-  }
-  .beat {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 16px 18px; margin: 12px 0;
-  }
-  .beat .t { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
-  .chip {
-    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em;
-    padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-dim);
-    white-space: nowrap;
-  }
-  .chip.op { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 40%, transparent); }
-  .chip.see { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
-  .screen {
-    font-style: italic; color: #cfd7ee; border-left: 2px solid var(--accent2);
-    padding: 4px 0 4px 14px; margin: 10px 0;
-  }
-  .badge { display: inline-block; padding: 2px 9px; border-radius: 6px; font-size: 12.5px; font-weight: 600; }
-  .b-good { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
-  .b-warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-  .b-bad  { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
-  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
-  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--ink-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
-  td.mono { font-family: var(--mono); font-size: 13px; }
-  .bars { display: flex; flex-direction: column; gap: 3px; min-width: 160px; }
-  .bar { height: 7px; border-radius: 4px; background: var(--panel2); position: relative; overflow: hidden; }
-  .bar > span { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
-  .bar.sub > span { background: var(--accent); }
-  .bar.claim > span { background: color-mix(in srgb, var(--ink-dim) 60%, transparent); }
-  .barlabel { font-size: 10px; color: var(--ink-dim); font-family: var(--mono); }
-  .callout {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--panel)), var(--panel));
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
-    border-radius: 12px; padding: 20px 22px; margin: 20px 0;
-  }
-  .callout .label { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 6px; }
-  ol.beats { counter-reset: b; list-style: none; padding: 0; }
-  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
-  .toc { font-size: 14px; columns: 2; gap: 28px; }
-  .toc a { color: var(--ink-dim); text-decoration: none; display: block; padding: 3px 0; }
-  .toc a:hover { color: var(--accent); }
-  .foot { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-dim); }
-  .two-face { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-  @media (max-width: 720px) { .two-face { grid-template-columns: 1fr; } }
-  .two-face > div { padding: 18px 20px; }
-  .two-face .internal { background: var(--panel2); border-right: 1px solid var(--line); }
-  .two-face .proposal { background: var(--panel); }
-  .face-h { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; margin-bottom: 10px; }
-  .internal .face-h { color: var(--warn); }
-  .proposal .face-h { color: var(--good); }
-  ul.clean { padding-left: 18px; margin: 6px 0; }
-  ul.clean li { margin: 5px 0; }
-</style>
-</head>
-<body>
-<div class="wrap">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flagship Demo — Narrative &amp; Story Design</title>
+    <style>
+      :root {
+        --bg: #0b0e16;
+        --panel: #141925;
+        --panel2: #1b2130;
+        --ink: #e7ebf5;
+        --ink-dim: #9aa3b8;
+        --line: #283145;
+        --accent: #5b8cff;
+        --accent2: #46d8c5;
+        --good: #43d9a3;
+        --warn: #ffc857;
+        --bad: #ff6b8b;
+        --mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        line-height: 1.6;
+        font-size: 16px;
+      }
+      .wrap {
+        max-width: 940px;
+        margin: 0 auto;
+        padding: 56px 28px 120px;
+      }
+      header.hero {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 32px;
+        margin-bottom: 8px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 600;
+        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
+        padding: 4px 12px;
+        border-radius: 999px;
+        margin-bottom: 20px;
+      }
+      .eyebrow .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      h1 {
+        font-size: 40px;
+        font-weight: 300;
+        letter-spacing: -0.02em;
+        line-height: 1.12;
+        margin: 0 0 14px;
+        background: linear-gradient(
+          120deg,
+          #f3f6ff,
+          var(--accent) 60%,
+          var(--accent2)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      h1 b {
+        font-weight: 600;
+      }
+      .lede {
+        font-size: 18px;
+        color: var(--ink-dim);
+        max-width: 68ch;
+      }
+      h2 {
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--accent2);
+        margin: 56px 0 14px;
+        font-weight: 700;
+      }
+      h3 {
+        font-size: 21px;
+        font-weight: 600;
+        margin: 30px 0 8px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 14px;
+      }
+      .dim {
+        color: var(--ink-dim);
+      }
+      strong {
+        color: #fff;
+        font-weight: 600;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 22px 24px;
+        margin: 16px 0;
+      }
+      .panel.tight {
+        padding: 16px 18px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 720px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 30px;
+        }
+      }
+      .kv {
+        display: flex;
+        gap: 10px;
+        font-size: 14px;
+        padding: 3px 0;
+      }
+      .kv .k {
+        color: var(--ink-dim);
+        min-width: 130px;
+      }
+      .kv .v {
+        color: var(--ink);
+      }
+      .mono {
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.86em;
+        background: var(--panel2);
+        padding: 2px 6px;
+        border-radius: 5px;
+        color: #cdd6ec;
+      }
+      .act {
+        border-left: 3px solid var(--accent);
+        padding-left: 22px;
+        margin: 28px 0;
+        position: relative;
+      }
+      .act .num {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .beat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin: 12px 0;
+      }
+      .beat .t {
+        font-weight: 600;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 2px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        color: var(--ink-dim);
+        white-space: nowrap;
+      }
+      .chip.op {
+        color: var(--accent2);
+        border-color: color-mix(in srgb, var(--accent2) 40%, transparent);
+      }
+      .chip.see {
+        color: var(--accent);
+        border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+      .screen {
+        font-style: italic;
+        color: #cfd7ee;
+        border-left: 2px solid var(--accent2);
+        padding: 4px 0 4px 14px;
+        margin: 10px 0;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .b-good {
+        background: color-mix(in srgb, var(--good) 18%, transparent);
+        color: var(--good);
+      }
+      .b-warn {
+        background: color-mix(in srgb, var(--warn) 18%, transparent);
+        color: var(--warn);
+      }
+      .b-bad {
+        background: color-mix(in srgb, var(--bad) 18%, transparent);
+        color: var(--bad);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--ink-dim);
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      td.mono {
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .bars {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 160px;
+      }
+      .bar {
+        height: 7px;
+        border-radius: 4px;
+        background: var(--panel2);
+        position: relative;
+        overflow: hidden;
+      }
+      .bar > span {
+        position: absolute;
+        inset: 0 auto 0 0;
+        border-radius: 4px;
+      }
+      .bar.sub > span {
+        background: var(--accent);
+      }
+      .bar.claim > span {
+        background: color-mix(in srgb, var(--ink-dim) 60%, transparent);
+      }
+      .barlabel {
+        font-size: 10px;
+        color: var(--ink-dim);
+        font-family: var(--mono);
+      }
+      .callout {
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--accent) 10%, var(--panel)),
+          var(--panel)
+        );
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+        border-radius: 12px;
+        padding: 20px 22px;
+        margin: 20px 0;
+      }
+      .callout .label {
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      ol.beats {
+        counter-reset: b;
+        list-style: none;
+        padding: 0;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid var(--line);
+        margin: 40px 0;
+      }
+      .toc {
+        font-size: 14px;
+        columns: 2;
+        gap: 28px;
+      }
+      .toc a {
+        color: var(--ink-dim);
+        text-decoration: none;
+        display: block;
+        padding: 3px 0;
+      }
+      .toc a:hover {
+        color: var(--accent);
+      }
+      .foot {
+        margin-top: 60px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        font-size: 13px;
+        color: var(--ink-dim);
+      }
+      .two-face {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      @media (max-width: 720px) {
+        .two-face {
+          grid-template-columns: 1fr;
+        }
+      }
+      .two-face > div {
+        padding: 18px 20px;
+      }
+      .two-face .internal {
+        background: var(--panel2);
+        border-right: 1px solid var(--line);
+      }
+      .two-face .proposal {
+        background: var(--panel);
+      }
+      .face-h {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .internal .face-h {
+        color: var(--warn);
+      }
+      .proposal .face-h {
+        color: var(--good);
+      }
+      ul.clean {
+        padding-left: 18px;
+        margin: 6px 0;
+      }
+      ul.clean li {
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <div class="eyebrow">
+          <span class="dot"></span>Flagship demo · story design
+        </div>
+        <h1>Bidding on <b>truth</b>, not on a keyword search.</h1>
+        <p class="lede">
+          A capture-intelligence walkthrough built on the g3 graph toolkit. It
+          turns a firm's scattered corporate memory into a business-meaning
+          graph, then shows the one thing no CRM or keyword tool can: the
+          difference between past performance you can <em>prove</em> and past
+          performance you can only <em>claim</em> — so the bid decision runs on
+          what's defensible, and the proposal team knows exactly where its story
+          is exposed.
+        </p>
+      </header>
 
-<header class="hero">
-  <div class="eyebrow"><span class="dot"></span>Flagship demo · story design</div>
-  <h1>Bidding on <b>truth</b>, not on a keyword search.</h1>
-  <p class="lede">A capture-intelligence walkthrough built on the g3 graph toolkit. It turns a firm's scattered corporate memory into a business-meaning graph, then shows the one thing no CRM or keyword tool can: the difference between past performance you can <em>prove</em> and past performance you can only <em>claim</em> — so the bid decision runs on what's defensible, and the proposal team knows exactly where its story is exposed.</p>
-</header>
+      <h2>Contents</h2>
+      <div class="toc">
+        <a href="#thesis">1 · The thesis (why this sells)</a>
+        <a href="#protagonist">2 · Protagonist &amp; trigger</a>
+        <a href="#model">3 · The two-strength meaning model</a>
+        <a href="#acts">4 · The three acts, beat by beat</a>
+        <a href="#climax">5 · The deliverable: the two-faced brief</a>
+        <a href="#wow">6 · Where the "wow" lives</a>
+        <a href="#sells">7 · Why each moment converts</a>
+        <a href="#honesty">8 · The honesty line</a>
+      </div>
 
-<h2>Contents</h2>
-<div class="toc">
-  <a href="#thesis">1 · The thesis (why this sells)</a>
-  <a href="#protagonist">2 · Protagonist &amp; trigger</a>
-  <a href="#model">3 · The two-strength meaning model</a>
-  <a href="#acts">4 · The three acts, beat by beat</a>
-  <a href="#climax">5 · The deliverable: the two-faced brief</a>
-  <a href="#wow">6 · Where the "wow" lives</a>
-  <a href="#sells">7 · Why each moment converts</a>
-  <a href="#honesty">8 · The honesty line</a>
-</div>
+      <h2 id="thesis">1 · The thesis</h2>
+      <p>
+        Every capture manager lives with two fears:
+        <strong>bidding on work they can't win</strong>, and
+        <strong>getting caught overclaiming</strong> when an evaluator probes
+        their past performance. Today they manage both by memory and archaeology
+        — digging across SharePoint, proposal archives, CRM exports, and Teams
+        threads, re-doing the work for every pursuit, and trusting their gut on
+        what's "really" relevant.
+      </p>
+      <p>
+        This demo shows a discipline they wish they had institutionalized: a
+        graph that
+        <strong
+          >separates substantiated past performance from performative past
+          performance</strong
+        >, computes the bid decision on the substantiated floor, and surfaces
+        precisely where the sellable story is exposed — then closes that
+        exposure with a trusted teaming partner the graph already knows about.
+      </p>
+      <div class="callout">
+        <div class="label">The one-sentence pitch</div>
+        <p style="margin: 0; font-size: 18px">
+          “Your data, your rules — composed into a bid decision you can defend
+          line by line, and a proposal story you know won't collapse under
+          scrutiny.”
+        </p>
+      </div>
 
-<h2 id="thesis">1 · The thesis</h2>
-<p>Every capture manager lives with two fears: <strong>bidding on work they can't win</strong>, and <strong>getting caught overclaiming</strong> when an evaluator probes their past performance. Today they manage both by memory and archaeology — digging across SharePoint, proposal archives, CRM exports, and Teams threads, re-doing the work for every pursuit, and trusting their gut on what's "really" relevant.</p>
-<p>This demo shows a discipline they wish they had institutionalized: a graph that <strong>separates substantiated past performance from performative past performance</strong>, computes the bid decision on the substantiated floor, and surfaces precisely where the sellable story is exposed — then closes that exposure with a trusted teaming partner the graph already knows about.</p>
-<div class="callout">
-  <div class="label">The one-sentence pitch</div>
-  <p style="margin:0;font-size:18px;">“Your data, your rules — composed into a bid decision you can defend line by line, and a proposal story you know won't collapse under scrutiny.”</p>
-</div>
+      <h2 id="protagonist">2 · Protagonist &amp; trigger</h2>
+      <div class="grid2">
+        <div class="panel tight">
+          <div class="kv">
+            <span class="k">Protagonist</span
+            ><span class="v"
+              >Dr. Mara Reyes, Chief Solutions Architect at
+              <strong>Northwind Analytics</strong> — a mid-size firm in
+              model-based engineering, logistics modernization, and cyber
+              resilience.</span
+            >
+          </div>
+          <div class="kv">
+            <span class="k">Her constraint</span
+            ><span class="v"
+              >Limited time, R&amp;D not fully productized. She has to make a
+              fast, defensible bid/no-bid call.</span
+            >
+          </div>
+        </div>
+        <div class="panel tight">
+          <div class="kv">
+            <span class="k">The trigger</span
+            ><span class="v"
+              >A solicitation drops:
+              <strong>MERIDIAN Digital Sustainment Environment</strong> (DLA
+              J6).</span
+            >
+          </div>
+          <div class="kv">
+            <span class="k">The clock</span
+            ><span class="v"
+              ><span class="badge b-bad">2 days to decide</span> · 10-page
+              technical limit</span
+            >
+          </div>
+          <div class="kv">
+            <span class="k">Her question</span
+            ><span class="v"
+              >“Is this a fit, and can we actually prove enough past performance
+              to win — or are we about to spend the team's weekend on a bid
+              we'll lose?”</span
+            >
+          </div>
+        </div>
+      </div>
+      <p class="dim">
+        The cold open is the relatable part: not a pretty graph, but the mess.
+        Fragmented sources, three versions of a capabilities doc, a Teams
+        thread, a CRM export. Every BD person feels this in their gut.
+      </p>
 
-<h2 id="protagonist">2 · Protagonist &amp; trigger</h2>
-<div class="grid2">
-  <div class="panel tight">
-    <div class="kv"><span class="k">Protagonist</span><span class="v">Dr. Mara Reyes, Chief Solutions Architect at <strong>Northwind Analytics</strong> — a mid-size firm in model-based engineering, logistics modernization, and cyber resilience.</span></div>
-    <div class="kv"><span class="k">Her constraint</span><span class="v">Limited time, R&amp;D not fully productized. She has to make a fast, defensible bid/no-bid call.</span></div>
-  </div>
-  <div class="panel tight">
-    <div class="kv"><span class="k">The trigger</span><span class="v">A solicitation drops: <strong>MERIDIAN Digital Sustainment Environment</strong> (DLA J6).</span></div>
-    <div class="kv"><span class="k">The clock</span><span class="v"><span class="badge b-bad">2 days to decide</span> · 10-page technical limit</span></div>
-    <div class="kv"><span class="k">Her question</span><span class="v">“Is this a fit, and can we actually prove enough past performance to win — or are we about to spend the team's weekend on a bid we'll lose?”</span></div>
-  </div>
-</div>
-<p class="dim">The cold open is the relatable part: not a pretty graph, but the mess. Fragmented sources, three versions of a capabilities doc, a Teams thread, a CRM export. Every BD person feels this in their gut.</p>
+      <h2 id="model">3 · The two-strength meaning model</h2>
+      <p>
+        The heart of the demo. When raw records project onto the concept layer,
+        each capability/topic concept carries <strong>two</strong> derived
+        strengths, not one:
+      </p>
+      <div class="grid2">
+        <div class="panel">
+          <h3 style="margin-top: 0; color: var(--accent)">Substantiated</h3>
+          <p class="dim" style="margin: 0">
+            What you can <strong>defend under scrutiny</strong>: a real award,
+            backed by a strong <strong>customer evaluation</strong> (the
+            dominant signal), documented in a final report, with traceable named
+            delivery. Recency-weighted. This is the floor the bid decision runs
+            on.
+          </p>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top: 0; color: var(--ink-dim)">
+            Claimable (performative)
+          </h3>
+          <p class="dim" style="margin: 0">
+            What you could <strong>write in a proposal</strong>: everything
+            substantiated, <em>plus</em> adjacent-concept work, unevaluated or
+            marginal efforts, and self-asserted capability from people's
+            résumés. The softer ceiling.
+          </p>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="label">The exposure</div>
+        <p style="margin: 0">
+          On a <em>required</em> concept, the
+          <strong>gap between claimable and substantiated</strong> is the firm's
+          exposure: where the proposal would assert strength the evidence can't
+          defend. That gap — not a keyword miss — is the thing the tool makes
+          visible, and the thing every other tool is blind to because computing
+          it requires the signed, weighted, provenance-bearing graph.
+        </p>
+      </div>
+      <p>This yields three honest states per required concept:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>State</th>
+            <th>Substantiated</th>
+            <th>Claimable</th>
+            <th>What it means · the action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge b-good">Discriminator</span></td>
+            <td>High</td>
+            <td>High</td>
+            <td>Genuine strength, provable. <strong>Lead with it.</strong></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-warn">Exposed</span></td>
+            <td>Low</td>
+            <td>High</td>
+            <td>
+              You'd sell it; it won't survive scrutiny.
+              <strong>Close it — team or named hire.</strong>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="badge b-bad">Gap</span></td>
+            <td>Low</td>
+            <td>Low</td>
+            <td>
+              Honest capability gap.
+              <strong>Don't claim it; team for the capability.</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-<h2 id="model">3 · The two-strength meaning model</h2>
-<p>The heart of the demo. When raw records project onto the concept layer, each capability/topic concept carries <strong>two</strong> derived strengths, not one:</p>
-<div class="grid2">
-  <div class="panel">
-    <h3 style="margin-top:0;color:var(--accent)">Substantiated</h3>
-    <p class="dim" style="margin:0">What you can <strong>defend under scrutiny</strong>: a real award, backed by a strong <strong>customer evaluation</strong> (the dominant signal), documented in a final report, with traceable named delivery. Recency-weighted. This is the floor the bid decision runs on.</p>
-  </div>
-  <div class="panel">
-    <h3 style="margin-top:0;color:var(--ink-dim)">Claimable (performative)</h3>
-    <p class="dim" style="margin:0">What you could <strong>write in a proposal</strong>: everything substantiated, <em>plus</em> adjacent-concept work, unevaluated or marginal efforts, and self-asserted capability from people's résumés. The softer ceiling.</p>
-  </div>
-</div>
-<div class="callout">
-  <div class="label">The exposure</div>
-  <p style="margin:0">On a <em>required</em> concept, the <strong>gap between claimable and substantiated</strong> is the firm's exposure: where the proposal would assert strength the evidence can't defend. That gap — not a keyword miss — is the thing the tool makes visible, and the thing every other tool is blind to because computing it requires the signed, weighted, provenance-bearing graph.</p>
-</div>
-<p>This yields three honest states per required concept:</p>
-<table>
-  <thead><tr><th>State</th><th>Substantiated</th><th>Claimable</th><th>What it means · the action</th></tr></thead>
-  <tbody>
-    <tr><td><span class="badge b-good">Discriminator</span></td><td>High</td><td>High</td><td>Genuine strength, provable. <strong>Lead with it.</strong></td></tr>
-    <tr><td><span class="badge b-warn">Exposed</span></td><td>Low</td><td>High</td><td>You'd sell it; it won't survive scrutiny. <strong>Close it — team or named hire.</strong></td></tr>
-    <tr><td><span class="badge b-bad">Gap</span></td><td>Low</td><td>Low</td><td>Honest capability gap. <strong>Don't claim it; team for the capability.</strong></td></tr>
-  </tbody>
-</table>
+      <h2 id="acts">4 · The three acts</h2>
+      <p class="dim">
+        Auto-plays as a narrated walkthrough (a salesperson can run it
+        flawlessly; a prospect can self-serve at 11pm), with manual override to
+        step or replay any beat. Each <span class="chip op">operation</span> is
+        something the toolkit visibly <em>does</em>; each
+        <span class="chip see">on screen</span> is what the viewer sees.
+      </p>
 
-<h2 id="acts">4 · The three acts</h2>
-<p class="dim">Auto-plays as a narrated walkthrough (a salesperson can run it flawlessly; a prospect can self-serve at 11pm), with manual override to step or replay any beat. Each <span class="chip op">operation</span> is something the toolkit visibly <em>does</em>; each <span class="chip see">on screen</span> is what the viewer sees.</p>
+      <div class="act">
+        <div class="num">Act I — The mess → the memory</div>
+        <h3>Everything we already knew, finally in one place.</h3>
+        <div class="beat">
+          <div class="t">
+            1 · The scattered cold open <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            Fragment tiles drift in a dim field: a SharePoint tree, a Teams
+            thread, three doc versions, a CRM row. Visually cluttered on
+            purpose. Reyes' question hangs over it.
+          </p>
+          <div class="screen">
+            “A solicitation just dropped. Do we bid? I have two days — and the
+            answer is buried across a dozen systems.”
+          </div>
+        </div>
+        <div class="beat">
+          <div class="t">
+            2 · Consolidation <span class="chip op">buildRawGraph()</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            The fragments resolve and wire into a single connected
+            <strong>record graph</strong> — awards, the customer evaluations
+            attached to them, the people who delivered them, the documents that
+            evidence them. Motion: nodes fly from their source tiles into place;
+            edges snap.
+          </p>
+          <div class="screen">
+            “This is everything we've done — and unlike a proposal archive, it
+            stays here and compounds.”
+          </div>
+        </div>
+      </div>
 
-<div class="act">
-  <div class="num">Act I — The mess → the memory</div>
-  <h3>Everything we already knew, finally in one place.</h3>
-  <div class="beat">
-    <div class="t">1 · The scattered cold open <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">Fragment tiles drift in a dim field: a SharePoint tree, a Teams thread, three doc versions, a CRM row. Visually cluttered on purpose. Reyes' question hangs over it.</p>
-    <div class="screen">“A solicitation just dropped. Do we bid? I have two days — and the answer is buried across a dozen systems.”</div>
-  </div>
-  <div class="beat">
-    <div class="t">2 · Consolidation <span class="chip op">buildRawGraph()</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">The fragments resolve and wire into a single connected <strong>record graph</strong> — awards, the customer evaluations attached to them, the people who delivered them, the documents that evidence them. Motion: nodes fly from their source tiles into place; edges snap.</p>
-    <div class="screen">“This is everything we've done — and unlike a proposal archive, it stays here and compounds.”</div>
-  </div>
-</div>
+      <div class="act">
+        <div class="num">Act II — Records → meaning → exposure</div>
+        <h3>What we can prove, and what we can only claim.</h3>
+        <div class="beat">
+          <div class="t">
+            3 · Projection to the meaning layer
+            <span class="chip op">projectMeaning()</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            The record graph <strong>transforms</strong> into the concept layer.
+            Awards collapse behind concepts; signed, weighted
+            <em>association</em> edges appear (green = supports, red =
+            contests). A small inspectable panel shows the projection rule —
+            evaluation rating + recompete + repeat + recency — and hints the
+            weights are <em>yours to tune</em>. A Marginal 2019 effort visibly
+            draws a <span style="color: var(--bad)">red contesting edge</span>.
+          </p>
+          <div class="screen">
+            “Records aren't intelligence. This is the same memory, re-expressed
+            at the level we actually make decisions.”
+          </div>
+        </div>
+        <div class="beat">
+          <div class="t">
+            4 · The opportunity drops in
+            <span class="chip op">decompose(opportunity)</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            MERIDIAN enters and wires itself to its required concepts, each
+            sized by how central it is to winning. The opportunity's
+            concept-neighborhood lights up against our meaning graph.
+          </p>
+        </div>
+        <div class="beat">
+          <div class="t">
+            5 · The analytic: two bars per requirement
+            <span class="chip op">runRelevanceAnalytic()</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            Graph analytics run <em>on the meaning layer</em>. Each required
+            concept resolves into <strong>two bars</strong> — substantiated
+            (solid) vs. claimable (ghost). Most align and sit high. Then the
+            camera settles on the ones that don't:
+          </p>
+        </div>
+        <div class="panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Required concept</th>
+                <th>Coverage (substantiated ▮ / claimable ▯)</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Digital Thread</td>
+                <td>
+                  <div class="bars">
+                    <div class="bar sub"><span style="width: 92%"></span></div>
+                    <div class="bar claim">
+                      <span style="width: 95%"></span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge b-good">Discriminator</span></td>
+              </tr>
+              <tr>
+                <td>Data Governance &amp; Provenance</td>
+                <td>
+                  <div class="bars">
+                    <div class="bar sub"><span style="width: 96%"></span></div>
+                    <div class="bar claim">
+                      <span style="width: 98%"></span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge b-good">Discriminator</span></td>
+              </tr>
+              <tr>
+                <td>Predictive Logistics</td>
+                <td>
+                  <div class="bars">
+                    <div class="bar sub"><span style="width: 74%"></span></div>
+                    <div class="bar claim">
+                      <span style="width: 80%"></span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge b-good">Discriminator</span></td>
+              </tr>
+              <tr>
+                <td>Sustainment Modeling</td>
+                <td>
+                  <div class="bars">
+                    <div class="bar sub"><span style="width: 34%"></span></div>
+                    <div class="bar claim">
+                      <span style="width: 78%"></span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge b-warn">Exposed</span></td>
+              </tr>
+              <tr>
+                <td>Cyber Resilience Engineering</td>
+                <td>
+                  <div class="bars">
+                    <div class="bar sub"><span style="width: 30%"></span></div>
+                    <div class="bar claim">
+                      <span style="width: 44%"></span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="badge b-bad">Gap</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="dim mono" style="margin: 6px 0 0">
+            Fit (substantiated, requirement-weighted):
+            <strong style="color: var(--ink)">68%</strong> · two areas need
+            attention
+          </p>
+        </div>
+        <div class="beat">
+          <div class="t">
+            6 · The two weaknesses are not the same weakness
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            <strong>Sustainment = Exposed.</strong> We'd <em>claim</em> it
+            strongly (résumés, adjacent logistics work), but our provable
+            evidence is thin — dragged down by that contested 2019 effort. If an
+            evaluator probes, the story cracks. <strong>Cyber = Gap.</strong> We
+            can't even credibly claim it. Two different problems, two different
+            actions — a distinction a keyword tool literally cannot draw.
+          </p>
+          <div class="screen">
+            “The internal go/no-go can't run on what we'd <em>write</em>. It has
+            to run on what we can <em>defend</em>.”
+          </div>
+        </div>
+      </div>
 
-<div class="act">
-  <div class="num">Act II — Records → meaning → exposure</div>
-  <h3>What we can prove, and what we can only claim.</h3>
-  <div class="beat">
-    <div class="t">3 · Projection to the meaning layer <span class="chip op">projectMeaning()</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">The record graph <strong>transforms</strong> into the concept layer. Awards collapse behind concepts; signed, weighted <em>association</em> edges appear (green = supports, red = contests). A small inspectable panel shows the projection rule — evaluation rating + recompete + repeat + recency — and hints the weights are <em>yours to tune</em>. A Marginal 2019 effort visibly draws a <span style="color:var(--bad)">red contesting edge</span>.</p>
-    <div class="screen">“Records aren't intelligence. This is the same memory, re-expressed at the level we actually make decisions.”</div>
-  </div>
-  <div class="beat">
-    <div class="t">4 · The opportunity drops in <span class="chip op">decompose(opportunity)</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">MERIDIAN enters and wires itself to its required concepts, each sized by how central it is to winning. The opportunity's concept-neighborhood lights up against our meaning graph.</p>
-  </div>
-  <div class="beat">
-    <div class="t">5 · The analytic: two bars per requirement <span class="chip op">runRelevanceAnalytic()</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">Graph analytics run <em>on the meaning layer</em>. Each required concept resolves into <strong>two bars</strong> — substantiated (solid) vs. claimable (ghost). Most align and sit high. Then the camera settles on the ones that don't:</p>
-  </div>
-  <div class="panel">
-    <table>
-      <thead><tr><th>Required concept</th><th>Coverage (substantiated ▮ / claimable ▯)</th><th>State</th></tr></thead>
-      <tbody>
-        <tr><td>Digital Thread</td>
-          <td><div class="bars"><div class="bar sub"><span style="width:92%"></span></div><div class="bar claim"><span style="width:95%"></span></div></div></td>
-          <td><span class="badge b-good">Discriminator</span></td></tr>
-        <tr><td>Data Governance &amp; Provenance</td>
-          <td><div class="bars"><div class="bar sub"><span style="width:96%"></span></div><div class="bar claim"><span style="width:98%"></span></div></div></td>
-          <td><span class="badge b-good">Discriminator</span></td></tr>
-        <tr><td>Predictive Logistics</td>
-          <td><div class="bars"><div class="bar sub"><span style="width:74%"></span></div><div class="bar claim"><span style="width:80%"></span></div></div></td>
-          <td><span class="badge b-good">Discriminator</span></td></tr>
-        <tr><td>Sustainment Modeling</td>
-          <td><div class="bars"><div class="bar sub"><span style="width:34%"></span></div><div class="bar claim"><span style="width:78%"></span></div></div></td>
-          <td><span class="badge b-warn">Exposed</span></td></tr>
-        <tr><td>Cyber Resilience Engineering</td>
-          <td><div class="bars"><div class="bar sub"><span style="width:30%"></span></div><div class="bar claim"><span style="width:44%"></span></div></div></td>
-          <td><span class="badge b-bad">Gap</span></td></tr>
-      </tbody>
-    </table>
-    <p class="dim mono" style="margin:6px 0 0">Fit (substantiated, requirement-weighted): <strong style="color:var(--ink)">68%</strong> · two areas need attention</p>
-  </div>
-  <div class="beat">
-    <div class="t">6 · The two weaknesses are not the same weakness <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0"><strong>Sustainment = Exposed.</strong> We'd <em>claim</em> it strongly (résumés, adjacent logistics work), but our provable evidence is thin — dragged down by that contested 2019 effort. If an evaluator probes, the story cracks. <strong>Cyber = Gap.</strong> We can't even credibly claim it. Two different problems, two different actions — a distinction a keyword tool literally cannot draw.</p>
-    <div class="screen">“The internal go/no-go can't run on what we'd <em>write</em>. It has to run on what we can <em>defend</em>.”</div>
-  </div>
-</div>
+      <div class="act">
+        <div class="num">Act III — Decision → fan-out → the brief</div>
+        <h3>Pursue — because the exposure is closeable.</h3>
+        <div class="beat">
+          <div class="t">
+            7 · Decision on the substantiated floor
+            <span class="chip op">deriveActions()</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            A decision node forms:
+            <span class="badge b-warn">Pursue with teaming</span>, justified by
+            the <em>substantiated</em> 68% — not the rosier claimable number. It
+            fans out (not 1:1) into citations, gap-teaming,
+            discriminator-mapping, and customer-shaping actions, each tagged
+            with provenance.
+          </p>
+        </div>
+        <div class="beat">
+          <div class="t">
+            8 · The confidence boost: the partner the graph already knew
+            <span class="chip op">traceTeaming(exposed)</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            From the exposed/gap concepts, the graph traces outward and surfaces
+            a
+            <strong
+              >partner Northwind has co-delivered substantiated, evaluated work
+              with before</strong
+            >
+            — one who turns the cyber gap and the sustainment exposure into
+            <em>defensible</em> claims. The exposure isn't fatal; it's closeable
+            with someone already trusted. The decision solidifies.
+          </p>
+          <div class="screen">
+            “We don't have to fake it. We have to team it — with someone we've
+            already proven we can deliver with.”
+          </div>
+        </div>
+        <div class="beat">
+          <div class="t">
+            9 · Drill anywhere: provenance to the floor
+            <span class="chip op">trace(any) → raw</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            Reyes clicks a recommended discriminator. It traces
+            <strong
+              >action → analytic → concept association → the actual award and
+              the Exceptional evaluation that proves it</strong
+            >. Click the exposure: it traces to the <em>absence</em> of
+            substantiating evidence. Every claim is defensible or visibly
+            flagged.
+          </p>
+        </div>
+        <div class="beat">
+          <div class="t">
+            10 · The deliverable
+            <span class="chip op">assembleCaptureBrief()</span>
+            <span class="chip see">on screen</span>
+          </div>
+          <p class="dim" style="margin: 0">
+            One branded capture brief, with two faces (below). Exportable. The
+            closing line:
+          </p>
+          <div class="screen">
+            “Two days of archaeology, done in twenty minutes — bid on truth,
+            sell with a story we can defend, and it's all reusable for the next
+            pursuit.”
+          </div>
+        </div>
+      </div>
 
-<div class="act">
-  <div class="num">Act III — Decision → fan-out → the brief</div>
-  <h3>Pursue — because the exposure is closeable.</h3>
-  <div class="beat">
-    <div class="t">7 · Decision on the substantiated floor <span class="chip op">deriveActions()</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">A decision node forms: <span class="badge b-warn">Pursue with teaming</span>, justified by the <em>substantiated</em> 68% — not the rosier claimable number. It fans out (not 1:1) into citations, gap-teaming, discriminator-mapping, and customer-shaping actions, each tagged with provenance.</p>
-  </div>
-  <div class="beat">
-    <div class="t">8 · The confidence boost: the partner the graph already knew <span class="chip op">traceTeaming(exposed)</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">From the exposed/gap concepts, the graph traces outward and surfaces a <strong>partner Northwind has co-delivered substantiated, evaluated work with before</strong> — one who turns the cyber gap and the sustainment exposure into <em>defensible</em> claims. The exposure isn't fatal; it's closeable with someone already trusted. The decision solidifies.</p>
-    <div class="screen">“We don't have to fake it. We have to team it — with someone we've already proven we can deliver with.”</div>
-  </div>
-  <div class="beat">
-    <div class="t">9 · Drill anywhere: provenance to the floor <span class="chip op">trace(any) → raw</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">Reyes clicks a recommended discriminator. It traces <strong>action → analytic → concept association → the actual award and the Exceptional evaluation that proves it</strong>. Click the exposure: it traces to the <em>absence</em> of substantiating evidence. Every claim is defensible or visibly flagged.</p>
-  </div>
-  <div class="beat">
-    <div class="t">10 · The deliverable <span class="chip op">assembleCaptureBrief()</span> <span class="chip see">on screen</span></div>
-    <p class="dim" style="margin:0">One branded capture brief, with two faces (below). Exportable. The closing line:</p>
-    <div class="screen">“Two days of archaeology, done in twenty minutes — bid on truth, sell with a story we can defend, and it's all reusable for the next pursuit.”</div>
-  </div>
-</div>
+      <h2 id="climax">5 · The deliverable — the two-faced capture brief</h2>
+      <p>
+        The artifact a capture director would pay for. Same evidence, two
+        audiences:
+      </p>
+      <div class="two-face">
+        <div class="internal">
+          <div class="face-h">Internal · the truth we bid on</div>
+          <ul class="clean dim">
+            <li>
+              <strong style="color: #fff">Substantiated fit: 68%</strong> —
+              pursue with teaming.
+            </li>
+            <li>
+              <strong style="color: var(--good)"
+                >Provable discriminators:</strong
+              >
+              Digital Thread, Data Governance, Predictive Logistics — each
+              backed by an Exceptional/Very-Good evaluation.
+            </li>
+            <li>
+              <strong style="color: var(--warn)">Exposed:</strong> Sustainment —
+              we'd claim it; the evidence is thin (contested 2019 effort).
+              <em>Risk if probed.</em>
+            </li>
+            <li>
+              <strong style="color: var(--bad)">Gap:</strong> Cyber Resilience —
+              not credibly claimable.
+            </li>
+            <li>
+              <strong style="color: #fff">Closeable:</strong> partner ORCA
+              Systems — prior co-delivered, evaluated cyber + sustainment work.
+            </li>
+          </ul>
+        </div>
+        <div class="proposal">
+          <div class="face-h">Proposal · the story we'll defend</div>
+          <ul class="clean dim">
+            <li>
+              <strong style="color: #fff">Lead Past Performance volume</strong>
+              with HELIOS (Exceptional, recompete-won) and AEGIS (Exceptional,
+              reused semantic layer).
+            </li>
+            <li>
+              <strong style="color: #fff"
+                >Predictive logistics discriminator</strong
+              >
+              anchored by ATLAS (Very Good).
+            </li>
+            <li>
+              <strong style="color: #fff">Sustainment &amp; cyber</strong>
+              carried by the ORCA teaming arrangement — claims now backstopped
+              by real, evaluated joint past performance.
+            </li>
+            <li>
+              <strong style="color: #fff">Section M mapping:</strong> each
+              evaluation factor → the provable discriminator that answers it,
+              within the 10-page limit.
+            </li>
+          </ul>
+        </div>
+      </div>
+      <p class="dim">
+        Every line on both faces drills to its evidence — or, for the exposure,
+        to the documented absence of it. That round-trip is the capability; the
+        rest is presentation.
+      </p>
 
-<h2 id="climax">5 · The deliverable — the two-faced capture brief</h2>
-<p>The artifact a capture director would pay for. Same evidence, two audiences:</p>
-<div class="two-face">
-  <div class="internal">
-    <div class="face-h">Internal · the truth we bid on</div>
-    <ul class="clean dim">
-      <li><strong style="color:#fff">Substantiated fit: 68%</strong> — pursue with teaming.</li>
-      <li><strong style="color:var(--good)">Provable discriminators:</strong> Digital Thread, Data Governance, Predictive Logistics — each backed by an Exceptional/Very-Good evaluation.</li>
-      <li><strong style="color:var(--warn)">Exposed:</strong> Sustainment — we'd claim it; the evidence is thin (contested 2019 effort). <em>Risk if probed.</em></li>
-      <li><strong style="color:var(--bad)">Gap:</strong> Cyber Resilience — not credibly claimable.</li>
-      <li><strong style="color:#fff">Closeable:</strong> partner ORCA Systems — prior co-delivered, evaluated cyber + sustainment work.</li>
-    </ul>
-  </div>
-  <div class="proposal">
-    <div class="face-h">Proposal · the story we'll defend</div>
-    <ul class="clean dim">
-      <li><strong style="color:#fff">Lead Past Performance volume</strong> with HELIOS (Exceptional, recompete-won) and AEGIS (Exceptional, reused semantic layer).</li>
-      <li><strong style="color:#fff">Predictive logistics discriminator</strong> anchored by ATLAS (Very Good).</li>
-      <li><strong style="color:#fff">Sustainment &amp; cyber</strong> carried by the ORCA teaming arrangement — claims now backstopped by real, evaluated joint past performance.</li>
-      <li><strong style="color:#fff">Section M mapping:</strong> each evaluation factor → the provable discriminator that answers it, within the 10-page limit.</li>
-    </ul>
-  </div>
-</div>
-<p class="dim">Every line on both faces drills to its evidence — or, for the exposure, to the documented absence of it. That round-trip is the capability; the rest is presentation.</p>
+      <h2 id="wow">6 · Where the "wow" lives</h2>
+      <p>
+        Deliberately <em>not</em> one obvious bridge. The memorable moments are
+        quiet and multi-signal — which is what makes them feel real rather than
+        staged:
+      </p>
+      <ul class="clean">
+        <li>
+          <strong>The two bars diverging.</strong> The instant a viewer sees
+          substantiated fall away from claimable on Sustainment, they
+          <em>get it</em> — and they recognize their own company in it.
+        </li>
+        <li>
+          <strong>One contract, two roles.</strong> The contested 2019 effort
+          that <em>weakens</em> Sustainment is the same lesson that
+          <em>shaped</em> the later ATLAS win — visible only because the graph
+          keeps signed associations and provenance.
+        </li>
+        <li>
+          <strong>The teaming partner as resolution.</strong> The gap arrives
+          <em>with its own solution</em>: a trusted partner the graph surfaces
+          from prior co-delivery. The fear (we're exposed) resolves to
+          confidence (we know how to close it) in one trace.
+        </li>
+      </ul>
 
-<h2 id="wow">6 · Where the "wow" lives</h2>
-<p>Deliberately <em>not</em> one obvious bridge. The memorable moments are quiet and multi-signal — which is what makes them feel real rather than staged:</p>
-<ul class="clean">
-  <li><strong>The two bars diverging.</strong> The instant a viewer sees substantiated fall away from claimable on Sustainment, they <em>get it</em> — and they recognize their own company in it.</li>
-  <li><strong>One contract, two roles.</strong> The contested 2019 effort that <em>weakens</em> Sustainment is the same lesson that <em>shaped</em> the later ATLAS win — visible only because the graph keeps signed associations and provenance.</li>
-  <li><strong>The teaming partner as resolution.</strong> The gap arrives <em>with its own solution</em>: a trusted partner the graph surfaces from prior co-delivery. The fear (we're exposed) resolves to confidence (we know how to close it) in one trace.</li>
-</ul>
+      <h2 id="sells">7 · Why each moment converts</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Moment</th>
+            <th>Buyer's private thought</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Scattered cold open</td>
+            <td>“That's my Monday. Every pursuit.”</td>
+          </tr>
+          <tr>
+            <td>Fragments wire into a graph</td>
+            <td>
+              “And it <em>stays</em> — I'm not rebuilding this next time.”
+            </td>
+          </tr>
+          <tr>
+            <td>Two bars diverge on a requirement</td>
+            <td>
+              “That's the overclaim I'm always nervous about. I could
+              <em>see</em> it before submission.”
+            </td>
+          </tr>
+          <tr>
+            <td>Exposed vs. Gap distinction</td>
+            <td>“No tool I have tells me <em>that</em>.”</td>
+          </tr>
+          <tr>
+            <td>Teaming partner surfaces from the graph</td>
+            <td>
+              “The system found my way to win, not just my reason to lose.”
+            </td>
+          </tr>
+          <tr>
+            <td>Drill from a brief line to the evaluation</td>
+            <td>“I could hand this to my boss and defend every word.”</td>
+          </tr>
+          <tr>
+            <td>Custom-branded as a customer</td>
+            <td>“This becomes <em>our</em> product, not a tool we bolt on.”</td>
+          </tr>
+        </tbody>
+      </table>
 
-<h2 id="sells">7 · Why each moment converts</h2>
-<table>
-  <thead><tr><th>Moment</th><th>Buyer's private thought</th></tr></thead>
-  <tbody>
-    <tr><td>Scattered cold open</td><td>“That's my Monday. Every pursuit.”</td></tr>
-    <tr><td>Fragments wire into a graph</td><td>“And it <em>stays</em> — I'm not rebuilding this next time.”</td></tr>
-    <tr><td>Two bars diverge on a requirement</td><td>“That's the overclaim I'm always nervous about. I could <em>see</em> it before submission.”</td></tr>
-    <tr><td>Exposed vs. Gap distinction</td><td>“No tool I have tells me <em>that</em>.”</td></tr>
-    <tr><td>Teaming partner surfaces from the graph</td><td>“The system found my way to win, not just my reason to lose.”</td></tr>
-    <tr><td>Drill from a brief line to the evaluation</td><td>“I could hand this to my boss and defend every word.”</td></tr>
-    <tr><td>Custom-branded as a customer</td><td>“This becomes <em>our</em> product, not a tool we bolt on.”</td></tr>
-  </tbody>
-</table>
+      <h2 id="honesty">8 · The honesty line we hold</h2>
+      <p>
+        The demo is confident <em>because</em> it's honest about what's real:
+      </p>
+      <ul class="clean dim">
+        <li>
+          The
+          <strong
+            >projection rule and the analytic are illustrative stand-ins</strong
+          >
+          — the demo signals they're yours to plug in, and never implies a
+          specific proprietary method is "the answer." A BD audience that
+          catches a faked algorithm distrusts everything; “here's where
+          <em>your</em> logic goes, shown with a representative result” reads as
+          correct.
+        </li>
+        <li>
+          What is <strong>genuinely the toolkit's</strong>, and what gets the
+          spotlight, is the composition and the provenance: tiered transforms
+          that stay traceable, end to end. That is not mocked.
+        </li>
+        <li>
+          One <strong>complete worked example</strong> runs all the way through,
+          so it feels like a finished machine — with just-visible access panels
+          where logic plugs in, not a box of parts.
+        </li>
+      </ul>
 
-<h2 id="honesty">8 · The honesty line we hold</h2>
-<p>The demo is confident <em>because</em> it's honest about what's real:</p>
-<ul class="clean dim">
-  <li>The <strong>projection rule and the analytic are illustrative stand-ins</strong> — the demo signals they're yours to plug in, and never implies a specific proprietary method is "the answer." A BD audience that catches a faked algorithm distrusts everything; “here's where <em>your</em> logic goes, shown with a representative result” reads as correct.</li>
-  <li>What is <strong>genuinely the toolkit's</strong>, and what gets the spotlight, is the composition and the provenance: tiered transforms that stay traceable, end to end. That is not mocked.</li>
-  <li>One <strong>complete worked example</strong> runs all the way through, so it feels like a finished machine — with just-visible access panels where logic plugs in, not a box of parts.</li>
-</ul>
-
-<div class="foot">
-  Companion to the flagship implementation plan · Northwind Analytics, ORCA Systems, MERIDIAN, and all awards/evaluations are fictional and contain nothing sensitive · the worked-example outcome shown here (68% substantiated fit, Sustainment exposed, Cyber gap, pursue-with-teaming) is produced by the pipeline's logic tests, not hand-authored copy.
-</div>
-
-</div>
-</body>
+      <div class="foot">
+        Companion to the flagship implementation plan · Northwind Analytics,
+        ORCA Systems, MERIDIAN, and all awards/evaluations are fictional and
+        contain nothing sensitive · the worked-example outcome shown here (68%
+        substantiated fit, Sustainment exposed, Cyber gap, pursue-with-teaming)
+        is produced by the pipeline's logic tests, not hand-authored copy.
+      </div>
+    </div>
+  </body>
 </html>

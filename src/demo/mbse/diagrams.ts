@@ -237,16 +237,34 @@ function projectRequirements(
     if (root) walk(root);
   }
 
-  // Satisfying blocks appear as compact boxes so their «satisfy» links land.
+  // Satisfying and verifying elements appear as compact boxes so
+  // their «satisfy»/«verify» links land (review 6.5: verification
+  // traces were dropped at this filter; a test case with a «verify»
+  // link never rendered).
+  const TRACE_STEREOTYPES = new Set(["satisfy", "verify"]);
   const satisfies = (diagram.relationships ?? []).flatMap((rid) => {
     const r = model.relationships[rid];
-    return r && r.stereotype === "satisfy" && seen.has(r.target) ? [r] : [];
+    return r &&
+      r.stereotype !== undefined &&
+      TRACE_STEREOTYPES.has(r.stereotype) &&
+      seen.has(r.target)
+      ? [r]
+      : [];
   });
   const blockIds = new Set(satisfies.map((r) => r.source));
   for (const bid of blockIds) {
     const b = model.blocks[bid];
     if (b)
-      nodes.push({ id: b.id, header: { stereotype: "block", name: b.name } });
+      nodes.push({
+        id: b.id,
+        header: {
+          // 12.2: constraint blocks were falling back to "block"
+          // (their kind, not a stereotype field, is what marks them).
+          stereotype:
+            b.stereotype ?? (b.kind === "constraint" ? "constraint" : "block"),
+          name: b.name,
+        },
+      });
   }
   for (const r of satisfies) {
     edges.push({
@@ -254,7 +272,7 @@ function projectRequirements(
       source: r.source,
       target: r.target,
       kind: "dependency",
-      label: stereoLabel("satisfy"),
+      label: stereoLabel(r.stereotype ?? "satisfy"),
     });
   }
   return { nodes, edges };

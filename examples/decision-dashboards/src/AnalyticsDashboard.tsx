@@ -10,9 +10,7 @@
  *  - LinkedChart in its less-obvious forms: a BAR degree distribution
  *    and a SCATTER of centrality vs a domain property (the scenarios
  *    only ever show a pie).
- *  - AlgorithmPanel: run a graph algorithm; results are written onto
  *    node properties.
- *  - DerivedPropertyPanel: compute a derived property from an
  *    expression and make it available to the encoding/charts.
  *
  * Everything is linked through the shared selection store: select in
@@ -23,6 +21,7 @@
  * @see examples/decision-dashboards/README.md
  */
 
+import type { Core } from "cytoscape";
 import { useMemo, useState, useEffect } from "react";
 import {
   degreeCentrality,
@@ -30,10 +29,9 @@ import {
   ingestAlgorithmResults,
   createDegreeDistribution,
   createCentralityVsProperty,
-  DerivedPropertyEngine,
   type UGM,
   G3tEventBus,
-  findShortestPath,
+  allShortestPaths,
 } from "@g3t/core";
 import {
   CoverageMeter,
@@ -45,16 +43,22 @@ import {
   CytoscapeCanvas,
   TableView,
   StatsPanel,
-  AlgorithmPanel,
-  DerivedPropertyPanel,
   DEFAULT_ENCODING,
   fromLegacyConfig,
   type EncodingSpec,
+  useEmphasisStore,
+  NeighborhoodPopout,
+  NodePropertyInspector,
+  MatrixView,
+  SankeyView,
+  GraphToolbar,
+  FloatingPanel,
+  categoricalColorMap,
 } from "@g3t/react";
 import { LinkedChart } from "@g3t/charts";
 import { buildSupplyNetwork, originCoverageByTier } from "./supply-data";
 
-type Tab = "degree" | "scatter" | "stats";
+type Tab = "degree" | "scatter" | "stats" | "matrix" | "sankey";
 
 export interface AnalyticsDashboardProps {
   className?: string;
@@ -79,11 +83,6 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
     return g;
   }, []);
 
-  // Re-render trigger after an algorithm/derived-property writes new
-  // properties (UGM mutates in place; bump to recompute memos).
-  const [revision, setRevision] = useState(0);
-  const bump = () => setRevision((r) => r + 1);
-
   // Context menu: the FULL toolkit action set (registerToolkitActions),
   // with every event-emitting item consumed below; this capability
   // surface is where the everything-menu belongs, while the domain
@@ -92,6 +91,10 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
   // would duplicate them).
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
   const [menuStatus, setMenuStatus] = useState<string | null>(null);
+  const [core, setCore] = useState<Core | null>(null);
+  // 9.17: the path effect needs a visible exit; the chip renders
+  // whenever the emphasis layer is active.
+  const emphasisActive = useEmphasisStore((s) => s.active);
   const [editNodeId, setEditNodeId] = useState<string | null>(null);
   const { menuManager, bus } = useMemo(() => {
     const eventBus = new G3tEventBus();
@@ -124,11 +127,12 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
     const unsubs = [
       bus.on("context:viewNeighbors", (d) => {
         const { nodeId, hops } = d as { nodeId: string; hops: number };
-        const hood = neighborhood(nodeId, hops);
-        useSelectionStore.getState().selectNodes([...hood]);
-        setMenuStatus(
-          `Neighborhood of ${nodeId} (${hops}-hop): ${hood.size} nodes selected`,
-        );
+        setNeighborsOf({ nodeId, hops });
+        setMenuStatus(`Neighborhood popout: ${nodeId}`);
+      }),
+      bus.on("context:inspect", (d) => {
+        const { nodeId } = d as { nodeId: string };
+        setInspected(nodeId);
       }),
       bus.on("context:focusNode", (d) => {
         const { nodeId, hops } = d as { nodeId: string; hops: number };
@@ -155,12 +159,22 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           sourceId: string;
           targetId: string;
         };
-        const path = findShortestPath(ugm, sourceId, targetId);
+        // 9.17: the UNION of all shortest routes, not one arbitrary
+        // representative (the singular finder made this a one-path
+        // demo by construction). The count caps at 50 to keep the
+        // label honest on dense graphs.
+        const path = allShortestPaths(ugm, sourceId, targetId);
         if (path.found) {
-          useSelectionStore.getState().selectNodes(path.nodeIds);
-          setMenuStatus(
-            `Path ${sourceId} \u2192 ${targetId}: ${path.length} hop(s)`,
-          );
+          // Review 4.6: a path is an EFFECT, not a selection. Edges
+          // along it emphasize, everything else dims, and the nodes
+          // stay unstyled so the result cannot read as selected.
+          const countLabel =
+            path.pathCount >= 50 ? "50+" : String(path.pathCount);
+          const label = `${countLabel} shortest path(s) ${sourceId} \u2192 ${targetId}: ${path.length} hop(s)`;
+          useEmphasisStore
+            .getState()
+            .setPathEffect(path.nodeIds, path.edgeIds, label);
+          setMenuStatus(label);
         } else {
           setMenuStatus(`No path from ${sourceId} to ${targetId}`);
         }
@@ -179,29 +193,52 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
     };
   }, [bus, ugm]);
 
-  const [engine] = useState(() => new DerivedPropertyEngine());
-
-  // Size nodes by degree so centrality is visible on the canvas.
-  const spec = useMemo<EncodingSpec>(
-    () =>
-      fromLegacyConfig({
-        ...DEFAULT_ENCODING,
-        nodeSizeProperty: "_degree",
-        nodeSizeRange: [14, 48],
-      }),
-    [],
-  );
+  // Reviews 5.1/5.2: every demonstration has a visible consequence,
+  // wired through the encoding spec. Size follows the last computed
+  // numeric property (degree by default, or a derived property);
+  // color switches to _component after the components demo. The
+  // reset chip returns both to defaults.
+  const [sizeKey, setSizeKey] = useState("_degree");
+  const [colorKey, setColorKey] = useState<string | null>(null);
+  const spec = useMemo<EncodingSpec>(() => {
+    const base = fromLegacyConfig({
+      ...DEFAULT_ENCODING,
+      nodeSizeProperty: sizeKey,
+      nodeSizeRange: [14, 48],
+    });
+    if (colorKey === null) return base;
+    return {
+      ...base,
+      node: {
+        ...base.node,
+        color: {
+          driver: colorKey,
+          scale: { kind: "categorical", palette: "okabe-ito" },
+        },
+      },
+    };
+  }, [sizeKey, colorKey]);
+  const styledOffDefault = sizeKey !== "_degree" || colorKey !== null;
 
   const degreePipeline = useMemo(() => createDegreeDistribution(), []);
   // Centrality vs a domain property (supply nodes carry a numeric
-  // "risk"); revision keeps it fresh after metric writes.
+  // "risk"). 12.6 removed the property-writing panels, so the
+  // pipeline is static (degree ingests once at mount).
   const scatterPipeline = useMemo(
     () => createCentralityVsProperty("_degree", "risk"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [revision],
+    [],
   );
+  const nodeColors = useMemo(() => categoricalColorMap(spec, ugm), [ugm]);
 
   const [tab, setTab] = useState<Tab>("degree");
+  // Review 4.10: "View Neighbors" opens a floating second graph view
+  // instead of selecting the whole neighborhood on the main canvas.
+  const [neighborsOf, setNeighborsOf] = useState<{
+    nodeId: string;
+    hops: number;
+  } | null>(null);
+  // Review 4.11: "Inspect" opens an actual inspector panel.
+  const [inspected, setInspected] = useState<string | null>(null);
 
   return (
     <div
@@ -210,7 +247,8 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
       style={{
         display: "grid",
         gridTemplateColumns: "minmax(0, 1fr) 380px",
-        gridTemplateRows: "minmax(0, 1fr) 240px",
+        // Review 5.4: the data row is HALF the window, not a 240px strip.
+        gridTemplateRows: "minmax(0, 1fr) minmax(0, 1fr)",
         gap: 12,
         height: "100%",
         minHeight: 0,
@@ -228,11 +266,26 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           position: "relative",
         }}
       >
+        {/* Checklist line 50 (traceability sweep 2026-07-07): basic
+            graph controls were asked for on THIS surface; Round 2
+            adopted the toolbar on the workbench and scale only. */}
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            right: 8,
+            zIndex: 20,
+          }}
+        >
+          <GraphToolbar ugm={ugm} cy={core} />
+        </div>
         <CytoscapeCanvas
           ugm={ugm}
           encodingSpec={spec}
           menuManager={menuManager}
           hidden={hiddenIds}
+          onReady={setCore}
         />
         {(menuStatus !== null || hiddenIds.size > 0) && (
           <div
@@ -252,6 +305,28 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
             }}
           >
             <span>{menuStatus}</span>
+            {emphasisActive && (
+              <button
+                type="button"
+                data-testid="clear-path"
+                onClick={() => {
+                  useEmphasisStore.getState().clear();
+                  setMenuStatus(null);
+                }}
+                style={{
+                  font: "inherit",
+                  fontSize: 11,
+                  padding: "1px 8px",
+                  border: "1px solid #f08c00",
+                  borderRadius: 4,
+                  background: "transparent",
+                  color: "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                Clear path
+              </button>
+            )}
             {hiddenIds.size > 0 && (
               <button
                 type="button"
@@ -279,13 +354,19 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           <div
             data-testid="dashboard-style-editor"
             style={{
-              position: "absolute",
-              top: 8,
-              right: 8,
+              // Review 4.13: the absolute-in-section placement could
+              // clip against the overflow-hidden canvas section and
+              // abut the right panel. Fixed positioning escapes
+              // ancestor clipping; the right offset clears the
+              // 380px panel plus the grid gap by construction.
+              position: "fixed",
+              top: 72,
+              right: 404,
               width: 260,
-              maxHeight: "70%",
+              maxWidth: "calc(100vw - 420px)",
+              maxHeight: "70vh",
               overflow: "auto",
-              zIndex: 6,
+              zIndex: 30,
             }}
           >
             <NodeStyleEditor
@@ -306,6 +387,38 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
         >
           {ugm.getNodeIds().length} nodes · sized by degree centrality
         </div>
+        {inspected !== null && (
+          <FloatingPanel
+            testId="dashboard-inspector"
+            corner="top-right"
+            positioning="absolute"
+            onClose={() => setInspected(null)}
+            closeTestId="inspector-close"
+            header={<strong>Inspector</strong>}
+          >
+            {/* 12.11: no sizing wrapper (the reviewed box was too
+                small); the inspector renders at its natural width
+                and the panel scrolls. Type chip colors come from the
+                SURFACE's categorical map so they match the graph. */}
+            <div style={{ maxHeight: 340, overflow: "auto" }}>
+              <NodePropertyInspector
+                ugm={ugm}
+                selection={{ type: "node", id: inspected }}
+                typeColorOf={(t) => nodeColors.get(t)}
+              />
+            </div>
+          </FloatingPanel>
+        )}
+        {neighborsOf !== null && (
+          <NeighborhoodPopout
+            ugm={ugm}
+            focusId={neighborsOf.nodeId}
+            // 9.20: always start at ONE hop; the stepper widens.
+            defaultHops={1}
+            positioning="absolute"
+            onClose={() => setNeighborsOf(null)}
+          />
+        )}
       </section>
 
       {/* Right rail: run algorithms / derive properties */}
@@ -319,14 +432,11 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           overflow: "auto",
         }}
       >
-        <div className="g3t-card" style={{ padding: 12 }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Graph algorithms</h3>
-          <AlgorithmPanel ugm={ugm} onIngested={() => bump()} />
-        </div>
-        <div className="g3t-card" style={{ padding: 12 }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Derived property</h3>
-          <DerivedPropertyPanel ugm={ugm} engine={engine} onCompute={bump} />
-        </div>
+        {/* 12.6 (Zach's 9.6 ruling): the algorithm and
+            derived-property demonstration cards stayed unhelpful
+            through two review passes and are REMOVED from this
+            surface; the components live on in the toolkit and the
+            wiring guide. Origin coverage is the rail's one story. */}
         <div className="g3t-card" style={{ padding: 12 }}>
           <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>
             Origin coverage by tier
@@ -377,56 +487,82 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
             borderBottom: "1px solid var(--g3t-border)",
           }}
         >
-          {(["degree", "scatter", "stats"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              className={`g3t-btn ${tab === t ? "g3t-btn-active" : "g3t-btn-ghost"}`}
-              onClick={() => setTab(t)}
-            >
-              {t === "degree"
-                ? "Degree distribution (bar)"
-                : t === "scatter"
-                  ? "Centrality vs risk (scatter)"
-                  : "Statistics"}
-            </button>
-          ))}
+          {(["degree", "scatter", "stats", "matrix", "sankey"] as Tab[]).map(
+            (t) => (
+              <button
+                key={t}
+                className={`g3t-btn ${tab === t ? "g3t-btn-active" : "g3t-btn-ghost"}`}
+                onClick={() => setTab(t)}
+              >
+                {t === "degree"
+                  ? "Degree distribution (bar)"
+                  : t === "scatter"
+                    ? "Centrality vs risk (scatter)"
+                    : t === "stats"
+                      ? "Statistics"
+                      : t === "matrix"
+                        ? "Adjacency matrix"
+                        : "Type flows (sankey)"}
+              </button>
+            ),
+          )}
           <span style={{ flex: 1 }} />
-          <div style={{ fontSize: 11, opacity: 0.6, alignSelf: "center" }}>
-            rev {revision}
-          </div>
         </div>
-        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-          <div style={{ flex: 1, minWidth: 0, padding: 8 }}>
-            {tab === "degree" && (
-              <LinkedChart
-                ugm={ugm}
-                pipeline={degreePipeline}
-                type="bar"
-                height={180}
-              />
-            )}
-            {tab === "scatter" && (
-              <LinkedChart
-                ugm={ugm}
-                pipeline={scatterPipeline}
-                type="scatter"
-                height={180}
-              />
-            )}
-            {tab === "stats" && (
-              <StatsPanel ugm={ugm} propertyKey="_degree" bins={16} />
+        {tab === "matrix" || tab === "sankey" ? (
+          // Relocated from the retired Schema Dashboard (ruling 8.4):
+          // structure-shaped views take the full row.
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 8 }}>
+            {tab === "matrix" ? (
+              <MatrixView ugm={ugm} />
+            ) : (
+              <SankeyView ugm={ugm} mode="sankey" />
             )}
           </div>
-          <div
-            style={{
-              width: 360,
-              borderLeft: "1px solid var(--g3t-border)",
-              overflow: "auto",
-            }}
-          >
-            <TableView ugm={ugm} density="compact" pageSize={6} />
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+            <div
+              style={{
+                flex: "0 0 40%",
+                minWidth: 0,
+                padding: 8,
+                overflow: "auto",
+              }}
+            >
+              {tab === "degree" && (
+                <LinkedChart
+                  ugm={ugm}
+                  pipeline={degreePipeline}
+                  type="bar"
+                  height={180}
+                />
+              )}
+              {tab === "scatter" && (
+                <LinkedChart
+                  ugm={ugm}
+                  pipeline={scatterPipeline}
+                  type="scatter"
+                  height={180}
+                />
+              )}
+              {tab === "stats" && (
+                <StatsPanel ugm={ugm} propertyKey="_degree" bins={16} />
+              )}
+            </div>
+            {/* Review 5.4: the table is the primary reading surface;
+                it takes the remaining ~60% of the full-width row. */}
+            <div
+              data-testid="analytics-table-pane"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                borderLeft: "1px solid var(--g3t-border)",
+                overflow: "auto",
+              }}
+            >
+              <TableView ugm={ugm} density="compact" pageSize={12} />
+            </div>
           </div>
-        </div>
+        )}
       </section>
     </div>
   );

@@ -63,3 +63,4 @@ docs-out/
 .verify-types
 .verify-snippets
 test-results.json
+tests/perf/last-results.json

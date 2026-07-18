@@ -83,12 +83,26 @@ describe("SysML diagram projections", () => {
     const containment = g.edges.filter((e) => e.kind === "composition");
     expect(containment.length).toBe(4);
     expect(containment.every((e) => e.source === "mission")).toBe(true);
-    // satisfy: 4 dependency edges from blocks, and those blocks are present
-    const satisfy = g.edges.filter((e) => e.kind === "dependency");
-    expect(satisfy.length).toBe(4);
-    expect(satisfy.every((e) => e.label === "\u00ABsatisfy\u00BB")).toBe(true);
+    // Traces (review 6.5): 5 «satisfy» (4 subsystem blocks + the
+    // power-budget constraint) and 1 «verify» (the imaging test
+    // case), all rendered as dependency edges with their own labels.
+    const traces = g.edges.filter((e) => e.kind === "dependency");
+    expect(traces.length).toBe(6);
+    expect(traces.filter((e) => e.label === "\u00ABsatisfy\u00BB").length).toBe(
+      5,
+    );
+    expect(traces.filter((e) => e.label === "\u00ABverify\u00BB").length).toBe(
+      1,
+    );
     expect(
       g.nodes.some((n) => n.id === "eps" && n.header?.stereotype === "block"),
+    ).toBe(true);
+    // The verifying test case renders with its own stereotype, so the
+    // trace reads as verification, not another block.
+    expect(
+      g.nodes.some(
+        (n) => n.id === "tc.imaging" && n.header?.stereotype === "testCase",
+      ),
     ).toBe(true);
   });
 

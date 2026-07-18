@@ -22,7 +22,15 @@ export function externalsFromPackageJson(packageJsonPath) {
   ]);
 
   // Node built-ins are always external
-  const nodeBuiltins = ["fs", "path", "url", "stream", "buffer", "util", "events"];
+  const nodeBuiltins = [
+    "fs",
+    "path",
+    "url",
+    "stream",
+    "buffer",
+    "util",
+    "events",
+  ];
   for (const b of nodeBuiltins) names.add(b);
   // React JSX runtime is its own subpath external
   if (names.has("react")) names.add("react/jsx-runtime");

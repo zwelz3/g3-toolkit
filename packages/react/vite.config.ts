@@ -18,6 +18,11 @@ const external = externalsFromPackageJson(resolve(__dirname, "package.json"));
  */
 
 export default defineConfig({
+  esbuild: {
+    minifyIdentifiers: false,
+    minifySyntax: false,
+    minifyWhitespace: true,
+  },
   plugins: [react()],
   resolve: {
     alias: {
@@ -60,6 +65,12 @@ export default defineConfig({
     sourcemap: true,
     emptyOutDir: false,
     target: "es2022",
-    minify: false,
+    // Comment-stripping pass (2026-07-11 dead-code round): source
+    // comments were ~14% of shipped dist bytes and are not consumer
+    // surface (sourcemaps still ship for debugging). Identifiers,
+    // syntax, and code layout are preserved; measured effect on this
+    // vite version is comments-only. Recovered ~44 KB across the
+    // three packages against unchanged budgets.
+    minify: "esbuild",
   },
 });

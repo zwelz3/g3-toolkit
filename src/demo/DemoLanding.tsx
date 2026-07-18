@@ -38,18 +38,6 @@ export const CAPABILITY_SURFACES: Scenario[] = [
     tags: ["StatsPanel + charts", "AlgorithmPanel", "CoverageMeter"],
   },
   {
-    id: "schema-dashboard",
-    title: "Schema Dashboard",
-    subtitle: "Structure views over the same graphs",
-    description:
-      "Schema extraction, adjacency matrix, and sankey flow over the satellite and supply fixtures, with the RDF paradigm notes alongside: the structural counterpart to the analytics surface.",
-    accent: "#5cb8e4",
-    accentGlow: "rgba(92, 184, 228, 0.15)",
-    icon: "\u229e",
-    tags: ["SchemaView", "MatrixView", "SankeyView"],
-  },
-
-  {
     id: "scale",
     title: "Scale",
     subtitle: "8,000 nodes, clustered live to supernodes",
@@ -59,6 +47,17 @@ export const CAPABILITY_SURFACES: Scenario[] = [
     accentGlow: "rgba(126, 224, 129, 0.15)",
     icon: "\u2b22",
     tags: ["collapseByCluster", "Louvain", "drill-in"],
+  },
+  {
+    id: "style-lab",
+    title: "Style Lab",
+    subtitle: "Engine vs stylesheet, parity computed live",
+    description:
+      "Engineering conformance surface for the style-resolution engine: one fixture intent rendered through the legacy Cytoscape stylesheet and through the engine's bypass projection side by side, with parity computed from cytoscape's own resolved styles, the engine-only attribute report (halo, glyphs, taper awaiting the SVG adapter), and a LOD schedule probe.",
+    accent: "#74c0fc",
+    accentGlow: "rgba(116, 192, 252, 0.15)",
+    icon: "\u29c9",
+    tags: ["StyleEngine", "parity oracle", "LOD schedule"],
   },
   {
     id: "ontology-workbench",

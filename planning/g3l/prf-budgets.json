@@ -1,0 +1,12 @@
+{
+  "status": "provisional",
+  "note": "Spec section 14 initial targets. Owner ruling 2026-07-12: CI runner class is the baseline machine profile. Enforcement begins when status flips to frozen, after the first CI numbers and the one permitted revision (implementation-plan ruling: a second miss after freezing is a requirement change, not a budget edit).",
+  "budgetsMs": {
+    "PRF-001-R1-layout": 300,
+    "PRF-002-R1-routing": 200,
+    "PRF-004-R2-full": 100,
+    "PRF-004-incremental": 2,
+    "PRF-002-frame-reroute-mbse": 8,
+    "PRF-002-frame-reroute-R1": 8
+  }
+}

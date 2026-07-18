@@ -8,13 +8,13 @@ We wrote `findShortestPath()` as a custom BFS (98 lines). Graphology
 (already our UGM foundation) has a maintained ecosystem that covers
 every graph algorithm we need:
 
-| Our Custom Code | Replace With | What It Gives Us |
-|-----------------|-------------|-----------------|
-| `findShortestPath` (BFS only) | `graphology-shortest-path` | Dijkstra, BFS, bidirectional, A*, edge weight support |
-| Not implemented | `graphology-metrics` | PageRank, betweenness, closeness, eigenvector, degree centrality |
-| Not implemented | `graphology-communities-louvain` | Louvain community detection with modularity |
-| Not implemented | `graphology-components` | Connected/strongly-connected components |
-| Not implemented | `graphology-layout-forceatlas2` | ForceAtlas2 (Gephi's layout, runs in Web Worker) |
+| Our Custom Code               | Replace With                     | What It Gives Us                                                 |
+| ----------------------------- | -------------------------------- | ---------------------------------------------------------------- |
+| `findShortestPath` (BFS only) | `graphology-shortest-path`       | Dijkstra, BFS, bidirectional, A\*, edge weight support           |
+| Not implemented               | `graphology-metrics`             | PageRank, betweenness, closeness, eigenvector, degree centrality |
+| Not implemented               | `graphology-communities-louvain` | Louvain community detection with modularity                      |
+| Not implemented               | `graphology-components`          | Connected/strongly-connected components                          |
+| Not implemented               | `graphology-layout-forceatlas2`  | ForceAtlas2 (Gephi's layout, runs in Web Worker)                 |
 
 These are all maintained by the Graphology author (Guillaume
 Plique, Sciences Po). Same API conventions, same MultiGraph
@@ -47,7 +47,7 @@ Cost of maintaining our own: ongoing. Cost of adopting: one
 
 ```javascript
 import { linearRegression, rSquared } from "simple-statistics";
-const reg = linearRegression(points.map(p => [p.x, p.y]));
+const reg = linearRegression(points.map((p) => [p.x, p.y]));
 // reg = { m: slope, b: intercept }
 ```
 
@@ -73,8 +73,8 @@ a histogram), and all other views instantly reflect the filter.
 
 ```javascript
 const cf = crossfilter(nodeRecords);
-const riskDim = cf.dimension(d => d.risk);
-const typeDim = cf.dimension(d => d.type);
+const riskDim = cf.dimension((d) => d.risk);
+const typeDim = cf.dimension((d) => d.type);
 
 // Filter risk > 0.5
 riskDim.filterRange([0.5, 1.0]);
@@ -103,7 +103,7 @@ operations:
 import { from } from "arquero";
 const table = from(nodeRecords)
   .groupby("type")
-  .rollup({ count: d => op.count(), avgRisk: d => op.mean(d.risk) });
+  .rollup({ count: (d) => op.count(), avgRisk: (d) => op.mean(d.risk) });
 ```
 
 However, Arquero adds ~150KB to the bundle and its API requires
@@ -154,30 +154,30 @@ states.
 
 ## Revised M11 Ticket Impact
 
-| Original Ticket | Status | Change |
-|-----------------|--------|--------|
-| M11.E1.T1 DataPipeline interface | Keep | No change |
-| M11.E1.T2 8 built-in pipelines | Simplify | Implementations wrap graphology-metrics + simple-statistics |
-| M11.E1.T3 OLS regression | **Eliminate** | Use simple-statistics |
-| M11.E2.T1 LinkedChart | Keep | No change |
-| M11.E2.T2-T6 Chart renderers | Keep | No change (ECharts) |
-| M11.E3.T1 PropertyFilter | **Simplify** | Adapter around crossfilter2 |
-| M11.E3.T2 FilterBuilder UI | Keep | No change |
-| M11.E3.T3 Graph-level filters | Keep | ViewFilter is domain-specific |
-| M11.E4.T1-T2 Table enhancements | Keep | No change |
+| Original Ticket                  | Status        | Change                                                      |
+| -------------------------------- | ------------- | ----------------------------------------------------------- |
+| M11.E1.T1 DataPipeline interface | Keep          | No change                                                   |
+| M11.E1.T2 8 built-in pipelines   | Simplify      | Implementations wrap graphology-metrics + simple-statistics |
+| M11.E1.T3 OLS regression         | **Eliminate** | Use simple-statistics                                       |
+| M11.E2.T1 LinkedChart            | Keep          | No change                                                   |
+| M11.E2.T2-T6 Chart renderers     | Keep          | No change (ECharts)                                         |
+| M11.E3.T1 PropertyFilter         | **Simplify**  | Adapter around crossfilter2                                 |
+| M11.E3.T2 FilterBuilder UI       | Keep          | No change                                                   |
+| M11.E3.T3 Graph-level filters    | Keep          | ViewFilter is domain-specific                               |
+| M11.E4.T1-T2 Table enhancements  | Keep          | No change                                                   |
 
 Net ticket reduction: 14 → 12 (eliminate 1, simplify 2).
 
 ## New Dependencies
 
-| Package | Version | Size | Downloads/wk | License | Maintained |
-|---------|---------|------|-------------|---------|------------|
-| graphology-shortest-path | 2.1.0 | 12KB | 45K | MIT | Yes (2024) |
-| graphology-metrics | 2.4.0 | 28KB | 38K | MIT | Yes (2024) |
-| graphology-communities-louvain | 2.0.2 | 8KB | 22K | MIT | Yes (2024) |
-| graphology-components | 1.5.4 | 6KB | 30K | MIT | Yes (2024) |
-| crossfilter2 | 1.5.4 | 32KB | 18K | Apache 2.0 | Yes (2023) |
-| simple-statistics | 7.8.9 | 45KB | 1.4M | ISC | Yes (2024) |
+| Package                        | Version | Size | Downloads/wk | License    | Maintained |
+| ------------------------------ | ------- | ---- | ------------ | ---------- | ---------- |
+| graphology-shortest-path       | 2.1.0   | 12KB | 45K          | MIT        | Yes (2024) |
+| graphology-metrics             | 2.4.0   | 28KB | 38K          | MIT        | Yes (2024) |
+| graphology-communities-louvain | 2.0.2   | 8KB  | 22K          | MIT        | Yes (2024) |
+| graphology-components          | 1.5.4   | 6KB  | 30K          | MIT        | Yes (2024) |
+| crossfilter2                   | 1.5.4   | 32KB | 18K          | Apache 2.0 | Yes (2023) |
+| simple-statistics              | 7.8.9   | 45KB | 1.4M         | ISC        | Yes (2024) |
 
 Total added bundle: ~131KB (before tree-shaking). All MIT/Apache/ISC.
 All have >18K weekly downloads. All maintained within the last year.

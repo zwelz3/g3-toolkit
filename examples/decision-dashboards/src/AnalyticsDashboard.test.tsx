@@ -5,6 +5,7 @@
  * width equal to the computed origin coverage.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { stubChartDims } from "../../../tests/chart-dims";
 import {
   render,
   screen,
@@ -29,6 +30,7 @@ type CapturedMenu = {
   }>;
 };
 const captured = vi.hoisted(() => ({
+  specs: [] as Array<{ color?: string; size?: string }>,
   menus: [] as CapturedMenu[],
   hidden: [] as Array<ReadonlySet<string> | undefined>,
 }));
@@ -37,23 +39,54 @@ vi.mock("@g3t/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@g3t/react")>();
   return {
     ...actual,
+    // The popout internally composes the real CytoscapeCanvas via a
+    // package-internal import this partial mock cannot reach; the
+    // dashboard test's concern is the WIRING (opens with the right
+    // hops, closes), so the popout is stubbed and its internals are
+    // covered by its own suite.
+    // SankeyView draws on a 2d canvas jsdom cannot provide; the
+    // wiring assertion only needs the mount. Its own suite covers
+    // rendering.
+    SankeyView: () => <div data-testid="sankey-view" />,
+    NeighborhoodPopout: (props: {
+      focusId: string;
+      defaultHops?: number;
+      onClose: () => void;
+    }) => (
+      <div data-testid="g3t-neighborhood-popout">
+        <span data-testid="popout-hops">{props.defaultHops ?? 1}-hop</span>
+        <button data-testid="popout-close" onClick={props.onClose} />
+      </div>
+    ),
     CytoscapeCanvas: (props: {
       ugm: UGM;
       menuManager?: CapturedMenu;
       hidden?: ReadonlySet<string>;
+      encodingSpec?: {
+        node: {
+          color?: { driver?: string };
+          size?: { driver?: string };
+        };
+      };
     }) => {
       if (props.menuManager) captured.menus.push(props.menuManager);
       captured.hidden.push(props.hidden);
+      captured.specs.push({
+        color: props.encodingSpec?.node.color?.driver,
+        size: props.encodingSpec?.node.size?.driver,
+      });
       return <div data-testid="canvas-stub" />;
     },
   };
 });
 
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
-import { useSelectionStore } from "@g3t/react";
+import { useEmphasisStore, useSelectionStore } from "@g3t/react";
 import { buildSupplyNetwork, originCoverageByTier } from "./supply-data";
 
 afterEach(cleanup);
+
+stubChartDims();
 
 describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
   const nodeId = () => {
@@ -72,7 +105,12 @@ describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
   };
 
   afterEach(() => {
+    // cleanup() must precede the store reset: the dashboard (and its
+    // LinkedChart/TableView children) subscribe to the selection
+    // store, so resetting while mounted re-renders outside act().
+    cleanup();
     useSelectionStore.getState().selectNodes([]);
+    useEmphasisStore.getState().clear();
     captured.menus.length = 0;
     captured.hidden.length = 0;
   });
@@ -83,10 +121,10 @@ describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
     for (const expected of [
       "Pin / unpin position",
       "Inspect",
-      "View Neighbors (2-hop)",
+      "View Neighbors",
       "Expand Neighbors",
       "Focus (2-hop)",
-      "Find Paths From Here",
+      "Find Paths To Here",
       "Edit Appearance",
       "Hide Node",
       "Copy ID",
@@ -112,7 +150,7 @@ describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
     expect(captured.hidden.at(-1)?.size ?? 0).toBe(0);
   });
 
-  it("Find Paths From Here routes to the one other selected node", () => {
+  it("Find Paths To Here: selected node is the source, clicked the target, result is an EFFECT (4.6/4.12)", () => {
     render(<AnalyticsDashboard />);
     const ugm = buildSupplyNetwork();
     const id = nodeId();
@@ -122,10 +160,20 @@ describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
     });
     const items = resolveOn(id);
     act(() => {
-      items.find((i) => i.label === "Find Paths From Here")!.action(at(id));
+      items.find((i) => i.label === "Find Paths To Here")!.action(at(id));
     });
-    expect(useSelectionStore.getState().selectedNodeIds.has(id)).toBe(true);
-    expect(screen.getByTestId("menu-status").textContent).toContain("hop");
+    // The path renders as an emphasis effect, NOT as selection: the
+    // clicked node was never added to the selection.
+    expect(useSelectionStore.getState().selectedNodeIds.has(id)).toBe(false);
+    const emphasis = useEmphasisStore.getState();
+    expect(emphasis.active).toBe(true);
+    expect(emphasis.effectNodeIds.has(id)).toBe(true);
+    expect(emphasis.effectNodeIds.has(neighbor)).toBe(true);
+    expect(emphasis.emphasizedEdgeIds.size).toBeGreaterThan(0);
+    // Direction: the status names source -> target (selected first).
+    expect(screen.getByTestId("menu-status").textContent).toContain(
+      `${neighbor} \u2192 ${id}`.replace("\\u2192", "\u2192"),
+    );
   });
 
   it("Edit Appearance mounts the NodeStyleEditor for the node", () => {
@@ -136,6 +184,62 @@ describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
       items.find((i) => i.label === "Edit Appearance")!.action(at(id));
     });
     expect(screen.getByTestId("dashboard-style-editor")).toBeDefined();
+  });
+
+  it("View Neighbors opens the floating popout instead of selecting (4.10)", () => {
+    render(<AnalyticsDashboard />);
+    const id = nodeId();
+    const items = resolveOn(id);
+    act(() => {
+      items.find((i) => i.label === "View Neighbors")!.action(at(id));
+    });
+    // No selection mutation; a popout instead, closable.
+    expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
+    expect(screen.getByTestId("g3t-neighborhood-popout")).toBeDefined();
+    expect(screen.getByTestId("popout-hops").textContent).toBe("1-hop"); // 9.20: always opens at ONE hop; the stepper widens;
+    act(() => {
+      screen.getByTestId("popout-close").click();
+    });
+    expect(screen.queryByTestId("g3t-neighborhood-popout")).toBeNull();
+  });
+
+  it("Inspect opens the inspector panel (4.11)", () => {
+    render(<AnalyticsDashboard />);
+    const id = nodeId();
+    const items = resolveOn(id);
+    act(() => {
+      items.find((i) => i.label === "Inspect")!.action(at(id));
+    });
+    expect(screen.getByTestId("dashboard-inspector")).toBeDefined();
+    act(() => {
+      screen.getByTestId("inspector-close").click();
+    });
+    expect(screen.queryByTestId("dashboard-inspector")).toBeNull();
+  });
+
+  it("Collapse Neighbors is absent until neighbors are selected, then contracts the selection (4.12)", () => {
+    render(<AnalyticsDashboard />);
+    const ugm = buildSupplyNetwork();
+    const id = nodeId();
+    const neighbors = ugm.getNeighbors(id);
+    expect(neighbors.length).toBeGreaterThan(0);
+
+    // Wired-or-absent: nothing selected, no collapse item.
+    expect(resolveOn(id).map((i) => i.label)).not.toContain(
+      "Collapse Neighbors",
+    );
+
+    act(() => {
+      useSelectionStore.getState().selectNodes([id, ...neighbors]);
+    });
+    const items = resolveOn(id);
+    expect(items.map((i) => i.label)).toContain("Collapse Neighbors");
+    act(() => {
+      items.find((i) => i.label === "Collapse Neighbors")!.action(at(id));
+    });
+    const after = useSelectionStore.getState().selectedNodeIds;
+    expect(after.has(id)).toBe(true);
+    for (const n of neighbors) expect(after.has(n)).toBe(false);
   });
 });
 
@@ -151,5 +255,24 @@ describe("AnalyticsDashboard coverage section", () => {
       expect(solid.style.width).toBe(`${Math.round(r.substantiated * 100)}%`);
     }
     expect(screen.getByText("Origin coverage by tier")).toBeDefined();
+  });
+});
+
+describe("demonstrations have visible consequences (5.1/5.2)", () => {
+  it("the relocated matrix and sankey tabs render (5.5)", () => {
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Adjacency matrix" }));
+    expect(screen.getByTestId("matrix-view")).toBeDefined();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Type flows (sankey)" }),
+    );
+    expect(screen.getByTestId("sankey-view")).toBeDefined();
+  });
+
+  it("the rail carries ONLY Origin coverage (12.6 ruling)", () => {
+    render(<AnalyticsDashboard />);
+    expect(screen.getByText("Origin coverage by tier")).toBeDefined();
+    expect(screen.queryByText("Algorithm demonstrations")).toBeNull();
+    expect(screen.queryByText(/Derive a property/)).toBeNull();
   });
 });

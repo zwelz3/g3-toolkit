@@ -64,14 +64,6 @@ export function timeBounds(events: ProvenanceEvent[]): {
   return { min, max };
 }
 
-export function eventsInRange(
-  events: ProvenanceEvent[],
-  start: number,
-  end: number,
-): ProvenanceEvent[] {
-  return events.filter((e) => e.time >= start && e.time <= end);
-}
-
 function visibleByTime(
   attrs: { types: string[]; properties: Record<string, unknown> },
   start: number,

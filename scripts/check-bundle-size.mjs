@@ -35,8 +35,29 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const BUDGETS = {
-  core: 140 * 1024, // 140 KB
+  // G3L rounds 1-3 (2026-07): +11.4 KB of pure compute, deliberate
+  // P0 capability per planning/g3l/implementation-plan.md: the layout
+  // quality metrics oracle (G3L:QLT-002) and the style-resolution
+  // engine with dependency-tracked invalidation (G3L:ARC-002,
+  // STY-001..005). 176 leaves ~14 KB headroom for the C3/C4 slices
+  // (theme tokens, LOD schedule), which are declarative data plumbing,
+  // not algorithmic bulk.
+  // RAISED 176 -> 184 (2026-07-11): the G3L:RTE-011 orthogonal
+  // obstacle router (B4, ~6.4 KB) landed in core, where route
+  // ownership belongs (RTE-005). SECOND raise for the style/route
+  // program; the standing recommendation holds: when WS-D (internal
+  // layout engine) lands, extract @g3t/layout (ARC-009), move the
+  // router with it, and bring core back under its original envelope
+  // rather than raising a third time.
+  core: 184 * 1024, // 184 KB
   // Core ledger:
+  // - 140 -> 160 KB, 2026-07-07 (review remediation round 2): measured
+  //   139.1 KB (99% of cap) after khopNeighborhood (BFS composed with
+  //   buildSubgraph for the neighborhood popout) and the
+  //   context:inspect typed event. First-party growth from the review
+  //   plan's chrome work; raise ratified by review direction so
+  //   rounds 3-4 (surface redesigns, auditor/MBSE fixtures) do not
+  //   renegotiate per slice. Headroom is deliberate, not fresh-baseline.
   // - 130 -> 140 KB, 2026-07-03: measured 133.3 KB on gate revival.
   //   verify:exports lost its test sources (tests/dist) in a packaging
   //   round, so verify short-circuited and this gate did not run while
@@ -132,6 +153,13 @@ const BUDGETS = {
   //   node id in block view), the FacetFilter colorForType swatch
   //   hook, and the categoricalColorMap encoding helper. +0.3 KB over
   //   the 300 cap.
+  // React ledger, 2026-07-18 (OWNER-APPROVED raise): 420 -> 440.
+  // Growth is the F1/F2/INT-001 feature surface (SVG + Canvas
+  // adapters, structural SVG view, uniform pointer events), not
+  // waste; the dead-code round measured the tree clean. The ARC-009
+  // extraction moves the render adapters out of @g3t/react and
+  // returns this budget under its original envelope; this raise is
+  // the bridge, not the new normal.
   // React ledger (revival entry; older ratchets above):
   // - 304 -> 384 KB, 2026-07-03: measured 365.4 KB on gate revival
   //   (gate dead since tests/dist was lost; see the core entry).
@@ -144,7 +172,14 @@ const BUDGETS = {
   //   GraphToolbar/UxSurface/VisualEncoding). All deliberate,
   //   CHANGELOG-documented rounds. Modest headroom, same rationale
   //   as core.
-  react: 384 * 1024, // 384 KB
+  react: 440 * 1024, // 420 KB
+  // - 384 -> 420 KB, 2026-07-07 (review remediation round 2): measured
+  //   379.9 KB (99% of cap) after the emphasis/effects layer
+  //   (emphasis store + class application), useStructuralCollapse,
+  //   NeighborhoodPopout, categorical domain seeding, SpecLegend
+  //   labelFor/ordering, and removeNodesFromSelection. All
+  //   tree-shakeable exports; sourcemap audit at the core raise found
+  //   zero node_modules bytes in dist. Ratified by review direction.
   charts: 10 * 1024, // 10 KB
 };
 

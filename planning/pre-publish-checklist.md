@@ -54,7 +54,7 @@ These are not yet automated; reviewer confirms each.
       created from training-data Apache-2.0 text and may differ from
       the canonical text by whitespace only. Before publishing,
       replace with `curl https://www.apache.org/licenses/LICENSE-2.0.txt
-      > LICENSE` and verify `sha256sum` matches the canonical hash.
+    > LICENSE` and verify `sha256sum` matches the canonical hash.
 
 ## Manual browser smoke (post-bugfix rounds)
 

@@ -8,7 +8,6 @@ Scope: 3 new milestones (M11, M12, M13), 34 tickets
 > This document is historical. See CHANGELOG.md [1.0.0-rc] for
 > the implemented feature list.
 
-
 ## Engineering Overview
 
 The enhancements decompose into three dependency layers:
@@ -102,6 +101,7 @@ class PipelineRegistry {
 ```
 
 Acceptance:
+
 - Vitest: register 3 pipelines; list returns 3; get by ID works.
 - Interface exported from barrel.
 
@@ -128,6 +128,7 @@ createCommunityBreakdown(communityKey)    → CategoricalData
 ```
 
 Acceptance:
+
 - Vitest: 20-node UGM; countByType returns correct counts per type.
 - Vitest: 20-node UGM with numeric props; scatter correlation computes
   OLS trend with r2 > 0.
@@ -140,7 +141,7 @@ Ordinary Least Squares regression for scatter plot trend lines.
 Returns slope, intercept, r-squared. Pure math, no dependencies.
 
 ```typescript
-function olsRegression(points: Array<{x: number, y: number}>): {
+function olsRegression(points: Array<{ x: number; y: number }>): {
   slope: number;
   intercept: number;
   r2: number;
@@ -149,6 +150,7 @@ function olsRegression(points: Array<{x: number, y: number}>): {
 ```
 
 Acceptance:
+
 - Vitest: 10 points on y = 2x + 1; slope ≈ 2, intercept ≈ 1, r2 > 0.99.
 
 ### E11.2: LinkedChart + Renderers (6 tickets)
@@ -158,15 +160,11 @@ Acceptance:
 React component that wires a DataPipeline to a chart renderer.
 
 ```tsx
-<LinkedChart
-  ugm={ugm}
-  pipeline={countByType()}
-  type="bar"
-  height={300}
-/>
+<LinkedChart ugm={ugm} pipeline={countByType()} type="bar" height={300} />
 ```
 
 Internals:
+
 - `useMemo` on `pipeline.query(ugm)` (re-runs when UGM reference changes)
 - Chart interaction → `pipeline.reverseMap()` → `selectNodes()`
 - Subscribes to UGM identity changes (not deep equality; the caller
@@ -174,6 +172,7 @@ Internals:
   store that tracks UGM version)
 
 Acceptance:
+
 - RTL: render LinkedChart with countByType; verify chart container exists.
 - RTL: simulate chart selection event; verify selectNodes called with
   correct IDs.
@@ -187,6 +186,7 @@ Styling: uses theme CSS variables for colors. Bars use the type
 palette. Axis labels respect the active theme.
 
 Acceptance:
+
 - RTL: 3 categories render 3 bars.
 - Click handler fires with correct category label.
 
@@ -199,6 +199,7 @@ Trend line rendered as a dashed line overlay using the regression
 equation. Tooltip shows "r² = 0.87".
 
 Acceptance:
+
 - RTL: 10 points render.
 - Trend line visible when `data.trend` is present.
 
@@ -209,6 +210,7 @@ X-axis is time (auto-formatted). Brush selection → time range →
 `reverseMap({ type: "range", min, max })`.
 
 Acceptance:
+
 - RTL: 12-month time series renders.
 - Brush emits range.
 
@@ -218,6 +220,7 @@ Renders `CategoricalData` as a donut chart. Click slice → category
 selection.
 
 Acceptance:
+
 - RTL: 4 categories render 4 slices.
 
 **M11.E2.T6 — Parallel coordinates renderer (ECharts).**
@@ -228,6 +231,7 @@ any axis filters the visible lines → node IDs.
 Input: `{ dimensions: string[], records: Array<Record<string, number> & { nodeId: string }> }`.
 
 Acceptance:
+
 - RTL: 3 dimensions, 10 records render.
 
 ### E11.3: Property Filtering (3 tickets)
@@ -250,6 +254,7 @@ function evaluateFilter(ugm: UGM, filter: FilterGroup): Set<string>;
 ```
 
 Acceptance:
+
 - Vitest: 20 nodes; filter risk > 0.5 returns correct subset.
 - Vitest: AND(type = Person, risk > 0.7) returns correct subset.
 - Vitest: OR(type = Person, type = Location) returns union.
@@ -257,6 +262,7 @@ Acceptance:
 **M11.E3.T2 — FilterBuilder React component.**
 
 Visual filter builder with:
+
 - Row per condition: [property dropdown] [operator] [value input]
 - AND/OR toggle between rows
 - Add condition button
@@ -265,12 +271,14 @@ Visual filter builder with:
   callback (which the workspace uses to dim/hide non-matching nodes)
 
 Acceptance:
+
 - RTL: add 2 conditions; verify both rendered.
 - RTL: click Apply; callback receives node ID set.
 
 **M11.E3.T3 — Graph-level filter actions.**
 
 Context menu and toolbar additions:
+
 - "Show Only Selected" (hides all non-selected nodes)
 - "Hide Selected" (removes selected from view)
 - "Expand to N Hops" (shows N-hop neighborhood, hides rest)
@@ -289,6 +297,7 @@ interface ViewFilter {
 ```
 
 Acceptance:
+
 - Vitest: select 3 nodes; "Show Only Selected" → visibleNodeIds = {3}.
 - Vitest: "Expand to 2 Hops" from 1 node → correct neighborhood.
 - Vitest: "Reset Filters" → visibleNodeIds = null.
@@ -302,6 +311,7 @@ checkboxes. Unchecked columns are hidden. Per-type presets
 (Person shows name/role/risk; Organization shows name/sector).
 
 Acceptance:
+
 - RTL: toggle "risk" column off; verify column not rendered.
 - RTL: switch type preset; verify column set changes.
 
@@ -313,6 +323,7 @@ Filtering a column dims non-matching rows and updates the
 selection store.
 
 Acceptance:
+
 - RTL: filter "risk" > 0.5; verify rows with risk ≤ 0.5 are dimmed.
 
 ---
@@ -358,6 +369,7 @@ entries from the overrides. Type-scoped overrides use
 over type-level (CSS specificity).
 
 Acceptance:
+
 - Vitest: add type override color=red; stylesheet entry has
   correct selector and color.
 - Vitest: add node override + type override; node override wins.
@@ -377,6 +389,7 @@ Each icon is a single SVG path string (no external files). The
 canvas renders them as Cytoscape background images via data URIs.
 
 Acceptance:
+
 - Vitest: all 20 icons are valid SVG (parseable).
 - Vitest: icon data URI generation produces valid base64.
 
@@ -386,6 +399,7 @@ Acceptance:
 the FlexLayout model and schema hash. `loadWorkspace()` restores.
 
 Acceptance:
+
 - Vitest: save with 3 overrides; load; store has 3 overrides.
 
 ### E12.2: Edit Appearance UI (3 tickets)
@@ -393,6 +407,7 @@ Acceptance:
 **M12.E2.T1 — NodeStyleEditor panel.**
 
 React component (modal or sidebar panel) with:
+
 - Color picker (8 preset colors + custom hex input)
 - Shape selector (6 shapes as clickable icons)
 - Size slider (10–80px)
@@ -402,18 +417,21 @@ React component (modal or sidebar panel) with:
 - Opacity slider
 
 Acceptance:
+
 - RTL: render editor; all controls present.
 - RTL: change color; onChange fires with updated override.
 
 **M12.E2.T2 — "Apply to" scope toggle.**
 
 Radio buttons in the editor:
+
 - "This node only" → scope: { nodeId }
 - "All [Person] nodes" → scope: { type }
 
 The label dynamically shows the node's type.
 
 Acceptance:
+
 - RTL: toggle scope; onChange fires with correct scope.
 
 **M12.E2.T3 — Context menu "Edit Appearance" integration.**
@@ -423,6 +441,7 @@ clicked, opens NodeStyleEditor pre-populated with the node's
 current visual state.
 
 Acceptance:
+
 - RTL: right-click node; "Edit Appearance" item present.
 - RTL: clicking item opens editor with node's current color.
 
@@ -435,12 +454,14 @@ nodes not in `visibleNodeIds` (or in `hiddenNodeIds`) get
 `display: none` in the Cytoscape stylesheet.
 
 The filter state is a Zustand store that all views read:
+
 - Canvas: hides elements
 - Table: filters rows
 - Map: hides markers
 - Charts: re-query against visible subset
 
 Acceptance:
+
 - RTL: apply ViewFilter hiding 5 of 20 nodes; canvas renders 15.
 - RTL: table shows 15 rows.
 
@@ -448,17 +469,18 @@ Acceptance:
 
 Different menu items based on node type:
 
-| Type | Extra Menu Items |
-|------|-----------------|
-| Person | "Show Timeline", "Risk Profile" |
+| Type         | Extra Menu Items                       |
+| ------------ | -------------------------------------- |
+| Person       | "Show Timeline", "Risk Profile"        |
 | Organization | "Show Subsidiaries", "Financial Flows" |
-| Location | "Show on Map", "Nearby Entities" |
-| default | "Expand Neighborhood", "Find Paths" |
+| Location     | "Show on Map", "Nearby Entities"       |
+| default      | "Expand Neighborhood", "Find Paths"    |
 
 Implemented via a `TypeMenuProvider` that the ContextMenuManager
 queries when building the menu for a node.
 
 Acceptance:
+
 - Vitest: Person node → menu includes "Show Timeline".
 - Vitest: Location node → menu includes "Show on Map".
 
@@ -467,6 +489,7 @@ Acceptance:
 **M12.E4.T1 — Multi-selection context menu.**
 
 When 2+ nodes are selected, right-click shows:
+
 - "Tag All As..." (text input)
 - "Set Color..." (color picker)
 - "Set Icon..." (icon grid)
@@ -474,6 +497,7 @@ When 2+ nodes are selected, right-click shows:
 - "Show Only Selected"
 
 Acceptance:
+
 - RTL: select 5 nodes; right-click; "Tag All As" item present.
 
 **M12.E4.T2 — Bulk style application.**
@@ -482,6 +506,7 @@ Acceptance:
 NodeStyleOverride entries for each selected node.
 
 Acceptance:
+
 - Vitest: bulk set color on 5 nodes; 5 overrides in store.
 
 ---
@@ -502,8 +527,15 @@ interface WorkflowStep {
   id: string;
   name: string;
   description: string;
-  type: "load" | "query" | "project" | "algorithm"
-      | "visualize" | "filter" | "export" | "inspect";
+  type:
+    | "load"
+    | "query"
+    | "project"
+    | "algorithm"
+    | "visualize"
+    | "filter"
+    | "export"
+    | "inspect";
   execute: (state: WorkflowState) => Promise<WorkflowState>;
 }
 
@@ -526,18 +558,21 @@ class WorkflowRunner {
 ```
 
 Acceptance:
+
 - Vitest: 3-step workflow; next() advances; state transforms.
 - Vitest: back() returns to previous state.
 
 **M13.E1.T2 — WorkflowPanel React component.**
 
 Sidebar or overlay showing:
+
 - Step list with progress indicator (current step highlighted)
 - Step name and description
 - "Next" / "Back" buttons
 - Current state summary (node count, chart count)
 
 Acceptance:
+
 - RTL: 5-step workflow; step 2 active; step list rendered.
 - RTL: click Next; step 3 becomes active.
 
@@ -548,6 +583,7 @@ step types. The demo app renders the workflow panel alongside
 the main workspace.
 
 Acceptance:
+
 - Each workflow loads and runs to completion without errors.
 
 ### E13.2: PROV-O Temporal (2 tickets)
@@ -556,6 +592,7 @@ Acceptance:
 
 Projection pipeline step that recognizes PROV-O temporal
 properties:
+
 - `prov:startedAtTime` → `temporal_start`
 - `prov:endedAtTime` → `temporal_end`
 - `prov:wasGeneratedBy` → edge type "generatedBy"
@@ -565,6 +602,7 @@ This enables the existing TimelineView to render PROV-O data
 without manual property mapping.
 
 Acceptance:
+
 - Vitest: RDF with PROV-O triples; projected UGM has
   `temporal_start`/`temporal_end` properties on Activity nodes.
 
@@ -575,6 +613,7 @@ outside the range are hidden via ViewFilter. Linked to the
 timeline brush selection.
 
 Acceptance:
+
 - RTL: set range; ViewFilter updated; nodes outside hidden.
 
 ### E13.3: Derived Properties (2 tickets)
@@ -585,14 +624,14 @@ Acceptance:
 interface DerivedProperty {
   name: string;
   /** Expression referencing existing properties and graph metrics. */
-  expression: string;  // e.g., "centrality * 0.4 + risk * 0.6"
+  expression: string; // e.g., "centrality * 0.4 + risk * 0.6"
   /** Recompute when UGM changes. */
   reactive: boolean;
 }
 
 class DerivedPropertyEngine {
   define(prop: DerivedProperty): void;
-  compute(ugm: UGM): void;  // adds computed values to UGM nodes
+  compute(ugm: UGM): void; // adds computed values to UGM nodes
   remove(name: string): void;
 }
 ```
@@ -601,18 +640,21 @@ Expression evaluation uses a safe subset (arithmetic, min, max,
 property references). No `eval()`.
 
 Acceptance:
-- Vitest: define "score = risk * 2"; compute; node properties
+
+- Vitest: define "score = risk \* 2"; compute; node properties
   include "score" with correct values.
 
 **M13.E3.T2 — Derived property UI.**
 
 Panel where users define derived properties:
+
 - Name input
 - Expression input with property name autocomplete
 - "Compute" button
 - Results shown in table and usable in encoding
 
 Acceptance:
+
 - RTL: define property; click Compute; new column in table.
 
 ### E13.4: Session Persistence (3 tickets)
@@ -638,6 +680,7 @@ Serializable to JSON. Can be saved to localStorage, file, or
 API endpoint.
 
 Acceptance:
+
 - Vitest: create session with all fields; serialize; deserialize;
   all fields match.
 
@@ -650,6 +693,7 @@ Acceptance:
 - "Import Session" → file picker
 
 Acceptance:
+
 - RTL: save session; list shows 1 session; load restores state.
 
 **M13.E4.T3 — Subgraph pinning.**
@@ -660,12 +704,13 @@ Pinned nodes get a small pin icon badge. "Unpin All" clears pins.
 ```typescript
 // Added to ViewFilter
 interface ViewFilter {
-  pinnedNodeIds: Set<string>;  // always visible
+  pinnedNodeIds: Set<string>; // always visible
   // ... existing fields
 }
 ```
 
 Acceptance:
+
 - Vitest: pin 3 nodes; apply filter hiding them; they remain visible.
 - Vitest: unpin; filter re-applies; they disappear.
 
@@ -716,18 +761,19 @@ M13.E4.T1 (AnalysisSession model)
 
 ## Testing Strategy
 
-| Layer | M11 | M12 | M13 |
-|-------|-----|-----|-----|
-| Unit (Vitest) | Pipeline functions, OLS, filter evaluator | Style merge, icon validation, session serialization | Workflow runner, PROV-O extraction, expression evaluator |
-| Component (RTL) | LinkedChart, FilterBuilder, chart renderers | NodeStyleEditor, scope toggle, column visibility | WorkflowPanel, temporal slider, derived property UI |
-| E2E (Playwright) | Click bar → graph selection; brush scatter → table filter | Right-click → Edit Appearance → Apply to All | Full workflow step-through |
-| Acceptance (Robot) | "Filter by risk > 0.5; bar chart updates" | "Change Person icon to shield; all Person nodes update" | "Complete Intel workflow in 10 steps" |
+| Layer              | M11                                                       | M12                                                     | M13                                                      |
+| ------------------ | --------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| Unit (Vitest)      | Pipeline functions, OLS, filter evaluator                 | Style merge, icon validation, session serialization     | Workflow runner, PROV-O extraction, expression evaluator |
+| Component (RTL)    | LinkedChart, FilterBuilder, chart renderers               | NodeStyleEditor, scope toggle, column visibility        | WorkflowPanel, temporal slider, derived property UI      |
+| E2E (Playwright)   | Click bar → graph selection; brush scatter → table filter | Right-click → Edit Appearance → Apply to All            | Full workflow step-through                               |
+| Acceptance (Robot) | "Filter by risk > 0.5; bar chart updates"                 | "Change Person icon to shield; all Person nodes update" | "Complete Intel workflow in 10 steps"                    |
 
 Estimated test count: ~80 new tests across 3 milestones.
 
 ## Module Boundary Compliance (D6)
 
 Framework-agnostic (pure TypeScript, no React):
+
 - DataPipeline, PipelineRegistry, built-in pipeline functions
 - PropertyFilter, FilterGroup, evaluateFilter
 - NodeStyleOverride, StyleOverrideStore, mergeStyleOverrides
@@ -738,6 +784,7 @@ Framework-agnostic (pure TypeScript, no React):
 - ViewFilter
 
 React components (D13):
+
 - LinkedChart, chart renderers (Bar, Scatter, Line, Pie, ParallelCoords)
 - FilterBuilder
 - NodeStyleEditor, scope toggle
@@ -749,22 +796,22 @@ React components (D13):
 
 ## Risk Assessment
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| ECharts chart interactions don't fire in jsdom | RTL tests limited | Chart interaction tested via Playwright only |
-| Expression evaluation (derived properties) could be exploited | Security hole | Use a safe parser (expr-eval); no eval(); whitelist operators |
-| Workflow state grows large with complex sessions | Performance | Serialize UGM diffs, not full snapshots; cap session size |
-| SVG icons add bundle size | Slower load | Tree-shake; only import icons actually used |
-| Parallel coordinates not well-supported in ECharts | Visual quality | Fall back to D3 if ECharts parallel is insufficient |
+| Risk                                                          | Impact            | Mitigation                                                    |
+| ------------------------------------------------------------- | ----------------- | ------------------------------------------------------------- |
+| ECharts chart interactions don't fire in jsdom                | RTL tests limited | Chart interaction tested via Playwright only                  |
+| Expression evaluation (derived properties) could be exploited | Security hole     | Use a safe parser (expr-eval); no eval(); whitelist operators |
+| Workflow state grows large with complex sessions              | Performance       | Serialize UGM diffs, not full snapshots; cap session size     |
+| SVG icons add bundle size                                     | Slower load       | Tree-shake; only import icons actually used                   |
+| Parallel coordinates not well-supported in ECharts            | Visual quality    | Fall back to D3 if ECharts parallel is insufficient           |
 
 ## Ticket Count Summary
 
-| Milestone | Epics | Tickets | D6 (pure TS) | D13 (React) |
-|-----------|-------|---------|-------------|-------------|
-| M11 | 4 | 14 | 5 | 9 |
-| M12 | 4 | 10 | 4 | 6 |
-| M13 | 4 | 10 | 5 | 5 |
-| **Total** | **12** | **34** | **14** | **20** |
+| Milestone | Epics  | Tickets | D6 (pure TS) | D13 (React) |
+| --------- | ------ | ------- | ------------ | ----------- |
+| M11       | 4      | 14      | 5            | 9           |
+| M12       | 4      | 10      | 4            | 6           |
+| M13       | 4      | 10      | 5            | 5           |
+| **Total** | **12** | **34**  | **14**       | **20**      |
 
 ---
 
@@ -781,7 +828,7 @@ The following changes apply to the ticket plan above:
 
 - **M11.E1.T2 (Built-in pipelines):** Implementations become thin
   wrappers around `graphology-metrics` (centrality), `graphology-
-  communities-louvain` (community detection), and `simple-statistics`
+communities-louvain` (community detection), and `simple-statistics`
   (regression). The pipeline function creates the `DataPipeline`
   object; the computation delegates to the library.
 
@@ -808,9 +855,9 @@ npm install graphology-shortest-path graphology-metrics \
 
 ### Revised Ticket Count
 
-| Milestone | Before | After | Change |
-|-----------|--------|-------|--------|
-| M11 | 14 | 12 | -2 (eliminate OLS, simplify filter) |
-| M12 | 10 | 10 | no change |
-| M13 | 10 | 10 | no change |
-| **Total** | **34** | **32** | **-2** |
+| Milestone | Before | After  | Change                              |
+| --------- | ------ | ------ | ----------------------------------- |
+| M11       | 14     | 12     | -2 (eliminate OLS, simplify filter) |
+| M12       | 10     | 10     | no change                           |
+| M13       | 10     | 10     | no change                           |
+| **Total** | **34** | **32** | **-2**                              |

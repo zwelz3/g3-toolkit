@@ -74,7 +74,51 @@ export function clusterBy(ugm: UGM, mode: ClusterMode): Map<string, string> {
   const out = new Map<string, string>();
   if (mode === "component") {
     const comp = connectedComponents(ugm);
-    for (const [id, n] of comp) out.set(id, `Component ${n + 1}`);
+    // Semantic labels (review 5.8): "Component 1" told the consumer
+    // nothing. Each component is named by its dominant node type and
+    // its highest-degree member, e.g. "Mostly Part: around Control
+    // PCB (14)", so the cluster rows read as descriptions instead of
+    // enumeration.
+    const nodes = readNodes(ugm);
+    const degree = new Map<string, number>();
+    ugm.forEachEdge((_e, _a, source, target) => {
+      degree.set(source, (degree.get(source) ?? 0) + 1);
+      degree.set(target, (degree.get(target) ?? 0) + 1);
+    });
+    const membersOf = new Map<number, string[]>();
+    for (const [id, n] of comp) {
+      const arr = membersOf.get(n) ?? [];
+      arr.push(id);
+      membersOf.set(n, arr);
+    }
+    const labelOf = new Map<number, string>();
+    for (const [n, ids] of membersOf) {
+      const typeCount = new Map<string, number>();
+      let top: string | undefined;
+      let topDeg = -1;
+      for (const id of ids) {
+        const t = nodes.get(id)?.types[0] ?? "Unknown";
+        typeCount.set(t, (typeCount.get(t) ?? 0) + 1);
+        const d = degree.get(id) ?? 0;
+        if (d > topDeg) {
+          topDeg = d;
+          top = id;
+        }
+      }
+      const dominant =
+        [...typeCount.entries()].sort(
+          (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+        )[0]?.[0] ?? "Mixed";
+      const topName = str(nodes.get(top ?? "")?.props.name) ?? top;
+      labelOf.set(
+        n,
+        topName
+          ? `Mostly ${dominant}: around ${topName}`
+          : `Mostly ${dominant} (${ids.length})`,
+      );
+    }
+    for (const [id, n] of comp)
+      out.set(id, labelOf.get(n) ?? `Component ${n + 1}`);
     return out;
   }
   const nodes = readNodes(ugm);
@@ -111,8 +155,11 @@ export function tracePaths(
   const walk = (current: string, trail: string[]): void => {
     const node = nodes.get(current);
     if (node && node.types.includes(targetType) && trail.length > 1) {
+      // Record AND continue (review 5.10): with nested assemblies, a
+      // trace yields both the sub-assembly hit and the full path to
+      // the enclosing assembly. Graphs without nesting are unchanged
+      // (an assembly with no outgoing edges terminates naturally).
       paths.push([...trail]);
-      return;
     }
     for (const next of adjacency.get(current) ?? []) {
       if (trail.includes(next)) continue; // cycle guard

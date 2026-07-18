@@ -17,6 +17,7 @@ animationDuration: 500 })` natively; this is a configuration
 exposure, not a new capability.
 
 **Implementation:**
+
 - Add `animate?: boolean` and `animationDuration?: number`
   props to CytoscapeCanvas
 - LayoutSwitcher passes these through on layout change
@@ -35,6 +36,7 @@ Currently g3t recomputes the full layout on every UGM change,
 which causes the entire graph to rearrange.
 
 **Implementation:**
+
 - On UGM change, diff the previous and current element sets
 - If only additions: run layout on new nodes only, with
   existing nodes locked (`node.lock()`)
@@ -66,6 +68,7 @@ which is algorithmic. Combos are user-driven; the user decides
 what to group based on analytical judgment.
 
 **Implementation:**
+
 - D6: `ComboManager` tracks group membership as a Map<comboId,
   Set<nodeId>>. Serializable for workspace persistence.
 - D13: Context menu action "Group selected" creates a combo.
@@ -149,6 +152,7 @@ page refresh). With a callback, the adopter can persist to
 their database and return false to reject invalid edits.
 
 **Implementation:**
+
 - D6: `UGM.updateNodeProperties(id, { key: value })` already
   exists.
 - D13: DetailInspector renders property values as editable
@@ -200,6 +204,7 @@ function temporalProjection(
 
 The temporal slider already partially exists as
 TemporalRangeFilter. This ticket extends it with:
+
 - Play/pause animation (step through time windows)
 - Speed control (1x, 2x, 5x, 10x)
 - Window size control (1 hour, 1 day, 1 week)
@@ -211,6 +216,7 @@ directly and coordinate with g3t via the UGM and event bus.
 
 **FOSS integration notes:** For advanced geospatial, adopters
 can use:
+
 - Leaflet (already g3t's map dependency)
 - deck.gl (WebGL map layers; import alongside g3t)
 - Turf.js (geospatial analysis; compute distances, buffers)
@@ -259,6 +265,7 @@ network topology).
 
 **Feasibility with Cytoscape:** Cytoscape does not natively
 support orthogonal routing. Options:
+
 - Use `taxi` edge style (Cytoscape's right-angle edge), which
   supports horizontal-first or vertical-first routing
 - Use `segments` edge style with computed waypoints
@@ -276,6 +283,7 @@ but they're proprietary and would replace the entire rendering
 layer. The `taxi` style covers 80% of the use case.
 
 **Implementation:**
+
 - Add `edgeStyle: "bezier" | "straight" | "taxi"` to the
   encoding configuration
 - Map to Cytoscape `curve-style` property

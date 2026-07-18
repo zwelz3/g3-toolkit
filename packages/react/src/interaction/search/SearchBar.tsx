@@ -22,6 +22,11 @@ export interface SearchResult {
 export interface SearchBarProps {
   ugm: UGM;
   onSearchChange: (result: SearchResult) => void;
+  /** Fires when the user EXPLICITLY picks a result (dropdown click or
+   *  Enter). 12.9: camera moves belong here, not on onSearchChange;
+   *  centering the first match on every keystroke made the view jump
+   *  while typing. */
+  onPick?: (id: string) => void;
   placeholder?: string;
   className?: string;
   /** Auto-select first result on Enter. Default true. */
@@ -38,6 +43,7 @@ interface SearchRecord {
 export function SearchBar({
   ugm,
   onSearchChange,
+  onPick,
   placeholder = "Search nodes...",
   className,
   selectOnEnter = true,
@@ -131,6 +137,7 @@ export function SearchBar({
         const item = results[idx]?.item;
         if (item) {
           selectNodes([item.id]);
+          onPick?.(item.id);
           setShowDropdown(false);
         }
       } else if (e.key === "Escape") {
@@ -138,15 +145,16 @@ export function SearchBar({
         setQuery("");
       }
     },
-    [results, selectedIndex, selectOnEnter, selectNodes],
+    [results, selectedIndex, selectOnEnter, selectNodes, onPick],
   );
 
   const handleSelect = useCallback(
     (id: string) => {
       selectNodes([id]);
+      onPick?.(id);
       setShowDropdown(false);
     },
-    [selectNodes],
+    [selectNodes, onPick],
   );
 
   return (

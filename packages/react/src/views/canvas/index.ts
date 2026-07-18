@@ -6,7 +6,6 @@ export {
   STRUCTURAL_RULES,
   structuralThemeRules,
   wireStructuralPortDrag,
-  wireStructuralCompartmentToggle,
 } from "./structural-to-cytoscape";
 export type { StructuralDecorations } from "./structural-to-cytoscape";
 export {

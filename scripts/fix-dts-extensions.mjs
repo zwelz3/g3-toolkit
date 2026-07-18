@@ -22,7 +22,13 @@
  * The durable fix is per-entry declaration bundling (.d.ts + .d.cts);
  * tracked in planning/audit-remediation.md.
  */
-import { readdirSync, readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
+import {
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  statSync,
+} from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -70,4 +76,6 @@ for (const pkg of readdirSync(resolve(root, "packages"))) {
     }
   }
 }
-console.log(`fix-dts-extensions: rewrote specifiers in ${rewritten} declaration file(s)`);
+console.log(
+  `fix-dts-extensions: rewrote specifiers in ${rewritten} declaration file(s)`,
+);

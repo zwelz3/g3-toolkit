@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual runs on ANY branch (owner request: CI without a
+  # main-based branch or an open PR).
+  workflow_dispatch:
 
 jobs:
   test:
@@ -59,6 +62,28 @@ jobs:
       # Every in-progress/proposed requirement must be owned by exactly
       # one roadmap file (contract in roadmap/CLAUDE.md).
       - run: python scripts/check_roadmap_coverage.py
+
+  perf:
+    # PRF benchmarks (MR-5 execution). Owner ruling 2026-07-12: this
+    # runner class IS the baseline machine profile. Budgets are
+    # report-only while planning/g3l/prf-budgets.json is
+    # "provisional"; after the one permitted revision they freeze and
+    # a miss fails this job.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # pnpm version from the packageManager field; do NOT set `version:`
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: G3T_PERF=1 pnpm vitest run tests/perf
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prf-results
+          path: tests/perf/last-results.json
 
   e2e:
     runs-on: ubuntu-latest

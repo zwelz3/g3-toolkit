@@ -74,6 +74,7 @@ remains as described:
 
 **The flagship ENGINE is built and gate-green** in
 `examples/flagship/src/`:
+
 - `corpus.ts` — Northwind Analytics' fictional corporate memory (awards,
   customer evaluations, people, documents), the concept vocabulary, and
   the MERIDIAN opportunity decomposed into weighted required concepts.
@@ -92,7 +93,7 @@ enhancements it needs, nor the branded theme.
 **Critical gap between the engine and the final narrative:** the engine
 computes ONE strength per concept; the narrative's core thesis is the
 **two-strength model** (substantiated vs. claimable). The narrative was
-sharpened *after* the engine was written. So your first task rebuilds
+sharpened _after_ the engine was written. So your first task rebuilds
 the engine's projection/analytic to carry both strengths and the
 exposure delta, plus adds the ORCA Systems teaming-partner data. This is
 plan §1. Do it before any UI — it is headlessly testable and locks the
@@ -106,7 +107,7 @@ Cytoscape mapping-warning floods that stalled the block view were fixed
 by scoping `data(_size)` to `node[_size]` and `data(_confidence)` to
 `edge[_confidence]`; an inert negative `outline-offset` was removed. All
 landed and gate-green, but the rendered behavior is NOT yet confirmed by
-Zach (the block-view *freeze*/slow-load fix from the same session IS
+Zach (the block-view _freeze_/slow-load fix from the same session IS
 confirmed). Full detail and the live-check list live in CLAUDE.md "Open
 threads" and STATUS.md "Review state". This is demo/library work,
 tangential to the flagship engine that is this section's focus.
@@ -178,10 +179,10 @@ pnpm run visual-acceptance
 - Theme/spec changes are restyle-only — never re-init the canvas;
   positions must hold. Fixture graphs in React are `useMemo`'d.
 - Data-mapped style props (`width: data(_size)`, `opacity:
-  data(_confidence)`) MUST sit on a `[field]`-scoped selector
+data(_confidence)`) MUST sit on a `[field]`-scoped selector
   (`node[_size]`, `edge[_confidence]`), never a bare `node`/`edge` rule:
   Cytoscape warns for every element missing the field on EVERY render
-  frame, and in the block view (structural elements carry _w/_h/_label,
+  frame, and in the block view (structural elements carry \_w/\_h/\_label,
   not the force-graph fields) that console flood stalled the canvas
   (~1.7s/toggle, diagnosed 2026-06-17). Negative `outline-offset` is
   rejected by Cytoscape (parse-time discard plus one warning); an inset

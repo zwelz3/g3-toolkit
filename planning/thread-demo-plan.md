@@ -18,7 +18,7 @@ mostly composition plus a few small new transforms.
   that blocks raw RDF from normal renderers). This is the engine for the
   Instance Graph projection levels.
 - Relational virtualizer (`@g3t/core`): `virtualizeRelationalData(ugm, rows,
-  {keyField})` and `parseCSV`. Demonstrates the live SQL/CSV -> RDF data
+{keyField})` and `parseCSV`. Demonstrates the live SQL/CSV -> RDF data
   flow that the Digital Thread diagram describes.
 - SHACL (`@g3t/core`): `validateShacl`, `shaclShapesToStructural`,
   `shaclRowSeverities`, `reportFromValidationResults`. Drives the health

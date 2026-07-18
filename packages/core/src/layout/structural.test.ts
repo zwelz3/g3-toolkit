@@ -12,7 +12,6 @@ import {
   layoutStructural,
   estimateTextSize,
   isChainEdgeId,
-  compartmentKey,
   type StructuralGraphInput,
   type ElkEngine,
 } from "./structural";
@@ -204,88 +203,9 @@ describe("layoutStructural", () => {
   });
 });
 
-describe("compartment collapse", () => {
-  it("omits collapsed content rows but keeps the title divider", async () => {
-    const collapsed = new Set([compartmentKey("sensor", "attributes")]);
-    const geom = await layoutStructural(blockFixture(), {
-      collapsedCompartments: collapsed,
-    });
-    // Title divider stays, with a hidden-count suffix.
-    const title = geom.nodes["sensor::attributes::title"]!;
-    expect(title).toBeDefined();
-    expect(title.text).toBe("attributes (2 hidden)");
-    // Content rows are gone.
-    expect(geom.nodes["sensor.cal"]!).toBeUndefined();
-    expect(geom.nodes["sensor.acc"]!).toBeUndefined();
-    // The other compartment is untouched.
-    expect(geom.nodes["sensor.run"]!).toBeDefined();
-  });
-
-  it("shrinks the container when a compartment collapses", async () => {
-    const expanded = await layoutStructural(blockFixture());
-    const collapsed = await layoutStructural(blockFixture(), {
-      collapsedCompartments: new Set([compartmentKey("sensor", "attributes")]),
-    });
-    expect(collapsed.nodes["sensor"]!.height).toBeLessThan(
-      expanded.nodes["sensor"]!.height,
-    );
-  });
-
-  it("renders header + dividers only when all compartments collapse", async () => {
-    const geom = await layoutStructural(blockFixture(), {
-      collapsedCompartments: new Set([
-        compartmentKey("sensor", "attributes"),
-        compartmentKey("sensor", "operations"),
-      ]),
-    });
-    const rows = Object.entries(geom.nodes).filter(
-      ([, g]) => g.kind === "row" && g.parent === "sensor",
-    );
-    // Two title dividers, no content rows.
-    expect(rows).toHaveLength(2);
-    expect(rows.every(([, g]) => g.divider)).toBe(true);
-  });
-
-  it("ignores collapse for a non-collapsible compartment", async () => {
-    const fixture = blockFixture();
-    const sensor = fixture.nodes.find((n) => n.id === "sensor")!;
-    sensor.compartments![0]!.collapsible = false;
-    const geom = await layoutStructural(fixture, {
-      collapsedCompartments: new Set([compartmentKey("sensor", "attributes")]),
-    });
-    // Rows still present; title has no hidden-count suffix.
-    expect(geom.nodes["sensor.cal"]!).toBeDefined();
-    expect(geom.nodes["sensor::attributes::title"]!.text).toBe("attributes");
-  });
-
-  it("emits a synthetic divider for a collapsed untitled compartment", async () => {
-    const input: StructuralGraphInput = {
-      nodes: [
-        {
-          id: "n",
-          header: { name: "N" },
-          compartments: [
-            {
-              id: "c",
-              rows: [
-                { id: "n.a", text: "a : x" },
-                { id: "n.b", text: "b : y" },
-              ],
-            },
-          ],
-        },
-      ],
-      edges: [],
-    };
-    const geom = await layoutStructural(input, {
-      collapsedCompartments: new Set([compartmentKey("n", "c")]),
-    });
-    const divider = geom.nodes["n::c::title"]!;
-    expect(divider).toBeDefined();
-    expect(divider.text).toBe("(2 hidden)");
-    expect(geom.nodes["n.a"]!).toBeUndefined();
-  });
-});
+// The "compartment collapse" describe block lived here; the feature
+// was removed by ruling (2026-07-10). See
+// planning/expand-collapse-postmortem.md.
 
 describe("layoutStructural engine injection + de-dup", () => {
   // A spy engine that delegates to a real synchronous elkjs, so we can

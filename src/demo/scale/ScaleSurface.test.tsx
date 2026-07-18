@@ -33,14 +33,26 @@ type CapturedMenu = {
 const captured = vi.hoisted(() => ({
   counts: [] as number[],
   menus: [] as CapturedMenu[],
+  colorDrivers: [] as Array<string | undefined>,
+  animate: [] as Array<boolean | undefined>,
+  layoutOptions: [] as Array<Record<string, unknown> | undefined>,
 }));
 
 vi.mock("@g3t/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@g3t/react")>();
   return {
     ...actual,
-    CytoscapeCanvas: (props: { ugm: UGM; menuManager?: CapturedMenu }) => {
+    CytoscapeCanvas: (props: {
+      ugm: UGM;
+      menuManager?: CapturedMenu;
+      encodingSpec?: { node?: { color?: { driver?: string } } };
+      layoutOptions?: Record<string, unknown>;
+      animate?: boolean;
+    }) => {
       captured.counts.push(props.ugm.getNodeIds().length);
+      captured.animate.push(props.animate);
+      captured.colorDrivers.push(props.encodingSpec?.node?.color?.driver);
+      captured.layoutOptions.push(props.layoutOptions);
       if (props.menuManager) captured.menus.push(props.menuManager);
       return <div data-testid="canvas-stub" />;
     },
@@ -59,6 +71,7 @@ afterEach(() => {
 describe("ScaleSurface", () => {
   it("renders supernodes, not the 8,000-node graph", () => {
     render(<ScaleSurface onBack={() => {}} />);
+    expect(screen.getByTestId("g3t-graph-toolbar")).toBeTruthy();
     const first = captured.counts.at(-1) ?? 0;
     expect(first).toBeGreaterThan(0);
     expect(first).toBeLessThanOrEqual(200);
@@ -139,5 +152,51 @@ describe("ScaleSurface", () => {
     expect(drilled).toBeGreaterThan(1);
     expect(drilled).toBeLessThanOrEqual(COMMUNITY_SIZE * COMMUNITIES);
     expect(screen.getByTestId("scale-status").textContent).toContain("Showing");
+  });
+
+  it("supernode labels are unique and the rail explains Louvain (5.12)", () => {
+    render(<ScaleSurface onBack={() => {}} />);
+    expect(screen.getByTestId("scale-cluster-explainer").textContent).toMatch(
+      /Louvain/,
+    );
+    const rows = screen
+      .getAllByRole("button")
+      .map((b) => b.textContent ?? "")
+      .filter((t) => t.includes("cluster around"));
+    expect(rows.length).toBeGreaterThan(1);
+    expect(new Set(rows).size).toBe(rows.length);
+  });
+
+  it("the color toggle swaps the driver to dominantType and back (5.14)", () => {
+    render(<ScaleSurface onBack={() => {}} />);
+    expect(captured.colorDrivers.at(-1)).toBe("types");
+    fireEvent.click(screen.getByTestId("scale-color-toggle"));
+    expect(captured.colorDrivers.at(-1)).toBe("dominantType");
+    fireEvent.click(screen.getByTestId("scale-color-toggle"));
+    expect(captured.colorDrivers.at(-1)).toBe("types");
+  });
+
+  it("views carry distinct spacing tuning; drill reverts dominant coloring (5.11/5.14)", () => {
+    render(<ScaleSurface onBack={() => {}} />);
+    fireEvent.click(screen.getByTestId("scale-color-toggle"));
+    const clusterOpts = captured.layoutOptions.at(-1);
+    expect(clusterOpts?.padding).toBe(60);
+    // 9.8 experiment pin: end-mode layout animation (fcose's
+    // animate:true renders every tick; that presented as drill lag).
+    expect(clusterOpts?.animate).toBe("end");
+    const drillRow = screen
+      .getAllByRole("button")
+      .find((b) => (b.textContent ?? "").includes("cluster around"));
+    expect(drillRow).toBeDefined();
+    fireEvent.click(drillRow as HTMLElement);
+    // Member nodes carry no dominantType: the drill view colors by
+    // type regardless of the toggle.
+    expect(captured.colorDrivers.at(-1)).toBe("types");
+    expect(captured.layoutOptions.at(-1)?.padding).toBe(50);
+    // Review 5.13: the drill layout run IS the loading affordance;
+    // the animation flag must reach the canvas (jsdom reports no
+    // reduced-motion preference, so it is true here). The canvas
+    // honors it per-layout; reduced motion flips it via the hook.
+    expect(captured.animate.at(-1)).toBe(true);
   });
 });

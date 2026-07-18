@@ -15,6 +15,35 @@
 import "./theme/g3t-base.css";
 
 // ── Views (each subdir re-exports its component and Props type) ─────
+export {
+  SvgAdapter,
+  donutArcs,
+  taperPolygon,
+  trimToEllipse,
+} from "./views/svg/svg-adapter";
+export type {
+  SvgAdapterProps,
+  SvgSceneEdge,
+  SvgSceneNode,
+} from "./views/svg/svg-adapter";
+export { resolveDragAttachment } from "./views/canvas/structural-to-cytoscape";
+export { CanvasAdapter } from "./views/canvas2d/canvas-adapter";
+export type { CanvasAdapterProps } from "./views/canvas2d/canvas-adapter";
+export {
+  buildDisplayList,
+  CANVAS_ADAPTER_CAPABILITIES,
+} from "./views/canvas2d/display-list";
+export type { DrawOp, CanvasScene } from "./views/canvas2d/display-list";
+export {
+  StructuralSvgView,
+  STRUCTURAL_SVG_DARK,
+} from "./views/svg/structural-svg-view";
+export type {
+  StructuralSvgTheme,
+  StructuralSvgViewProps,
+} from "./views/svg/structural-svg-view";
+export { useStructuralLayout } from "./views/canvas/use-structural-layout";
+export type { StructuralLayoutResult } from "./views/canvas/use-structural-layout";
 export * from "./views/canvas";
 export * from "./views/table";
 export * from "./views/inspector";
@@ -22,6 +51,11 @@ export * from "./views/timeline";
 export * from "./views/map";
 export * from "./views/tree";
 export * from "./views/schema";
+export { FloatingLegend } from "./views/legend/FloatingLegend";
+export { FloatingPanel } from "./views/popout/FloatingPanel";
+export type { FloatingPanelProps } from "./views/popout/FloatingPanel";
+export { NeighborhoodPopout } from "./views/popout/NeighborhoodPopout";
+export type { NeighborhoodPopoutProps } from "./views/popout/NeighborhoodPopout";
 export { ShaclShapeBrowser } from "./views/schema/ShaclShapeBrowser";
 export type { ShaclShapeBrowserProps } from "./views/schema/ShaclShapeBrowser";
 export * from "./views/matrix";
@@ -99,3 +133,24 @@ export {
   WorkingSetManager,
 } from "@g3t/core";
 export * from "./icons";
+
+// ── VisualAttributes -> Cytoscape projection (G3L:ARC-008 posture):
+//    the style engine's first consumer, used by the Style Lab and by
+//    engine-driven canvas surfaces ─────────────────────────────────
+export {
+  applyVisualAttributes,
+  edgeAttributesToCy,
+  nodeAttributesToCy,
+} from "./views/canvas/visual-attributes-to-cytoscape";
+export type { CyProjection } from "./views/canvas/visual-attributes-to-cytoscape";
+// The `stylesheet` prop's element type: consumers building custom rule
+// arrays need it (the Style Lab is the first).
+export type { CyStylesheet } from "./views/canvas/CytoscapeCanvas";
+// The canvas default rule stack + theme rules, exported so conformance
+// oracles (the Style Lab) can reproduce the REAL browser stylesheet
+// stack headlessly instead of comparing bare-cytoscape paths (the
+// MR-7 oracle blind spot, closed).
+export {
+  DEFAULT_STYLESHEET,
+  themeColorRules,
+} from "./views/canvas/CytoscapeCanvas";

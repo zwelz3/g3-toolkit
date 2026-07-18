@@ -187,7 +187,8 @@ function ThemedStory({
     setTheme(theme);
     injectDesignTokens(theme === "dark");
     document.documentElement.dataset["theme"] = theme;
-    document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light";
+    document.documentElement.style.colorScheme =
+      theme === "dark" ? "dark" : "light";
   }, [theme, setTheme]);
   return createElement(
     "div",
@@ -430,7 +431,9 @@ export function Gallery(): ReactNode {
                 <button
                   type="button"
                   key={t.id}
-                  className={t.id === theme ? "g3tg-themebtn on" : "g3tg-themebtn"}
+                  className={
+                    t.id === theme ? "g3tg-themebtn on" : "g3tg-themebtn"
+                  }
                   onClick={() => setThemeId(t.id)}
                 >
                   {t.label}
@@ -521,7 +524,9 @@ export function Gallery(): ReactNode {
                     <button
                       type="button"
                       key={g}
-                      className={i === 0 ? "g3tg-startbig" : "g3tg-startbig alt"}
+                      className={
+                        i === 0 ? "g3tg-startbig" : "g3tg-startbig alt"
+                      }
                       onClick={() => jumpTo(g)}
                     >
                       {g}

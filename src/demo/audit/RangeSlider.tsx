@@ -9,6 +9,8 @@
 interface Tick {
   time: number;
   kind: string;
+  /** Hover tooltip: "<name>: <kind> <date>" (review 6.3). */
+  label?: string;
 }
 interface RangeSliderProps {
   min: number;
@@ -18,6 +20,13 @@ interface RangeSliderProps {
   ticks: Tick[];
   onChange: (start: number, end: number) => void;
 }
+
+/** Mirrors the shell's KIND_SYMBOL so ticks and the list agree. */
+const SYMBOL: Record<string, string> = {
+  generated: "\u25cf",
+  started: "\u25b6",
+  ended: "\u25a0",
+};
 
 function pct(v: number, min: number, max: number): number {
   if (max <= min) return 0;
@@ -49,7 +58,11 @@ export function RangeSlider({
           key={i}
           className={`au-tick au-tick-${t.kind}`}
           style={{ left: `${pct(t.time, min, max)}%` }}
-        />
+          title={t.label}
+          data-testid="au-tick"
+        >
+          {SYMBOL[t.kind] ?? ""}
+        </div>
       ))}
       <input
         className="au-range-input"

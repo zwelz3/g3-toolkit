@@ -24,7 +24,6 @@ export {
   layoutStructural,
   estimateTextSize,
   isChainEdgeId,
-  compartmentKey,
 } from "./structural";
 export type {
   StructuralGraphInput,

@@ -39,8 +39,8 @@ export function fetchSupplyNodes(): SupplyNode[] {
   const nodes: SupplyNode[] = [];
   const sup = (id: string, name: string, country: string) =>
     nodes.push({ id, name, tier: "Supplier", country });
-  const part = (id: string, name: string) =>
-    nodes.push({ id, name, tier: "Part" });
+  const part = (id: string, name: string, country?: string) =>
+    nodes.push({ id, name, tier: "Part", country });
   const asm = (id: string, name: string) =>
     nodes.push({ id, name, tier: "Assembly" });
   const prod = (id: string, name: string) =>
@@ -55,20 +55,25 @@ export function fetchSupplyNodes(): SupplyNode[] {
   sup("stark", "Stark Fasteners", "US");
   sup("wayne", "Wayne Composites", "GB");
 
-  // Parts.
-  part("bearing", "Precision Bearing");
+  // Parts. Exactly half declare a country of manufacture (review
+  // 5.3): the origin-coverage panel needs a genuinely PARTIAL tier
+  // between the all-or-nothing extremes, so the three meter states
+  // (gap, exposed, discriminator) are all real. Products and
+  // assemblies stay undeclared (in-house integration; origin is a
+  // sourcing property), Suppliers stay fully declared.
+  part("bearing", "Precision Bearing", "DE");
   part("casing", "Alloy Casing");
-  part("gasket", "Polymer Gasket");
+  part("gasket", "Polymer Gasket", "US");
   part("bolt", "Titanium Bolt");
-  part("pcb", "Control PCB");
+  part("pcb", "Control PCB", "TW");
   part("connector", "Wire Connector");
-  part("spring", "Compression Spring");
+  part("spring", "Compression Spring", "US");
   part("seal", "Hydraulic Seal");
-  part("magnet", "Rare-Earth Magnet");
+  part("magnet", "Rare-Earth Magnet", "JP");
   part("lens", "Optical Lens");
-  part("sensor", "MEMS Sensor");
+  part("sensor", "MEMS Sensor", "TW");
   part("cable", "Shielded Cable");
-  part("bracket", "Mounting Bracket");
+  part("bracket", "Mounting Bracket", "US");
   part("damper", "Vibration Damper");
 
   // Assemblies.
@@ -168,19 +173,94 @@ export function fetchSupplyEdges(): SupplyEdge[] {
  * an integrator owns: tier travels as a node type AND a property (the
  * encoding colors by tier; the panels read the property).
  */
+/** Geographic base risk per country of origin (0-100, deterministic;
+ *  the values are illustrative and exist to give the risk model an
+ *  explainable geographic component). */
+const COUNTRY_RISK: Record<string, number> = {
+  US: 20,
+  GB: 25,
+  DE: 25,
+  JP: 30,
+  TW: 55,
+};
+
+/**
+ * Deterministic risk score per node (0-100), computed from the
+ * fixture's own structure so the "concentration risk" the header
+ * promises is actually quantified (review item 3.5: the centrality
+ * vs risk scatter charted a `risk` property no node carried, so it
+ * rendered empty):
+ *
+ * - Supplier: geographic base + 8 per part it SINGLE-sources.
+ * - Part: max feeding-supplier risk, +15 when single-sourced.
+ * - Assembly/Product: max upstream risk (risk propagates downstream
+ *   along partOf edges; a product is as risky as its riskiest input).
+ */
+function computeRisk(
+  nodes: readonly SupplyNode[],
+  edges: readonly SupplyEdge[],
+): Map<string, number> {
+  const cap = (v: number) => Math.min(100, Math.round(v));
+  const risk = new Map<string, number>();
+
+  const suppliersOfPart = new Map<string, string[]>();
+  for (const e of edges) {
+    if (e.kind !== "supplies") continue;
+    const arr = suppliersOfPart.get(e.to) ?? [];
+    arr.push(e.from);
+    suppliersOfPart.set(e.to, arr);
+  }
+  const singleSourced = new Set(
+    [...suppliersOfPart.entries()]
+      .filter(([, sups]) => sups.length === 1)
+      .map(([partId]) => partId),
+  );
+
+  for (const n of nodes) {
+    if (n.tier !== "Supplier") continue;
+    const base = COUNTRY_RISK[n.country ?? ""] ?? 35;
+    const soleParts = edges.filter(
+      (e) =>
+        e.kind === "supplies" && e.from === n.id && singleSourced.has(e.to),
+    ).length;
+    risk.set(n.id, cap(base + 8 * soleParts));
+  }
+  for (const n of nodes) {
+    if (n.tier !== "Part") continue;
+    const sups = suppliersOfPart.get(n.id) ?? [];
+    const upstream = Math.max(0, ...sups.map((sid) => risk.get(sid) ?? 0));
+    risk.set(n.id, cap(upstream + (singleSourced.has(n.id) ? 15 : 0)));
+  }
+  // Assemblies then products: partOf edges point downstream, so a few
+  // passes propagate max risk through the (shallow) hierarchy.
+  for (let pass = 0; pass < 4; pass++) {
+    for (const e of edges) {
+      if (e.kind !== "partOf") continue;
+      const up = risk.get(e.from) ?? 0;
+      const cur = risk.get(e.to) ?? 0;
+      if (up > cur) risk.set(e.to, up);
+    }
+  }
+  return risk;
+}
+
 export function buildSupplyNetwork(): UGM {
   const g = new UGM();
-  for (const node of fetchSupplyNodes()) {
+  const nodes = fetchSupplyNodes();
+  const edges = fetchSupplyEdges();
+  const risk = computeRisk(nodes, edges);
+  for (const node of nodes) {
     g.addNode(node.id, {
       types: [node.tier],
       properties: {
         name: node.name,
         tier: node.tier,
+        risk: risk.get(node.id) ?? 0,
         ...(node.country !== undefined ? { country: node.country } : {}),
       },
     });
   }
-  for (const edge of fetchSupplyEdges()) {
+  for (const edge of edges) {
     g.addEdge(edge.from, edge.to, { type: edge.kind, properties: {} });
   }
   return g;

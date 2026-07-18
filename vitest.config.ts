@@ -23,14 +23,13 @@ export default mergeConfig(
         "examples/*/src/**/*.test.{ts,tsx}",
         "tests/unit/**/*.test.{ts,tsx}",
         "tests/component/**/*.test.{ts,tsx}",
+        "tests/perf/**/*.perf.test.{ts,tsx}",
       ],
       coverage: {
         provider: "v8",
         // Phase-2 paths: coverage now includes the published packages
         // and the demo source, not the legacy src/ tree.
-        include: [
-          "packages/*/src/**/*.{ts,tsx}",
-        ],
+        include: ["packages/*/src/**/*.{ts,tsx}"],
         exclude: [
           "packages/*/src/**/*.test.{ts,tsx}",
           "packages/*/src/**/*.stories.{ts,tsx}",

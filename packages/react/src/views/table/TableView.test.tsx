@@ -246,3 +246,37 @@ describe("TableView column-visibility menu (bugfix: closeable)", () => {
     expect(screen.queryByTestId("column-visibility-menu")).toBeNull();
   });
 });
+
+describe("TableView adapter-support props (reviews 5.18/5.19)", () => {
+  it("hideBuiltinColumns removes the columns entirely, including from the visibility menu", () => {
+    render(
+      <TableView ugm={createTestUGM(3)} hideBuiltinColumns={["id", "types"]} />,
+    );
+    expect(screen.queryByText("ID")).toBeNull();
+    expect(screen.queryByText("Types")).toBeNull();
+    fireEvent.click(screen.getByTestId("column-visibility-toggle"));
+    const menu = screen.getByTestId("column-visibility-menu");
+    expect(within(menu).queryByText("Id")).toBeNull();
+  });
+
+  it("idFormatter is display-only: formatted text shown, full id in the title and in selection", () => {
+    render(
+      <TableView
+        ugm={createTestUGM(3)}
+        idFormatter={(id) => id.split("-").pop() ?? id}
+      />,
+    );
+    const row = screen.getByTestId("table-row-node-1");
+    expect(row).toBeDefined();
+    fireEvent.click(row);
+    expect(useSelectionStore.getState().selectedNodeIds.has("node-1")).toBe(
+      true,
+    );
+  });
+
+  it("selectable=false renders inert rows: no selection writes on click", () => {
+    render(<TableView ugm={createTestUGM(3)} selectable={false} />);
+    fireEvent.click(screen.getByTestId("table-row-node-1"));
+    expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
+  });
+});

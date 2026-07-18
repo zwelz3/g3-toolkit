@@ -7,13 +7,16 @@
  *
  * @see specs/01-functional-views.md R1.18
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   layoutStructural,
   edgePortId,
   type StructuralGraphInput,
 } from "@g3t/core";
 import {
+  canonicalSide,
+  distributeFaceAnchors,
+  resolveDragAttachment,
   structuralToCytoscapeElements,
   routeToSegments,
   segmentsToPoints,
@@ -24,7 +27,6 @@ import {
   taxiDirectionClass,
   STRUCTURAL_RULES,
   structuralThemeRules,
-  wireStructuralCompartmentToggle,
 } from "./structural-to-cytoscape";
 
 function fixture(): StructuralGraphInput {
@@ -727,6 +729,7 @@ describe("wireStructuralPortDrag", () => {
     id: () => string;
     data: ((k: string) => unknown) & ((patch: Record<string, string>) => void);
     hasClass: (c: string) => boolean;
+    style: (style: Record<string, string>) => void;
     source: () => {
       id: () => string;
       data: (k: string) => unknown;
@@ -798,11 +801,12 @@ describe("wireStructuralPortDrag", () => {
     // (200,0). Both eports exit NORTH (top). The source eport belongs to the
     // dragged box.
     const dataWrites: Record<string, string>[] = [];
+    const styleWrites: Record<string, string>[] = [];
     const store: Record<string, string> = {
       _segDist: "-50 -50",
       _segWeight: "0 1",
     };
-    const side = (k: string) => (k === "_side" ? "NORTH" : undefined);
+    const side = (k: string) => (k === "_side" ? "EAST" : undefined);
     const routedEdge: EdgeStub = {
       id: () => "e1",
       data: ((k?: string | Record<string, string>) => {
@@ -814,6 +818,9 @@ describe("wireStructuralPortDrag", () => {
         return undefined;
       }) as EdgeStub["data"],
       hasClass: (c: string) => c === "g3t-structural-edge-routed",
+      style: (style: Record<string, string>) => {
+        styleWrites.push(style);
+      },
       source: () => ({
         id: () => "__g3t_eport__e1__s",
         data: side,
@@ -835,8 +842,11 @@ describe("wireStructuralPortDrag", () => {
       height: () => 20,
     };
     handlers["grab"]!({ target });
-    // Drag the source box right by 30 and down by 12 (small move: the face
-    // stays NORTH, the ELK bends rescale rather than re-route).
+    // Drag the source box right by 30 and down by 12. Under the
+    // 4-way side selection (MR-8 refinement) the EAST face holds
+    // (the target is due east), so the policy takes the RESCALE
+    // path, which is what this pin tests. The fixture's original
+    // NORTH side would now legitimately rotate toward the target.
     boxPos.x = 30;
     boxPos.y = 12;
     handlers["drag"]!({ target });
@@ -860,6 +870,15 @@ describe("wireStructuralPortDrag", () => {
       const vertical = Math.abs(path[i]!.x - path[i - 1]!.x) < 1e-6;
       expect(horizontal || vertical).toBe(true);
     }
+
+    // Review 3.4: the style bypass mirrors every data write-back, so
+    // rendering never depends on data() mapping of the multi-value
+    // segment properties. Lockstep: same values, same write count.
+    expect(styleWrites.length).toBe(dataWrites.length);
+    const lastStyle = styleWrites.at(-1)!;
+    const lastData = dataWrites.at(-1)!;
+    expect(lastStyle["segment-distances"]).toBe(lastData._segDist);
+    expect(lastStyle["segment-weights"]).toBe(lastData._segWeight);
   });
 
   it("binds plain (compartment-less) nodes as well as containers", async () => {
@@ -899,6 +918,99 @@ describe("wireStructuralPortDrag", () => {
     boxPos.x = 99;
     handlers["drag"]!({ target });
     expect(portPos).toEqual(before);
+  });
+
+  /** Fresh, independent routed-edge fixture per call (MR-9 tests
+   *  drive multiple full sessions and compare final writes). */
+  function makeRoutedSession() {
+    const dataWrites: Record<string, string>[] = [];
+    const store: Record<string, string> = {
+      _segDist: "-50 -50",
+      _segWeight: "0 1",
+    };
+    const side = (k: string) => (k === "_side" ? "EAST" : undefined);
+    const routedEdge: EdgeStub = {
+      id: () => "e1",
+      data: ((k?: string | Record<string, string>) => {
+        if (typeof k === "string") return store[k];
+        if (k) {
+          Object.assign(store, k);
+          dataWrites.push(k);
+        }
+        return undefined;
+      }) as EdgeStub["data"],
+      hasClass: (c: string) => c === "g3t-structural-edge-routed",
+      style: () => undefined,
+      source: () => ({
+        id: () => "__g3t_eport__e1__s",
+        data: side,
+        position: () => ({ x: 0, y: 0 }),
+      }),
+      target: () => ({
+        id: () => "tgt",
+        data: side,
+        position: () => ({ x: 200, y: 0 }),
+      }),
+    };
+    const { cy, handlers } = stubCy([routedEdge]);
+    const boxPos = { x: 0, y: 0 };
+    const target = {
+      id: () => "sensor",
+      position: () => boxPos,
+      width: () => 20,
+      height: () => 20,
+    };
+    return { cy, handlers, boxPos, target, dataWrites, store };
+  }
+
+  const parseNums = (v: string | undefined) =>
+    (v ?? "").split(" ").filter(Boolean).map(Number);
+
+  it("MR-9: the settled route is a pure function of the settled position (two paths, one result)", async () => {
+    const { wireStructuralPortDrag } =
+      await import("./structural-to-cytoscape");
+    const runPath = (waypoints: { x: number; y: number }[]) => {
+      const fx = makeRoutedSession();
+      wireStructuralPortDrag(fx.cy as never);
+      fx.handlers["grab"]!({ target: fx.target });
+      for (const w of waypoints) {
+        fx.boxPos.x = w.x;
+        fx.boxPos.y = w.y;
+        fx.handlers["drag"]!({ target: fx.target });
+      }
+      fx.handlers["free"]!({ target: fx.target });
+      return {
+        dist: parseNums(fx.store["_segDist"]),
+        weight: parseNums(fx.store["_segWeight"]),
+      };
+    };
+    const final = { x: 60, y: 40 };
+    const viaRight = runPath([{ x: 120, y: 0 }, final]);
+    const viaLeft = runPath([{ x: -40, y: -30 }, final]);
+    expect(viaRight.dist.length).toBeGreaterThan(0);
+    expect(viaRight.dist).toEqual(viaLeft.dist);
+    expect(viaRight.weight).toEqual(viaLeft.weight);
+  });
+
+  it("MR-9: returning to the grab position restores the pre-drag route exactly", async () => {
+    const { wireStructuralPortDrag } =
+      await import("./structural-to-cytoscape");
+    const fx = makeRoutedSession();
+    wireStructuralPortDrag(fx.cy as never);
+    fx.handlers["grab"]!({ target: fx.target });
+    fx.boxPos.x = 150;
+    fx.handlers["drag"]!({ target: fx.target });
+    fx.boxPos.x = 3; // within the return band of the grab point
+    fx.boxPos.y = 0;
+    fx.handlers["drag"]!({ target: fx.target });
+    fx.handlers["free"]!({ target: fx.target });
+    const dist = parseNums(fx.store["_segDist"]);
+    const weight = parseNums(fx.store["_segWeight"]);
+    expect(dist.length).toBe(2);
+    expect(dist[0]).toBeCloseTo(-50, 6);
+    expect(dist[1]).toBeCloseTo(-50, 6);
+    expect(weight[0]).toBeCloseTo(0, 6);
+    expect(weight[1]).toBeCloseTo(1, 6);
   });
 });
 
@@ -993,15 +1105,40 @@ describe("routed-edge geometry helpers", () => {
     expect(migratedSide("EAST", c, half, { x: -200, y: 0 })).toBe("WEST");
   });
 
-  it("migratedSide preserves the original axis and keeps the face within the hysteresis band", () => {
+  it("canonicalSide is a pure function of relative geometry (MR-9 settle contract)", () => {
     const c = { x: 0, y: 0 };
     const half = { w: 50, h: 50 };
-    // Up-and-over route exits NORTH though its target is due east: a small
-    // separation within the node's band must NOT flip it to EAST.
-    expect(migratedSide("NORTH", c, half, { x: 300, y: 10 })).toBe("NORTH");
-    // Endpoint within the vertical band (|dy| <= half.h) holds the face.
+    // Below -> SOUTH, regardless of any drag history (there is none).
+    expect(canonicalSide(c, half, { x: 0, y: 300 })).toBe("SOUTH");
+    expect(canonicalSide(c, half, { x: 10, y: 300 })).toBe("SOUTH");
+    // Right -> EAST.
+    expect(canonicalSide(c, half, { x: 300, y: 10 })).toBe("EAST");
+    // Exact diagonal tie breaks deterministically horizontal.
+    expect(canonicalSide(c, half, { x: 200, y: 200 })).toBe("EAST");
+    expect(canonicalSide(c, half, { x: -200, y: -200 })).toBe("WEST");
+  });
+
+  it("migratedSide rotates to the face that looks at the other endpoint (4-way, MR-8 refinement)", () => {
+    // Pin EVOLVED 2026-07-11 by owner ruling: the previous contract
+    // preserved the original axis (an up-and-over NORTH exit stayed
+    // NORTH with a due-east target). The owner's live observation
+    // ("attach point always on the side even when all blocks are
+    // below it") ruled the opposite: the attach face should match
+    // the relative position of what the edge connects to. Rotation
+    // now fires when the other endpoint is DECISIVELY beyond the
+    // perpendicular extent; hysteresis keeps diagonals stable.
+    const c = { x: 0, y: 0 };
+    const half = { w: 50, h: 50 };
+    // The owner's case: EAST attachment, everything below -> SOUTH.
+    expect(migratedSide("EAST", c, half, { x: 0, y: 300 })).toBe("SOUTH");
+    // The mirrored case that used to be pinned the other way.
+    expect(migratedSide("NORTH", c, half, { x: 300, y: 10 })).toBe("EAST");
+    // Endpoint within BOTH bands holds the current face.
     expect(migratedSide("SOUTH", c, half, { x: 0, y: 40 })).toBe("SOUTH");
     expect(migratedSide("SOUTH", c, half, { x: 0, y: -40 })).toBe("SOUTH");
+    // Diagonal just beyond both extents without a decisive margin:
+    // the current axis wins (no flapping mid-drag).
+    expect(migratedSide("EAST", c, half, { x: 70, y: 70 })).toBe("EAST");
   });
 
   it("sidePoint returns the center of the requested face", () => {
@@ -1055,93 +1192,9 @@ describe("taxiDirectionClass", () => {
   });
 });
 
-describe("on-container compartment toggle", () => {
-  it("emits a collapse toggle chip in the header for each compartmented container", async () => {
-    const { elements, geometry } = await convert();
-    const toggle = elements.find((e) => e.data.id === "sensor::toggle");
-    expect(toggle).toBeDefined();
-    expect(toggle!.data.parent).toBe("sensor");
-    expect(String(toggle!.classes)).toContain("g3t-structural-toggle");
-    expect(toggle!.data._toggleFor).toBe("sensor");
-    expect(toggle!.data._compartmentIds).toEqual(["attributes"]);
-    // Expanded by default (no collapsedContainers decoration): minus.
-    expect(toggle!.data._glyph).toBe("\u2212");
-    expect(toggle!.selectable).toBe(false);
-    expect(toggle!.grabbable).toBe(false);
-    // Sits in the header strip, toward its right edge.
-    const c = geometry.nodes["sensor"]!;
-    expect(toggle!.position!.y).toBeCloseTo(c.y + geometry.headerHeight / 2, 5);
-    expect(toggle!.position!.x).toBeGreaterThan(c.x + c.width / 2);
-    expect(toggle!.position!.x).toBeLessThanOrEqual(c.x + c.width);
-  });
-
-  it("omits the toggle for plain (compartment-less) nodes", async () => {
-    const { elements } = await convert();
-    expect(elements.find((e) => e.data.id === "note::toggle")).toBeUndefined();
-  });
-
-  it("renders the collapsed glyph and class when the container is collapsed", async () => {
-    const input = fixture();
-    const geometry = await layoutStructural(input);
-    const els = structuralToCytoscapeElements(input, geometry, {
-      collapsedContainers: new Set(["sensor"]),
-    });
-    const toggle = els.find((e) => e.data.id === "sensor::toggle");
-    expect(toggle!.data._glyph).toBe("+"); // collapsed: plus
-    expect(String(toggle!.classes)).toContain(
-      "g3t-structural-toggle-collapsed",
-    );
-  });
-
-  function stubTapCy() {
-    const handlers: Record<string, ((e: unknown) => void) | undefined> = {};
-    const cy = {
-      on: (evt: string, _sel: string, fn: (e: unknown) => void) => {
-        handlers[evt] = fn;
-      },
-      removeListener: (evt: string) => {
-        handlers[evt] = undefined;
-      },
-    };
-    return { cy, handlers };
-  }
-
-  it("forwards a chip tap to the host callback and stops propagation", () => {
-    const { cy, handlers } = stubTapCy();
-    const onToggle = vi.fn();
-    const dispose = wireStructuralCompartmentToggle(cy as never, onToggle);
-
-    const data: Record<string, unknown> = {
-      _toggleFor: "sensor",
-      _compartmentIds: ["attributes", "operations"],
-    };
-    const stopPropagation = vi.fn();
-    handlers["tap"]!({
-      target: { data: (k: string) => data[k] },
-      stopPropagation,
-    });
-
-    expect(onToggle).toHaveBeenCalledWith("sensor", [
-      "attributes",
-      "operations",
-    ]);
-    expect(stopPropagation).toHaveBeenCalledTimes(1);
-
-    dispose();
-    expect(handlers["tap"]).toBeUndefined();
-  });
-
-  it("ignores a tap that lacks toggle data", () => {
-    const { cy, handlers } = stubTapCy();
-    const onToggle = vi.fn();
-    wireStructuralCompartmentToggle(cy as never, onToggle);
-    handlers["tap"]!({
-      target: { data: () => undefined },
-      stopPropagation: () => {},
-    });
-    expect(onToggle).not.toHaveBeenCalled();
-  });
-});
+// The "on-container compartment toggle" describe lived here; the
+// expand/collapse feature was removed by ruling (2026-07-10). See
+// planning/expand-collapse-postmortem.md.
 
 describe("structuralToCytoscapeElements body-edge attachment ports", () => {
   it("attaches body edges to distinct synth ports and renders them invisibly", async () => {
@@ -1186,5 +1239,186 @@ describe("structuralToCytoscapeElements body-edge attachment ports", () => {
     // the edge-port class, not the visible port class.
     const synthNode = els.find((n) => n.data.id === edgePortId("e1", "s"))!;
     expect(synthNode.classes).toBe("g3t-structural-edge-port");
+  });
+});
+
+describe("drag attachment refinements (owner findings, 2026-07-11)", () => {
+  it("distributeFaceAnchors spreads bundle anchors along the face, ordered by cross coordinate", () => {
+    const center = { x: 0, y: 0 };
+    const half = { w: 50, h: 30 };
+    const anchors = distributeFaceAnchors(center, half, "SOUTH", [
+      { key: "b", cross: 100 },
+      { key: "a", cross: -100 },
+      { key: "c", cross: 300 },
+    ]);
+    const a = anchors.get("a");
+    const b = anchors.get("b");
+    const c = anchors.get("c");
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    expect(c).toBeDefined();
+    if (!a || !b || !c) return;
+    // All on the SOUTH face line.
+    expect(a.y).toBeCloseTo(30, 6);
+    expect(b.y).toBeCloseTo(30, 6);
+    expect(c.y).toBeCloseTo(30, 6);
+    // Ordered left-to-right by the other endpoint's x; within the
+    // middle 70% of the face; evenly spaced around the center.
+    expect(a.x).toBeLessThan(b.x);
+    expect(b.x).toBeLessThan(c.x);
+    expect(a.x).toBeGreaterThanOrEqual(-35);
+    expect(c.x).toBeLessThanOrEqual(35);
+    expect(b.x).toBeCloseTo(0, 6);
+  });
+
+  it("distributeFaceAnchors keeps a single edge at the face center", () => {
+    const anchors = distributeFaceAnchors(
+      { x: 10, y: 20 },
+      { w: 40, h: 25 },
+      "EAST",
+      [{ key: "only", cross: 5 }],
+    );
+    expect(anchors.get("only")).toEqual({ x: 50, y: 20 });
+  });
+
+  it("resolveDragAttachment retries other faces when the desired face is sealed (the c.adcs class)", () => {
+    // A wall hugging the EAST face: the desired EAST stub is sealed
+    // in; the policy must come back with a CLEAR route via another
+    // face rather than an unchecked fallback through the wall.
+    const wall = { x: 60, y: -200, width: 30, height: 400 };
+    const res = resolveDragAttachment({
+      bends: [],
+      oldSource: { x: 50, y: 0 },
+      oldTarget: { x: 400, y: 0 },
+      movedEnd: "source",
+      fixedPoint: { x: 400, y: 0 },
+      fixedSide: "WEST",
+      movedCenter: { x: 0, y: 0 },
+      movedHalf: { w: 50, h: 30 },
+      desiredSide: "EAST",
+      originalSide: "EAST",
+      sameSide: false,
+      obstacles: [wall],
+    });
+    const full = [res.source, ...res.bends, res.target];
+    // Clear of the wall, whatever face it chose.
+    for (let i = 1; i < full.length; i++) {
+      const a = full[i - 1]!;
+      const b = full[i]!;
+      const sx1 = Math.min(a.x, b.x);
+      const sx2 = Math.max(a.x, b.x);
+      const sy1 = Math.min(a.y, b.y);
+      const sy2 = Math.max(a.y, b.y);
+      const crosses =
+        sx1 < wall.x + wall.width - 1e-6 &&
+        sx2 > wall.x + 1e-6 &&
+        sy1 < wall.y + wall.height - 1e-6 &&
+        sy2 > wall.y + 1e-6;
+      expect(crosses, `segment ${i} crosses the wall`).toBe(false);
+    }
+    expect(res.movedSide).not.toBe("EAST");
+  });
+});
+
+describe("container bounds pin (MR-1 fourth review)", () => {
+  it("every container emits an ::extent pin at the geometry box's bottom-right interior", async () => {
+    const input = {
+      nodes: [
+        {
+          id: "boxA",
+          header: { stereotype: "Block", name: "A" },
+          compartments: [
+            { id: "c", rows: [{ id: "boxA.r1", text: "row one" }] },
+          ],
+        },
+      ],
+      edges: [],
+    };
+    const geometry = await layoutStructural(input, { direction: "DOWN" });
+    const els = structuralToCytoscapeElements(input, geometry);
+    const pin = els.find((e) => e.data.id === "boxA::extent");
+    expect(pin).toBeDefined();
+    if (!pin) return;
+    const g = geometry.nodes["boxA"];
+    expect(g).toBeDefined();
+    if (!g) return;
+    // Bottom-right interior corner of the GEOMETRY box: with rows
+    // collapsed away the compound's drawn bounds still reach it, so
+    // the drawn box equals the box the ports live on.
+    expect(pin.position?.x).toBeCloseTo(g.x + g.width - 0.5, 6);
+    expect(pin.position?.y).toBeCloseTo(g.y + g.height - 0.5, 6);
+    expect(pin.classes).toBe("g3t-structural-extent");
+    expect(pin.selectable).toBe(false);
+    expect(pin.grabbable).toBe(false);
+  });
+
+  it("the pin tracks the floored box across a sketched shrink (drawn bounds == port box)", async () => {
+    const input = {
+      nodes: [
+        {
+          id: "boxA",
+          header: { stereotype: "Block", name: "A" },
+          compartments: [
+            {
+              id: "c",
+              rows: [
+                { id: "boxA.r1", text: "row one" },
+                { id: "boxA.r2", text: "row two" },
+              ],
+            },
+          ],
+        },
+        {
+          id: "boxB",
+          header: { stereotype: "Block", name: "B" },
+          compartments: [{ id: "c", rows: [{ id: "boxB.r1", text: "row" }] }],
+        },
+      ],
+      edges: [{ id: "e1", source: "boxA", target: "boxB" }],
+    };
+    const before = await layoutStructural(input, { direction: "DOWN" });
+    const sketch: Record<
+      string,
+      { x: number; y: number; width?: number; height?: number }
+    > = {};
+    for (const [id, g] of Object.entries(before.nodes)) {
+      if (id === "boxA" || id === "boxB") {
+        sketch[id] = { x: g.x, y: g.y, width: g.width, height: g.height };
+      }
+    }
+    // Same ids, boxA shrunk to one row: the perturbation a sketched
+    // re-layout holds the floored box under (the original perturbation
+    // was a compartment collapse; the feature was removed by ruling,
+    // the floor + pin invariants survive it).
+    const shrunk = {
+      ...input,
+      nodes: input.nodes.map((n) =>
+        n.id === "boxA"
+          ? {
+              ...n,
+              compartments: [
+                { id: "c", rows: [{ id: "boxA.r1", text: "row one" }] },
+              ],
+            }
+          : n,
+      ),
+    };
+    const after = await layoutStructural(shrunk, {
+      direction: "DOWN",
+      sketch,
+    });
+    const els = structuralToCytoscapeElements(input, after);
+    const pin = els.find((e) => e.data.id === "boxA::extent");
+    const g = after.nodes["boxA"];
+    expect(pin).toBeDefined();
+    expect(g).toBeDefined();
+    if (!pin || !g) return;
+    // The floor held the box; the pin reaches its far corner, so the
+    // DRAWN compound spans the same box the border ports sit on.
+    const beforeA = before.nodes["boxA"];
+    expect(beforeA).toBeDefined();
+    if (!beforeA) return;
+    expect(g.height).toBeCloseTo(beforeA.height, 6);
+    expect(pin.position?.y).toBeCloseTo(g.y + g.height - 0.5, 6);
   });
 });

@@ -32,7 +32,9 @@ describe("supply-chain viz adapters", () => {
   it("summarizes provenance by source system", () => {
     const counts = sourceCounts(buildDigitalThread());
     const map = new Map(counts.map((c) => [c.source, c.count]));
-    expect(map.get("ERP")).toBe(8); // 6 parts + 2 assemblies
+    // 7 parts + 3 assemblies after the 5.10 path-richness fixtures
+    // (part.gyro and the nested asm.sensor-core are ERP records).
+    expect(map.get("ERP")).toBe(10);
     expect(map.get("SupplierDB")).toBe(7);
     expect(map.get("Logistics")).toBe(4);
     // sorted descending

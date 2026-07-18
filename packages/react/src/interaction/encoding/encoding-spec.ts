@@ -58,6 +58,13 @@ export interface CategoricalScale<T> {
   kind: "categorical";
   /** Named palette or custom output array, consumed in value order. */
   palette?: PaletteName | T[];
+  /** Explicit value order (review 4.4): values listed here take
+   *  palette slots by POSITION, independent of the order the data is
+   *  encountered, so the same spec yields the same output across
+   *  different projections of the same universe (encounter-order
+   *  assignment made colors reshuffle per view). Values not in the
+   *  domain continue encounter-order assignment after it. */
+  domain?: string[];
   /** Per-value pinned outputs; win over palette assignment. */
   overrides?: Record<string, T>;
   /** Output for values with no palette slot and no override. */
@@ -151,8 +158,11 @@ function driverValue(driver: string | undefined, attrs: ElementAttrs): unknown {
   return attrs.properties[driver];
 }
 
-function categoricalIndexer(): (v: string) => number {
+function categoricalIndexer(seed?: readonly string[]): (v: string) => number {
   const seen = new Map<string, number>();
+  for (const v of seed ?? []) {
+    if (!seen.has(v)) seen.set(v, seen.size);
+  }
   return (v: string) => {
     let i = seen.get(v);
     if (i === undefined) {
@@ -204,7 +214,7 @@ export function makeColorResolver(
   if (scale.kind === "fixed") return () => scale.value;
   if (scale.kind === "categorical") {
     const palette = paletteArray(scale.palette);
-    const index = categoricalIndexer();
+    const index = categoricalIndexer(scale.domain);
     return (attrs) => {
       const raw = driverValue(driver, attrs);
       if (raw === undefined || raw === null) return scale.unmapped;
@@ -250,6 +260,18 @@ export function categoricalColorMap(
   const resolve = makeColorResolver(enc, { ugm });
   const driver = enc.driver;
   const seen = new Set<string>();
+  // Domain values lead, in domain order, so legends and swatch UIs
+  // render a stable sequence regardless of data traversal order.
+  for (const key of enc.scale.domain ?? []) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const sample: ElementAttrs =
+      driver === "types"
+        ? { types: [key], properties: {} }
+        : { types: [], properties: { [driver ?? ""]: key } };
+    const color = resolve(sample);
+    if (color) out.set(key, color);
+  }
   ugm.forEachNode((_id, attrs) => {
     const raw =
       driver === "types"
@@ -314,7 +336,7 @@ export function makeShapeResolver(
   const palette: readonly string[] = Array.isArray(scale.palette)
     ? scale.palette
     : NODE_SHAPES;
-  const index = categoricalIndexer();
+  const index = categoricalIndexer(scale.domain);
   return (attrs) => {
     const raw = driverValue(driver, attrs);
     if (raw === undefined || raw === null) return scale.unmapped;

@@ -53,10 +53,18 @@ export function LinkedChart<TData, TSelection>({
   const data = useMemo(() => pipeline.query(ugm), [ugm, pipeline]);
 
   // Generate ECharts options based on chart type
-  const options = useMemo(
-    () => buildOptions(type, data, theme),
-    [type, data, theme],
-  );
+  const options = useMemo(() => {
+    const built = buildOptions(type, data, theme);
+    // 12.18: echarts animates by default; the graph views honor the
+    // OS reduced-motion preference and the charts must too. Checked
+    // per build (cheap) so a live preference change takes effect on
+    // the next data/theme change; SSR-safe.
+    const reduced =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    return reduced ? { ...built, animation: false } : built;
+  }, [type, data, theme]);
 
   // Handle chart click events
   const handleClick = useCallback(

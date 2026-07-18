@@ -68,6 +68,27 @@ const activities: ActivityRec[] = [
     ended: "2025-03-12T16:00:00Z",
     agent: "agent:bob",
   },
+  {
+    id: "act:hazard",
+    name: "Hazard analysis",
+    started: "2025-01-25T09:00:00Z",
+    ended: "2025-02-05T17:00:00Z",
+    agent: "agent:alice",
+  },
+  {
+    id: "act:safety-review",
+    name: "Safety review",
+    started: "2025-02-10T09:00:00Z",
+    ended: "2025-02-14T15:00:00Z",
+    agent: "agent:bob",
+  },
+  {
+    id: "act:regress",
+    name: "Regression run",
+    started: "2025-03-15T06:00:00Z",
+    ended: "2025-03-15T09:00:00Z",
+    agent: "agent:ci",
+  },
   // No end time recorded: an incomplete audit record (warning).
   {
     id: "act:approve",
@@ -112,6 +133,27 @@ const entities: EntityRec[] = [
     generatedBy: "act:approve",
     derivedFrom: "ent:review",
   },
+  {
+    id: "ent:hazards",
+    name: "Hazard log",
+    generated: "2025-02-05T17:00:00Z",
+    generatedBy: "act:hazard",
+    derivedFrom: "ent:reqs",
+  },
+  {
+    id: "ent:safety",
+    name: "Safety case",
+    generated: "2025-02-14T15:00:00Z",
+    generatedBy: "act:safety-review",
+    derivedFrom: "ent:hazards",
+  },
+  {
+    id: "ent:regress",
+    name: "Regression evidence",
+    generated: "2025-03-15T09:00:00Z",
+    generatedBy: "act:regress",
+    derivedFrom: "ent:tests",
+  },
   // No generatedBy and no derivedFrom: an orphan artifact (warning).
   { id: "ent:legacy", name: "Legacy spec", generated: "2025-01-05T00:00:00Z" },
 ];
@@ -120,16 +162,12 @@ const uses: Array<{ activity: string; entity: string }> = [
   { activity: "act:analyze", entity: "ent:reqs" },
   { activity: "act:test", entity: "ent:analysis" },
   { activity: "act:review", entity: "ent:tests" },
+  { activity: "act:review", entity: "ent:safety" },
   { activity: "act:approve", entity: "ent:review" },
+  { activity: "act:hazard", entity: "ent:reqs" },
+  { activity: "act:safety-review", entity: "ent:hazards" },
+  { activity: "act:regress", entity: "ent:tests" },
 ];
-
-export const PROV = {
-  generatedAtTime: "generatedAtTime",
-  startedAtTime: "startedAtTime",
-  endedAtTime: "endedAtTime",
-  attributed: "attributed",
-  role: "role",
-} as const;
 
 export function buildProvenance(): UGM {
   const ugm = new UGM();

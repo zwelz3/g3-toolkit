@@ -10,9 +10,12 @@ export { useStyleOverrideStore } from "./style-override-store";
 export { usePositionPinStore, computeLockedIds } from "./position-pin-store";
 export { useOverlayStore, computeOverlayMembership } from "./overlay-store";
 export type { OverlayMembership } from "./overlay-store";
-export {
-  useCompartmentCollapseStore,
-  collapsedCompartmentSet,
-} from "./compartment-collapse-store";
 
 export { useInspectorSectionStore } from "./inspector-section-store";
+export {
+  useEmphasisStore,
+  applyEmphasisClasses,
+  EMPHASIS_EDGE_CLASS,
+  EMPHASIS_DIM_CLASS,
+} from "./emphasis-store";
+export type { EmphasisState, EmphasisCoreLike } from "./emphasis-store";

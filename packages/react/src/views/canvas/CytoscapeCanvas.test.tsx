@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import { UGM } from "@g3t/core";
+import { useSelectionStore } from "../../state/selection-store";
 
 // Mock cytoscape before importing the component
 const mockCy = {
@@ -17,7 +18,9 @@ const mockCy = {
   removeListener: vi.fn(),
   destroy: vi.fn(),
   nodes: vi.fn(() => ({ length: 2, forEach: vi.fn() })),
-  edges: vi.fn(() => ({ length: 1 })),
+  // forEach: the routed-segment bypass iterates the routed-edge
+  // selection at mount (review 3.4); real collections provide it.
+  edges: vi.fn(() => ({ length: 1, forEach: vi.fn() })),
   batch: vi.fn((fn: () => void) => fn()),
   style: vi.fn(() => ({
     fromJson: vi.fn(() => ({ update: vi.fn() })),
@@ -32,7 +35,16 @@ const mockCy = {
   viewport: vi.fn(),
   // Selection-highlight subscription path (exercised once a test
   // actually changes the selection store while a canvas is mounted).
-  elements: vi.fn(() => ({ removeClass: vi.fn() })),
+  // The same collection now also serves the in-place scene patch
+  // (MR-1 flash fix): the patch snapshots ids via elements().forEach.
+  elements: vi.fn(() => ({ removeClass: vi.fn(), forEach: vi.fn() })),
+  // In-place patch surface (planScenePatch application): with the
+  // id snapshot empty (forEach above yields nothing), every element
+  // lands in `add`, which is fine for these lifecycle pins.
+  $id: vi.fn(() => ({ empty: () => true, json: vi.fn() })),
+  remove: vi.fn(),
+  collection: vi.fn(() => ({})),
+  add: vi.fn(),
 };
 
 vi.mock("cytoscape", () => ({
@@ -63,6 +75,24 @@ describe("CytoscapeCanvas component (M0.E3.T1)", () => {
     expect(container).toBeInTheDocument();
     expect(container.style.width).toBe("100%");
     expect(container.style.height).toBe("100%");
+  });
+
+  it("merges layoutOptions into the layout object after built-in tuning (5.11)", async () => {
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: { calls: Array<[{ layout: Record<string, unknown> }]> };
+    };
+    const ugm = new UGM();
+    render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        layoutOptions={{ idealEdgeLength: 140, padding: 60 }}
+      />,
+    );
+    const layout = cytoscape.mock.calls.at(-1)?.[0].layout;
+    expect(layout?.idealEdgeLength).toBe(140);
+    expect(layout?.padding).toBe(60);
+    // Built-in tuning keys the caller did not touch survive.
+    expect(layout?.nodeRepulsion).toBeDefined();
   });
 
   it("calls onReady with the Cytoscape instance", () => {
@@ -194,14 +224,18 @@ describe("compound container rule (slice 1, round 17)", () => {
 });
 
 describe("position pin indicator rule (round 17)", () => {
-  it("targets pinned nodes by class with the badge stack (round 25)", async () => {
+  it("the pinned class rule maps nothing; the visual is a bypass (12.1)", async () => {
     const { PIN_INDICATOR_RULE } = await import("./CytoscapeCanvas");
     expect(PIN_INDICATOR_RULE.selector).toBe("node.g3t-pinned");
-    const style = (
-      PIN_INDICATOR_RULE as unknown as { style: Record<string, unknown> }
-    ).style;
-    expect(style["background-image"]).toBe("data(_bgStack)");
-    expect(style["background-clip"]).toBe("none");
+    // Two browser passes rejected data()-mapped array values for the
+    // multi-image background channel; composePinStack writes literal
+    // per-element bypasses instead (see compose-pin-stack.test.ts).
+    expect(
+      Object.keys(
+        (PIN_INDICATOR_RULE as unknown as { style: Record<string, unknown> })
+          .style,
+      ),
+    ).toHaveLength(0);
   });
 });
 
@@ -334,7 +368,7 @@ describe("structural camera preservation across rebuilds (round 56)", () => {
       <CytoscapeCanvas
         ugm={ugm}
         structural={{ input, geometry: geometry0 }}
-        structuralDecorations={{ collapsedContainers: new Set() }}
+        structuralDecorations={{ closedContainers: new Set() }}
       />,
     );
     // First structural mount fits.
@@ -343,21 +377,29 @@ describe("structural camera preservation across rebuilds (round 56)", () => {
 
     mockCy.fit.mockClear();
     mockCy.viewport.mockClear();
+    mockCy.destroy.mockClear();
+    mockCy.batch.mockClear();
 
-    // Same input, fresh geometry + decorations objects (the collapse rebuild,
+    // Same input, fresh geometry + decorations objects (a same-graph rebuild,
     // and the async geometry-update render that follows it).
     await act(async () => {
       rerender(
         <CytoscapeCanvas
           ugm={ugm}
           structural={{ input, geometry: geometry1 }}
-          structuralDecorations={{ collapsedContainers: new Set(["sensor"]) }}
+          structuralDecorations={{ closedContainers: new Set(["sensor"]) }}
         />,
       );
     });
-    // Camera preserved: viewport restored, NOT refit.
-    expect(mockCy.viewport).toHaveBeenCalledTimes(1);
+    // Round-56 pin, evolved with the MR-1 flash fix: a same-graph
+    // rebuild no longer destroys/recreates the instance, so there is
+    // no camera to restore and nothing to refit: the camera is
+    // untouched BY CONSTRUCTION (D15 becomes a non-event on this
+    // path). The scene lands as an in-place batched patch instead.
+    expect(mockCy.viewport).not.toHaveBeenCalled();
     expect(mockCy.fit).not.toHaveBeenCalled();
+    expect(mockCy.destroy).not.toHaveBeenCalled();
+    expect(mockCy.batch).toHaveBeenCalled();
   });
 
   it("fits when a genuinely different graph loads", async () => {
@@ -404,7 +446,7 @@ describe("structural camera preservation across rebuilds (round 56)", () => {
 
 describe("structural decoration churn does not recreate the instance (round 57)", () => {
   // structuralDecorations is typically a fresh object literal each render
-  // (e.g. {{ collapsedContainers }}). A re-render that does not change its
+  // (e.g. {{ closedContainers }}). A re-render that does not change its
   // CONTENT (a selection or hover) must not tear down and recreate the
   // instance, which would reset the camera and any manual node positions.
   const sensorScene = async () => {
@@ -442,7 +484,7 @@ describe("structural decoration churn does not recreate the instance (round 57)"
       <CytoscapeCanvas
         ugm={ugm}
         structural={scene}
-        structuralDecorations={{ collapsedContainers: new Set() }}
+        structuralDecorations={{ closedContainers: new Set() }}
       />,
     );
     const initial = cytoscape.mock.calls.length;
@@ -452,7 +494,7 @@ describe("structural decoration churn does not recreate the instance (round 57)"
         <CytoscapeCanvas
           ugm={ugm}
           structural={scene}
-          structuralDecorations={{ collapsedContainers: new Set() }}
+          structuralDecorations={{ closedContainers: new Set() }}
         />,
       );
     });
@@ -469,7 +511,7 @@ describe("structural decoration churn does not recreate the instance (round 57)"
       <CytoscapeCanvas
         ugm={ugm}
         structural={scene}
-        structuralDecorations={{ collapsedContainers: new Set() }}
+        structuralDecorations={{ closedContainers: new Set() }}
       />,
     );
     const initial = cytoscape.mock.calls.length;
@@ -478,10 +520,121 @@ describe("structural decoration churn does not recreate the instance (round 57)"
         <CytoscapeCanvas
           ugm={ugm}
           structural={scene}
-          structuralDecorations={{ collapsedContainers: new Set(["sensor"]) }}
+          structuralDecorations={{ closedContainers: new Set(["sensor"]) }}
         />,
       );
     });
-    expect(cytoscape.mock.calls.length).toBe(initial + 1);
+    // Round-57 pin, evolved with the MR-1 flash fix: a decoration
+    // content change over the SAME graph patches the live instance
+    // (classes/data via the batched scene patch) instead of
+    // re-initializing; construction count is UNCHANGED.
+    expect(cytoscape.mock.calls.length).toBe(initial);
+    expect(mockCy.batch).toHaveBeenCalled();
+  });
+});
+
+describe("multi-select drag (review 4.8)", () => {
+  // The toolkit never calls cy.select(), so cytoscape's native
+  // drag-selected-together is lost; the canvas reconstructs it with
+  // grab/drag/free handlers. Simulated here against live node fakes.
+  function liveNodes() {
+    const pos: Record<string, { x: number; y: number }> = {
+      a: { x: 0, y: 0 },
+      b: { x: 100, y: 50 },
+      c: { x: 200, y: 200 },
+    };
+    const lockedIds = new Set(["c"]); // c is pinned
+    const nodeFake = (id: string) => ({
+      id: () => id,
+      nonempty: () => true,
+      locked: () => lockedIds.has(id),
+      position: (p?: { x: number; y: number }) => {
+        if (p) pos[id] = p;
+        return pos[id]!;
+      },
+    });
+    return { pos, nodeFake };
+  }
+
+  function handlersByEvent() {
+    const map = new Map<string, (evt: unknown) => void>();
+    for (const call of mockCy.on.mock.calls) {
+      if (call.length === 3 && call[1] === "node") {
+        map.set(call[0] as string, call[2] as (evt: unknown) => void);
+      }
+    }
+    return map;
+  }
+
+  it("drags every selected unlocked node by the anchor delta; pinned stays; free ends the group", async () => {
+    const { pos, nodeFake } = liveNodes();
+    mockCy.getElementById.mockImplementation(((id: string) =>
+      nodeFake(id)) as never);
+
+    const ugm = new UGM();
+    for (const id of ["a", "b", "c"]) ugm.addNode(id, { types: ["T"] });
+    render(<CytoscapeCanvas ugm={ugm} />);
+    await act(async () => {
+      useSelectionStore.getState().selectNodes(["a", "b", "c"]);
+    });
+
+    const handlers = handlersByEvent();
+    expect(handlers.has("grab")).toBe(true);
+    expect(handlers.has("drag")).toBe(true);
+    expect(handlers.has("free")).toBe(true);
+    const grab = handlers.get("grab")!;
+    const drag = handlers.get("drag")!;
+    const free = handlers.get("free")!;
+
+    const anchor = nodeFake("a");
+    act(() => {
+      grab({ target: anchor });
+    });
+    // The user drags the anchor; cytoscape moves it natively.
+    pos.a = { x: 30, y: 10 };
+    act(() => {
+      drag({ target: anchor });
+    });
+    // b follows by the same delta; pinned c never moves.
+    expect(pos.b).toEqual({ x: 130, y: 60 });
+    expect(pos.c).toEqual({ x: 200, y: 200 });
+
+    act(() => {
+      free({ target: anchor });
+    });
+    pos.a = { x: 60, y: 20 };
+    act(() => {
+      drag({ target: anchor });
+    });
+    expect(pos.b).toEqual({ x: 130, y: 60 }); // group ended
+
+    mockCy.getElementById.mockImplementation((() => ({
+      nonempty: () => false,
+    })) as never);
+  });
+
+  it("a grab outside the selection (or single selection) starts no group", async () => {
+    const { pos, nodeFake } = liveNodes();
+    mockCy.getElementById.mockImplementation(((id: string) =>
+      nodeFake(id)) as never);
+    const ugm = new UGM();
+    for (const id of ["a", "b", "c"]) ugm.addNode(id, { types: ["T"] });
+    render(<CytoscapeCanvas ugm={ugm} />);
+    await act(async () => {
+      useSelectionStore.getState().selectNodes(["b"]);
+    });
+    const handlers = handlersByEvent();
+    const anchor = nodeFake("a");
+    act(() => {
+      handlers.get("grab")!({ target: anchor });
+    });
+    pos.a = { x: 5, y: 5 };
+    act(() => {
+      handlers.get("drag")!({ target: anchor });
+    });
+    expect(pos.b).toEqual({ x: 100, y: 50 });
+    mockCy.getElementById.mockImplementation((() => ({
+      nonempty: () => false,
+    })) as never);
   });
 });

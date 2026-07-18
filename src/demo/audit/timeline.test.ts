@@ -16,7 +16,10 @@ describe("provenance model + timeline", () => {
     const ugm = buildProvenance();
     const events = provenanceEvents(ugm);
     // 5 entity generations (release has none) + 9 activity start/end (approve has no end)
-    expect(events.length).toBe(14);
+    // 23 after the RC7 densification (review 6.3): the safety
+    // workstream adds three started/ended activity pairs and three
+    // generated entities to the original 14.
+    expect(events.length).toBe(23);
     // sorted ascending; earliest is the legacy spec
     expect(events[0]?.nodeId).toBe("ent:legacy");
     for (let i = 1; i < events.length; i += 1) {

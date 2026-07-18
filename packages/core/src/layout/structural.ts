@@ -57,9 +57,6 @@ export interface StructuralCompartment {
   /** Optional compartment title rendered as its own divider row. */
   title?: string;
   rows: StructuralRow[];
-  /** Whether this compartment may be collapsed (default true). A
-   *  non-collapsible compartment ignores collapsed-state entries. */
-  collapsible?: boolean;
 }
 
 /** A boundary port on a container or plain node. */
@@ -187,8 +184,31 @@ export interface StructuralLayoutOptions {
     | "NETWORK_SIMPLEX"
     | "LINEAR_SEGMENTS"
     | "SIMPLE";
-  /** Crossing-minimization strategy. Default "LAYER_SWEEP". */
+  /** Crossing-minimization strategy. Default "LAYER_SWEEP". Superseded
+   *  by INTERACTIVE for a run that carries a `sketch`. */
   crossingMinimization?: "LAYER_SWEEP" | "INTERACTIVE";
+  /**
+   * Prior TOP-LEVEL positions: a layout sketch (G3L:LAY-017; the
+   * ruled 12.20 experiment graduated). When present and non-empty,
+   * the run switches ELK layered's cycle-breaking, layering, and
+   * crossing-minimization strategies to INTERACTIVE and seeds each
+   * hinted top-level node with its prior absolute top-left, so a
+   * local change (e.g. one compartment collapse) re-lays out WITHOUT
+   * materially moving untouched containers (accept criterion
+   * G3L:LAY-018: less than one grid unit). Ids without a hint lay
+   * out normally; hints for absent ids are ignored. Positions are
+   * hints, not pins: ELK still resolves overlaps and spacing.
+   *
+   * `width`/`height` are the node's PRIOR extents. When a hinted node
+   * shrinks along the flow axis (e.g. its compartment collapsed), the
+   * layout reserves the difference as a trailing margin so its layer
+   * keeps its prior extent and downstream layers do not slide toward
+   * it: the collapsed box shrinks IN PLACE and the freed space reads
+   * as whitespace (the ruled A2 tradeoff, accepted for sketch mode).
+   */
+  sketch?: Readonly<
+    Record<string, { x: number; y: number; width?: number; height?: number }>
+  >;
   /**
    * Preferred minimum gap between an edge segment and a node side
    * (yFiles: minimum distance to node sides). Default 16. Keeps edges off
@@ -205,14 +225,6 @@ export interface StructuralLayoutOptions {
   /** Text measurement; defaults to the deterministic estimator. */
   measure?: TextMeasure;
   /**
-   * Compartments to render collapsed: a set of `${nodeId}::${compartmentId}`
-   * keys. A collapsed compartment shows its title divider (or a
-   * synthetic "(n hidden)" divider when untitled) but omits its
-   * content rows, so the container shrinks. Non-collapsible
-   * compartments (collapsible: false) ignore membership here.
-   */
-  collapsedCompartments?: ReadonlySet<string>;
-  /**
    * ELK engine to lay out with. Defaults to a shared synchronous elkjs
    * instance that runs on the calling thread. Inject a worker-backed
    * engine (see ElkEngine) to move layout off the main thread.
@@ -220,11 +232,10 @@ export interface StructuralLayoutOptions {
   engine?: ElkEngine;
 }
 
-/** The collapse-state key for a compartment within a node. */
-export function compartmentKey(nodeId: string, compartmentId: string): string {
-  return `${nodeId}::${compartmentId}`;
-}
-
+/* Expand/collapse was removed by ruling (2026-07-10); see
+ * planning/expand-collapse-postmortem.md before reintroducing any
+ * layout-time collapse input. `compartmentKey` and
+ * `collapsedCompartments` were deleted with it. */
 /** Geometry of one laid-out element. Coordinates are ABSOLUTE top-left. */
 export interface StructuralNodeGeometry {
   x: number;
@@ -325,7 +336,6 @@ export function buildStructuralElkGraph(
   options?: StructuralLayoutOptions,
 ): { graph: ElkNode; rowPlans: Map<string, RowPlan[]>; headerHeight: number } {
   const measure = options?.measure ?? estimateTextSize;
-  const collapsed = options?.collapsedCompartments ?? new Set<string>();
   const hPad = options?.hPadding ?? 8;
   const vPad = options?.vPadding ?? 5;
   const direction = options?.direction ?? "RIGHT";
@@ -405,6 +415,22 @@ export function buildStructuralElkGraph(
   const headerHeight = measure("M", "header").height + vPad * 2;
   const rowPlans = new Map<string, RowPlan[]>();
   const children: ElkNode[] = [];
+  // Sketch flow-axis hold (G3L:LAY-018): when a hinted node would
+  // SHRINK along the flow axis (its compartment collapsed), holding
+  // its prior extent keeps its layer's slot stable so downstream
+  // layers do not slide toward it (measured: elkjs ignores
+  // `elk.margins` as a layoutOption, so slot reservation must happen
+  // through the node's own size). The box then collapses in height
+  // but keeps its footprint width: "resizes in place", with the freed
+  // interior reading as whitespace (the ruled A2 tradeoff).
+  const sketchHints = options?.sketch;
+  const holdFlowExtent =
+    sketchHints && (direction === "RIGHT" || direction === "LEFT")
+      ? (id: string, extent: number): number => {
+          const prior = sketchHints[id]?.width;
+          return prior !== undefined ? Math.max(extent, prior) : extent;
+        }
+      : (_id: string, extent: number): number => extent;
 
   for (const node of input.nodes) {
     const declaredPorts: ElkPort[] = (node.ports ?? []).map((p) => ({
@@ -431,10 +457,15 @@ export function buildStructuralElkGraph(
       const headerW = node.header
         ? measure(headerText(node.header), "header").width + hPad * 2
         : 0;
+      const plainW = holdFlowExtent(
+        node.id,
+        Math.max(node.width ?? 40, headerW),
+      );
+      const plainH = node.height ?? 40;
       children.push({
         id: node.id,
-        width: Math.max(node.width ?? 40, headerW),
-        height: node.height ?? 40,
+        width: plainW,
+        height: plainH,
         ...(ports ? { ports } : {}),
         layoutOptions: portConstraint,
       });
@@ -448,36 +479,17 @@ export function buildStructuralElkGraph(
       ? measure(headerText(node.header), "header").width
       : 0;
     for (const comp of compartments) {
-      const isCollapsed =
-        comp.collapsible !== false && collapsed.has(`${node.id}::${comp.id}`);
       if (comp.title !== undefined) {
-        const titleText = isCollapsed
-          ? `${comp.title} (${comp.rows.length} hidden)`
-          : comp.title;
-        const m = measure(titleText, "compartmentTitle");
+        const m = measure(comp.title, "compartmentTitle");
         maxTextW = Math.max(maxTextW, m.width);
         plans.push({
           id: `${node.id}::${comp.id}::title`,
-          text: titleText,
-          compartment: comp.id,
-          divider: true,
-          height: m.height + vPad * 2,
-        });
-      } else if (isCollapsed) {
-        // Untitled but collapsed: a synthetic divider so the
-        // compartment is not silently empty (and is re-expandable).
-        const synthetic = `(${comp.rows.length} hidden)`;
-        const m = measure(synthetic, "compartmentTitle");
-        maxTextW = Math.max(maxTextW, m.width);
-        plans.push({
-          id: `${node.id}::${comp.id}::title`,
-          text: synthetic,
+          text: comp.title,
           compartment: comp.id,
           divider: true,
           height: m.height + vPad * 2,
         });
       }
-      if (isCollapsed) continue; // omit content rows; container shrinks
       for (const row of comp.rows) {
         const m = measure(row.text, "row");
         maxTextW = Math.max(maxTextW, m.width);
@@ -490,7 +502,7 @@ export function buildStructuralElkGraph(
         });
       }
     }
-    const rowWidth = maxTextW + hPad * 2;
+    const rowWidth = holdFlowExtent(node.id, maxTextW + hPad * 2);
     rowPlans.set(node.id, plans);
 
     const rowNodes: ElkNode[] = plans.map((p) => ({
@@ -555,6 +567,51 @@ export function buildStructuralElkGraph(
     edges,
   };
 
+  // Sketch mode (G3L:LAY-017): seed prior positions and switch the
+  // three layered strategies to INTERACTIVE so ELK preserves the
+  // existing layer/order structure instead of recomputing it. The
+  // hints ride the children as x/y (what elkjs's interactive
+  // strategies consume); nodes without a hint participate normally.
+  const sketch = options?.sketch;
+  if (sketch && Object.keys(sketch).length > 0 && graph.layoutOptions) {
+    graph.layoutOptions["elk.layered.cycleBreaking.strategy"] = "INTERACTIVE";
+    graph.layoutOptions["elk.layered.layering.strategy"] = "INTERACTIVE";
+    graph.layoutOptions["elk.layered.crossingMinimization.strategy"] =
+      "INTERACTIVE";
+    // The experiment's measured finding: the three structural
+    // strategies preserve layers and order but NOT coordinates
+    // (BRANDES_KOEPF recenters within layers, ~360px drift on the
+    // fixture). Node placement is the coordinate-preserving phase, so
+    // sketch mode forces it INTERACTIVE too, superseding the
+    // `nodePlacement` option for the run.
+    graph.layoutOptions["elk.layered.nodePlacement.strategy"] = "INTERACTIVE";
+    // Position hints ride the children as x/y (what elkjs's
+    // interactive strategies consume). The flow-axis extent hold for
+    // HORIZONTAL flows happened during assembly (holdFlowExtent).
+    // VERTICAL flows (DOWN/UP: the MBSE BDD/REQ case MR-1 caught in
+    // the browser) hold the flow axis here instead, via a
+    // MINIMUM_SIZE floor at the prior height: probe-verified (unlike
+    // elk.margins, which elkjs ignores), and it makes the box height
+    // CONSTANT across collapse AND expand, so both toggle directions
+    // are stable; the hidden-row interior reads as whitespace inside
+    // the border (the A2 tradeoff, vertical form; MR-1 re-review
+    // judges the look).
+    const verticalFlow = direction === "DOWN" || direction === "UP";
+    for (const child of graph.children ?? []) {
+      const hint = sketch[child.id];
+      if (!hint) continue;
+      child.x = hint.x;
+      child.y = hint.y;
+      if (verticalFlow && hint.height !== undefined) {
+        child.layoutOptions = {
+          ...(child.layoutOptions ?? {}),
+          "elk.nodeSize.constraints": "MINIMUM_SIZE",
+          "elk.nodeSize.minimum": `(0, ${hint.height})`,
+        };
+      }
+    }
+  }
+
   return { graph, rowPlans, headerHeight };
 }
 
@@ -614,8 +671,14 @@ function layoutOptionsKey(options?: StructuralLayoutOptions): string {
     edgeNodeSpacing: options?.edgeNodeSpacing ?? 16,
     edgeEdgeSpacing: options?.edgeEdgeSpacing ?? 24,
     routeEdges: options?.routeEdges ?? true,
-    collapsed: options?.collapsedCompartments
-      ? [...options.collapsedCompartments].sort()
+    // Sketch participates in the memo key: a sketched re-layout of the
+    // same input+options is a DIFFERENT computation from the
+    // from-scratch one (G3L:LAY-017); rounded to integers so subpixel
+    // jitter in captured positions does not defeat the cache.
+    sketch: options?.sketch
+      ? Object.entries(options.sketch)
+          .map(([id, p]) => [id, Math.round(p.x), Math.round(p.y)] as const)
+          .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
       : [],
   });
 }
@@ -747,6 +810,56 @@ async function runStructuralLayout(
       // A route needs at least the two endpoints to be useful; otherwise
       // leave the edge unrouted so the renderer falls back cleanly.
       if (points.length >= 2) edgesOut[edge.id] = { points };
+    }
+  }
+
+  // Sketch re-anchor (G3L:LAY-018). Interactive strategies preserve the
+  // scene's RELATIVE structure, but ELK's coordinate frame floats: when
+  // a container shrinks, the whole result translates rigidly (measured
+  // as a uniform per-node delta on the experiment fixture). Since D15
+  // holds the camera, absolute positions are what the user sees, so
+  // sketch mode ends with a rigid translation that re-anchors the
+  // result to the sketch frame: the component-wise MEDIAN delta over
+  // hinted nodes (median, not mean, so the deliberately-changed node
+  // cannot bias the frame).
+  const sketch = options?.sketch;
+  if (sketch) {
+    const dxs: number[] = [];
+    const dys: number[] = [];
+    for (const [id, hint] of Object.entries(sketch)) {
+      const g = nodes[id];
+      if (!g) continue;
+      dxs.push(hint.x - g.x);
+      dys.push(hint.y - g.y);
+    }
+    if (dxs.length > 0) {
+      const median = (v: number[]): number => {
+        const s = [...v].sort((a, b) => a - b);
+        const mid = Math.floor(s.length / 2);
+        const lo = s[mid - (s.length % 2 === 0 ? 1 : 0)] ?? 0;
+        const hi = s[mid] ?? 0;
+        return (lo + hi) / 2;
+      };
+      const dx = median(dxs);
+      const dy = median(dys);
+      if (dx !== 0 || dy !== 0) {
+        for (const g of Object.values(nodes)) {
+          g.x += dx;
+          g.y += dy;
+        }
+        for (const p of Object.values(portsOut)) {
+          p.x += dx;
+          p.y += dy;
+        }
+        if (edgesOut) {
+          for (const e of Object.values(edgesOut)) {
+            for (const pt of e.points) {
+              pt.x += dx;
+              pt.y += dy;
+            }
+          }
+        }
+      }
     }
   }
 

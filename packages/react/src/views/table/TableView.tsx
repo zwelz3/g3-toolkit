@@ -57,6 +57,20 @@ export interface TableViewProps {
    *  count is the job. */
   density?: "comfortable" | "compact";
   className?: string;
+  /** Display-only formatter for the built-in ID column (review 5.18:
+   *  a projection whose node ids are IRIs can show local names while
+   *  selection keeps the full id; the cell title carries it). */
+  idFormatter?: (id: string) => string;
+  /** Hide built-in columns entirely (review 5.19: adapter-fed UGMs
+   *  whose ids are ordinals and whose type is constant would render
+   *  two noise columns otherwise). Hidden here means never built,
+   *  not toggled off, so the visibility menu does not list them. */
+  hideBuiltinColumns?: ReadonlyArray<"id" | "types">;
+  /** When false, rows render without click/context-menu handlers and
+   *  without selection styling (review 5.19: adapter rows carry
+   *  ordinal ids; writing those into the SHARED selection store
+   *  would clobber a live canvas selection). Default true. */
+  selectable?: boolean;
 }
 
 export function TableView({
@@ -65,6 +79,9 @@ export function TableView({
   pageSize = 50,
   density = "comfortable",
   className,
+  idFormatter,
+  hideBuiltinColumns,
+  selectable = true,
 }: TableViewProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -122,18 +139,26 @@ export function TableView({
 
   // Build columns dynamically from property-key registry
   const columns = useMemo<ColumnDef<NodeRow>[]>(() => {
-    const cols: ColumnDef<NodeRow>[] = [
-      {
+    const cols: ColumnDef<NodeRow>[] = [];
+    if (hideBuiltinColumns?.includes("id") !== true) {
+      cols.push({
         accessorKey: "id",
         header: "ID",
         size: 120,
-      },
-      {
+        cell: ({ getValue }) => {
+          const raw = String(getValue());
+          if (idFormatter === undefined) return raw;
+          return <span title={raw}>{idFormatter(raw)}</span>;
+        },
+      });
+    }
+    if (hideBuiltinColumns?.includes("types") !== true) {
+      cols.push({
         accessorKey: "types",
         header: "Types",
         size: 150,
-      },
-    ];
+      });
+    }
 
     const registry = ugm.getRegistry();
     for (const key of registry.nodePropertyKeys) {
@@ -150,7 +175,7 @@ export function TableView({
     }
 
     return cols;
-  }, [ugm]);
+  }, [ugm, idFormatter, hideBuiltinColumns]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -291,7 +316,7 @@ export function TableView({
                     alignItems: "center",
                     gap: 4,
                     padding: "2px 0",
-                    cursor: "pointer",
+                    cursor: selectable ? "pointer" : "default",
                   }}
                 >
                   <input
@@ -324,7 +349,7 @@ export function TableView({
                     padding: density === "compact" ? "2px 6px" : "6px 8px",
                     borderBottom: "2px solid var(--g3t-border, #ddd)",
                     textAlign: "left",
-                    cursor: "pointer",
+                    cursor: selectable ? "pointer" : "default",
                     userSelect: "none",
                     whiteSpace: "nowrap",
                   }}
@@ -370,16 +395,24 @@ export function TableView({
         <tbody>
           {table.getRowModel().rows.map((row, rowIndex) => {
             const nodeId = row.original.id;
-            const isSelected = selectedNodeIds.has(nodeId);
+            const isSelected = selectable && selectedNodeIds.has(nodeId);
             return (
               <tr
                 key={row.id}
                 data-testid={`table-row-${nodeId}`}
                 data-selected={isSelected ? "true" : undefined}
-                onClick={(e) => handleRowClick(nodeId, rowIndex, e)}
-                onContextMenu={(e) => handleRowContextMenu(e, nodeId)}
+                onClick={
+                  selectable
+                    ? (e) => handleRowClick(nodeId, rowIndex, e)
+                    : undefined
+                }
+                onContextMenu={
+                  selectable
+                    ? (e) => handleRowContextMenu(e, nodeId)
+                    : undefined
+                }
                 style={{
-                  cursor: "pointer",
+                  cursor: selectable ? "pointer" : "default",
                   // C1 selection signature: accent bar + tinted fill,
                   // geometry from tokens, color from the active theme
                   // (the previous literals were a different blue than

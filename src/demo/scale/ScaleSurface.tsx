@@ -22,29 +22,37 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createDefaultMenuManager,
   CytoscapeCanvas,
+  GraphToolbar,
   useSelectionStore,
   type EncodingSpec,
 } from "@g3t/react";
+import type { Core } from "cytoscape";
 import { collapseByCluster, buildSubgraph, UGM } from "@g3t/core";
 import { SurfaceFrame } from "../surfaces/DashboardSurfaces";
-import { CapabilityCallout } from "../components/CapabilityCallout";
+import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import { generateScaleGraph, SCALE_SEED } from "./generate";
 
-const SPEC: EncodingSpec = {
-  version: 1,
-  node: {
-    color: {
-      driver: "types",
-      scale: { kind: "categorical", palette: "okabe-ito" },
+/** Color driver switches between the type channel (uniform in the
+ *  clusters view: every supernode is a Cluster) and the dominant
+ *  member type stamped by collapseByCluster (review 5.14: an encoding
+ *  change AT scale; spec changes restyle in place, no re-layout). */
+function makeSpec(colorDriver: "types" | "dominantType"): EncodingSpec {
+  return {
+    version: 1,
+    node: {
+      color: {
+        driver: colorDriver,
+        scale: { kind: "categorical", palette: "okabe-ito" },
+      },
+      size: {
+        driver: "memberCount",
+        scale: { kind: "sequential", domain: "auto", range: [14, 56] },
+      },
     },
-    size: {
-      driver: "memberCount",
-      scale: { kind: "sequential", domain: "auto", range: [14, 56] },
-    },
-  },
-  edge: {},
-};
+    edge: {},
+  };
+}
 
 /** Deterministic RNG (mulberry32), shared with the generator module. */
 function mulberry32(seed: number): () => number {
@@ -87,10 +95,76 @@ function buildModel(): Model {
 
 type View = { kind: "clusters" } | { kind: "drill"; superId: string };
 
+// 12.4 instrumentation: three lag suspects were eliminated by code
+// audit (Louvain memoized once; super-edges aggregate; instances
+// destroy per switch), so the remaining initiation lag needs a
+// measurement, not another theory. Every view switch logs
+// click -> canvas-ready to the console; Zach's next pass reports
+// the numbers per direction.
+let switchStart = 0;
+function markSwitch(label: string) {
+  switchStart = performance.now();
+  console.info(`[scale] switch -> ${label}`);
+}
+function markReady(label: string) {
+  if (switchStart > 0) {
+    console.info(
+      `[scale] ${label} ready in ${(performance.now() - switchStart).toFixed(0)}ms`,
+    );
+    switchStart = 0;
+  }
+}
+
 export function ScaleSurface({ onBack }: { onBack: () => void }) {
   const model = useMemo(() => buildModel(), []);
   const reducedMotion = usePrefersReducedMotion();
-  const [view, setView] = useState<View>({ kind: "clusters" });
+  // Live instance for the GraphToolbar (review 4.1; also the 5.14
+  // preview: layout switching and search AT scale, against whatever
+  // view is mounted, supernodes or a drilled cluster).
+  const [core, setCore] = useState<Core | null>(null);
+  const [view, setViewRaw] = useState<View>({ kind: "clusters" });
+  const setView = (v: View) => {
+    markSwitch(v.kind === "clusters" ? "clusters" : `drill:${v.superId}`);
+    setViewRaw(v);
+  };
+  // Review 5.14: recolor the 40 supernodes by dominant member type
+  // with one spec swap. Only meaningful in the clusters view (member
+  // nodes carry no dominantType), so drill always colors by type.
+  const [colorByDominant, setColorByDominant] = useState(false);
+  // 12.5: cluster-link labels are visual clutter at 40 supernodes;
+  // OFF by default, a chip re-enables.
+  const [edgeLabels, setEdgeLabels] = useState(false);
+  const spec = useMemo(
+    () =>
+      makeSpec(
+        colorByDominant && view.kind === "clusters" ? "dominantType" : "types",
+      ),
+    [colorByDominant, view.kind],
+  );
+  // Review 5.11: the built-in fcose numbers cram both views. The
+  // clusters view holds a few dozen 14-56px supernodes (long ideal
+  // edges, strong repulsion); a drilled community holds up to the
+  // working-set cap of 30px nodes (tighter but still padded). The
+  // padding also addresses the odd fit: supernodes no longer touch
+  // the viewport edges. Numbers are browser-verify items; the
+  // passthrough mechanism is the tested part.
+  // 9.8 experiment: fcose's animate:true renders EVERY layout tick;
+  // drill and return both re-init and re-run layout, so per-tick
+  // rendering presents as selection lag (console was clean, killing
+  // the warning-flood theory). "end" animates once to final
+  // positions; reduced-motion still suppresses via the canvas's
+  // animate=false, which layoutOptions must not override, hence the
+  // conditional spread.
+  const layoutOptions = useMemo<Record<string, unknown>>(
+    () => ({
+      ...(view.kind === "clusters"
+        ? // 12.5: Zach's ruling from the pass.
+          { idealEdgeLength: 300, nodeRepulsion: 50000, padding: 60 }
+        : { idealEdgeLength: 55, nodeRepulsion: 15000, padding: 50 }),
+      ...(reducedMotion ? {} : { animate: "end" }),
+    }),
+    [view.kind, reducedMotion],
+  );
 
   // Context menu: the base copy item plus an app-registered
   // "Drill into cluster" on supernodes (the wiring-guide custom-action
@@ -151,7 +225,7 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
       <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
         <aside
           style={{
-            flex: "0 0 240px",
+            flex: "0 0 280px",
             overflow: "auto",
             padding: "8px 0",
             borderRight: "1px solid rgba(127,127,127,0.3)",
@@ -183,6 +257,61 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
               </button>
             )}
           </div>
+          <div
+            style={{ padding: "8px 12px 0", fontSize: 11, opacity: 0.65 }}
+            data-testid="scale-cluster-explainer"
+          >
+            Clusters are Louvain communities detected in-browser; each is named
+            by its dominant member type and its most-connected member.
+          </div>
+          {view.kind === "clusters" && (
+            <div style={{ padding: "6px 12px 0" }}>
+              <button
+                type="button"
+                data-testid="scale-color-toggle"
+                onClick={() => setColorByDominant((v) => !v)}
+                style={{
+                  font: "inherit",
+                  fontSize: 11,
+                  padding: "3px 10px",
+                  border: "1px solid #7ee081",
+                  borderRadius: 4,
+                  background: colorByDominant
+                    ? "rgba(126,224,129,0.18)"
+                    : "transparent",
+                  color: "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                {colorByDominant
+                  ? "Color: dominant member type"
+                  : "Color by dominant member type"}
+              </button>
+              <div style={{ fontSize: 10, opacity: 0.55, marginTop: 3 }}>
+                Recolors every supernode in place; no re-layout.
+              </div>
+              <button
+                type="button"
+                data-testid="scale-edge-labels"
+                onClick={() => setEdgeLabels((v) => !v)}
+                style={{
+                  font: "inherit",
+                  fontSize: 11,
+                  marginTop: 6,
+                  padding: "3px 10px",
+                  border: "1px solid #7ee081",
+                  borderRadius: 4,
+                  background: edgeLabels
+                    ? "rgba(126,224,129,0.18)"
+                    : "transparent",
+                  color: "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                {edgeLabels ? "Hide edge labels" : "Show edge labels"}
+              </button>
+            </div>
+          )}
           <div style={{ marginTop: 10 }}>
             {supernodes.map(([superId, ids]) => (
               <button
@@ -210,7 +339,7 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
               </button>
             ))}
           </div>
-          <CapabilityCallout
+          <CapabilityBubble
             accent="#7ee081"
             items={[
               {
@@ -237,9 +366,30 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
           />
         </aside>
         <main style={{ flex: "1 1 auto", position: "relative", minWidth: 0 }}>
+          <div
+            style={{
+              position: "absolute",
+              top: 6,
+              left: 6,
+              right: 6,
+              zIndex: 5,
+            }}
+          >
+            <GraphToolbar ugm={canvasUgm} cy={core} />
+          </div>
           <CytoscapeCanvas
             ugm={canvasUgm}
-            encodingSpec={SPEC}
+            encodingSpec={spec}
+            stylesheet={
+              edgeLabels
+                ? undefined
+                : [{ selector: "edge", style: { label: "" } }]
+            }
+            layoutOptions={layoutOptions}
+            onReady={(c) => {
+              markReady(view.kind);
+              setCore(c);
+            }}
             animate={!reducedMotion}
             menuManager={menuManager}
           />

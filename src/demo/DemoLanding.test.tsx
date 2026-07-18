@@ -43,7 +43,7 @@ describe("DemoLanding", () => {
       "analytics-dashboard",
       "ontology-workbench",
       "scale",
-      "schema-dashboard",
+      "style-lab",
     ]);
     const { container } = render(<DemoLanding onSelect={() => {}} />);
     expect(container.textContent).toContain("Capability surfaces");
