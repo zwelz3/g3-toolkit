@@ -190,6 +190,17 @@ describe("MR-11 round-3 regressions", () => {
     // the deferred state updater here and unmounted the tree.
     fireEvent.wheel(svg, { deltaY: -120, clientX: 200, clientY: 150 });
     fireEvent.wheel(svg, { deltaY: 120, clientX: 100, clientY: 100 });
+    // MR-11 round-4: the native listener must preventDefault so the
+    // wheel never reaches the page (the "zooms the shell too" bug).
+    const evt = new WheelEvent("wheel", {
+      deltaY: -120,
+      clientX: 150,
+      clientY: 150,
+      cancelable: true,
+      bubbles: true,
+    });
+    svg.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(true);
     const scene = container.querySelector("[data-ssv-scene]")!;
     expect(scene.getAttribute("transform")).toMatch(/scale\(/);
     expect(container.querySelector("[data-ssv-node='blockA']")).not.toBeNull();

@@ -167,26 +167,38 @@ export function StructuralSvgView({
     pointerHandlers,
   );
 
-  const onWheel = (e: React.WheelEvent<SVGSVGElement>) => {
-    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    // MR-11 round-3 fix (owner: "zoom breaks the entire
-    // front-end"): everything event-derived is captured BEFORE the
-    // state updater runs. React nulls currentTarget after the
-    // handler returns, and the updater runs later, so reading it
-    // inside setView threw and unmounted the tree.
-    const rect = e.currentTarget.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
-    setView((v) => {
-      const k = Math.min(4, Math.max(0.05, v.k * factor));
-      // Zoom about the pointer: keep the model point under it fixed.
-      return {
-        k,
-        tx: px - ((px - v.tx) / v.k) * k,
-        ty: py - ((py - v.ty) / v.k) * k,
-      };
-    });
-  };
+  // MR-11 round-4 (owner: wheel "zooms the overall application
+  // shell and the graph view unreliably"): React attaches wheel
+  // listeners PASSIVELY at the root, so a React onWheel cannot
+  // preventDefault and the page scrolls the shell while the graph
+  // zooms (the "linked" feel). The zoom therefore binds as a NATIVE
+  // non-passive listener that preventDefaults. Round-3's lesson
+  // stands inside it: event-derived values are captured before the
+  // deferred state updater runs.
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  React.useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      const rect = el.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      setView((v) => {
+        const k = Math.min(4, Math.max(0.05, v.k * factor));
+        // Zoom about the pointer: keep the model point under it
+        // fixed.
+        return {
+          k,
+          tx: px - ((px - v.tx) / v.k) * k,
+          ty: py - ((py - v.ty) / v.k) * k,
+        };
+      });
+    };
+    el.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => el.removeEventListener("wheel", onWheelNative);
+  }, []);
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const model = {
@@ -262,7 +274,7 @@ export function StructuralSvgView({
         cursor: "grab",
         touchAction: "none",
       }}
-      onWheel={onWheel}
+      ref={svgRef}
       onClick={pointerProps.onClick}
       onContextMenu={pointerProps.onContextMenu}
       onPointerLeave={pointerProps.onPointerLeave}

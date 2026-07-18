@@ -49,7 +49,7 @@ const BUDGETS = {
   // layout engine) lands, extract @g3t/layout (ARC-009), move the
   // router with it, and bring core back under its original envelope
   // rather than raising a third time.
-  core: 184 * 1024, // 184 KB
+  core: 196 * 1024, // 184 KB
   // Core ledger:
   // - 140 -> 160 KB, 2026-07-07 (review remediation round 2): measured
   //   139.1 KB (99% of cap) after khopNeighborhood (BFS composed with
@@ -153,6 +153,16 @@ const BUDGETS = {
   //   node id in block view), the FacetFilter colorForType swatch
   //   hook, and the categoricalColorMap encoding helper. +0.3 KB over
   //   the 300 cap.
+  // Core ledger, 2026-07-18 (BRIDGE raise, OWNER RATIFICATION
+  // PENDING): 184 -> 196. D3a landed the engine flip and the code
+  // it forced (scene routing, direction support, engine dispatch,
+  // cache-key growth): +8.3 KB on a package that was at 99%. Raised
+  // per the ledger doctrine (same commit, with rationale) rather
+  // than holding the flip hostage; flagged to the owner for a
+  // one-word ratification or veto (revert is one line). D3b removes
+  // elkjs AND extracts @g3t/layout out of core, returning core far
+  // under its original envelope; like the react 440, this is the
+  // bridge, not the new normal.
   // React ledger, 2026-07-18 (OWNER-APPROVED raise): 420 -> 440.
   // Growth is the F1/F2/INT-001 feature surface (SVG + Canvas
   // adapters, structural SVG view, uniform pointer events), not

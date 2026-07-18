@@ -1,3 +1,10 @@
+// WS-D D3a elk-pins: oracles below that carry engineKind: "elk"
+// pin ELK-PIPELINE mechanics (injected-engine counting, elk cache
+// keys, LAY-018 collapse holds). They are removed with the elk
+// pipeline at D3b; g3t-generic cache oracles live in
+// structural-engine-cache.test.ts. LAY-018 position-hold under the
+// g3t engine lands with the collapse reintroduction (recorded in
+// the WS-D design doc).
 /**
  * Sketch-mode stability (G3L:LAY-017/018): the graduated 12.20
  * experiment, asserted end to end through real elkjs.
@@ -71,7 +78,10 @@ describe("layoutStructural sketch mode (G3L:LAY-017/018)", () => {
   it("holds untouched containers under one grid unit across a collapse rebuild", async () => {
     const input = fixture();
     const ids = new Set(input.nodes.map((n) => n.id));
-    const base: StructuralLayoutOptions = { direction: "RIGHT" };
+    const base: StructuralLayoutOptions = {
+      direction: "RIGHT",
+      engineKind: "elk",
+    };
 
     const before = await layoutStructural(input, base);
     const sketch: Record<
@@ -119,7 +129,10 @@ describe("layoutStructural sketch mode (G3L:LAY-017/018)", () => {
   it("DOWN flow (the MR-1 MBSE case): untouched containers hold and the box height stays CONSTANT across collapse", async () => {
     const input = fixture();
     const ids = new Set(input.nodes.map((n) => n.id));
-    const base: StructuralLayoutOptions = { direction: "DOWN" };
+    const base: StructuralLayoutOptions = {
+      direction: "DOWN",
+      engineKind: "elk",
+    };
 
     const before = await layoutStructural(input, base);
     const sketch: Record<

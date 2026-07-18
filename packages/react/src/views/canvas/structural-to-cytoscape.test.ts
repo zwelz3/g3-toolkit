@@ -59,9 +59,17 @@ function fixture(): StructuralGraphInput {
   };
 }
 
+// WS-D D3a elk-pin: every live-layout fixture in this file is
+// pinned to engineKind "elk". These oracles were authored against
+// ELK-SHAPED geometry (synth attachment ports in geometry.ports,
+// elk's flush-outside port offsets, LAY-018 flow-holds). The
+// converter itself is engine-agnostic; its g3t-shape behavior
+// (declared ports attach; body edges route node-to-node) is pinned
+// separately at the end of this file. This file's fixtures convert
+// to fixed geometry or retire with elk at D3b.
 async function convert() {
   const input = fixture();
-  const geometry = await layoutStructural(input);
+  const geometry = await layoutStructural(input, { engineKind: "elk" });
   return {
     input,
     geometry,
@@ -688,7 +696,7 @@ describe("structuralToCytoscapeElements", () => {
       ],
       edges: [],
     };
-    const geometry = await layoutStructural(input);
+    const geometry = await layoutStructural(input, { engineKind: "elk" });
     const els = structuralToCytoscapeElements(input, geometry, {
       closedContainers: new Set(["Closed"]),
     });
@@ -700,7 +708,7 @@ describe("structuralToCytoscapeElements", () => {
 
   it("applies per-row severity classes and data from decorations (SHACL B3)", async () => {
     const input = fixture();
-    const geometry = await layoutStructural(input);
+    const geometry = await layoutStructural(input, { engineKind: "elk" });
     const els = structuralToCytoscapeElements(input, geometry, {
       rowSeverities: new Map([["sensor.cal", "violation"]]),
     });
@@ -715,7 +723,7 @@ describe("structuralToCytoscapeElements", () => {
 
   it("leaves containers and rows undecorated when no decorations passed", async () => {
     const input = fixture();
-    const geometry = await layoutStructural(input);
+    const geometry = await layoutStructural(input, { engineKind: "elk" });
     const els = structuralToCytoscapeElements(input, geometry);
     const sensor = els.find((e) => e.data.id === "sensor")!;
     expect(sensor.classes).toBe("g3t-structural-container");
@@ -1221,7 +1229,10 @@ describe("structuralToCytoscapeElements body-edge attachment ports", () => {
         { id: "e2", source: "a", target: "d" },
       ],
     };
-    const geometry = await layoutStructural(input, { direction: "RIGHT" });
+    const geometry = await layoutStructural(input, {
+      engineKind: "elk",
+      direction: "RIGHT",
+    });
     const { structuralToCytoscapeElements } =
       await import("./structural-to-cytoscape");
     const els = structuralToCytoscapeElements(input, geometry);
@@ -1334,7 +1345,10 @@ describe("container bounds pin (MR-1 fourth review)", () => {
       ],
       edges: [],
     };
-    const geometry = await layoutStructural(input, { direction: "DOWN" });
+    const geometry = await layoutStructural(input, {
+      engineKind: "elk",
+      direction: "DOWN",
+    });
     const els = structuralToCytoscapeElements(input, geometry);
     const pin = els.find((e) => e.data.id === "boxA::extent");
     expect(pin).toBeDefined();
@@ -1376,7 +1390,10 @@ describe("container bounds pin (MR-1 fourth review)", () => {
       ],
       edges: [{ id: "e1", source: "boxA", target: "boxB" }],
     };
-    const before = await layoutStructural(input, { direction: "DOWN" });
+    const before = await layoutStructural(input, {
+      engineKind: "elk",
+      direction: "DOWN",
+    });
     const sketch: Record<
       string,
       { x: number; y: number; width?: number; height?: number }
@@ -1404,6 +1421,7 @@ describe("container bounds pin (MR-1 fourth review)", () => {
       ),
     };
     const after = await layoutStructural(shrunk, {
+      engineKind: "elk",
       direction: "DOWN",
       sketch,
     });
@@ -1420,5 +1438,43 @@ describe("container bounds pin (MR-1 fourth review)", () => {
     if (!beforeA) return;
     expect(g.height).toBeCloseTo(beforeA.height, 6);
     expect(pin.position?.y).toBeCloseTo(g.y + g.height - 0.5, 6);
+  });
+});
+
+describe("g3t-shaped geometry (WS-D D3a: the default engine)", () => {
+  it("declared ports attach; body edges route node-to-node; rows carry", async () => {
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "sensor",
+          header: { stereotype: "Block", name: "Sensor" },
+          compartments: [{ id: "c0", rows: [{ id: "r0", text: "v: V" }] }],
+          ports: [{ id: "sensor.out", side: "EAST" }],
+        },
+        { id: "sink", header: { name: "Sink" }, width: 90, height: 40 },
+      ],
+      edges: [
+        {
+          id: "feeds",
+          source: "sensor",
+          target: "sink",
+          sourcePort: "sensor.out",
+        },
+        { id: "body", source: "sensor", target: "sink" },
+      ],
+    };
+    const geometry = await layoutStructural(input); // default: g3t
+    const els = structuralToCytoscapeElements(input, geometry);
+    const feeds = els.find((e) => e.data.id === "feeds")!;
+    // The declared port exists in geometry and the edge attaches to it.
+    expect(geometry.ports["sensor.out"]).toBeDefined();
+    expect(feeds.data.source).toBe("sensor.out");
+    // No synth ports in g3t geometry: the body edge attaches node-to-node.
+    const body = els.find((e) => e.data.id === "body")!;
+    expect(body.data.source).toBe("sensor");
+    expect(body.data.target).toBe("sink");
+    // Rows survive conversion as children of their container.
+    const row = els.find((e) => e.data.id === "r0")!;
+    expect(row.data.parent).toBeDefined();
   });
 });

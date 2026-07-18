@@ -49,7 +49,10 @@ const RESULTS_PATH = join(__dirname, "last-results.json");
 
 interface BudgetsFile {
   status: "provisional" | "frozen";
-  budgetsMs: Record<string, number>;
+  budgets: Record<
+    string,
+    { ms: number; asserts: "now" | "at-engine-flip" | "at-channel-router" }
+  >;
 }
 
 function loadBudgets(): BudgetsFile {
@@ -84,17 +87,62 @@ const results: Record<string, number | string> = {
 
 function record(key: string, ms: number, budgets: BudgetsFile): void {
   results[key] = Math.round(ms * 100) / 100;
-  const budget = budgets.budgetsMs[key];
+  const budget = budgets.budgets[key];
   // eslint-disable-next-line no-console
   console.log(
-    `${key}: ${ms.toFixed(1)} ms (budget ${budget ?? "?"} ms, ${budgets.status})`,
+    `${key}: ${ms.toFixed(1)} ms (budget ${budget?.ms ?? "?"} ms, ${budgets.status}, asserts ${budget?.asserts ?? "?"})`,
   );
-  if (budgets.status === "frozen" && budget !== undefined) {
-    expect(ms, `${key} exceeded its FROZEN budget`).toBeLessThanOrEqual(budget);
+  // FROZEN (MR-5, 2026-07-18): keys assert per their accountability
+  // gate; milestone-gated keys (engine flip, channel router) report
+  // until their component lands, then the gate flips to "now".
+  if (
+    budgets.status === "frozen" &&
+    budget !== undefined &&
+    budget.asserts === "now"
+  ) {
+    expect(ms, `${key} exceeded its FROZEN budget`).toBeLessThanOrEqual(
+      budget.ms,
+    );
   }
 }
 
 describe.skipIf(!ENABLED)("PRF benchmarks (spec section 14)", () => {
+  it(
+    "PRF-001b: FLAT R1 on both engines (WS-D D1 report)",
+    { timeout: 240_000 },
+    async () => {
+      // Apples-to-apples for the D1 engine (flat-only): 500 plain
+      // nodes / 800 edges through both engines. Report-only; the
+      // frozen PRF-001 key stays gated at the engine flip.
+      const flat = (): Parameters<typeof layoutStructural>[0] => {
+        const { nodes, edges } = mkR1();
+        return {
+          nodes: nodes.map((n) => ({
+            id: n.id,
+            header: n.header,
+            width: n.width ?? 120,
+            height: n.height ?? 50,
+          })),
+          edges,
+        };
+      };
+      const tElk0 = performance.now();
+      await layoutStructural(flat(), {});
+      const elkMs = performance.now() - tElk0;
+      const { g3tLayoutFlat } =
+        await import("../../packages/core/src/layout/g3t-engine/g3t-layered");
+      const tG0 = performance.now();
+      g3tLayoutFlat(flat());
+      const g3tMs = performance.now() - tG0;
+      results["PRF-001b-R1flat-elk"] = Math.round(elkMs);
+      results["PRF-001b-R1flat-g3t"] = Math.round(g3tMs * 10) / 10;
+      // eslint-disable-next-line no-console
+      console.log(
+        `PRF-001b R1-flat: elk=${elkMs.toFixed(0)} ms, g3t=${g3tMs.toFixed(1)} ms (report-only; frozen PRF-001 gates at the engine flip)`,
+      );
+    },
+  );
+
   it("PRF-001: layered layout of R1", { timeout: 120_000 }, async () => {
     const budgets = loadBudgets();
     // Fresh input per run: layout memoizes on input identity, which
@@ -151,7 +199,7 @@ describe.skipIf(!ENABLED)("PRF benchmarks (spec section 14)", () => {
         "over budget as-implemented; from-scratch scene routing belongs to the channel-router milestone (PRF-003 component); the sparse-grid router is the interactive router";
       // eslint-disable-next-line no-console
       console.log(
-        `PRF-002-R1-routing: sample(8)=${sampled.toFixed(0)} ms, extrapolated=${estimate.toFixed(0)} ms (budget ${budgets.budgetsMs["PRF-002-R1-routing"]} ms, ${budgets.status}; see finding)`,
+        `PRF-002-R1-routing: sample(8)=${sampled.toFixed(0)} ms, extrapolated=${estimate.toFixed(0)} ms (budget ${budgets.budgets["PRF-002-R1-routing"]?.ms} ms, ${budgets.status}; see finding)`,
       );
     },
   );

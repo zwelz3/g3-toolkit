@@ -146,7 +146,20 @@ export const estimateTextSize: TextMeasure = (text, role) => {
   return { width: Math.ceil(text.length * perChar) + margin, height };
 };
 
-export interface StructuralLayoutOptions {
+import type { G3tLayoutOptions as G3tEngineTuning } from "./g3t-engine/g3t-layered";
+
+export interface StructuralLayoutOptions extends G3tEngineTuning {
+  /**
+   * Layout engine seam (WS-D). "elk" (default) runs the elkjs
+   * pipeline. "g3t" runs the in-house layered engine, D1 stage:
+   * FLAT inputs only; inputs with compartments fall back to elk
+   * until the D2 containment pre-pass lands. The seam exists so the
+   * QLT-002 harness and the PRF bench can run both engines over
+   * identical inputs; the default does not change before D3.
+   * (Named engineKind: `engine` already injects an ElkEngine
+   * instance.)
+   */
+  engineKind?: "elk" | "g3t";
   /** Direction of the top-level layered layout. Default "RIGHT". */
   direction?: "RIGHT" | "DOWN" | "LEFT" | "UP";
   /** Horizontal padding inside rows and around headers (default 8). */
@@ -658,6 +671,26 @@ const _layoutCache = new WeakMap<
   Map<string, Promise<StructuralGeometry>>
 >();
 
+/**
+ * Engine dispatch (WS-D D3a): THE DEFAULT ENGINE IS g3t. The
+ * pre-pass reuses buildStructuralElkGraph's sizing so the engines
+ * cannot drift on measurement; edges route through the gap router
+ * with grid escalation. elkjs remains selectable via engineKind:
+ * "elk" until D3b removes it. The layout cache wraps this dispatch,
+ * so caching and in-flight de-duplication are engine-agnostic, with
+ * engineKind and the g3t strategy options in the key.
+ */
+async function runLayoutDispatch(
+  input: StructuralGraphInput,
+  options?: StructuralLayoutOptions,
+): Promise<StructuralGeometry> {
+  if ((options?.engineKind ?? "g3t") === "g3t") {
+    const { g3tLayoutStructural } = await import("./g3t-engine/g3t-structural");
+    return g3tLayoutStructural(input, options);
+  }
+  return runStructuralLayout(input, options);
+}
+
 function layoutOptionsKey(options?: StructuralLayoutOptions): string {
   return JSON.stringify({
     direction: options?.direction ?? "RIGHT",
@@ -671,6 +704,19 @@ function layoutOptionsKey(options?: StructuralLayoutOptions): string {
     edgeNodeSpacing: options?.edgeNodeSpacing ?? 16,
     edgeEdgeSpacing: options?.edgeEdgeSpacing ?? 24,
     routeEdges: options?.routeEdges ?? true,
+    // WS-D: the engine is part of what was computed.
+    engineKind: options?.engineKind ?? "g3t",
+    g3t:
+      (options?.engineKind ?? "g3t") === "g3t"
+        ? {
+            layering: options?.layering ?? "network-simplex",
+            layerWidth: options?.layerWidth ?? 8,
+            placement: options?.placement ?? "brandes-koepf",
+            layeringBudgetMs: options?.layeringBudgetMs ?? 80,
+            orderingBudgetMs: options?.orderingBudgetMs ?? 60,
+            routingBudgetMs: options?.routingBudgetMs ?? 80,
+          }
+        : undefined,
     // Sketch participates in the memo key: a sketched re-layout of the
     // same input+options is a DIFFERENT computation from the
     // from-scratch one (G3L:LAY-017); rounded to integers so subpixel
@@ -698,7 +744,7 @@ export async function layoutStructural(
 ): Promise<StructuralGeometry> {
   // A custom measure changes geometry but is not captured by the cache
   // key, so never serve such a call from cache.
-  if (options?.measure) return runStructuralLayout(input, options);
+  if (options?.measure) return runLayoutDispatch(input, options);
 
   const key = layoutOptionsKey(options);
   let byKey = _layoutCache.get(input);
@@ -710,7 +756,7 @@ export async function layoutStructural(
   const cached = map.get(key);
   if (cached) return cached;
 
-  const pending = runStructuralLayout(input, options);
+  const pending = runLayoutDispatch(input, options);
   map.set(key, pending);
   pending.catch(() => {
     if (map.get(key) === pending) map.delete(key);

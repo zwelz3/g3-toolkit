@@ -1,5 +1,70 @@
 # g3-toolkit Status
 
+**As of:** 2026-07-18 (active: G3L Round 38 executed: WS-D D3a
+LANDED: THE DEFAULT ENGINE IS g3t. Gap routing + grid escalation
+under threshold/budget; direction support; engine-agnostic caching
+(engineKind in the key); all 15 flip failures dispositioned (elk
+pins recorded, retire at D3b); QLT-002 corpus bands ASSERT; PRF-001
+asserts now (container ~353 ms red locally, CI projection 170-235
+vs the ruled 300; next lever named). OWNER: push and run CI: the
+perf job is the arbiter. D3b next: elkjs removal + ARC-009
+extraction + budget rebases. MR-11 round-4 re-look still open.)
+
+## PRIOR SNAPSHOT (Round 37)
+
+**As of:** 2026-07-18 (active: G3L Round 37 executed: WS-D D2b
+LANDED: network-simplex (time-budgeted anytime), Coffman-Graham,
+Brandes-Koepf; defaults flipped to NS+BK on both engine paths; D1
+deviations closed. Flat R1 303.5 ms on the slow container (elkjs
+14,902 ms same run; ~180 ms projected on CI vs the 300 ms flip
+gate). Next: D3 (fixture-corpus conformance bands via QLT-002,
+PRF-001 green on g3t in CI, default flip, elkjs removal, ARC-009
+extraction). MR-11 round-4 re-look still open.)
+
+## PRIOR SNAPSHOT (Round 36)
+
+**As of:** 2026-07-18 (active: G3L Round 37 executed: WS-D D2b
+LANDED: network-simplex (anytime-budgeted, never worse than
+tight-tree), Coffman-Graham, Brandes-Koepf; defaults flipped to
+NS+BK inside the engine. R1-flat 284 ms on the container (~165 ms
+implied CI), BK nearly free at 13.5 ms. Ten-seed property sweep
+guards the strategies. D3 next: conformance bands, PRF-001 green in
+CI, default engineKind flip, elkjs removal, ARC-009 extraction.
+MR-11 round-4 re-look still open.)
+
+## PRIOR SNAPSHOT (Round 36)
+
+**As of:** 2026-07-18 (active: G3L Round 36 executed: WS-D D2a
+LANDED: structural inputs in-house (containment pre-pass reusing the
+elk assembly's sizing; row-stacking closure oracle; side-placed
+ports; sketch warm-start = INTERACTIVE by construction). Seam routes
+all g3t-requested inputs in-house; default still elk. D2b next:
+LAY-002 layering pair + LAY-004 Brandes-Koepf; then D3 conformance
+bands + the flip + ARC-009 extraction. MR-11 round-4 re-look still
+open.)
+
+## PRIOR SNAPSHOT (Round 35)
+
+**As of:** 2026-07-18 (active: G3L Round 35 executed: WS-D D1
+LANDED: the g3t layered engine, flat end-to-end behind the
+engineKind seam. Flat R1: 103.8 ms vs elkjs 11,127 ms (107x),
+already under the 300 ms budget on the slow container. QLT-002
+harness running both engines. Recorded D1 deviations: layering
+tight-tree only, placement median (both D2). Next: D2 (containment
+pre-pass, ports, sketch warm-start, LAY-002/004 strategies, full
+oracle suite behind the seam) or the MR-11 round-4 re-look.)
+
+## PRIOR SNAPSHOT (Round 34)
+
+**As of:** 2026-07-18 (active: G3L Round 34 executed: MR-5 CLOSED:
+budgets frozen on CI numbers (all asserting-now keys MEET; perf job
+is a live gate; milestone-gated keys flip at engine/channel-router
+landings). Wheel isolation fixed (native non-passive listener;
+React's passive root listener was letting the page scroll under the
+zoom). Open: MR-11 round-4 re-look. Next: WS-D D1.)
+
+## PRIOR SNAPSHOT (Round 33)
+
 **As of:** 2026-07-18 (active: G3L Round 33 executed: MBSE SVG
 preview hardened from the second owner batch: zoom crash fixed
 (currentTarget captured before the deferred updater; regression

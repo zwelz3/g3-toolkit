@@ -1,3 +1,10 @@
+// WS-D D3a elk-pins: oracles below that carry engineKind: "elk"
+// pin ELK-PIPELINE mechanics (injected-engine counting, elk cache
+// keys, LAY-018 collapse holds). They are removed with the elk
+// pipeline at D3b; g3t-generic cache oracles live in
+// structural-engine-cache.test.ts. LAY-018 position-hold under the
+// g3t engine lands with the collapse reintroduction (recorded in
+// the WS-D design doc).
 /**
  * Structural geometry tests (Group A, round 31): the validated ELK
  * compartment recipe, asserted end to end through elkjs.
@@ -223,7 +230,10 @@ describe("layoutStructural engine injection + de-dup", () => {
 
   it("lays out through an injected engine instead of the default", async () => {
     const { engine, layout } = spyEngine();
-    const geom = await layoutStructural(blockFixture(), { engine });
+    const geom = await layoutStructural(blockFixture(), {
+      engine,
+      engineKind: "elk",
+    });
     expect(layout).toHaveBeenCalledTimes(1);
     expect(Object.keys(geom.nodes).length).toBeGreaterThan(0);
   });
@@ -232,8 +242,8 @@ describe("layoutStructural engine injection + de-dup", () => {
     const { engine, layout } = spyEngine();
     const input = blockFixture();
     const [a, b] = await Promise.all([
-      layoutStructural(input, { engine }),
-      layoutStructural(input, { engine }),
+      layoutStructural(input, { engineKind: "elk", engine }),
+      layoutStructural(input, { engineKind: "elk", engine }),
     ]);
     expect(layout).toHaveBeenCalledTimes(1);
     expect(a).toBe(b);
@@ -242,8 +252,8 @@ describe("layoutStructural engine injection + de-dup", () => {
   it("de-dupes a sequential re-layout of the same input (cached result)", async () => {
     const { engine, layout } = spyEngine();
     const input = blockFixture();
-    const first = await layoutStructural(input, { engine });
-    const second = await layoutStructural(input, { engine });
+    const first = await layoutStructural(input, { engineKind: "elk", engine });
+    const second = await layoutStructural(input, { engineKind: "elk", engine });
     expect(layout).toHaveBeenCalledTimes(1);
     expect(second).toBe(first);
   });
@@ -251,16 +261,32 @@ describe("layoutStructural engine injection + de-dup", () => {
   it("does NOT cache when a custom measure is supplied", async () => {
     const { engine, layout } = spyEngine();
     const input = blockFixture();
-    await layoutStructural(input, { engine, measure: estimateTextSize });
-    await layoutStructural(input, { engine, measure: estimateTextSize });
+    await layoutStructural(input, {
+      engineKind: "elk",
+      engine,
+      measure: estimateTextSize,
+    });
+    await layoutStructural(input, {
+      engineKind: "elk",
+      engine,
+      measure: estimateTextSize,
+    });
     expect(layout).toHaveBeenCalledTimes(2);
   });
 
   it("keys the cache by layout options (different direction = separate run)", async () => {
     const { engine, layout } = spyEngine();
     const input = blockFixture();
-    await layoutStructural(input, { engine, direction: "DOWN" });
-    await layoutStructural(input, { engine, direction: "RIGHT" });
+    await layoutStructural(input, {
+      engineKind: "elk",
+      engine,
+      direction: "DOWN",
+    });
+    await layoutStructural(input, {
+      engineKind: "elk",
+      engine,
+      direction: "RIGHT",
+    });
     expect(layout).toHaveBeenCalledTimes(2);
   });
 });
@@ -302,7 +328,7 @@ describe("edge-edge spacing control", () => {
 
   it("defaults parallel edge-edge spacing to a sane 24", async () => {
     const { engine, layout } = spy();
-    await layoutStructural(fixture("def"), { engine });
+    await layoutStructural(fixture("def"), { engine, engineKind: "elk" });
     const opts = layout.mock.calls[0]![0].layoutOptions!;
     expect(opts["elk.spacing.edgeEdge"]).toBe("24");
     expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("24");
@@ -310,7 +336,11 @@ describe("edge-edge spacing control", () => {
 
   it("forwards a custom edgeEdgeSpacing to ELK's edge-edge spacing options", async () => {
     const { engine, layout } = spy();
-    await layoutStructural(fixture("custom"), { engine, edgeEdgeSpacing: 40 });
+    await layoutStructural(fixture("custom"), {
+      engine,
+      engineKind: "elk",
+      edgeEdgeSpacing: 40,
+    });
     const opts = layout.mock.calls[0]![0].layoutOptions!;
     expect(opts["elk.spacing.edgeEdge"]).toBe("40");
     expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("40");
@@ -323,8 +353,12 @@ describe("edge-edge spacing control", () => {
     // reflect the resolved default, so these are two distinct ELK runs. If
     // the key normalized to the old 12, the second call would alias the
     // first's 24-spaced geometry.
-    await layoutStructural(input, { engine });
-    await layoutStructural(input, { engine, edgeEdgeSpacing: 12 });
+    await layoutStructural(input, { engineKind: "elk", engine });
+    await layoutStructural(input, {
+      engineKind: "elk",
+      engine,
+      edgeEdgeSpacing: 12,
+    });
     expect(layout).toHaveBeenCalledTimes(2);
   });
 });

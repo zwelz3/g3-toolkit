@@ -25,7 +25,7 @@ ruled consequence of a FAIL. Priorities use P0/P1/P2; no dates.
 | MR-2 | PASS | SVG overlay pan/zoom at 4k validated live |
 | MR-3 | PASS | Overlay parity + drag behavior |
 | MR-4 | CLOSED (owner ruling 2026-07-18) | Approved for non-IP concerns; IP handled outside the repo; gate references removed |
-| MR-5 | HARNESS BUILT; first CI numbers next | Report-only until the one revision, then frozen and asserted |
+| MR-5 | CLOSED (FROZEN 2026-07-18) | CI gate live; milestone-gated keys flip at engine/channel-router landings |
 | MR-6 | PASS | Overlay label styling taste check |
 | MR-7 | PASS (audit-corrected) | Style Lab side-by-side; acceptance suite green in owner runs |
 | MR-8 | CLOSED (owner: "good enough for now") | Drag-time routing quality; refinements shipped through round 15 |
@@ -437,7 +437,27 @@ the outcome here.
 **On FAIL/qualified:** feature-level mitigation per counsel; NG-4
 boundaries widen as needed.
 
-## MR-5 (HARNESS BUILT 2026-07-12; awaiting first CI numbers, then the one revision and freeze)
+## MR-5 (CLOSED: FROZEN 2026-07-18 on the first CI numbers)
+
+CI baseline (the ruled machine) delivered:
+PRF-002-frame-reroute-mbse 3.12 ms (budget 8: MEETS);
+PRF-004-R2-full 12.91 ms (budget 100: MEETS, 7.7x margin);
+PRF-004-incremental ~0 ms (budget 2: MEETS);
+PRF-001-R1-layout 7,314 ms and PRF-002 from-scratch ~885 s
+(confirming the recorded architectural findings on the baseline).
+
+THE ONE PERMITTED REVISION restructured budgets by accountability
+rather than editing numbers: keys the current implementation is
+accountable for assert NOW in CI (frame-mbse 8, style 100/2); keys
+whose component is a scheduled milestone keep their spec targets and
+begin asserting when that component lands (PRF-001 at the WS-D
+engine flip; the R1-scale routing keys at the channel router).
+Encoded machine-readably in planning/g3l/prf-budgets.json
+("asserts": "now" | "at-engine-flip" | "at-channel-router") and
+enforced by the harness. Further changes are requirement changes.
+MR-5 is closed; the perf job is now a live gate.
+
+## MR-5 harness history
 
 SHARPENING ADDENDUM (round 28, owner-approved): the PRF-001 caveats
 were resolved by a measurement matrix
