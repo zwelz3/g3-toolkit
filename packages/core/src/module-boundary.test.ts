@@ -28,7 +28,7 @@ describe("D6 module boundary: core imports (M3.E4.T1)", () => {
     expect(mod.ForceLayout).toBeDefined();
     expect(mod.HierarchyLayout).toBeDefined();
     expect(mod.DagreLayout).toBeDefined();
-    expect(mod.ElkLayout).toBeDefined();
+    expect(mod.G3tLayeredLayout).toBeDefined();
 
     // Engine interface doesn't require React types
     const engine = new mod.ForceLayout();

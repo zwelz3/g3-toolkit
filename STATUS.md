@@ -1,5 +1,29 @@
 # g3-toolkit Status
 
+**As of:** 2026-07-19 (active: G3L Round 45 executed: D3b PART 1:
+elkjs LEFT THE TREE (pipeline deleted, seam retired, bands frozen
+against recorded elk baselines, G3tLayeredLayout replaces ElkLayout,
+full disposition in the design doc; core rebased 192; PRF-001 199 ms
+container-green). Scale freeze NAMED: React dev-build prop
+serialization (owner profile); two 10-second experiments confirm.
+Flip ratified in substance. 1,351 tests. NEXT: D3b part 2 = ARC-009
+extraction (@g3t/layout, vocabulary rename, fresh budgets). Owner:
+scale experiments + quality-bug list when ready.)
+
+## PRIOR SNAPSHOT (Round 44)
+
+**As of:** 2026-07-18 (active: G3L Round 44 executed: e2e 58/58
+owner-confirmed (drag/routing closed). Scale block cornered: one
+17.9 s longtask right after settled on clusters return; every
+headless suspect eliminated by measurement (spec-apply 1 ms, Fuse
+4/84 ms, headless-cy 46 ms); renderer-side or browser-only. Shipped
+JS Self-Profiling: Document-Policy header + per-switch sampler
+printing top self-time functions into the owner's console paste.
+1,356 tests. Awaiting: the profile paste; the browser session (flip
+ratification = the ONLY gate left on D3b).)
+
+## PRIOR SNAPSHOT (Round 43)
+
 **As of:** 2026-07-18 (active: G3L Round 43 executed: drag basis is
 truth-carried end-to-end (_geomBox stamped; capture from _routePts;
 padded-cy values out of the loop; straight results write via the

@@ -7,6 +7,14 @@ history stays in the MR log).
 
 Resolved 2026-07-18: MR-4 (owner: approved for non-IP concerns; references removed), react budget (raised to 440, ledgered), WS-D (approved; decisions recorded in the design doc).
 
+Resolved 2026-07-19 (fourth batch): flip ratified in substance
+("parity is achieved"); MR-11 round 4 closed; D3b part 1 EXECUTED
+(elkjs removed). The scale freeze is NAMED from the owner's
+profile paste (React dev-build prop serialization).
+
+Resolved 2026-07-18 (third batch): e2e 58/58 local + CI (the
+drag/routing arc: rounds 39-43, closed).
+
 Resolved 2026-07-18 (second batch): CI verdict returned (perf job
 GREEN: PRF-001 = 159 ms vs 300, 47% margin; e2e 57/58); core 196
 RATIFIED; D3b pre-authorized in full (remove elkjs; no external
@@ -15,43 +23,39 @@ paths: the straightened-chains contract gap) is FIXED in round 39.
 
 Resolved earlier: see MR log.
 
-## 1. Re-run e2e on the ROUND-43 tree
+## 1. Scale: two ten-second experiments (confirm the named cause)
 
-WHAT: Round 43 removes the drag path's last dependencies on real-cy
-values (padded compound bbox endpoints and dimensions): the exact
-class of browser-only divergence the failures kept exposing. The
-e2e's choreography now runs headlessly against a HOSTILE cy fake
-and passes only through the carried truth. Expect 58/58; the
-screenshot's SmallSat-on-Payload overlap is the spec's own drop
-position (legitimate), and its routes should now be clean around
-it.
+WHAT: Your profile named the freeze: getArrayKind /
+addValueToProperties = React DEV-BUILD performance-track prop
+serialization, scaling with MODEL size (clusters embeds all 8,000
+memberships), which is why the smaller view froze longer.
 
-WHAT TO DO: Push round 43; e2e local + CI; failures: attach the
-retry trace.zip (that workflow is working well).
+WHAT TO DO: (a) reproduce the switch with DevTools CLOSED: is the
+freeze gone or drastically shorter? (b) pnpm build && pnpm preview,
+reproduce there (the profiling header is wired for preview too).
+Reply with both observations. Prediction: production is clean and
+the freeze is a dev-environment artifact; if (a)/(b) disagree with
+that, the profile block from the preview run picks the next move.
 
-UNBLOCKS: Item 2.
+UNBLOCKS: Either closure-with-a-recorded-caveat (dev-mode note in
+the scale surface) or a targeted prop-shape fix.
 
-## 2. Browser session: flip ratification + MR-11 round 4 + the parity list
+## 2. The layout/routing quality list (post-flip rounds)
 
-WHAT: Unchanged checklist. Watch specifically: edges orthogonal at
-first paint AND during drags, endpoints ON the drawn borders (not
-floating slightly off: that was the padded-bbox skew).
+WHAT: You flagged "a large number of bugs in the layout algorithms
+and routing" incoming. That is the expected post-flip work and the
+engine is now the only one, so every fix lands where it stays.
 
-UNBLOCKS: MR-11; D3b on ratification.
+WHAT TO DO: Send the list in any form (screenshots welcome); items
+get root-caused and dispositioned individually, MR-style.
 
-## 3. Scale: one more paste (the watch now covers the freeze window)
+UNBLOCKS: The quality rounds.
 
-WHAT: Your paste named the first-visit costs (drill extraction
-~710 ms + fcose ~1145 ms) and clusters returns are fixed. The
-freeze you hit AFTER settled was invisible because the longtask
-watch disconnected at settled; it now runs 15 s past settlement
-and logs "longtask-watch off (15s quiet)" when it retires.
+## 3. Nothing else blocks engineering
 
-WHAT TO DO: Reproduce the freeze; paste everything including any
-longtask lines AFTER "settled(idle)" and whether the "watch off"
-line appears before or after interactivity returns.
-
-UNBLOCKS: The named fix for the post-settle freeze.
+D3b part 2 (ARC-009 extraction: @g3t/layout, vocabulary rename,
+fresh measured budgets) is pre-authorized and proceeds next round
+without owner input.
 
 ---
 

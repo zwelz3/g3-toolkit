@@ -7,20 +7,18 @@
 // the WS-D design doc).
 /**
  * Structural geometry tests (Group A, round 31): the validated ELK
- * compartment recipe, asserted end to end through elkjs.
+ * compartment recipe, asserted end to end (g3t engine since D3b).
  *
  * @see specs/01-functional-views.md R1.18 (capped in-progress:
  *      geometry only; canvas application is the next slice)
  */
-import { describe, it, expect, vi } from "vitest";
-import ELK from "elkjs/lib/elk.bundled.js";
+import { describe, it, expect } from "vitest";
 import {
   buildStructuralElkGraph,
   layoutStructural,
   estimateTextSize,
   isChainEdgeId,
   type StructuralGraphInput,
-  type ElkEngine,
 } from "./structural";
 
 /** The «Block»/part fixture from containers slice 1, upgraded to compartments. */
@@ -214,80 +212,47 @@ describe("layoutStructural", () => {
 // was removed by ruling (2026-07-10). See
 // planning/expand-collapse-postmortem.md.
 
-describe("layoutStructural engine injection + de-dup", () => {
-  // A spy engine that delegates to a real synchronous elkjs, so we can
-  // both assert injection is honored and count how many ELK runs happen.
-  function spyEngine(): {
-    engine: ElkEngine;
-    layout: ReturnType<typeof vi.fn>;
-  } {
-    const elk = new ELK();
-    const layout = vi.fn((g: Parameters<ElkEngine["layout"]>[0]) =>
-      elk.layout(g),
-    );
-    return { engine: { layout } as ElkEngine, layout };
-  }
+describe("layoutStructural de-dup and cache semantics", () => {
+  // RETIRED WITH ELK (D3b part 1): the injected-engine spy that
+  // counted ELK runs left with the engine seam. The same contracts
+  // now assert via RESULT IDENTITY: a cache hit returns the same
+  // object; a cache miss returns a fresh one. (Identity is the
+  // observable the cache actually promises; run-counting was a proxy
+  // for it.)
 
-  it("lays out through an injected engine instead of the default", async () => {
-    const { engine, layout } = spyEngine();
-    const geom = await layoutStructural(blockFixture(), {
-      engine,
-      engineKind: "elk",
-    });
-    expect(layout).toHaveBeenCalledTimes(1);
-    expect(Object.keys(geom.nodes).length).toBeGreaterThan(0);
-  });
-
-  it("de-dupes concurrent layouts of the same input to one ELK run", async () => {
-    const { engine, layout } = spyEngine();
+  it("de-dupes concurrent layouts of the same input to one run", async () => {
     const input = blockFixture();
     const [a, b] = await Promise.all([
-      layoutStructural(input, { engineKind: "elk", engine }),
-      layoutStructural(input, { engineKind: "elk", engine }),
+      layoutStructural(input),
+      layoutStructural(input),
     ]);
-    expect(layout).toHaveBeenCalledTimes(1);
     expect(a).toBe(b);
   });
 
   it("de-dupes a sequential re-layout of the same input (cached result)", async () => {
-    const { engine, layout } = spyEngine();
     const input = blockFixture();
-    const first = await layoutStructural(input, { engineKind: "elk", engine });
-    const second = await layoutStructural(input, { engineKind: "elk", engine });
-    expect(layout).toHaveBeenCalledTimes(1);
+    const first = await layoutStructural(input);
+    const second = await layoutStructural(input);
     expect(second).toBe(first);
   });
 
   it("does NOT cache when a custom measure is supplied", async () => {
-    const { engine, layout } = spyEngine();
     const input = blockFixture();
-    await layoutStructural(input, {
-      engineKind: "elk",
-      engine,
+    const first = await layoutStructural(input, {
       measure: estimateTextSize,
     });
-    await layoutStructural(input, {
-      engineKind: "elk",
-      engine,
+    const second = await layoutStructural(input, {
       measure: estimateTextSize,
     });
-    expect(layout).toHaveBeenCalledTimes(2);
+    expect(second).not.toBe(first);
   });
 
-  it("keys the cache by layout options (different direction = separate run)", async () => {
-    const { engine, layout } = spyEngine();
+  it("keys the cache by layout options (different direction = separate result)", async () => {
     const input = blockFixture();
-    await layoutStructural(input, {
-      engineKind: "elk",
-      engine,
-      direction: "DOWN",
-    });
-    await layoutStructural(input, {
-      engineKind: "elk",
-      engine,
-      direction: "RIGHT",
-    });
-    expect(layout).toHaveBeenCalledTimes(2);
+    const down = await layoutStructural(input, { direction: "DOWN" });
+    const right = await layoutStructural(input, { direction: "RIGHT" });
+    expect(down).not.toBe(right);
+    expect(await layoutStructural(input, { direction: "DOWN" })).toBe(down);
   });
 });
 
@@ -307,17 +272,11 @@ describe("layout readability knobs", () => {
 });
 
 describe("edge-edge spacing control", () => {
-  // Whether ELK's router actually separates a given pair of parallel edges
-  // is structure- and version-dependent, so we assert the control wiring
-  // deterministically: the configured gap reaches ELK's edge-edge spacing
-  // options. (The geometric spread is verified on the real thread layout.)
-  function spy() {
-    const elk = new ELK();
-    const layout = vi.fn((g: Parameters<ElkEngine["layout"]>[0]) =>
-      elk.layout(g),
-    );
-    return { engine: { layout } as ElkEngine, layout };
-  }
+  // RETIRED WITH ELK (D3b part 1): the spy that captured the graph
+  // handed to the engine left with the seam. The BUILDER still emits
+  // the spacing vocabulary (the pre-pass graph is engine input), so
+  // the wiring asserts on buildStructuralElkGraph's output directly;
+  // the cache-key contract asserts via result identity.
   const fixture = (id: string): StructuralGraphInput => ({
     nodes: [
       { id: `${id}-a`, width: 60, height: 40 },
@@ -326,40 +285,28 @@ describe("edge-edge spacing control", () => {
     edges: [{ id: `${id}-e`, source: `${id}-a`, target: `${id}-b` }],
   });
 
-  it("defaults parallel edge-edge spacing to a sane 24", async () => {
-    const { engine, layout } = spy();
-    await layoutStructural(fixture("def"), { engine, engineKind: "elk" });
-    const opts = layout.mock.calls[0]![0].layoutOptions!;
+  it("defaults parallel edge-edge spacing to a sane 24", () => {
+    const { graph } = buildStructuralElkGraph(fixture("def"), {});
+    const opts = graph.layoutOptions ?? {};
     expect(opts["elk.spacing.edgeEdge"]).toBe("24");
     expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("24");
   });
 
-  it("forwards a custom edgeEdgeSpacing to ELK's edge-edge spacing options", async () => {
-    const { engine, layout } = spy();
-    await layoutStructural(fixture("custom"), {
-      engine,
-      engineKind: "elk",
+  it("forwards a custom edgeEdgeSpacing to the builder's spacing options", () => {
+    const { graph } = buildStructuralElkGraph(fixture("custom"), {
       edgeEdgeSpacing: 40,
     });
-    const opts = layout.mock.calls[0]![0].layoutOptions!;
+    const opts = graph.layoutOptions ?? {};
     expect(opts["elk.spacing.edgeEdge"]).toBe("40");
     expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("40");
   });
 
   it("keys the cache on edgeEdgeSpacing so the default does not alias an explicit 12", async () => {
-    const { engine, layout } = spy();
     const input = fixture("cache");
-    // Default (24) then an explicit 12 on the SAME input: the cache key must
-    // reflect the resolved default, so these are two distinct ELK runs. If
-    // the key normalized to the old 12, the second call would alias the
-    // first's 24-spaced geometry.
-    await layoutStructural(input, { engineKind: "elk", engine });
-    await layoutStructural(input, {
-      engineKind: "elk",
-      engine,
-      edgeEdgeSpacing: 12,
-    });
-    expect(layout).toHaveBeenCalledTimes(2);
+    const def = await layoutStructural(input);
+    const twelve = await layoutStructural(input, { edgeEdgeSpacing: 12 });
+    expect(twelve).not.toBe(def);
+    expect(await layoutStructural(input)).toBe(def);
   });
 });
 

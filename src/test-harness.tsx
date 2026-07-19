@@ -27,7 +27,7 @@ import {
   ForceLayout,
   HierarchyLayout,
   DagreLayout,
-  ElkLayout,
+  G3tLayeredLayout,
 } from "@g3t/core";
 import type { LayoutEngine } from "@g3t/core";
 
@@ -63,7 +63,7 @@ const engines: LayoutEngine[] = [
   new ForceLayout(),
   new HierarchyLayout(),
   new DagreLayout(),
-  new ElkLayout(),
+  new G3tLayeredLayout(),
 ];
 
 // ── Component ───────────────────────────────────────────────────────

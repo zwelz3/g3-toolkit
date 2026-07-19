@@ -30,14 +30,18 @@ describe("layout cache, engine-agnostic (default engine)", () => {
     expect(second).toBe(first);
   });
 
-  it("engineKind is part of the key: elk and g3t never alias", async () => {
+  it("strategy options are part of the key: layering choices never alias", async () => {
+    // (Replaced the elk/g3t key oracle at the seam's removal, D3b
+    // part 1: same contract, a REAL remaining key dimension.)
     const input = fixture();
-    const g3t = await layoutStructural(input, {});
-    const elk = await layoutStructural(input, { engineKind: "elk" });
-    expect(elk).not.toBe(g3t);
+    const ns = await layoutStructural(input, {});
+    const cg = await layoutStructural(input, { layering: "coffman-graham" });
+    expect(cg).not.toBe(ns);
     // And each repeat still memo-hits its own entry.
-    expect(await layoutStructural(input, { engineKind: "elk" })).toBe(elk);
-    expect(await layoutStructural(input, {})).toBe(g3t);
+    expect(await layoutStructural(input, { layering: "coffman-graham" })).toBe(
+      cg,
+    );
+    expect(await layoutStructural(input, {})).toBe(ns);
   }, 60_000);
 
   it("a sketched run is not served from the unsketched memo (default engine)", async () => {

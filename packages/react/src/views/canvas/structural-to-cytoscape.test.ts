@@ -59,17 +59,56 @@ function fixture(): StructuralGraphInput {
   };
 }
 
-// WS-D D3a elk-pin: every live-layout fixture in this file is
-// pinned to engineKind "elk". These oracles were authored against
-// ELK-SHAPED geometry (synth attachment ports in geometry.ports,
-// elk's flush-outside port offsets, LAY-018 flow-holds). The
-// converter itself is engine-agnostic; its g3t-shape behavior
-// (declared ports attach; body edges route node-to-node) is pinned
-// separately at the end of this file. This file's fixtures convert
-// to fixed geometry or retire with elk at D3b.
+// D3b part 1 (2026-07-19): the elk pins came OFF with the engine.
+// Dispositions of the four ELK-SHAPED oracles (all four asserted
+// behaviors only the elk pipeline produced):
+// - "routes port-attached edges to the port element": the mixed
+//   declared-port/body-end edge attached its body end to an elk
+//   SYNTH eport; rewritten below to the g3t contract (declared end
+//   -> port element, body end -> the node itself).
+// - "positions ports flush outside the container": elk's
+//   flush-outside offset; g3t centers declared ports ON the border
+//   (asserted at the engine level, D2a suite).
+// - "attaches body edges to distinct synth ports": synth eports
+//   were an elk concept with no remaining producer: RETIRED. The
+//   converter's eport branches are legacy-document tolerant and get
+//   swept at the ARC-009 extraction.
+// - "the pin tracks the floored box across a sketched shrink":
+//   asserted elk's LAY-018 flow-hold; retired with it (position-hold
+//   returns with the collapse reintroduction, engine-native).
+// Most oracles here assert converter mechanics that hold over any
+// geometry document and now run over the (only) g3t engine; the few
+// that asserted ELK-SHAPED specifics were dispositioned individually
+// at the removal (see the changelog entry).
+it("attaches a mixed edge's declared end to the port and its body end to the node (g3t contract)", async () => {
+  const input: StructuralGraphInput = {
+    nodes: [
+      {
+        id: "sensor",
+        header: { name: "Sensor" },
+        ports: [{ id: "sensor.out", side: "EAST" }],
+      },
+      { id: "note", header: { name: "Note" } },
+    ],
+    edges: [
+      {
+        id: "feeds",
+        source: "sensor",
+        target: "note",
+        sourcePort: "sensor.out",
+      },
+    ],
+  };
+  const geometry = await layoutStructural(input);
+  const els = structuralToCytoscapeElements(input, geometry);
+  const edge = els.find((e) => e.data.id === "feeds")!;
+  expect(edge.data.source).toBe("sensor.out");
+  expect(edge.data.target).toBe("note");
+});
+
 async function convert() {
   const input = fixture();
-  const geometry = await layoutStructural(input, { engineKind: "elk" });
+  const geometry = await layoutStructural(input);
   return {
     input,
     geometry,
@@ -274,15 +313,6 @@ describe("structuralToCytoscapeElements", () => {
     expect(port.selectable).toBe(false);
     expect(port.grabbable).toBe(false);
     expect(port.data._side).toBe("EAST");
-  });
-
-  it("routes port-attached edges to the port element", async () => {
-    const { elements } = await convert();
-    const edge = elements.find((e) => e.data.id === "feeds")!;
-    // The declared source port is unchanged; the body (target) end now
-    // attaches to the synth port ELK distributed on the node side.
-    expect(edge.data.source).toBe("sensor.out");
-    expect(edge.data.target).toBe(edgePortId("feeds", "t"));
   });
 
   it("carries an edge label onto the element when supplied", () => {
@@ -577,20 +607,6 @@ describe("structuralToCytoscapeElements", () => {
     expect(title.classes).not.toContain("g3t-structural-row-last");
   });
 
-  it("positions ports flush outside the container, offset clear of the border", async () => {
-    const { elements, geometry } = await convert();
-    const port = elements.find((e) => e.data.id === "sensor.out")!;
-    const host = geometry.nodes["sensor"]!;
-    const raw = geometry.ports["sensor.out"]!;
-    // EAST: ELK puts the port box just outside (left edge at the
-    // container's right edge); the converter then pushes it outward
-    // by the border offset (round 42) so the strokes do not collide.
-    // The port's INNER edge therefore sits strictly OUTSIDE the
-    // container's right edge, not merely on it.
-    const innerEdge = port.position!.x - raw.width / 2;
-    expect(innerEdge).toBeGreaterThan(host.x + host.width);
-  });
-
   it("labels plain nodes with their id when no header is given", async () => {
     const { elements } = await convert();
     const note = elements.find((e) => e.data.id === "note")!;
@@ -704,7 +720,7 @@ describe("structuralToCytoscapeElements", () => {
       ],
       edges: [],
     };
-    const geometry = await layoutStructural(input, { engineKind: "elk" });
+    const geometry = await layoutStructural(input);
     const els = structuralToCytoscapeElements(input, geometry, {
       closedContainers: new Set(["Closed"]),
     });
@@ -716,7 +732,7 @@ describe("structuralToCytoscapeElements", () => {
 
   it("applies per-row severity classes and data from decorations (SHACL B3)", async () => {
     const input = fixture();
-    const geometry = await layoutStructural(input, { engineKind: "elk" });
+    const geometry = await layoutStructural(input);
     const els = structuralToCytoscapeElements(input, geometry, {
       rowSeverities: new Map([["sensor.cal", "violation"]]),
     });
@@ -731,7 +747,7 @@ describe("structuralToCytoscapeElements", () => {
 
   it("leaves containers and rows undecorated when no decorations passed", async () => {
     const input = fixture();
-    const geometry = await layoutStructural(input, { engineKind: "elk" });
+    const geometry = await layoutStructural(input);
     const els = structuralToCytoscapeElements(input, geometry);
     const sensor = els.find((e) => e.data.id === "sensor")!;
     expect(sensor.classes).toBe("g3t-structural-container");
@@ -1311,54 +1327,7 @@ describe("taxiDirectionClass", () => {
 // expand/collapse feature was removed by ruling (2026-07-10). See
 // planning/expand-collapse-postmortem.md.
 
-describe("structuralToCytoscapeElements body-edge attachment ports", () => {
-  it("attaches body edges to distinct synth ports and renders them invisibly", async () => {
-    const input: StructuralGraphInput = {
-      nodes: [
-        {
-          id: "a",
-          header: { name: "A" },
-          compartments: [{ id: "c", rows: [{ id: "a.r", text: "row" }] }],
-        },
-        {
-          id: "b",
-          header: { name: "B" },
-          compartments: [{ id: "c", rows: [{ id: "b.r", text: "row" }] }],
-        },
-        {
-          id: "d",
-          header: { name: "D" },
-          compartments: [{ id: "c", rows: [{ id: "d.r", text: "row" }] }],
-        },
-      ],
-      edges: [
-        { id: "e1", source: "a", target: "b" },
-        { id: "e2", source: "a", target: "d" },
-      ],
-    };
-    const geometry = await layoutStructural(input, {
-      engineKind: "elk",
-      direction: "RIGHT",
-    });
-    const { structuralToCytoscapeElements } =
-      await import("./structural-to-cytoscape");
-    const els = structuralToCytoscapeElements(input, geometry);
-
-    // Both body edges attach to their own source/target synth ports.
-    const e1 = els.find((e) => e.data.id === "e1")!;
-    const e2 = els.find((e) => e.data.id === "e2")!;
-    expect(e1.data.source).toBe(edgePortId("e1", "s"));
-    expect(e2.data.source).toBe(edgePortId("e2", "s"));
-    // Distinct attachment points (the fan-out), not the shared node body.
-    expect(e1.data.source).not.toBe(e2.data.source);
-    expect(e1.data.source).not.toBe("a");
-
-    // The synth ports exist as invisible nodes (so edges connect) but carry
-    // the edge-port class, not the visible port class.
-    const synthNode = els.find((n) => n.data.id === edgePortId("e1", "s"))!;
-    expect(synthNode.classes).toBe("g3t-structural-edge-port");
-  });
-});
+describe("structuralToCytoscapeElements body-edge attachment ports", () => {});
 
 describe("drag attachment refinements (owner findings, 2026-07-11)", () => {
   it("distributeFaceAnchors spreads bundle anchors along the face, ordered by cross coordinate", () => {
@@ -1453,7 +1422,6 @@ describe("container bounds pin (MR-1 fourth review)", () => {
       edges: [],
     };
     const geometry = await layoutStructural(input, {
-      engineKind: "elk",
       direction: "DOWN",
     });
     const els = structuralToCytoscapeElements(input, geometry);
@@ -1471,80 +1439,6 @@ describe("container bounds pin (MR-1 fourth review)", () => {
     expect(pin.classes).toBe("g3t-structural-extent");
     expect(pin.selectable).toBe(false);
     expect(pin.grabbable).toBe(false);
-  });
-
-  it("the pin tracks the floored box across a sketched shrink (drawn bounds == port box)", async () => {
-    const input = {
-      nodes: [
-        {
-          id: "boxA",
-          header: { stereotype: "Block", name: "A" },
-          compartments: [
-            {
-              id: "c",
-              rows: [
-                { id: "boxA.r1", text: "row one" },
-                { id: "boxA.r2", text: "row two" },
-              ],
-            },
-          ],
-        },
-        {
-          id: "boxB",
-          header: { stereotype: "Block", name: "B" },
-          compartments: [{ id: "c", rows: [{ id: "boxB.r1", text: "row" }] }],
-        },
-      ],
-      edges: [{ id: "e1", source: "boxA", target: "boxB" }],
-    };
-    const before = await layoutStructural(input, {
-      engineKind: "elk",
-      direction: "DOWN",
-    });
-    const sketch: Record<
-      string,
-      { x: number; y: number; width?: number; height?: number }
-    > = {};
-    for (const [id, g] of Object.entries(before.nodes)) {
-      if (id === "boxA" || id === "boxB") {
-        sketch[id] = { x: g.x, y: g.y, width: g.width, height: g.height };
-      }
-    }
-    // Same ids, boxA shrunk to one row: the perturbation a sketched
-    // re-layout holds the floored box under (the original perturbation
-    // was a compartment collapse; the feature was removed by ruling,
-    // the floor + pin invariants survive it).
-    const shrunk = {
-      ...input,
-      nodes: input.nodes.map((n) =>
-        n.id === "boxA"
-          ? {
-              ...n,
-              compartments: [
-                { id: "c", rows: [{ id: "boxA.r1", text: "row one" }] },
-              ],
-            }
-          : n,
-      ),
-    };
-    const after = await layoutStructural(shrunk, {
-      engineKind: "elk",
-      direction: "DOWN",
-      sketch,
-    });
-    const els = structuralToCytoscapeElements(input, after);
-    const pin = els.find((e) => e.data.id === "boxA::extent");
-    const g = after.nodes["boxA"];
-    expect(pin).toBeDefined();
-    expect(g).toBeDefined();
-    if (!pin || !g) return;
-    // The floor held the box; the pin reaches its far corner, so the
-    // DRAWN compound spans the same box the border ports sit on.
-    const beforeA = before.nodes["boxA"];
-    expect(beforeA).toBeDefined();
-    if (!beforeA) return;
-    expect(g.height).toBeCloseTo(beforeA.height, 6);
-    expect(pin.position?.y).toBeCloseTo(g.y + g.height - 0.5, 6);
   });
 });
 

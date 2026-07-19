@@ -129,7 +129,7 @@ export {
   ForceLayout,
   HierarchyLayout,
   DagreLayout,
-  ElkLayout,
+  G3tLayeredLayout,
   WorkingSetManager,
 } from "@g3t/core";
 export * from "./icons";

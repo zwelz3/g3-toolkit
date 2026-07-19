@@ -334,3 +334,47 @@ Remaining for D3b: elkjs removal (the elk pipeline, its pinned
 oracles, the dependency), ARC-009 extraction (@g3t/layout with the
 router as a module, no deprecation shims), budget rebases for core
 and react, channel router decision point.
+
+## D3b part 1 landed (2026-07-19): elkjs LEFT THE TREE
+
+Owner authorization executed ("remove elkjs", "no external
+imports", "rebase authority granted"); flip ratified in substance
+("you've successfully proven that parity is achieved").
+
+- **QLT-002 bands assert against FROZEN elk baselines**, captured
+  on the last two-engine run before removal and recorded as
+  constants with provenance; re-baselining requires an owner
+  ruling. The quality contract survives the engine it was
+  calibrated against.
+- **structural.ts is elk-free**: local type definitions replace the
+  elkjs import (same names; renamed at ARC-009, one change per
+  commit); engineKind and the engine-injection seam are gone from
+  options and cache key; dispatch is unconditionally g3t; the elk
+  invocation + flatten path is deleted. The builder keeps emitting
+  the elk-VOCABULARY graph (the g3t engine consumes that shape).
+- **Test estate dispositioned**: injection/de-dup oracles rewritten
+  to RESULT-IDENTITY semantics; spacing oracles assert on the
+  builder directly; the engineKind key oracle became a
+  layering-strategy key oracle; both LAY-018 elk collapse-holds
+  retired (position-hold returns with collapse, engine-native);
+  PRF-001b's elk leg retired with the historical record (elk 7.3 s
+  vs g3t 131 ms CI) preserved; the converter's four elk-shaped
+  oracles dispositioned empirically (55/59 passed unpinned; one
+  rewritten to the g3t contract, three retired with inline
+  rationale).
+- **G3tLayeredLayout** (UGM adapter, id "layered") replaces
+  ElkLayout in the registry and barrels: the toolbar's hierarchical
+  option now dogfoods the engine. Pins honored by post-hoc
+  override (no native pin support yet: recorded).
+- **Budget**: core measured 187.3 KB post-removal; rebased 196 ->
+  192 (ledger). The removed code was ours (elkjs was external);
+  the REAL relief is part 2's extraction. Installs shed the elkjs
+  dependency.
+- PRF-001 = 199 ms on the build container post-removal (green
+  locally now, not just on CI).
+
+## D3b part 2 (next): ARC-009 extraction
+
+@g3t/layout with the router as a module; elk-vocabulary rename
+rides along; fresh measured budgets for the new package and rebases
+for core/react (authority granted).

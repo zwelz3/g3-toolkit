@@ -180,7 +180,7 @@ describe("engine seam + D2a structural", () => {
   };
 
   it("flat inputs run in-house with routed edges (D3a), no rows", async () => {
-    const flat = await layoutStructural(FLAT, { engineKind: "g3t" });
+    const flat = await layoutStructural(FLAT);
     expect(flat.headerHeight).toBeGreaterThanOrEqual(0);
     expect(Object.values(flat.nodes).some((n) => n.kind === "row")).toBe(false);
     expect(Object.keys(flat.nodes).length).toBe(FLAT.nodes.length);
@@ -198,14 +198,13 @@ describe("engine seam + D2a structural", () => {
     }
     // Routing off stays honored.
     const bare = await layoutStructural(FLAT, {
-      engineKind: "g3t",
       routeEdges: false,
     });
     expect(Object.keys(bare.edges ?? {}).length).toBe(0);
   });
 
   it("D2a: containers stack rows below the header with zero gaps at the shared width", async () => {
-    const g = await layoutStructural(withContainer, { engineKind: "g3t" });
+    const g = await layoutStructural(withContainer);
     const box = g.nodes["box"];
     expect(box?.kind).toBe("container");
     expect(g.headerHeight).toBeGreaterThan(0);
@@ -235,7 +234,7 @@ describe("engine seam + D2a structural", () => {
   });
 
   it("D2a: declared ports sit centered on their declared side's border", async () => {
-    const g = await layoutStructural(withContainer, { engineKind: "g3t" });
+    const g = await layoutStructural(withContainer);
     const box = at2(g.nodes["box"]);
     const out = at2(g.ports["p.out"]);
     expect(out.side).toBe("EAST");
@@ -262,7 +261,6 @@ describe("engine seam + D2a structural", () => {
     };
     // DOWN flow: cross axis is x; sketch x order must survive.
     const down = await layoutStructural(siblings, {
-      engineKind: "g3t",
       direction: "DOWN",
       sketch: {
         s1: { x: 900, y: 0 },
@@ -276,7 +274,6 @@ describe("engine seam + D2a structural", () => {
     // RIGHT flow (default): cross axis is y; sketch y order must
     // survive there instead.
     const right = await layoutStructural(siblings, {
-      engineKind: "g3t",
       sketch: {
         s1: { x: 0, y: 900 },
         s2: { x: 0, y: 500 },
@@ -393,7 +390,22 @@ describe("QLT-002 conformance corpus (D3a bands)", () => {
     })),
   });
 
-  it("g3t stays within bands of elk across the corpus (crossings x2+8, area/edges x1.25)", async () => {
+  it("g3t stays within bands of the frozen elk baselines (crossings x2+8, area/edges x1.25)", async () => {
+    // ELK BASELINES, FROZEN AT ITS REMOVAL (D3b part 1, 2026-07-19).
+    // Measured on this corpus by the last two-engine run before
+    // elkjs left the tree (elkjs 0.9.x, layered defaults, this
+    // machine); the bands below assert against this RECORD, so the
+    // quality contract survives the engine it was calibrated
+    // against. Re-baselining requires an owner ruling.
+    const ELK_BASELINE: Record<
+      string,
+      { area: number; meanEdgeLen: number; crossings: number }
+    > = {
+      "flat-30/50": { area: 6292983, meanEdgeLen: 754, crossings: 102 },
+      "flat-60/100": { area: 18172024, meanEdgeLen: 1239, crossings: 398 },
+      "flat-120/200": { area: 40087122, meanEdgeLen: 1935, crossings: 1417 },
+      "structural-14/20": { area: 2924272, meanEdgeLen: 388, crossings: 0 },
+    };
     const corpus: { name: string; fx: StructuralGraphInput }[] = [
       { name: "flat-30/50", fx: flatFixture(9101, 30, 50) },
       { name: "flat-60/100", fx: flatFixture(7202, 60, 100) },
@@ -401,13 +413,14 @@ describe("QLT-002 conformance corpus (D3a bands)", () => {
       { name: "structural-14/20", fx: structuralFixture() },
     ];
     for (const { name, fx } of corpus) {
-      const elk = await layoutStructural(fx, { engineKind: "elk" });
-      const g3t = await layoutStructural(fx, { engineKind: "g3t" });
-      const me = metricsOf(fx, elk);
+      const me = ELK_BASELINE[name];
+      expect(me, `${name} baseline present`).toBeDefined();
+      if (me === undefined) continue;
+      const g3t = await layoutStructural(fx);
       const mg = metricsOf(fx, g3t);
       // eslint-disable-next-line no-console
       console.log(
-        `QLT-002 ${name}: elk area=${Math.round(me.area)} edge=${me.meanEdgeLen.toFixed(0)} X=${me.crossings}; g3t area=${Math.round(mg.area)} edge=${mg.meanEdgeLen.toFixed(0)} X=${mg.crossings}`,
+        `QLT-002 ${name}: baseline area=${me.area} edge=${me.meanEdgeLen} X=${me.crossings}; g3t area=${Math.round(mg.area)} edge=${mg.meanEdgeLen.toFixed(0)} X=${mg.crossings}`,
       );
       expect(mg.crossings, `${name} crossings band`).toBeLessThanOrEqual(
         me.crossings * 2 + 8,
@@ -416,13 +429,10 @@ describe("QLT-002 conformance corpus (D3a bands)", () => {
       expect(mg.meanEdgeLen, `${name} edge band`).toBeLessThanOrEqual(
         me.meanEdgeLen * 1.25,
       );
-      // Structural parity: same top-level ids, rows preserved.
-      const tops = (g: typeof elk): string[] =>
-        Object.entries(g.nodes)
-          .filter(([, n]) => n.kind !== "row")
-          .map(([id]) => id)
-          .sort();
-      expect(tops(g3t)).toEqual(tops(elk));
+      // Structural integrity: every input node placed, rows intact.
+      for (const n of fx.nodes) {
+        expect(g3t.nodes[n.id], `${name}: ${n.id} placed`).toBeDefined();
+      }
     }
   }, 240_000);
 });

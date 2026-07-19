@@ -118,6 +118,66 @@ let switchBase = 0; // survives settled: longtask offsets stay meaningful
  *  phase attributed; every main-thread block >= 100 ms now logs its
  *  duration and offset so the expensive phase names itself. */
 let ltObserver: PerformanceObserver | null = null;
+/** JS Self-Profiling (Chrome; needs the Document-Policy header the
+ *  dev server now sends): samples the main thread across the switch
+ *  window INCLUDING the post-settle freeze, and prints the top
+ *  self-time functions. This is the attribution the longtask log
+ *  cannot give (it names durations, not functions). Degrades
+ *  silently where unsupported. */
+interface ProfilerTrace {
+  frames: { name?: string; resourceId?: number; line?: number }[];
+  resources: string[];
+  stacks: { frameId: number; parentId?: number }[];
+  samples: { stackId?: number }[];
+}
+type ProfilerLike = { stop: () => Promise<ProfilerTrace> };
+let profiler: ProfilerLike | null = null;
+function startProfiler() {
+  const Ctor = (
+    window as unknown as {
+      Profiler?: new (o: {
+        sampleInterval: number;
+        maxBufferSize: number;
+      }) => ProfilerLike;
+    }
+  ).Profiler;
+  if (!Ctor) return;
+  try {
+    profiler = new Ctor({ sampleInterval: 10, maxBufferSize: 60_000 });
+  } catch {
+    profiler = null;
+  }
+}
+function stopProfilerAndReport(label: string) {
+  const p = profiler;
+  profiler = null;
+  if (!p) return;
+  p.stop()
+    .then((trace) => {
+      const counts = new Map<number, number>();
+      for (const s of trace.samples) {
+        if (s.stackId === undefined) continue;
+        const st = trace.stacks[s.stackId];
+        if (st) counts.set(st.frameId, (counts.get(st.frameId) ?? 0) + 1);
+      }
+      const top = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 12)
+        .map(([frameId, n]) => {
+          const f = trace.frames[frameId];
+          const res =
+            f?.resourceId !== undefined
+              ? (trace.resources[f.resourceId] ?? "")
+              : "";
+          const file = res.split("/").slice(-2).join("/");
+          return `${(n * 10).toString().padStart(6)}ms  ${f?.name || "(anonymous)"}  ${file}${f?.line !== undefined ? ":" + f.line : ""}`;
+        });
+      console.info(
+        `[scale] ${label} profile top self-time:\n` + top.join("\n"),
+      );
+    })
+    .catch(() => undefined);
+}
 function startLongTaskWatch(label: string) {
   try {
     ltObserver?.disconnect();
@@ -138,6 +198,7 @@ function markSwitch(label: string) {
   switchBase = switchStart;
   console.info(`[scale] switch -> ${label}`);
   startLongTaskWatch(label);
+  startProfiler();
 }
 /** Phase markers (owner finding, 2026-07-18: "clusters ready in
  *  91ms" printed and the tab then hung relocating nodes: "ready"
@@ -164,6 +225,7 @@ function markPhase(label: string, phase: string, done = false) {
           owned.disconnect();
           ltObserver = null;
         }
+        stopProfilerAndReport(label);
       }, 15_000);
     }
   }

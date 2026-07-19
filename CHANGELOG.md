@@ -1,5 +1,67 @@
 # Changelog
 
+## G3L Round 45: D3b part 1: elkjs LEFT THE TREE; scale freeze NAMED
+
+- **elkjs is gone**: dependency removed, elk pipeline deleted from
+  structural.ts (local types replace the import; dispatch is
+  unconditionally g3t; engineKind and the injection seam retired
+  from options and cache key), ElkLayout replaced by
+  G3tLayeredLayout (the toolbar's hierarchical option now dogfoods
+  the engine). QLT-002 bands assert against FROZEN elk baselines
+  captured on the last two-engine run (re-baseline needs an owner
+  ruling). Full test-estate disposition in the design doc: identity
+  semantics for cache oracles, builder-level spacing oracles,
+  empirical converter unpinning (55/59 held; 1 rewritten to the g3t
+  contract, 3 retired with rationale), LAY-018 elk holds retired,
+  PRF-001b elk leg retired with the historical numbers preserved.
+  Core rebased 196 -> 192 (measured 187.3; the real relief is part
+  2's extraction). PRF-001 = 199 ms on the container: green locally
+  now. 1,351 tests.
+- **The scale freeze is NAMED**: the owner's self-profile shows
+  getArrayKind/addValueToProperties (React DEV-BUILD performance-
+  track prop serialization) consuming ~10 s self-time. It explains
+  the inverted scaling exactly: the clusters UGM embeds all 8,000
+  memberships, drill embeds ~200 (17.6 s vs 3.3 s). Two ten-second
+  owner experiments confirm (DevTools closed; pnpm build + preview,
+  header already wired): prediction is production-clean, dev-only.
+- Flip ratified in substance ("parity is achieved"); owner's
+  layout/routing quality list lands as post-flip rounds.
+- Answered: no demo uses SVG/Canvas as PRIMARY renderer; MBSE's
+  dropdown mounts StructuralSvgView on selection, Style Lab's panes
+  exist to exercise SvgAdapter/CanvasAdapter; the rest are
+  Cytoscape-only.
+
+## G3L Round 44: e2e GREEN; the scale block cornered; self-profiling attribution
+
+- **e2e 58/58 (owner-run, local and CI): the drag/routing saga
+  closes.** The truth-carried basis (rounds 42-43) held in the real
+  browser.
+- **The scale freeze is cornered but not yet named, and every
+  headless suspect is now eliminated by direct measurement**: the
+  owner's paste showed ONE 17,928 ms longtask starting at +142 ms
+  (right after settled) on the clusters RETURN, and 3.3 s after
+  drill's layoutstop: both fire after layout completes, and the
+  bigger block belongs to the SMALLER view, so the cost does not
+  scale with drawn elements. Measured against the real model:
+  applyEncodingSpec over the clustered graph 1 ms; the toolbar's
+  Fuse index 4 ms clustered / 84 ms over the full 8,000-node graph;
+  headless cytoscape (styleEnabled) over the exact converted
+  clusters elements: convert 2 ms, init 46 ms, style update 6 ms.
+  The block is renderer-side or otherwise browser-only.
+- (Recorded for honesty: the headless harness appeared to hang
+  nondeterministically; staged runs showed all work completing in
+  milliseconds with the PROCESS refusing to exit: a missing
+  cy.destroy() leaves cytoscape timers holding the node event loop.
+  An idle loop is the opposite of a busy 17.9 s main thread: harness
+  artifact, not the bug.)
+- **Shipped: JS Self-Profiling attribution.** The dev server sends
+  Document-Policy: js-profiling (server + preview); the scale
+  surface starts a 10 ms sampling profiler at every switch, stops
+  it when the longtask watch retires, and prints the top-12
+  self-time functions with file:line into the console block the
+  owner already pastes. Degrades silently where unsupported. The
+  next paste names the functions consuming the block.
+
 ## G3L Round 43: truth-carried drag basis; the integration oracle; scale watch extended
 
 - **The remaining browser-only drag failures came from the last two

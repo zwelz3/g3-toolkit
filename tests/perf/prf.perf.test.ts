@@ -107,44 +107,29 @@ function record(key: string, ms: number, budgets: BudgetsFile): void {
 }
 
 describe.skipIf(!ENABLED)("PRF benchmarks (spec section 14)", () => {
-  it(
-    "PRF-001b: FLAT R1 on both engines (WS-D D1 report)",
-    { timeout: 240_000 },
-    async () => {
-      // Apples-to-apples for the D1 engine (flat-only): 500 plain
-      // nodes / 800 edges through both engines. Report-only; the
-      // frozen PRF-001 key stays gated at the engine flip.
-      const flat = (): Parameters<typeof layoutStructural>[0] => {
-        const { nodes, edges } = mkR1();
-        return {
-          nodes: nodes.map((n) => ({
-            id: n.id,
-            header: n.header,
-            width: n.width ?? 120,
-            height: n.height ?? 50,
-          })),
-          edges,
-        };
+  it("PRF-001b: FLAT R1 (g3t; the elk leg retired with elkjs, D3b part 1)", async () => {
+    // Historical record: the last two-engine run (CI 2026-07-18)
+    // measured elk 7.3 s vs g3t 131 ms on this fixture. The elk
+    // leg left with the dependency; this key keeps the flat-R1
+    // g3t number as a report-only trend line.
+    const flat = () => {
+      const { nodes, edges } = mkR1();
+      return {
+        nodes: nodes.map((n) => ({
+          id: n.id,
+          width: n.width,
+          height: n.height,
+        })),
+        edges,
       };
-      const tElk0 = performance.now();
-      // Post-flip: {} defaults to g3t, so the elk leg must ask for
-      // elk explicitly (the first post-flip CI artifact mislabeled
-      // a warm g3t run as elk at 196 ms).
-      await layoutStructural(flat(), { engineKind: "elk" });
-      const elkMs = performance.now() - tElk0;
-      const { g3tLayoutFlat } =
-        await import("../../packages/core/src/layout/g3t-engine/g3t-layered");
-      const tG0 = performance.now();
-      g3tLayoutFlat(flat());
-      const g3tMs = performance.now() - tG0;
-      results["PRF-001b-R1flat-elk"] = Math.round(elkMs);
-      results["PRF-001b-R1flat-g3t"] = Math.round(g3tMs * 10) / 10;
-      // eslint-disable-next-line no-console
-      console.log(
-        `PRF-001b R1-flat: elk=${elkMs.toFixed(0)} ms, g3t=${g3tMs.toFixed(1)} ms (report-only; frozen PRF-001 gates at the engine flip)`,
-      );
-    },
-  );
+    };
+    const t0 = performance.now();
+    await layoutStructural(flat());
+    const g3tMs = performance.now() - t0;
+    // eslint-disable-next-line no-console
+    console.log(`PRF-001b-R1flat-g3t: ${g3tMs.toFixed(1)} ms (report)`);
+    results["PRF-001b-R1flat-g3t"] = Math.round(g3tMs);
+  });
 
   it("PRF-001: layered layout of R1", { timeout: 120_000 }, async () => {
     const budgets = loadBudgets();

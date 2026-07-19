@@ -2,7 +2,7 @@
  * Layout engine tests covering M2.E1.T1 and M2.E2.T1-T4:
  *
  * E1.T1: Interface is implementable; pinned nodes appear in output.
- * E2.T1: 200-node DAG; elkjs hierarchical completes; pinned node stays.
+ * Layered UGM engine: 200-node DAG completes; pinned node stays.
  * E2.T2: 200 nodes; force layout completes; pinned node at specified coords.
  * E2.T3: 100-node tree; renders hierarchically.
  * E2.T4: 50-node DAG; dagre completes in under 100ms.
@@ -13,7 +13,7 @@ import { UGM } from "../ugm";
 import { ForceLayout } from "./force-layout";
 import { HierarchyLayout } from "./hierarchy-layout";
 import { DagreLayout } from "./dagre-layout";
-import { ElkLayout } from "./elk-layout";
+import { G3tLayeredLayout } from "./g3t-ugm-layout";
 import type { Position } from "./types";
 
 function createChainGraph(length: number): UGM {
@@ -69,7 +69,7 @@ describe("LayoutEngine interface (M2.E1.T1)", () => {
       new ForceLayout(),
       new HierarchyLayout(),
       new DagreLayout(),
-      new ElkLayout(),
+      new G3tLayeredLayout(),
     ];
     for (const engine of engines) {
       expect(typeof engine.name).toBe("string");
@@ -211,31 +211,42 @@ describe("DagreLayout (M2.E2.T4)", () => {
   });
 });
 
-// ── E2.T1: elkjs layout ────────────────────────────────────────────
+// ── Layered UGM layout (g3t; replaced elkjs at D3b part 1) ──────────
 
-describe("ElkLayout (M2.E2.T1)", () => {
+describe("G3tLayeredLayout (replaced ElkLayout, D3b part 1)", () => {
   it("computes positions for 200-node DAG", async () => {
     const ugm = createDAG(200);
-    const engine = new ElkLayout();
+    const engine = new G3tLayeredLayout();
     const result = await engine.compute(ugm);
 
     expect(result.size).toBe(200);
+    for (const pos of result.values()) {
+      expect(Number.isFinite(pos.x)).toBe(true);
+      expect(Number.isFinite(pos.y)).toBe(true);
+    }
   });
 
   it("honors pinned node position", async () => {
     const ugm = createChainGraph(10);
     const pinned = new Map<string, Position>([["n0", { x: 777, y: 888 }]]);
 
-    const engine = new ElkLayout();
+    const engine = new G3tLayeredLayout();
     const result = await engine.compute(ugm, { pinned });
     expect(result.get("n0")).toEqual({ x: 777, y: 888 });
   });
 
   it("handles empty graph", async () => {
     const ugm = new UGM();
-    const engine = new ElkLayout();
+    const engine = new G3tLayeredLayout();
     const result = await engine.compute(ugm);
     expect(result.size).toBe(0);
+  });
+
+  it("is deterministic (same graph, same positions)", async () => {
+    const engine = new G3tLayeredLayout();
+    const a = await engine.compute(createDAG(60));
+    const b = await engine.compute(createDAG(60));
+    expect([...a.entries()]).toEqual([...b.entries()]);
   });
 });
 

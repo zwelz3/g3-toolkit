@@ -32,12 +32,45 @@
  *      geometry only; canvas application is the next slice)
  */
 
-import ELK, {
-  type ElkNode,
-  type ElkExtendedEdge,
-  type ElkPort,
-  type LayoutOptions as ElkLayoutOptions,
-} from "elkjs/lib/elk.bundled.js";
+/* elkjs left the tree at D3b part 1 (2026-07-19, owner-authorized).
+ * The graph the pre-pass builds keeps the elk-VOCABULARY shape (ids,
+ * children, ports, layoutOptions strings) because the g3t engine
+ * consumes exactly that structure; the types below are now LOCAL.
+ * The vocabulary gets renamed at the ARC-009 extraction, not here:
+ * one change per commit. */
+export interface ElkLayoutOptions {
+  [key: string]: string;
+}
+export interface ElkPort {
+  id: string;
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+  layoutOptions?: ElkLayoutOptions;
+}
+export interface ElkExtendedEdge {
+  id: string;
+  sources: string[];
+  targets: string[];
+  sections?: {
+    startPoint: { x: number; y: number };
+    endPoint: { x: number; y: number };
+    bendPoints?: { x: number; y: number }[];
+  }[];
+}
+export interface ElkNode {
+  id: string;
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+  children?: ElkNode[];
+  ports?: ElkPort[];
+  edges?: ElkExtendedEdge[];
+  layoutOptions?: ElkLayoutOptions;
+  labels?: { text?: string; width?: number; height?: number }[];
+}
 
 /** Sides a boundary port can be fixed to (ELK vocabulary). */
 export type PortSide = "NORTH" | "SOUTH" | "EAST" | "WEST";
@@ -149,17 +182,6 @@ export const estimateTextSize: TextMeasure = (text, role) => {
 import type { G3tLayoutOptions as G3tEngineTuning } from "./g3t-engine/g3t-layered";
 
 export interface StructuralLayoutOptions extends G3tEngineTuning {
-  /**
-   * Layout engine seam (WS-D). "elk" (default) runs the elkjs
-   * pipeline. "g3t" runs the in-house layered engine, D1 stage:
-   * FLAT inputs only; inputs with compartments fall back to elk
-   * until the D2 containment pre-pass lands. The seam exists so the
-   * QLT-002 harness and the PRF bench can run both engines over
-   * identical inputs; the default does not change before D3.
-   * (Named engineKind: `engine` already injects an ElkEngine
-   * instance.)
-   */
-  engineKind?: "elk" | "g3t";
   /** Direction of the top-level layered layout. Default "RIGHT". */
   direction?: "RIGHT" | "DOWN" | "LEFT" | "UP";
   /** Horizontal padding inside rows and around headers (default 8). */
@@ -237,12 +259,6 @@ export interface StructuralLayoutOptions extends G3tEngineTuning {
   edgeEdgeSpacing?: number;
   /** Text measurement; defaults to the deterministic estimator. */
   measure?: TextMeasure;
-  /**
-   * ELK engine to lay out with. Defaults to a shared synchronous elkjs
-   * instance that runs on the calling thread. Inject a worker-backed
-   * engine (see ElkEngine) to move layout off the main thread.
-   */
-  engine?: ElkEngine;
 }
 
 /* Expand/collapse was removed by ruling (2026-07-10); see
@@ -342,7 +358,7 @@ interface RowPlan {
 /**
  * Pure builder: StructuralGraphInput -> ELK JSON per the validated
  * recipe. Exposed for testability; layoutStructural() runs it through
- * elkjs and flattens the result.
+ * the layout engine (g3t since D3b part 1).
  */
 export function buildStructuralElkGraph(
   input: StructuralGraphInput,
@@ -634,30 +650,6 @@ function headerText(header: { stereotype?: string; name: string }): string {
     : header.name;
 }
 
-/** An ELK-compatible layout engine: anything exposing elkjs's
- *  `layout(graph) => Promise<graph>`. The default is a lazily-created
- *  synchronous elkjs instance (the bundled build, which runs on the
- *  CALLING thread). A caller in a bundler/browser context can inject a
- *  WORKER-backed ELK so layout runs OFF the main thread; a structural
- *  graph then never blocks rendering regardless of size. Core never
- *  constructs a Worker itself (that needs a bundler-resolved URL and
- *  would break the framework-agnostic doctrine, D6): it only consumes
- *  this shape. */
-export interface ElkEngine {
-  layout(graph: ElkNode): Promise<ElkNode>;
-}
-
-// One shared synchronous ELK instance. `new ELK()` per call paid a
-// cold-start cost (~0.5s) every time, and under React StrictMode's dev
-// double-invoke the structural effect ran it twice on mount; the
-// singleton plus the in-flight de-dup below remove both. Lazily created
-// so importing this module stays free and a node/jsdom caller that never
-// lays out pays nothing.
-let _defaultEngine: ElkEngine | undefined;
-function defaultEngine(): ElkEngine {
-  return (_defaultEngine ??= new ELK());
-}
-
 // Layout is deterministic in (input, layout-affecting options): two
 // calls with the same IMMUTABLE input yield the same geometry. React
 // StrictMode invokes the structural effect twice on mount, which would
@@ -680,63 +672,14 @@ const _layoutCache = new WeakMap<
  * so caching and in-flight de-duplication are engine-agnostic, with
  * engineKind and the g3t strategy options in the key.
  */
-async function runLayoutDispatch(
-  input: StructuralGraphInput,
-  options?: StructuralLayoutOptions,
-): Promise<StructuralGeometry> {
-  if ((options?.engineKind ?? "g3t") === "g3t") {
-    const { g3tLayoutStructural } = await import("./g3t-engine/g3t-structural");
-    return g3tLayoutStructural(input, options);
-  }
-  return runStructuralLayout(input, options);
-}
-
-function layoutOptionsKey(options?: StructuralLayoutOptions): string {
-  return JSON.stringify({
-    direction: options?.direction ?? "RIGHT",
-    hPadding: options?.hPadding ?? 8,
-    vPadding: options?.vPadding ?? 5,
-    spacing: options?.spacing ?? 60,
-    layerSpacing: options?.layerSpacing ?? (options?.spacing ?? 60) + 20,
-    edgeRouting: options?.edgeRouting ?? "ORTHOGONAL",
-    nodePlacement: options?.nodePlacement ?? "BRANDES_KOEPF",
-    crossingMinimization: options?.crossingMinimization ?? "LAYER_SWEEP",
-    edgeNodeSpacing: options?.edgeNodeSpacing ?? 16,
-    edgeEdgeSpacing: options?.edgeEdgeSpacing ?? 24,
-    routeEdges: options?.routeEdges ?? true,
-    // WS-D: the engine is part of what was computed.
-    engineKind: options?.engineKind ?? "g3t",
-    g3t:
-      (options?.engineKind ?? "g3t") === "g3t"
-        ? {
-            layering: options?.layering ?? "network-simplex",
-            layerWidth: options?.layerWidth ?? 8,
-            placement: options?.placement ?? "brandes-koepf",
-            layeringBudgetMs: options?.layeringBudgetMs ?? 80,
-            orderingBudgetMs: options?.orderingBudgetMs ?? 60,
-            routingBudgetMs: options?.routingBudgetMs ?? 80,
-          }
-        : undefined,
-    // Sketch participates in the memo key: a sketched re-layout of the
-    // same input+options is a DIFFERENT computation from the
-    // from-scratch one (G3L:LAY-017); rounded to integers so subpixel
-    // jitter in captured positions does not defeat the cache.
-    sketch: options?.sketch
-      ? Object.entries(options.sketch)
-          .map(([id, p]) => [id, Math.round(p.x), Math.round(p.y)] as const)
-          .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-      : [],
-  });
-}
-
 /**
- * Run the structural layout: build the ELK graph, lay it out (via the
- * injectable engine, default synchronous elkjs), and flatten the result
+ * Run the structural layout via the g3t engine and flatten the result
  * into a StructuralGeometry document with ABSOLUTE coordinates.
  *
  * Results are de-duped by input identity (see `_layoutCache`): the
  * common case of the same immutable input laid out more than once
- * (StrictMode double-invoke, structural-view re-open) runs ELK once.
+ * (StrictMode double-invoke, structural-view re-open) runs the engine
+ * once.
  */
 export async function layoutStructural(
   input: StructuralGraphInput,
@@ -764,150 +707,43 @@ export async function layoutStructural(
   return pending;
 }
 
-async function runStructuralLayout(
+async function runLayoutDispatch(
   input: StructuralGraphInput,
   options?: StructuralLayoutOptions,
 ): Promise<StructuralGeometry> {
-  const { graph, rowPlans, headerHeight } = buildStructuralElkGraph(
-    input,
-    options,
-  );
-  const engine = options?.engine ?? defaultEngine();
-  const laid = await engine.layout(graph);
+  const { g3tLayoutStructural } = await import("./g3t-engine/g3t-structural");
+  return g3tLayoutStructural(input, options);
+}
 
-  const nodes: Record<string, StructuralNodeGeometry> = {};
-  const portsOut: Record<string, StructuralPortGeometry> = {};
-  const inputById = new Map(input.nodes.map((n) => [n.id, n]));
-
-  for (const top of laid.children ?? []) {
-    const ox = top.x ?? 0;
-    const oy = top.y ?? 0;
-    const source = inputById.get(top.id);
-    const plans = rowPlans.get(top.id);
-    nodes[top.id] = {
-      x: ox,
-      y: oy,
-      width: top.width ?? 0,
-      height: top.height ?? 0,
-      kind: plans ? "container" : "node",
-      // Plain nodes without a header fall back to their id: an
-      // unlabeled box reads as a bug, not a choice (VA-27 review,
-      // round 32: "the first box is empty?").
-      text: source?.header
-        ? headerText(source.header)
-        : plans
-          ? undefined
-          : top.id,
-    };
-    if (plans) {
-      const planById = new Map(plans.map((p) => [p.id, p]));
-      for (const child of top.children ?? []) {
-        const plan = planById.get(child.id);
-        if (!plan) continue;
-        nodes[child.id] = {
-          x: ox + (child.x ?? 0),
-          y: oy + (child.y ?? 0),
-          width: child.width ?? 0,
-          height: child.height ?? 0,
-          kind: "row",
-          parent: top.id,
-          compartment: plan.compartment,
-          text: plan.text,
-          divider: plan.divider || undefined,
-        };
-      }
-    }
-    for (const port of top.ports ?? []) {
-      // Side comes from the laid-out port (we set elk.port.side under
-      // FIXED_SIDE). Synth body-edge ports are included so the renderer can
-      // attach to them; they are flagged off elsewhere by id.
-      const side =
-        (port.layoutOptions?.["elk.port.side"] as PortSide | undefined) ??
-        "EAST";
-      portsOut[port.id] = {
-        node: top.id,
-        side,
-        x: ox + (port.x ?? 0),
-        y: oy + (port.y ?? 0),
-        width: port.width ?? 0,
-        height: port.height ?? 0,
-      };
-    }
-  }
-
-  // Routed edge polylines. ELK populates each edge's sections with the
-  // node-avoiding path it computed; root-level edges report absolute
-  // coordinates (the edge container is the root). We flatten each section
-  // to start + bends + end. Synthetic chain edges never carry a rendered
-  // route. Omitted entirely when routeEdges is off (endpoint-only render).
-  let edgesOut: Record<string, StructuralEdgeGeometry> | undefined;
-  if (options?.routeEdges ?? true) {
-    edgesOut = {};
-    for (const edge of laid.edges ?? []) {
-      if (isChainEdgeId(edge.id)) continue;
-      const points: { x: number; y: number }[] = [];
-      for (const section of edge.sections ?? []) {
-        points.push({ x: section.startPoint.x, y: section.startPoint.y });
-        for (const bend of section.bendPoints ?? []) {
-          points.push({ x: bend.x, y: bend.y });
-        }
-        points.push({ x: section.endPoint.x, y: section.endPoint.y });
-      }
-      // A route needs at least the two endpoints to be useful; otherwise
-      // leave the edge unrouted so the renderer falls back cleanly.
-      if (points.length >= 2) edgesOut[edge.id] = { points };
-    }
-  }
-
-  // Sketch re-anchor (G3L:LAY-018). Interactive strategies preserve the
-  // scene's RELATIVE structure, but ELK's coordinate frame floats: when
-  // a container shrinks, the whole result translates rigidly (measured
-  // as a uniform per-node delta on the experiment fixture). Since D15
-  // holds the camera, absolute positions are what the user sees, so
-  // sketch mode ends with a rigid translation that re-anchors the
-  // result to the sketch frame: the component-wise MEDIAN delta over
-  // hinted nodes (median, not mean, so the deliberately-changed node
-  // cannot bias the frame).
-  const sketch = options?.sketch;
-  if (sketch) {
-    const dxs: number[] = [];
-    const dys: number[] = [];
-    for (const [id, hint] of Object.entries(sketch)) {
-      const g = nodes[id];
-      if (!g) continue;
-      dxs.push(hint.x - g.x);
-      dys.push(hint.y - g.y);
-    }
-    if (dxs.length > 0) {
-      const median = (v: number[]): number => {
-        const s = [...v].sort((a, b) => a - b);
-        const mid = Math.floor(s.length / 2);
-        const lo = s[mid - (s.length % 2 === 0 ? 1 : 0)] ?? 0;
-        const hi = s[mid] ?? 0;
-        return (lo + hi) / 2;
-      };
-      const dx = median(dxs);
-      const dy = median(dys);
-      if (dx !== 0 || dy !== 0) {
-        for (const g of Object.values(nodes)) {
-          g.x += dx;
-          g.y += dy;
-        }
-        for (const p of Object.values(portsOut)) {
-          p.x += dx;
-          p.y += dy;
-        }
-        if (edgesOut) {
-          for (const e of Object.values(edgesOut)) {
-            for (const pt of e.points) {
-              pt.x += dx;
-              pt.y += dy;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return { version: 1, nodes, ports: portsOut, edges: edgesOut, headerHeight };
+function layoutOptionsKey(options?: StructuralLayoutOptions): string {
+  return JSON.stringify({
+    direction: options?.direction ?? "RIGHT",
+    hPadding: options?.hPadding ?? 8,
+    vPadding: options?.vPadding ?? 5,
+    spacing: options?.spacing ?? 60,
+    layerSpacing: options?.layerSpacing ?? (options?.spacing ?? 60) + 20,
+    edgeRouting: options?.edgeRouting ?? "ORTHOGONAL",
+    nodePlacement: options?.nodePlacement ?? "BRANDES_KOEPF",
+    crossingMinimization: options?.crossingMinimization ?? "LAYER_SWEEP",
+    edgeNodeSpacing: options?.edgeNodeSpacing ?? 16,
+    edgeEdgeSpacing: options?.edgeEdgeSpacing ?? 24,
+    routeEdges: options?.routeEdges ?? true,
+    g3t: {
+      layering: options?.layering ?? "network-simplex",
+      layerWidth: options?.layerWidth ?? 8,
+      placement: options?.placement ?? "brandes-koepf",
+      layeringBudgetMs: options?.layeringBudgetMs ?? 80,
+      orderingBudgetMs: options?.orderingBudgetMs ?? 60,
+      routingBudgetMs: options?.routingBudgetMs ?? 80,
+    },
+    // Sketch participates in the memo key: a sketched re-layout of the
+    // same input+options is a DIFFERENT computation from the
+    // from-scratch one (G3L:LAY-017); rounded to integers so subpixel
+    // jitter in captured positions does not defeat the cache.
+    sketch: options?.sketch
+      ? Object.entries(options.sketch)
+          .map(([id, p]) => [id, Math.round(p.x), Math.round(p.y)] as const)
+          .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+      : [],
+  });
 }

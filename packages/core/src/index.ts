@@ -172,7 +172,12 @@ export { virtualizeRelationalData, parseCSV } from "./relational-virtualizer";
 export type { VirtualizeOptions } from "./relational-virtualizer";
 
 // ── Layout engines (D6: pure compute) ───────────────────────────────
-export { ForceLayout, HierarchyLayout, DagreLayout, ElkLayout } from "./layout";
+export {
+  ForceLayout,
+  HierarchyLayout,
+  DagreLayout,
+  G3tLayeredLayout,
+} from "./layout";
 export type {
   LayoutEngine,
   LayoutOptions,
@@ -258,7 +263,6 @@ export type {
   StructuralLayoutOptions,
   TextMeasure,
   PortSide,
-  ElkEngine,
 } from "./layout/structural";
 
 // ── Combo (node grouping model) ─────────────────────────────────────

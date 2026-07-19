@@ -1,7 +1,7 @@
 export { ForceLayout } from "./force-layout";
 export { HierarchyLayout } from "./hierarchy-layout";
 export { DagreLayout } from "./dagre-layout";
-export { ElkLayout } from "./elk-layout";
+export { G3tLayeredLayout } from "./g3t-ugm-layout";
 export type {
   LayoutEngine,
   LayoutResult,
@@ -38,5 +38,4 @@ export type {
   StructuralLayoutOptions,
   TextMeasure,
   PortSide,
-  ElkEngine,
 } from "./structural";

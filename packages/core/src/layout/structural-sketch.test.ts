@@ -19,11 +19,7 @@
  * this test also exercises D1 against real geometry.
  */
 import { describe, expect, it } from "vitest";
-import {
-  layoutStructural,
-  type StructuralGraphInput,
-  type StructuralLayoutOptions,
-} from "./structural";
+import { layoutStructural, type StructuralGraphInput } from "./structural";
 import {
   displacementFromSketch,
   positionsFromStructural,
@@ -75,106 +71,11 @@ function fixture(shrunkA = false): StructuralGraphInput {
 }
 
 describe("layoutStructural sketch mode (G3L:LAY-017/018)", () => {
-  it("holds untouched containers under one grid unit across a collapse rebuild", async () => {
-    const input = fixture();
-    const ids = new Set(input.nodes.map((n) => n.id));
-    const base: StructuralLayoutOptions = {
-      direction: "RIGHT",
-      engineKind: "elk",
-    };
-
-    const before = await layoutStructural(input, base);
-    const sketch: Record<
-      string,
-      { x: number; y: number; width?: number; height?: number }
-    > = {};
-    for (const [id, p] of positionsFromStructural(before, ids)) {
-      sketch[id] = {
-        ...p,
-        width: before.nodes[id]?.width,
-        height: before.nodes[id]?.height,
-      };
-    }
-
-    const after = await layoutStructural(fixture(true), {
-      ...base,
-      sketch,
-    });
-
-    const d = displacementFromSketch(
-      positionsFromStructural(after, ids),
-      positionsFromStructural(before, ids),
-      new Set(["A"]), // the toggled container is judged separately
-    );
-    expect(d.unmatched).toEqual([]);
-    // Accept criterion: untouched containers move less than one grid unit.
-    expect(
-      d.max,
-      `untouched displacement per node: ${JSON.stringify(d.perNode)}`,
-    ).toBeLessThan(GRID_UNIT);
-
-    // The toggled container resizes in place: its top-left stays put
-    // within the same tolerance, while its box genuinely shrinks.
-    const aBefore = before.nodes["A"];
-    const aAfter = after.nodes["A"];
-    expect(aBefore).toBeDefined();
-    expect(aAfter).toBeDefined();
-    if (!aBefore || !aAfter) return;
-    expect(Math.hypot(aAfter.x - aBefore.x, aAfter.y - aBefore.y)).toBeLessThan(
-      GRID_UNIT,
-    );
-    expect(aAfter.height).toBeLessThan(aBefore.height);
-  });
-
-  it("DOWN flow (the MR-1 MBSE case): untouched containers hold and the box height stays CONSTANT across collapse", async () => {
-    const input = fixture();
-    const ids = new Set(input.nodes.map((n) => n.id));
-    const base: StructuralLayoutOptions = {
-      direction: "DOWN",
-      engineKind: "elk",
-    };
-
-    const before = await layoutStructural(input, base);
-    const sketch: Record<
-      string,
-      { x: number; y: number; width?: number; height?: number }
-    > = {};
-    for (const [id, p] of positionsFromStructural(before, ids)) {
-      sketch[id] = {
-        ...p,
-        width: before.nodes[id]?.width,
-        height: before.nodes[id]?.height,
-      };
-    }
-
-    const after = await layoutStructural(fixture(true), {
-      ...base,
-      sketch,
-    });
-
-    const d = displacementFromSketch(
-      positionsFromStructural(after, ids),
-      positionsFromStructural(before, ids),
-      new Set(["A"]),
-    );
-    expect(
-      d.max,
-      `untouched displacement per node: ${JSON.stringify(d.perNode)}`,
-    ).toBeLessThan(GRID_UNIT);
-
-    const aBefore = before.nodes["A"];
-    const aAfter = after.nodes["A"];
-    expect(aBefore).toBeDefined();
-    expect(aAfter).toBeDefined();
-    if (!aBefore || !aAfter) return;
-    expect(Math.hypot(aAfter.x - aBefore.x, aAfter.y - aBefore.y)).toBeLessThan(
-      GRID_UNIT,
-    );
-    // Vertical flow holds the FLOW extent via the minimum-size floor:
-    // the box height is constant across the toggle (the whitespace
-    // sits inside the border), so expand is stable for free.
-    expect(aAfter.height).toBeCloseTo(aBefore.height, 6);
-  });
+  // RETIRED WITH ELK (D3b part 1, 2026-07-19): the two LAY-018
+  // collapse-hold oracles here were pinned to the elk pipeline and
+  // asserted ITS hold behavior. Position-hold under the g3t engine
+  // is recorded against the collapse reintroduction (WS-D design
+  // doc); the oracle returns with the feature, engine-native.
 
   it("a sketched run is not served from the unsketched memo (cache key honesty)", async () => {
     const full = fixture();

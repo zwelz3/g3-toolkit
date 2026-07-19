@@ -4,6 +4,11 @@ import { resolve } from "path";
 
 export default defineConfig({
   plugins: [react()],
+  // JS Self-Profiling (G3L scale diagnosis): the scale surface
+  // samples the main thread during view switches and prints the top
+  // self-time functions; the API requires this document policy.
+  server: { headers: { "Document-Policy": "js-profiling" } },
+  preview: { headers: { "Document-Policy": "js-profiling" } },
   resolve: {
     alias: {
       "@g3t/core": resolve(__dirname, "packages/core/src"),

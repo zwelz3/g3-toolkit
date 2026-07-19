@@ -49,7 +49,7 @@ const BUDGETS = {
   // layout engine) lands, extract @g3t/layout (ARC-009), move the
   // router with it, and bring core back under its original envelope
   // rather than raising a third time.
-  core: 196 * 1024, // 184 KB
+  core: 192 * 1024, // 184 KB
   // Core ledger:
   // - 140 -> 160 KB, 2026-07-07 (review remediation round 2): measured
   //   139.1 KB (99% of cap) after khopNeighborhood (BFS composed with
@@ -153,6 +153,13 @@ const BUDGETS = {
   //   node id in block view), the FacetFilter colorForType swatch
   //   hook, and the categoricalColorMap encoding helper. +0.3 KB over
   //   the 300 cap.
+  // Core ledger, 2026-07-19 (D3b part 1 rebase, authority granted
+  // "rebase authority granted"): 196 -> 192. elkjs left the tree;
+  // measured 187.3 KB post-removal. The removed code was OUR
+  // dispatch/flatten/adapter (elkjs itself was external, never in
+  // this number); the REAL relief is the ARC-009 extraction (D3b
+  // part 2), which rebases again from fresh measurements. Also:
+  // installs shed the elkjs dependency entirely.
   // Core ledger, 2026-07-18 (BRIDGE raise; OWNER RATIFIED same day:
   // "ratify core 196"): 184 -> 196. D3a landed the engine flip and the code
   // it forced (scene routing, direction support, engine dispatch,
