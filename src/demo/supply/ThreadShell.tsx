@@ -12,15 +12,22 @@
  * see the canvas); the data driving every panel comes from tested pure
  * functions (model, analytics, viz).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
+  CanvasAdapter,
   ContextMenuManager,
   createDefaultMenuManager,
   CytoscapeCanvas,
+  harvestSceneFromCy,
+  SvgAdapter,
+  type HarvestedScene,
   Minimap,
+  useEmphasisStore,
   useSelectionStore,
   useOverlayStore,
   categoricalColorMap,
+  registerIcon,
+  FloatingLegend,
 } from "@g3t/react";
 import type { EncodingSpec } from "@g3t/react";
 import type { Core } from "cytoscape";
@@ -42,17 +49,59 @@ import {
   OVERLAY_PATH,
 } from "./viz";
 import { THREAD_STYLES } from "./thread-styles";
-import { CapabilityCallout } from "../components/CapabilityCallout";
+import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
+import { useHiddenSuppliersStore } from "./hidden-suppliers-store";
+import { applyConfidenceDim, type ConfidenceCoreLike } from "./confidence-dim";
 
 type Mode = "none" | ClusterMode;
 
-const MODES: Array<{ key: Mode; label: string }> = [
-  { key: "none", label: "Type" },
-  { key: "region", label: "Region" },
-  { key: "tier", label: "Tier" },
-  { key: "component", label: "Component" },
+// Consumer-readable grouping controls (review 5.8): each mode carries
+// a one-line description rendered beside the radio, and "tier" is
+// DEFINED rather than left as jargon.
+const MODES: Array<{ key: Mode; label: string; desc: string }> = [
+  { key: "none", label: "Type", desc: "One color per kind of entity." },
+  {
+    key: "region",
+    label: "Region",
+    desc: "Group suppliers by manufacturing region.",
+  },
+  {
+    key: "tier",
+    label: "Supplier tier",
+    desc: "Tier 1 sells to us directly; tiers 2-3 are their upstream sources.",
+  },
+  {
+    key: "component",
+    label: "Connected group",
+    desc: "Entities that trade with each other, named by their hub.",
+  },
 ];
+
+// Type icons (review 5.6, via the 4.4 icon channel and the 4.7 pin
+// coexistence fix). Registered once at module load; the registry is
+// the extension point this shell demonstrates. Shapes stay uniform;
+// the glyph is the type signal.
+registerIcon(
+  "sc-supplier",
+  '<path d="M3 20V9.5l5 3v-3l5 3V9.5l8-4.5v15H3z"/><path d="M7 16h2M12 16h2M17 16h2"/>',
+);
+registerIcon(
+  "sc-part",
+  '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
+);
+registerIcon(
+  "sc-assembly",
+  '<circle cx="12" cy="12" r="3.2"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2"/>',
+);
+registerIcon(
+  "sc-product",
+  '<path d="M20 12l-8 8-8-8V4h8l8 8z"/><circle cx="8.5" cy="8.5" r="1.4"/>',
+);
+registerIcon(
+  "sc-facility",
+  '<rect x="5" y="8" width="14" height="12"/><path d="M5 8l7-5 7 5M9 12h2M13 12h2M9 16h2M13 16h2"/>',
+);
 
 const KIND_LABEL: Record<GapFinding["kind"], string> = {
   "sole-source": "Sole source",
@@ -74,9 +123,78 @@ function makeSpec(mode: Mode): EncodingSpec {
         },
       },
       label: { driver: "name" },
+      // Review 5.6: the type reads as an ICON, stable across color
+      // modes (cluster coloring recolors, the glyph still says what
+      // each node IS).
+      icon: {
+        driver: "types",
+        scale: {
+          kind: "categorical",
+          overrides: {
+            Supplier: "sc-supplier",
+            Part: "sc-part",
+            Assembly: "sc-assembly",
+            Product: "sc-product",
+            Facility: "sc-facility",
+          },
+        },
+      },
     },
     edge: { label: { driver: "type" } },
   };
+}
+
+/** Measured host for the headless adapters (the MBSE SizedStructuralSvg
+ *  pattern): width/height are numeric adapter props, so the box is
+ *  observed rather than ref-read during render. */
+function SizedAdapter({
+  kind,
+  scene,
+  "data-testid": testId,
+}: {
+  kind: "svg" | "canvas";
+  scene: HarvestedScene;
+  "data-testid"?: string;
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({
+    w: 1200,
+    h: 800,
+  });
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    if (typeof ResizeObserver === "undefined") return; // jsdom: defaults hold
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r && r.width > 0 && r.height > 0) {
+        setSize({ w: Math.round(r.width), h: Math.round(r.height) });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const shared = {
+    nodes: scene.nodes,
+    edges: scene.edges,
+    resolved: scene.resolved,
+    width: size.w,
+    height: size.h,
+    background: "#0b1120",
+  };
+  return (
+    <div
+      ref={hostRef}
+      style={{ position: "absolute", inset: 0, zIndex: 2 }}
+      data-testid={testId}
+    >
+      {kind === "svg" ? (
+        <SvgAdapter {...shared} />
+      ) : (
+        <CanvasAdapter {...shared} />
+      )}
+    </div>
+  );
 }
 
 export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
@@ -109,6 +227,37 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   const reducedMotion = usePrefersReducedMotion();
   const [core, setCore] = useState<Core | null>(null);
   const [routeStatus, setRouteStatus] = useState<string | null>(null);
+  // Review 5.7: default shows everything at full strength; the
+  // data-driven confidence dimming only appears via this explicit
+  // control (see confidence-dim.ts for why a data patch, not a
+  // bypass).
+  const [dimByConfidence, setDimByConfidence] = useState(false);
+  // Renderer toggle (G3L Round 46, owner request): the SAME graph,
+  // rendered through the headless SVG or Canvas adapters. The cy
+  // instance stays mounted (hidden beneath) as the source of truth:
+  // on toggle, the scene is HARVESTED from what cytoscape drew, so
+  // all three renderers show the same layout and styling: a parity
+  // demo, not a parallel pipeline.
+  const [threadRenderer, setThreadRenderer] = useState<
+    "cytoscape" | "svg" | "canvas"
+  >("cytoscape");
+  const confidenceOriginals = useRef(new Map<string, number>());
+  useEffect(() => {
+    if (!core) return;
+    applyConfidenceDim(
+      core as unknown as ConfidenceCoreLike,
+      dimByConfidence,
+      confidenceOriginals.current,
+    );
+  }, [core, dimByConfidence]);
+
+  // Suppliers seed HIDDEN so "Expand suppliers" is real graph
+  // expansion (review 3.8: the old action only grew the selection on
+  // an already fully drawn graph, which read as a dead control). The
+  // set lives in a store (not component state) because the menu
+  // closures below read it at event time via getState(), mirroring
+  // how they already read the selection store.
+  const hiddenIds = useHiddenSuppliersStore((s) => s.hiddenIds);
 
   // Context menu: base copy plus two domain actions in supply terms.
   // "Expand suppliers" grows the selection by the node's direct
@@ -123,11 +272,21 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
         id: "expand-suppliers",
         label: "Expand suppliers (1-hop)",
         icon: "\u2295",
-        filter: (t) => t.type === "node",
+        // Wired-or-absent: only offered when the node actually has
+        // hidden supplier neighbors to reveal.
+        filter: (t) =>
+          t.type === "node" &&
+          t.id !== undefined &&
+          ugm
+            .getNeighbors(t.id)
+            .some((n) => useHiddenSuppliersStore.getState().hiddenIds.has(n)),
         action: (t) => {
           if (t.id === undefined) return;
-          const store = useSelectionStore.getState();
-          store.addNodesToSelection(ugm.getNeighbors(t.id));
+          const revealed = ugm
+            .getNeighbors(t.id)
+            .filter((n) => useHiddenSuppliersStore.getState().hiddenIds.has(n));
+          useHiddenSuppliersStore.getState().reveal(revealed);
+          useSelectionStore.getState().addNodesToSelection(revealed);
         },
       },
       {
@@ -147,7 +306,15 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
           if (other === undefined) return;
           const path = findShortestPath(ugm, t.id, other);
           if (path.found) {
-            useSelectionStore.getState().selectNodes(path.nodeIds);
+            // Review 4.6: routes render as an emphasis EFFECT (amber
+            // edges, dimmed complement), never as selection.
+            useEmphasisStore
+              .getState()
+              .setPathEffect(
+                path.nodeIds,
+                path.edgeIds,
+                `Route ${t.id} \u2192 ${other}`,
+              );
             setRouteStatus(
               `Route ${t.id} \u2192 ${other}: ${path.length} hop(s)`,
             );
@@ -179,18 +346,34 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
     return makeSpec(mode);
   }, [mode, ugm]);
 
-  // Gap overlays are always active: risk is visible without interaction.
+  // 9.10 root cause (and the dominant source of the original 5.7
+  // "most nodes muted" finding, which the confidence-edge fix only
+  // partially addressed): these overlays registered ACTIVE, so the
+  // overlay renderer dimmed every non-finding element at all times.
+  // That presented as stuck emphasis, made the confidence-dim toggle
+  // invisible beneath it, and muddied the legend. Same treatment as
+  // the auditor (6.2): register INACTIVE; the chips in the Gaps
+  // section are the explicit narrative controls.
+  const overlays = useMemo(() => gapOverlays(findings), [findings]);
   useEffect(() => {
-    const overlays = gapOverlays(findings);
-    for (const o of overlays) useOverlayStore.getState().register(o, true);
+    for (const o of overlays) useOverlayStore.getState().register(o, false);
     return () => {
       for (const o of overlays) useOverlayStore.getState().unregister(o.id);
     };
-  }, [findings]);
+  }, [overlays]);
+  const activeOverlayIds = useOverlayStore((s) => s.activeIds);
 
   const paths = useMemo(
     () => (supplier ? tracePaths(ugm, supplier, "Assembly") : []),
     [ugm, supplier],
+  );
+
+  // Harvested at render time (a pure read of the live instance; the
+  // lint rule rightly rejected the setState-in-effect version).
+  const harvested = useMemo(
+    () =>
+      threadRenderer !== "cytoscape" && core ? harvestSceneFromCy(core) : null,
+    [threadRenderer, core, hiddenIds, dimByConfidence],
   );
   useEffect(() => {
     if (!supplier) return;
@@ -200,6 +383,32 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   }, [ugm, supplier, paths]);
 
   const nodeColors = useMemo(() => categoricalColorMap(spec, ugm), [spec, ugm]);
+  // Legend rows (review 5.8): the color driver's values with their
+  // resolved swatches and member counts, adjacent to the grouping
+  // controls that change them.
+  const legendEntries = useMemo(() => {
+    const byValue = new Map<string, { color: string; count: number }>();
+    ugm.forEachNode((id, attrs) => {
+      const value =
+        mode === "none"
+          ? (attrs.types[0] ?? "Unknown")
+          : String(attrs.properties.cluster ?? "Other");
+      const cur = byValue.get(value);
+      if (cur) cur.count += 1;
+      else
+        byValue.set(value, {
+          // 12.16 root cause: categoricalColorMap keys by the
+          // driver's VALUES, not node ids; the id lookup missed on
+          // every row and every swatch fell back to slate (the
+          // reviewed rgb(71,85,105)).
+          color: nodeColors.get(value) ?? "#475569",
+          count: 1,
+        });
+    });
+    return [...byValue.entries()]
+      .map(([value, v]) => ({ value, ...v }))
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+  }, [ugm, mode, nodeColors]);
   const clusters = useMemo(
     () => (mode === "none" ? [] : clusterMembers(clusterBy(ugm, mode))),
     [ugm, mode],
@@ -228,32 +437,95 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
           <b>Supply Thread</b>
           <span>consolidated sourcing graph</span>
         </div>
-        <div className="sc-modes" role="group" aria-label="Color by">
-          {MODES.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              className={`sc-mode${mode === m.key ? " is-active" : ""}`}
-              onClick={() => setMode(m.key)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        <label className="sc-renderer-select">
+          Renderer{" "}
+          <select
+            value={threadRenderer}
+            onChange={(e) =>
+              setThreadRenderer(
+                e.target.value as "cytoscape" | "svg" | "canvas",
+              )
+            }
+            data-testid="thread-renderer-select"
+          >
+            <option value="cytoscape">Cytoscape (default)</option>
+            <option value="svg">SVG adapter</option>
+            <option value="canvas">Canvas adapter</option>
+          </select>
+        </label>
       </header>
 
       <div className="sc-body">
         <main className="sc-canvas-wrap">
+          {/* 12.16: the canvas legend 4.3 asked for; never adopted
+              here. Inline four-side offsets defeat the wrap's
+              inset:0 stretch rule. */}
+          <FloatingLegend ugm={ugm} spec={spec} />
+          {threadRenderer !== "cytoscape" && harvested ? (
+            <SizedAdapter
+              kind={threadRenderer}
+              scene={harvested}
+              data-testid={`thread-adapter-${threadRenderer}`}
+            />
+          ) : null}
           <CytoscapeCanvas
             ugm={ugm}
+            // Review 5.6: the sourcing graph is a DAG (supplier ->
+            // part -> assembly -> product); breadthfirst renders it
+            // as readable tiers where fcose produced an undifferentiated
+            // blob. Browser-verify item: tier spacing at real sizes.
+            layout="breadthfirst"
             encodingSpec={spec}
+            hidden={hiddenIds}
             onReady={setCore}
             animate={!reducedMotion}
             menuManager={menuManager}
           />
+          {hiddenIds.size > 0 && (
+            <div className="sc-route-status" data-testid="hidden-suppliers">
+              {hiddenIds.size} supplier{hiddenIds.size === 1 ? "" : "s"} hidden.
+              Right-click a part {"\u2192"} Expand suppliers, or{" "}
+              <button
+                type="button"
+                data-testid="reveal-all-suppliers"
+                onClick={() => useHiddenSuppliersStore.getState().revealAll()}
+                style={{
+                  font: "inherit",
+                  textDecoration: "underline",
+                  background: "none",
+                  border: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                reveal all
+              </button>
+              .
+            </div>
+          )}
           {routeStatus !== null && (
             <div className="sc-route-status" data-testid="route-status">
-              {routeStatus}
+              {routeStatus}{" "}
+              <button
+                type="button"
+                data-testid="clear-route"
+                onClick={() => {
+                  useEmphasisStore.getState().clear();
+                  setRouteStatus(null);
+                }}
+                style={{
+                  font: "inherit",
+                  textDecoration: "underline",
+                  background: "none",
+                  border: "none",
+                  color: "inherit",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                clear
+              </button>
             </div>
           )}
           <div className="sc-minimap">
@@ -262,7 +534,68 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
         </main>
 
         <aside className="sc-sidebar">
-          <div className="sc-panel-head">Provenance</div>
+          <div className="sc-panel-head">Legend &amp; grouping</div>
+          <div className="sc-section" data-testid="sc-legend">
+            {legendEntries.map((e) => (
+              <div className="sc-src-row" key={e.value}>
+                <span className="sc-swatch" style={{ background: e.color }} />
+                <span className="sc-src-name">{e.value}</span>
+                <span className="sc-count">{e.count}</span>
+              </div>
+            ))}
+            <div
+              role="radiogroup"
+              aria-label="Color by"
+              style={{ marginTop: 8 }}
+            >
+              {MODES.map((m) => (
+                <label
+                  key={m.key}
+                  className="sc-src-row"
+                  style={{ cursor: "pointer", alignItems: "baseline" }}
+                >
+                  <input
+                    type="radio"
+                    name="sc-color-mode"
+                    checked={mode === m.key}
+                    onChange={() => setMode(m.key)}
+                    data-testid={`sc-mode-${m.key}`}
+                  />
+                  <span className="sc-src-name">
+                    <b>{m.label}</b>
+                    <span style={{ display: "block", opacity: 0.7 }}>
+                      {m.desc}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <label
+              className="sc-src-row"
+              style={{
+                cursor: "pointer",
+                alignItems: "baseline",
+                marginTop: 6,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={dimByConfidence}
+                onChange={(e) => setDimByConfidence(e.target.checked)}
+                data-testid="sc-dim-confidence"
+              />
+              <span className="sc-src-name">
+                <b>Dim by record confidence</b>
+                <span style={{ display: "block", opacity: 0.7 }}>
+                  Supplies links come from merged procurement records (0.9
+                  confidence); ownership and operation links are authoritative.
+                  Off by default so nothing is faded without saying why.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="sc-panel-head">Entities per source</div>
           <div className="sc-section">
             {sources.map((s) => (
               <div className="sc-src-row" key={s.source}>
@@ -282,10 +615,9 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
               </div>
             ) : (
               clusters.map((c) => {
-                const first = c.members[0];
-                const swatch = first
-                  ? (nodeColors.get(first) ?? "#475569")
-                  : "#475569";
+                // 12.16: same value-vs-id bug as the legend rows; the
+                // cluster's swatch is its VALUE's color.
+                const swatch = nodeColors.get(c.label) ?? "#475569";
                 return (
                   <button
                     type="button"
@@ -308,6 +640,29 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
 
           <div className="sc-panel-head">Gaps ({findings.length})</div>
           <div className="sc-section">
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {overlays.map((o) => {
+                const on = activeOverlayIds.includes(o.id);
+                return (
+                  <button
+                    type="button"
+                    key={o.id}
+                    className={`sc-chip${on ? " sc-chip-on" : ""}`}
+                    data-testid={`sc-ov-${o.id.split(".").pop()}`}
+                    onClick={() => useOverlayStore.getState().toggle(o.id)}
+                    title="Emphasizes these findings on the canvas; other elements dim while active"
+                  >
+                    {on ? "Hide" : "Highlight"} {o.label.toLowerCase()} on
+                    canvas
+                  </button>
+                );
+              })}
+            </div>
+            <p className="sc-empty" data-testid="sc-gap-provenance">
+              How these are computed: graph analysis finds sole-source parts and
+              single-point-of-failure suppliers; SHACL validation adds missing
+              certifications and incomplete consolidated records.
+            </p>
             {sortedFindings.map((f, i) => (
               <button
                 type="button"
@@ -354,7 +709,7 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
               )}
             </div>
           </div>
-          <CapabilityCallout
+          <CapabilityBubble
             accent="#f4923b"
             items={[
               {

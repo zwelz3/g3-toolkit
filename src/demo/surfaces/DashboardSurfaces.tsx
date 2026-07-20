@@ -7,10 +7,7 @@
  * consumable as plain components by adopters while becoming reachable
  * from `pnpm run dev` and the deployed Pages playground.
  */
-import {
-  AnalyticsDashboard,
-  SchemaDashboard,
-} from "../../../examples/decision-dashboards/src";
+import { AnalyticsDashboard } from "../../../examples/decision-dashboards/src";
 
 export function SurfaceFrame({
   title,
@@ -65,7 +62,21 @@ export function SurfaceFrame({
           <span style={{ fontSize: 12, opacity: 0.7 }}>{subtitle}</span>
         </div>
       </header>
-      <div style={{ flex: "1 1 auto", minHeight: 0, overflow: "auto" }}>
+      {/* 12.3 root cause: this wrapper was flexed but NOT a flex
+          container, so a child's flex:1 was inert and its height fell
+          back to content (the workbench's 60% fill, dock growth, and
+          SPARQL overflow-scroll were all this). display:flex makes
+          both child idioms work: flex:1 (workbench) and height:100%
+          (scale). overflow stays as the last-resort containment. */}
+      <div
+        style={{
+          flex: "1 1 auto",
+          minHeight: 0,
+          overflow: "auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {children}
       </div>
     </div>
@@ -81,19 +92,6 @@ export function AnalyticsSurface({ onBack }: { onBack: () => void }) {
       onBack={onBack}
     >
       <AnalyticsDashboard />
-    </SurfaceFrame>
-  );
-}
-
-export function SchemaSurface({ onBack }: { onBack: () => void }) {
-  return (
-    <SurfaceFrame
-      title="Schema Dashboard"
-      subtitle="schema, matrix, sankey, and the RDF paradigm"
-      accent="#5cb8e4"
-      onBack={onBack}
-    >
-      <SchemaDashboard />
     </SurfaceFrame>
   );
 }

@@ -14,7 +14,16 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 
 vi.mock("cytoscape", () => {
-  const eles = { forEach: vi.fn(), length: 0, remove: vi.fn() };
+  // addClass/removeClass: selection sync and the emphasis layer
+  // (review 4.6) apply classes on every instance; real collections
+  // provide both.
+  const eles = {
+    forEach: vi.fn(),
+    length: 0,
+    remove: vi.fn(),
+    addClass: vi.fn(),
+    removeClass: vi.fn(),
+  };
   const cy = {
     layout: vi.fn(() => ({ run: vi.fn() })),
     on: vi.fn(),
@@ -28,6 +37,8 @@ vi.mock("cytoscape", () => {
     getElementById: vi.fn(() => ({
       nonempty: (): boolean => false,
       length: 0,
+      addClass: vi.fn(),
+      removeClass: vi.fn(),
     })),
     style: vi.fn(() => ({ fromJson: vi.fn(() => ({ update: vi.fn() })) })),
     zoom: vi.fn(() => 1),

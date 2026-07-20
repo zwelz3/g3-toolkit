@@ -14,7 +14,10 @@ import { type DerivedPropertyEngine } from "@g3t/core";
 export interface DerivedPropertyPanelProps {
   ugm: UGM;
   engine: DerivedPropertyEngine;
-  onCompute: () => void;
+  /** Fires after a definition computes; carries the property key so
+   *  hosts can connect the value to a visible encoding (review 5.2:
+   *  e.g. size-by-derived). No-arg callers remain valid. */
+  onCompute: (propertyKey?: string) => void;
   className?: string;
 }
 
@@ -38,7 +41,7 @@ export function DerivedPropertyPanel({
       reactive: false,
     });
     engine.compute(ugm);
-    onCompute();
+    onCompute(name.trim());
     setName("");
     setExpression("");
   }, [name, expression, engine, ugm, onCompute]);

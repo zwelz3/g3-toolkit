@@ -45,6 +45,11 @@ export interface NodePropertyInspectorProps {
   onPropertyChange?: (key: string, value: unknown) => void;
   /** Optional close handler; when provided a close button is shown. */
   onClose?: () => void;
+  /** 12.11: surfaces that apply a custom EncodingSpec pass their own
+   *  type -> color resolver (e.g. categoricalColorMap keyed by VALUE)
+   *  so the panel's type chips match the graph exactly; the internal
+   *  theme-palette map only matches the DEFAULT encoding. */
+  typeColorOf?: (type: string) => string | undefined;
   /** CSS class for the container. */
   className?: string;
 }
@@ -105,13 +110,16 @@ export function NodePropertyInspector({
   spec,
   onPropertyChange,
   onClose,
+  typeColorOf,
   className,
 }: NodePropertyInspectorProps): ReactNode {
   const theme = useThemeStore((s) => s.theme);
-  const typeColors = useMemo(
+  const internalTypeColors = useMemo(
     () => buildTypeColors(ugm, theme.typePalette),
     [ugm, theme.typePalette],
   );
+  const colorOfType = (t: string) =>
+    typeColorOf?.(t) ?? internalTypeColors.get(t);
   const maxDeg = useMemo(() => maxDegree(ugm), [ugm]);
   const accent = theme.accentPrimary;
 
@@ -217,11 +225,7 @@ export function NodePropertyInspector({
               <span style={{ color: "var(--g3t-text-muted)" }}>untyped</span>
             ) : (
               attrs.types.map((t) => (
-                <TypeChip
-                  key={t}
-                  label={t}
-                  color={typeColors.get(t) ?? accent}
-                />
+                <TypeChip key={t} label={t} color={colorOfType(t) ?? accent} />
               ))
             )}
           </div>
@@ -241,7 +245,7 @@ export function NodePropertyInspector({
           </div>
         </CollapsibleSection>
       </div>,
-      typeColors.get(primaryType),
+      colorOfType(primaryType),
     );
   }
 
@@ -349,6 +353,11 @@ function Header({
   kind: "node" | "edge" | "empty";
   accent: string;
   onClose?: () => void;
+  /** 12.11: surfaces that apply a custom EncodingSpec pass their own
+   *  type -> color resolver (e.g. categoricalColorMap keyed by VALUE)
+   *  so the panel's type chips match the graph exactly; the internal
+   *  theme-palette map only matches the DEFAULT encoding. */
+  typeColorOf?: (type: string) => string | undefined;
   dotColor?: string;
 }): ReactNode {
   return (

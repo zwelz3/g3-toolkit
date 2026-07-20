@@ -67,6 +67,12 @@ interface OperatesRecord {
 const assemblies: AssemblyRecord[] = [
   { id: "asm.airframe", name: "Airframe Assembly" },
   { id: "asm.avionics", name: "Avionics Bay" },
+  // Review 5.10: a NESTED assembly so at least one supply path is
+  // deeper than the uniform supplier -> part -> assembly hop. The IMU
+  // (sole-sourced, cert-gapped) sits inside this module, so the
+  // riskiest supplier is two structural levels below the avionics
+  // bay: the "surprising path".
+  { id: "asm.sensor-core", name: "Sensor Core Module" },
 ];
 
 const parts: PartRecord[] = [
@@ -103,7 +109,13 @@ const parts: PartRecord[] = [
     name: "Inertial Measurement Unit",
     criticality: "critical",
     requiredCert: "ITAR",
-    assembly: "asm.avionics",
+    assembly: "asm.sensor-core",
+  },
+  {
+    id: "part.gyro",
+    name: "Ring Laser Gyro",
+    criticality: "standard",
+    assembly: "asm.sensor-core",
   },
   {
     id: "part.harness",
@@ -151,6 +163,11 @@ const supplies: SupplyRecord[] = [
   { supplier: "sup.epsilon", part: "part.imu" },
   // harness: sole-sourced to zeta (AS9100 ok)
   { supplier: "sup.zeta", part: "part.harness" },
+  // gyro (review 5.10): a MULTI-TIER alternative, sourced from both a
+  // tier-1 prime (delta) and a tier-3 shop (zeta). No cert required,
+  // two sources: contributes no gap findings, only path richness.
+  { supplier: "sup.delta", part: "part.gyro" },
+  { supplier: "sup.zeta", part: "part.gyro" },
 ];
 
 const facilities: FacilityRecord[] = [
@@ -253,6 +270,13 @@ export function buildDigitalThread(): UGM {
     });
     ugm.addEdge(p.id, p.assembly, { type: "partOf", confidence: 1 });
   }
+
+  // Assembly nesting (review 5.10): the sensor core is itself a part
+  // of the avionics bay, so traces continue one structural level up.
+  ugm.addEdge("asm.sensor-core", "asm.avionics", {
+    type: "partOf",
+    confidence: 1,
+  });
 
   for (const s of supplies) {
     ugm.addEdge(s.supplier, s.part, { type: "supplies", confidence: 0.9 });

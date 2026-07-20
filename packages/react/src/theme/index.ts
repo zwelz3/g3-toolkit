@@ -24,3 +24,7 @@ export {
   prefersReducedMotion,
   injectDesignTokens,
 } from "@g3t/core";
+export {
+  styleThemeFromG3tTheme,
+  tokensFromG3tTheme,
+} from "./style-theme-bridge";

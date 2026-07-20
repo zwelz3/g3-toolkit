@@ -83,6 +83,7 @@ Every beat names the EXISTING toolkit surface it exercises. New
 10. The deliverable (`assembleCaptureBrief`): `BriefPanel` [new, demo] +
     real subgraph export (Turtle/JSON/CSV/PNG) as "take the brief away",
     and a workspace snapshot. Surface: subgraph export, workspace.
+
 - Epilogue (interactive): hand the viewer the real exploration stack:
   `GraphToolbar`, `SearchBar`, `FilterBuilder`, `LayoutSwitcher`,
   `AlgorithmPanel`, `NodeStyleEditor`. The auto-play sold the problem;
@@ -123,6 +124,7 @@ composition remains testable; production passes a `CytoscapeCanvas`-backed
 stage, the SVG stand-in remains only for the headless preview.
 
 Build order (composition-first):
+
 1. Encoding specs + annotate, verified headlessly (this increment).
 2. Wire the real `CytoscapeCanvas` + `encodingSpec` + camera into the
    stage (browser-verified). The Act I->II spec swap.

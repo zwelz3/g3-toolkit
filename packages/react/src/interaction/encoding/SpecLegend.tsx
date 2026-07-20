@@ -12,6 +12,7 @@
 import { useMemo, useState } from "react";
 import type { UGM } from "@g3t/core";
 import { Icon } from "../../icons";
+import { shapeForIndex } from "../../views/canvas/palette";
 import {
   makeColorResolver,
   makeIconResolver,
@@ -65,6 +66,9 @@ export interface SpecLegendProps {
   defaultCollapsed?: boolean;
   /** Header label shown when collapsible (default "Legend"). */
   title?: string;
+  /** Display transform for categorical values (e.g. shorten IRIs to
+   *  prefixed names). Affects labels only; resolution keys are raw. */
+  labelFor?: (value: string) => string;
   className?: string;
 }
 
@@ -93,14 +97,31 @@ function ShapeGlyph({ shape }: { shape: string }) {
   );
 }
 
+/** Order categorical values by explicit domain position first (review
+ *  4.4: stable legend order), data-discovered extras after. */
+function orderByDomain(
+  values: string[],
+  domain: readonly string[] | undefined,
+): string[] {
+  if (!domain || domain.length === 0) return values;
+  const pos = new Map(domain.map((v, i) => [v, i]));
+  const inDomain = values
+    .filter((v) => pos.has(v))
+    .sort((a, b) => (pos.get(a) ?? 0) - (pos.get(b) ?? 0));
+  const extras = values.filter((v) => !pos.has(v));
+  return [...inDomain, ...extras];
+}
+
 export function SpecLegend({
   ugm,
   spec,
   collapsible = false,
   defaultCollapsed = false,
   title = "Legend",
+  labelFor,
   className,
 }: SpecLegendProps) {
+  const display = labelFor ?? ((v: string) => v);
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const colorEnc = spec.node.color;
   const sizeEnc = spec.node.size;
@@ -108,10 +129,32 @@ export function SpecLegend({
   const shapeEnc = spec.node.shape;
   const edgeWidthEnc = spec.edge.width;
 
+  // 12.15: when the spec declares NO shape encoding, the canvas still
+  // assigns shapes (buildTypeVisualMap: sorted types cycled through
+  // shapeForIndex). The legend's job is decoding the canvas, so it
+  // documents that DEFAULT channel rather than showing color only;
+  // rows reproduce the exact same sort + cycle. Skipped when all
+  // nodes would share one shape (no information).
+  const defaultShapeRows = useMemo(() => {
+    if (shapeEnc !== undefined) return [];
+    const types = new Set<string>();
+    ugm.forEachNode((_id, attrs) => {
+      const t = attrs.types[0];
+      if (t) types.add(t);
+    });
+    if (types.size < 2) return [];
+    return [...types]
+      .sort()
+      .map((value, i) => ({ value, shape: shapeForIndex(i) as string }));
+  }, [shapeEnc, ugm]);
+
   const shapeRows = useMemo(() => {
     if (shapeEnc?.scale.kind !== "categorical") return [];
     const resolve = makeShapeResolver(shapeEnc);
-    return distinctValues(ugm, shapeEnc.driver, "node")
+    return orderByDomain(
+      distinctValues(ugm, shapeEnc.driver, "node"),
+      shapeEnc.scale.domain,
+    )
       .map((v) => ({ value: v, shape: resolve(sampleFor(shapeEnc.driver, v)) }))
       .filter(
         (r): r is { value: string; shape: string } => r.shape !== undefined,
@@ -121,7 +164,10 @@ export function SpecLegend({
   const colorRows = useMemo(() => {
     if (colorEnc?.scale.kind !== "categorical") return [];
     const resolve = makeColorResolver(colorEnc, { ugm });
-    return distinctValues(ugm, colorEnc.driver, "node").map((v) => ({
+    return orderByDomain(
+      distinctValues(ugm, colorEnc.driver, "node"),
+      colorEnc.scale.domain,
+    ).map((v) => ({
       value: v,
       color: resolve(sampleFor(colorEnc.driver, v)),
     }));
@@ -130,7 +176,10 @@ export function SpecLegend({
   const iconRows = useMemo(() => {
     if (iconEnc?.scale.kind !== "categorical") return [];
     const resolve = makeIconResolver(iconEnc);
-    return distinctValues(ugm, iconEnc.driver, "node")
+    return orderByDomain(
+      distinctValues(ugm, iconEnc.driver, "node"),
+      iconEnc.scale.domain,
+    )
       .map((v) => ({ value: v, icon: resolve(sampleFor(iconEnc.driver, v)) }))
       .filter(
         (r): r is { value: string; icon: string } => r.icon !== undefined,
@@ -189,7 +238,7 @@ export function SpecLegend({
                     className="g3t-legend-swatch"
                     style={{ background: r.color }}
                   />
-                  {r.value}
+                  {display(r.value)}
                 </div>
               ))}
             </section>
@@ -234,21 +283,23 @@ export function SpecLegend({
             </section>
           ) : null}
 
-          {shapeRows.length > 0 ? (
+          {shapeRows.length > 0 || defaultShapeRows.length > 0 ? (
             <section>
               <div className="g3t-legend-title">
-                shape: <code>{shapeEnc?.driver}</code>
+                shape: <code>{shapeEnc?.driver ?? "types (default)"}</code>
               </div>
-              {shapeRows.map((r) => (
-                <div
-                  key={r.value}
-                  className="g3t-legend-row"
-                  data-testid={`legend-shape-${r.value}`}
-                >
-                  <ShapeGlyph shape={r.shape} /> {r.value}
-                  <span className="g3t-legend-shapename">({r.shape})</span>
-                </div>
-              ))}
+              {(shapeRows.length > 0 ? shapeRows : defaultShapeRows).map(
+                (r) => (
+                  <div
+                    key={r.value}
+                    className="g3t-legend-row"
+                    data-testid={`legend-shape-${r.value}`}
+                  >
+                    <ShapeGlyph shape={r.shape} /> {display(r.value)}
+                    <span className="g3t-legend-shapename">({r.shape})</span>
+                  </div>
+                ),
+              )}
             </section>
           ) : null}
 
@@ -263,7 +314,7 @@ export function SpecLegend({
                   className="g3t-legend-row"
                   data-testid={`legend-icon-${r.value}`}
                 >
-                  <Icon name={r.icon} size={12} /> {r.value}
+                  <Icon name={r.icon} size={12} /> {display(r.value)}
                 </div>
               ))}
             </section>

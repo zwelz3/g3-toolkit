@@ -164,11 +164,17 @@ describe("GraphToolbar (rebuilt, round 16)", () => {
     expect(raw.fit).toHaveBeenCalledWith(undefined, 40);
   });
 
-  it("centers the camera on the first search match", () => {
+  it("typing only filters; the camera moves on an explicit pick (12.9)", () => {
     const { cy, raw } = mockCy();
     render(<GraphToolbar ugm={graph()} cy={cy} />);
     fireEvent.change(screen.getByPlaceholderText("Search nodes…"), {
       target: { value: "Helix" },
+    });
+    // No camera movement while typing (the reviewed view-jump).
+    expect(raw.animate).not.toHaveBeenCalled();
+    // Enter picks the highlighted result and centers IT.
+    fireEvent.keyDown(screen.getByPlaceholderText("Search nodes…"), {
+      key: "Enter",
     });
     expect(raw.animate).toHaveBeenCalled();
   });
@@ -222,5 +228,27 @@ describe("export (R2.11 slice, round 26)", () => {
     expect(raw.png).toHaveBeenCalledWith({ full: true, scale: 2 });
     expect(clickSpy).toHaveBeenCalled();
     clickSpy.mockRestore();
+  });
+
+  it("treats a destroyed instance as absent: search cannot crash a stale handle (9.9)", () => {
+    const dead = {
+      destroyed: () => true,
+      getElementById: vi.fn(),
+      animate: vi.fn(),
+      zoom: vi.fn(),
+      fit: vi.fn(),
+    } as unknown as Core;
+    render(<GraphToolbar ugm={graph()} cy={dead} />);
+    const input = screen.getByPlaceholderText("Search nodes…");
+    fireEvent.change(input, { target: { value: "a" } });
+    // No cy operation may reach the destroyed instance.
+    expect(
+      (dead as unknown as { getElementById: ReturnType<typeof vi.fn> })
+        .getElementById,
+    ).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("toolbar-fit"));
+    expect(
+      (dead as unknown as { fit: ReturnType<typeof vi.fn> }).fit,
+    ).not.toHaveBeenCalled();
   });
 });

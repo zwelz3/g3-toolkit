@@ -24,6 +24,7 @@ export const THREAD_STYLES = `
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .sc-mono, .sc-count, .sc-chip { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.sc-chip-on { border-color: var(--sc-accent, #f4923b); background: rgba(244, 146, 59, 0.14); }
 
 .sc-topbar {
   display: flex; align-items: center; gap: 14px;
@@ -106,4 +107,16 @@ button.sc-cluster-row:hover, button.sc-gap-row:hover { background: #16221c; }
 .sc-path-line { padding: 2px 0; }
 .sc-path-line b { color: var(--sc-ink); font-weight: 500; }
 .sc-empty { color: var(--sc-dim); font-size: 12px; padding: 4px 0; }
+
+/* 12.7: draw the eye to the reveal affordance once at load. */
+@keyframes sc-notice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 146, 59, 0); }
+  35% { box-shadow: 0 0 0 6px rgba(244, 146, 59, 0.35); }
+}
+[data-testid="hidden-suppliers"] {
+  animation: sc-notice-pulse 1.1s ease-out 0.4s 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="hidden-suppliers"] { animation: none; }
+}
 `;

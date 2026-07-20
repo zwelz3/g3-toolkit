@@ -68,8 +68,9 @@ function countTestFiles() {
     const pkgDir = join(ROOT, "packages", pkg, "src");
     let count = 0;
     try {
-      count = walk(pkgDir, (n) =>
-        n.endsWith(".test.ts") || n.endsWith(".test.tsx"),
+      count = walk(
+        pkgDir,
+        (n) => n.endsWith(".test.ts") || n.endsWith(".test.tsx"),
       ).length;
     } catch {
       count = 0;

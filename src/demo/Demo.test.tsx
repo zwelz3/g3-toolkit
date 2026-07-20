@@ -30,12 +30,11 @@ describe("Demo routing to capability surfaces", () => {
     expect(container.textContent).toContain("Capability surfaces");
   });
 
-  it("routes landing -> Schema Dashboard", () => {
+  it("the retired Schema Dashboard's views live on the Analytics surface (ruling 8.4)", () => {
     const { container } = render(<Demo />);
-    fireEvent.click(screen.getByText("Schema Dashboard"));
-    // The schema surface mounts matrix/sankey/schema views (no canvas
-    // required); pin a real section heading.
+    fireEvent.click(screen.getByText("Analytics Dashboard"));
     expect(container.textContent).toContain("Adjacency matrix");
+    expect(container.textContent).toContain("Type flows (sankey)");
   });
 
   it("routes landing -> Ontology Workbench", () => {

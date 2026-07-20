@@ -151,7 +151,12 @@ export const BIO_STYLES = `
 .bio-bar-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
 .bio-bar-label { flex: 0 0 96px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bio-bar-track { flex: 1 1 auto; height: 12px; background: #0e0b18; border-radius: 3px; overflow: hidden; }
-.bio-bar-fill { height: 100%; background: var(--bio-accent); border-radius: 3px; }
+.bio-bar-fill {
+  /* 12.19 root cause: an inline span ignores width/height, so the
+     fill was a zero-size box and only the near-black track showed
+     (the reviewed "black bars at 100%"). */
+  display: block; height: 100%; background: var(--bio-accent); border-radius: 3px;
+}
 .bio-bar-value { flex: 0 0 auto; font-size: 11px; color: var(--bio-dim); width: 44px; text-align: right; }
 .bio-bar-row:hover .bio-bar-label { color: var(--bio-accent); }
 .bio-bar-row.is-selected .bio-bar-fill { background: var(--bio-ok); }

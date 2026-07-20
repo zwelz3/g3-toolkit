@@ -37,6 +37,8 @@
 
 import type { Core, ElementDefinition } from "cytoscape";
 import { edgePortId, isEdgePortId } from "@g3t/core";
+import { polylineIntersectsBoxes, routeOrthogonal } from "@g3t/core";
+import type { RouteBox } from "@g3t/core";
 import type { StructuralGraphInput, StructuralGeometry } from "@g3t/core";
 
 type CyStylesheet = {
@@ -69,11 +71,6 @@ export interface StructuralDecorations {
   closedContainers?: ReadonlySet<string>;
   /** Row id -> severity badge class driver (worst severity per row). */
   rowSeverities?: ReadonlyMap<string, "violation" | "warning" | "info">;
-  /** Containers whose compartments are ALL currently collapsed, so the
-   *  on-container collapse toggle renders its "collapsed" glyph. This is
-   *  distinct from `closedContainers`, which drives sh:closed border
-   *  styling, not collapse state. */
-  collapsedContainers?: ReadonlySet<string>;
 }
 
 /**
@@ -102,6 +99,34 @@ export interface StructuralDecorations {
  *   if mirrored, negate the normal (one line). The numbers are exact and
  *   unit-tested; the rendered side is not headlessly verifiable.
  */
+/**
+ * Live CENTER positions of a structural scene's top-level nodes, read
+ * from the canvas at interaction time (MR-1 third-review finding: the
+ * sketch anchored to the last LAYOUT output, so user drags were
+ * invisible to it and every collapse re-layout snapped moved
+ * containers back). The hook converts centers to top-left using the
+ * prior geometry's sizes and anchors the sketch there instead, so a
+ * re-layout preserves what the user actually arranged.
+ */
+export function captureStructuralTopLevelPositions(
+  cy: {
+    $id: (id: string) => {
+      length: number;
+      position: () => { x: number; y: number };
+    };
+  },
+  input: { nodes: readonly { id: string }[] },
+): Map<string, { x: number; y: number }> {
+  const out = new Map<string, { x: number; y: number }>();
+  for (const n of input.nodes) {
+    const ele = cy.$id(n.id);
+    if (ele.length === 0) continue;
+    const p = ele.position();
+    out.set(n.id, { x: p.x, y: p.y });
+  }
+  return out;
+}
+
 export function routeToSegments(
   points: ReadonlyArray<{ x: number; y: number }>,
   source: { x: number; y: number },
@@ -128,6 +153,48 @@ export function routeToSegments(
     distances.push(vx * nx + vy * ny);
   }
   return { distances, weights };
+}
+
+/**
+ * Mirror a routed edge's data-carried bends (`_segDist`/`_segWeight`)
+ * into a per-element style bypass.
+ *
+ * Data remains the single truth (the drag re-anchor reconstructs
+ * bends from it); the bypass exists because rendering previously
+ * depended on data() MAPPING of segment-distances/segment-weights, a
+ * mechanism the routed rule itself flagged as browser-unverified for
+ * multi-value properties. The review (item 3.4) reported odd edge
+ * routing in the browser; the per-element bypass is the
+ * documented-reliable channel, so applying it at every data write
+ * point (scene mount and drag write-back) makes routed rendering
+ * independent of mapping semantics either way. Bypass precedence
+ * beats the mapped rule, so where the mapping did work this is a
+ * no-op visually.
+ */
+export function applyRoutedSegmentBypass(edge: {
+  data(key: string): unknown;
+  style(style: Record<string, string>): unknown;
+}): void {
+  const dist: unknown = edge.data("_segDist");
+  const weight: unknown = edge.data("_segWeight");
+  if (
+    typeof dist === "string" &&
+    typeof weight === "string" &&
+    dist !== "" &&
+    weight !== ""
+  ) {
+    edge.style({
+      "segment-distances": dist,
+      "segment-weights": weight,
+    });
+  }
+}
+
+/** Apply the routed-segment bypass to every routed edge in a scene. */
+export function applyRoutedSegmentBypasses(cy: Core): void {
+  cy.edges(".g3t-structural-edge-routed").forEach((e) => {
+    applyRoutedSegmentBypass(e);
+  });
 }
 
 /**
@@ -234,14 +301,54 @@ export function migratedSide(
   half: { w: number; h: number },
   other: { x: number; y: number },
 ): AttachmentSide {
-  if (original === "NORTH" || original === "SOUTH") {
-    if (other.y > center.y + half.h) return "SOUTH";
-    if (other.y < center.y - half.h) return "NORTH";
+  // FOUR-WAY selection (MR-8 refinement, 2026-07-11): the original
+  // logic only flipped within the original axis, so a container
+  // dragged above its peers kept an EAST/WEST attachment even though
+  // everything it connects to sits BELOW it (the owner's remaining
+  // observation). The attach face now rotates to the perpendicular
+  // axis when the other endpoint is DECISIVELY beyond that extent
+  // (beyond-band advantage over the current axis plus hysteresis, so
+  // the face never flaps during a drag along a diagonal).
+  const dx = other.x - center.x;
+  const dy = other.y - center.y;
+  const beyondX = Math.abs(dx) - half.w;
+  const beyondY = Math.abs(dy) - half.h;
+  const HYST = 12;
+  const hFace: AttachmentSide = dx >= 0 ? "EAST" : "WEST";
+  const vFace: AttachmentSide = dy >= 0 ? "SOUTH" : "NORTH";
+  if (original === "EAST" || original === "WEST") {
+    if (beyondY > 0 && beyondY > beyondX + HYST) return vFace;
+    if (beyondX > 0) return hFace;
     return original;
   }
-  if (other.x > center.x + half.w) return "EAST";
-  if (other.x < center.x - half.w) return "WEST";
+  if (beyondX > 0 && beyondX > beyondY + HYST) return hFace;
+  if (beyondY > 0) return vFace;
   return original;
+}
+
+/**
+ * Canonical attach side: a PURE function of relative geometry (no
+ * hysteresis, no original-side bias). The settled-state counterpart
+ * of migratedSide (MR-9): during a drag, hysteresis prevents face
+ * flapping and is deliberately history-dependent; at drag END the
+ * side is recomputed canonically so settled routes are a pure
+ * function of settled positions. Ties break deterministically toward
+ * the horizontal axis.
+ */
+export function canonicalSide(
+  center: { x: number; y: number },
+  half: { w: number; h: number },
+  other: { x: number; y: number },
+): AttachmentSide {
+  const dx = other.x - center.x;
+  const dy = other.y - center.y;
+  const beyondX = Math.abs(dx) - half.w;
+  const beyondY = Math.abs(dy) - half.h;
+  const hFace: AttachmentSide = dx >= 0 ? "EAST" : "WEST";
+  const vFace: AttachmentSide = dy >= 0 ? "SOUTH" : "NORTH";
+  if (beyondX > beyondY) return hFace;
+  if (beyondY > beyondX) return vFace;
+  return Math.abs(dx) >= Math.abs(dy) ? hFace : vFace;
 }
 
 /** The boundary point at the center of a node box side. */
@@ -370,18 +477,6 @@ export function structuralToCytoscapeElements(
     if (!cur || g.y > cur.y) lastRowByParent.set(g.parent, { id, y: g.y });
   }
 
-  // Compartment ids per container, so the collapse context-menu
-  // action can find what to toggle from target.data alone.
-  const compartmentIdsByContainer = new Map<string, string[]>();
-  for (const node of input.nodes) {
-    if (node.compartments?.length) {
-      compartmentIdsByContainer.set(
-        node.id,
-        node.compartments.map((c) => c.id),
-      );
-    }
-  }
-
   for (const [id, g] of Object.entries(geometry.nodes)) {
     if (g.kind === "container") {
       // Parent node: no position (derived from children), no label
@@ -391,7 +486,10 @@ export function structuralToCytoscapeElements(
         data: {
           id,
           _structuralContainer: true,
-          _compartmentIds: compartmentIdsByContainer.get(id) ?? [],
+          // Geometry truth for the drag path (D3a doctrine: carry
+          // the writer's boxes in data instead of reading cy's
+          // padded compound bbox): "x y w h" in model space.
+          _geomBox: `${g.x} ${g.y} ${g.width} ${g.height}`,
         },
         classes: closed?.has(id)
           ? "g3t-structural-container g3t-structural-closed"
@@ -421,45 +519,31 @@ export function structuralToCytoscapeElements(
         selectable: false,
         grabbable: false,
       });
-      // On-container collapse toggle: a small tappable chip in the
-      // header's right corner that toggles ALL of this container's
-      // compartments at once (the same effect as the container
-      // context-menu action). Emitted only when the container has
-      // compartments to collapse. The chip is store-agnostic; the host
-      // wires the tap through CytoscapeCanvas's onCompartmentToggle. The
-      // glyph lives in data so a rebuild after a collapse change flips it.
-      const toggleCompartmentIds = compartmentIdsByContainer.get(id) ?? [];
-      if (toggleCompartmentIds.length > 0) {
-        const toggleSize = Math.min(
-          16,
-          Math.max(10, geometry.headerHeight - 6),
-        );
-        const isCollapsed = decorations?.collapsedContainers?.has(id) ?? false;
-        elements.push({
-          group: "nodes",
-          data: {
-            id: `${id}::toggle`,
-            parent: id,
-            _toggleFor: id,
-            _compartmentIds: toggleCompartmentIds,
-            // "+" when collapsed (click to expand), "\u2212" (minus) when
-            // expanded (click to collapse). Both glyphs sit centered in the
-            // chip, unlike the chevrons which rendered low.
-            _glyph: isCollapsed ? "+" : "\u2212",
-            _w: toggleSize,
-            _h: toggleSize,
-          },
-          position: {
-            x: g.x + g.width - 4 - toggleSize / 2,
-            y: g.y + geometry.headerHeight / 2,
-          },
-          classes: isCollapsed
-            ? "g3t-structural-toggle g3t-structural-toggle-collapsed"
-            : "g3t-structural-toggle",
-          selectable: false,
-          grabbable: false,
-        });
-      }
+      // Bounds pin (MR-1 fourth review): a 1x1 invisible child at the
+      // geometry box's bottom-right interior. Cytoscape derives a
+      // compound parent's DRAWN bounds from its children; when a
+      // collapse removes the rows, the drawn box collapsed to the
+      // header strip while the ELK geometry box (which the sketch
+      // floor holds, and on whose border the ports sit) stayed
+      // full-size, so the container read as mispositioned and its
+      // edges attached into empty space. The pin makes the drawn
+      // bounds equal the geometry box REGARDLESS of which rows exist.
+      elements.push({
+        group: "nodes",
+        data: {
+          id: `${id}::extent`,
+          parent: id,
+          _w: 1,
+          _h: 1,
+        },
+        position: {
+          x: g.x + g.width - 0.5,
+          y: g.y + g.height - 0.5,
+        },
+        classes: "g3t-structural-extent",
+        selectable: false,
+        grabbable: false,
+      });
     } else if (g.kind === "row") {
       const severity = rowSeverities?.get(id);
       elements.push({
@@ -489,7 +573,13 @@ export function structuralToCytoscapeElements(
       // Plain node: positioned box, ordinary selection semantics.
       elements.push({
         group: "nodes",
-        data: { id, _label: g.text ?? "", _w: g.width, _h: g.height },
+        data: {
+          id,
+          _label: g.text ?? "",
+          _w: g.width,
+          _h: g.height,
+          _geomBox: `${g.x} ${g.y} ${g.width} ${g.height}`,
+        },
         position: center(g),
         classes: "g3t-structural-node",
         selectable: true,
@@ -603,17 +693,42 @@ export function structuralToCytoscapeElements(
     const portAttached = e.sourcePort != null || e.targetPort != null;
     const pts = portAttached ? undefined : geometry.edges?.[e.id]?.points;
     let seg: { distances: number[]; weights: number[] } | null = null;
-    if (pts && pts.length >= 3) {
-      const sCenter = positionById.get(sourceId);
-      const tCenter = positionById.get(targetId);
+    if (pts && pts.length >= 2) {
       const sBox = geometry.ports[sourceId] ?? geometry.nodes[sourceId];
       const tBox = geometry.ports[targetId] ?? geometry.nodes[targetId];
+      // Drawn positions are the projection basis for POINT elements
+      // (they carry converter nudges). CONTAINERS are cy compounds
+      // with no explicit position, so fall back to the geometry
+      // box's center: under elk this path never ran (body edges
+      // attached to positioned synth ports), and the miss silently
+      // killed routing for every container-attached edge under g3t
+      // (the second zero-overlay-paths CI failure, 2026-07-18).
+      const boxCenter = (
+        b: { x: number; y: number; width: number; height: number } | undefined,
+      ): { x: number; y: number } | undefined =>
+        b === undefined
+          ? undefined
+          : { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      const sCenter = positionById.get(sourceId) ?? boxCenter(sBox);
+      const tCenter = positionById.get(targetId) ?? boxCenter(tBox);
       if (sCenter && tCenter && sBox && tBox) {
-        seg = routeToSegments(
-          pts,
-          clipToBox(sCenter, sBox, tCenter),
-          clipToBox(tCenter, tBox, sCenter),
-        );
+        if (pts.length === 2) {
+          // A 2-point route is a REAL route under the g3t engine
+          // (Brandes-Koepf straightens chains, so cross-aligned
+          // anchors dedupe the jog away; elk never emitted these,
+          // which is why the old gate was >= 3). Without this,
+          // better placement produced FEWER drawn edges: the MR-11
+          // flip finding (zero overlay paths on the MBSE shell). A
+          // degenerate on-baseline control point renders it
+          // straight through the same routed rule.
+          seg = { distances: [0], weights: [0.5] };
+        } else {
+          seg = routeToSegments(
+            pts,
+            clipToBox(sCenter, sBox, tCenter),
+            clipToBox(tCenter, tBox, sCenter),
+          );
+        }
       }
     }
 
@@ -637,6 +752,14 @@ export function structuralToCytoscapeElements(
           ...baseData,
           _segDist: seg.distances.join(" "),
           _segWeight: seg.weights.join(" "),
+          // ABSOLUTE route points (D3a parity fix): the seg
+          // parameterization reconstructs against cy's LIVE
+          // endpoints, and for compound-attached edges that basis
+          // does not match the writer's (compound bboxes include
+          // padding and derive from children), skewing bends into
+          // diagonals. The overlay renders THESE verbatim; seg data
+          // remains only for cy's suppressed hit-testable edge.
+          _routePts: (pts ?? []).map((pt) => `${pt.x},${pt.y}`).join(" "),
         },
         classes:
           baseClasses +
@@ -690,6 +813,17 @@ export const STRUCTURAL_RULES: CyStylesheet[] = [
     },
   },
   {
+    // The bounds pin: invisible, inert, never hit-tested.
+    selector: "node.g3t-structural-extent",
+    style: {
+      width: "data(_w)",
+      height: "data(_h)",
+      opacity: 0,
+      events: "no",
+      label: "",
+    },
+  },
+  {
     selector: "node.g3t-structural-header",
     style: {
       shape: "round-rectangle",
@@ -704,32 +838,6 @@ export const STRUCTURAL_RULES: CyStylesheet[] = [
       "background-opacity": 0.9,
       "border-width": 0.5,
       events: "no",
-    },
-  },
-  {
-    // On-container collapse toggle chip (header right corner). Unlike the
-    // header (events:"no"), this is a real tappable node; it is pushed
-    // after the header so it sits above it in z-order. The glyph comes
-    // from data(_glyph) so a post-collapse rebuild flips +/\u2212. COLORS
-    // live in structuralThemeRules.
-    selector: "node.g3t-structural-toggle",
-    style: {
-      shape: "round-rectangle",
-      "corner-radius": 3,
-      width: "data(_w)",
-      height: "data(_h)",
-      label: "data(_glyph)",
-      "font-size": 12,
-      "font-weight": "bold",
-      "text-valign": "center",
-      "text-halign": "center",
-      // Centered glyph: no vertical nudge, and wrap off so the box is the
-      // glyph's own metrics rather than a multi-line line box.
-      "text-margin-y": 0,
-      "text-wrap": "none",
-      "border-width": 1,
-      "background-opacity": 1,
-      events: "yes",
     },
   },
   {
@@ -838,6 +946,16 @@ export const STRUCTURAL_RULES: CyStylesheet[] = [
       "target-arrow-shape": "triangle",
       "arrow-scale": 0.8,
       width: 1.5,
+    },
+  },
+  {
+    // Label channels scoped to edges that HAVE a label: the converter
+    // sets _label conditionally on edges, and an unscoped data
+    // mapping makes Cytoscape warn once per unlabeled edge per style
+    // recalc (the mapping-warning flood class; caught by the
+    // console-hygiene browser spec on 2026-07-11).
+    selector: "edge.g3t-structural-edge[_label]",
+    style: {
       label: "data(_label)",
       "font-size": 9,
       "text-rotation": "autorotate",
@@ -995,16 +1113,6 @@ export function structuralThemeRules(theme: {
       } as Record<string, unknown>,
     },
     {
-      // Toggle chip: header-tinted fill with an accent border and glyph so
-      // it reads as an interactive control rather than a label.
-      selector: "node.g3t-structural-toggle",
-      style: {
-        "background-color": theme.bgTertiary,
-        "border-color": theme.accentPrimary,
-        color: theme.accentPrimary,
-      } as Record<string, unknown>,
-    },
-    {
       selector: "node.g3t-structural-row",
       style: {
         "background-color": theme.canvasBg,
@@ -1089,6 +1197,235 @@ export function structuralThemeRules(theme: {
  * Call after the canvas is ready, or let the CytoscapeCanvas `structural`
  * path wire it automatically.
  */
+/**
+ * Distribute attach anchors for edges sharing a face (owner finding,
+ * 2026-07-11: with every migrated edge anchored at the face CENTER,
+ * bundles collapsed onto one departure point, visually "grouping"
+ * and then "breaking back out" mid-drag). Entries are sorted by the
+ * other endpoint's cross-axis coordinate (deterministic, no lane
+ * swapping while dragging) and spread across the middle 70% of the
+ * face; a single edge keeps the face center.
+ */
+export function distributeFaceAnchors(
+  center: { x: number; y: number },
+  half: { w: number; h: number },
+  side: AttachmentSide,
+  entries: readonly { key: string; cross: number }[],
+): Map<string, { x: number; y: number }> {
+  const out = new Map<string, { x: number; y: number }>();
+  const sorted = [...entries].sort(
+    (a, b) => a.cross - b.cross || (a.key < b.key ? -1 : 1),
+  );
+  const n = sorted.length;
+  const horizontalFace = side === "NORTH" || side === "SOUTH";
+  const extent = (horizontalFace ? half.w : half.h) * 2 * 0.7;
+  for (let i = 0; i < n; i++) {
+    const entry = sorted[i];
+    if (!entry) continue;
+    const frac = n === 1 ? 0 : i / (n - 1) - 0.5;
+    const offset = frac * extent;
+    const base = sidePoint(center, half, side);
+    out.set(
+      entry.key,
+      horizontalFace
+        ? { x: base.x + offset, y: base.y }
+        : { x: base.x, y: base.y + offset },
+    );
+  }
+  return out;
+}
+
+const ALL_SIDES: readonly AttachmentSide[] = ["NORTH", "SOUTH", "EAST", "WEST"];
+
+/**
+ * Attachment-level drag policy (supersedes resolveDragRoute inside
+ * onDrag; resolveDragRoute remains the bends-only surface the
+ * flipped round-1 oracles pin). Adds two behaviors the second e2e
+ * run demanded: (1) when the desired face cannot route (its stub
+ * sealed in by a neighbor: the "c.adcs crosses imager" failure came
+ * from an UNCHECKED fallback after a router null), CANDIDATE FACES
+ * are tried in order (desired, original, remaining two) before any
+ * unchecked fallback; (2) the anchor on the desired face can be a
+ * distributed bundle position rather than the face center.
+ */
+export function resolveDragAttachment(args: {
+  bends: readonly { x: number; y: number }[];
+  oldSource: { x: number; y: number };
+  oldTarget: { x: number; y: number };
+  movedEnd: "source" | "target";
+  fixedPoint: { x: number; y: number };
+  fixedSide: AttachmentSide;
+  movedCenter: { x: number; y: number };
+  movedHalf: { w: number; h: number };
+  desiredSide: AttachmentSide;
+  originalSide: AttachmentSide;
+  /** Anchor to use on the DESIRED face (bundle distribution or the
+   *  ridden eport offset); other candidate faces use their centers. */
+  desiredAnchor?: { x: number; y: number };
+  sameSide: boolean;
+  obstacles: readonly {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }[];
+}): {
+  bends: { x: number; y: number }[];
+  source: { x: number; y: number };
+  target: { x: number; y: number };
+  movedSide: AttachmentSide;
+} {
+  const anchorFor = (side: AttachmentSide): { x: number; y: number } =>
+    side === args.desiredSide && args.desiredAnchor
+      ? args.desiredAnchor
+      : sidePoint(args.movedCenter, args.movedHalf, side);
+  const endpoints = (moved: {
+    x: number;
+    y: number;
+  }): {
+    source: { x: number; y: number };
+    target: { x: number; y: number };
+  } =>
+    args.movedEnd === "source"
+      ? { source: moved, target: args.fixedPoint }
+      : { source: args.fixedPoint, target: moved };
+
+  // 1. Same-side, same-face: the cheap rescale, collision-checked.
+  if (args.sameSide) {
+    const moved = anchorFor(args.desiredSide);
+    const { source, target } = endpoints(moved);
+    const rescaled = rescaleBends(
+      [...args.bends],
+      args.oldSource,
+      args.oldTarget,
+      source,
+      target,
+    );
+    if (
+      !polylineIntersectsBoxes([source, ...rescaled, target], args.obstacles)
+    ) {
+      return { bends: rescaled, source, target, movedSide: args.desiredSide };
+    }
+  }
+
+  // 2. Candidate faces through the router (first clear route wins).
+  const candidates: AttachmentSide[] = [];
+  for (const side of [
+    args.desiredSide,
+    args.originalSide,
+    ...ALL_SIDES,
+  ] as const) {
+    if (!candidates.includes(side)) candidates.push(side);
+  }
+  for (const side of candidates) {
+    const moved = anchorFor(side);
+    const { source, target } = endpoints(moved);
+    const rerouted = routeOrthogonal({
+      source: {
+        point: source,
+        side: args.movedEnd === "source" ? side : args.fixedSide,
+      },
+      target: {
+        point: target,
+        side: args.movedEnd === "target" ? side : args.fixedSide,
+      },
+      obstacles: args.obstacles,
+    });
+    if (rerouted) {
+      return {
+        bends: rerouted.points.slice(1, -1),
+        source,
+        target,
+        movedSide: side,
+      };
+    }
+  }
+
+  // 3. Last resort: previous behavior at the desired face.
+  const moved = anchorFor(args.desiredSide);
+  const { source, target } = endpoints(moved);
+  const bends = resolveDragRoute({
+    bends: args.bends,
+    oldSource: args.oldSource,
+    oldTarget: args.oldTarget,
+    newSource: source,
+    newTarget: target,
+    srcSide: args.movedEnd === "source" ? args.desiredSide : args.fixedSide,
+    tgtSide: args.movedEnd === "target" ? args.desiredSide : args.fixedSide,
+    sameSide: args.sameSide,
+    obstacles: args.obstacles,
+  });
+  return { bends, source, target, movedSide: args.desiredSide };
+}
+
+/**
+ * Drag-route policy (G3L:RTE-011 / MR-8), pure and oracle-testable:
+ * a SAME-SIDE drag first tries the cheap rescale (preserving ELK's
+ * route shape, the user's mental map of the wire); if the rescaled
+ * polyline crosses any obstacle, or the attachment migrated sides,
+ * the in-house obstacle-aware router produces fresh bends anchored
+ * perpendicular at both terminals. A sealed-off router failure keeps
+ * the best non-router result (a crossing beats a vanished wire).
+ */
+export function resolveDragRoute(args: {
+  bends: readonly { x: number; y: number }[];
+  oldSource: { x: number; y: number };
+  oldTarget: { x: number; y: number };
+  newSource: { x: number; y: number };
+  newTarget: { x: number; y: number };
+  srcSide: AttachmentSide;
+  tgtSide: AttachmentSide;
+  sameSide: boolean;
+  obstacles: readonly {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }[];
+}): { x: number; y: number }[] {
+  const fallback = (): { x: number; y: number }[] => {
+    if (args.sameSide) {
+      return rescaleBends(
+        [...args.bends],
+        args.oldSource,
+        args.oldTarget,
+        args.newSource,
+        args.newTarget,
+      );
+    }
+    const dist = Math.hypot(
+      args.newTarget.x - args.newSource.x,
+      args.newTarget.y - args.newSource.y,
+    );
+    const stub = Math.max(12, Math.min(40, dist * 0.2));
+    return routeBetweenSides(
+      args.newSource,
+      args.srcSide,
+      args.newTarget,
+      args.tgtSide,
+      stub,
+    );
+  };
+  if (args.sameSide) {
+    const rescaled = rescaleBends(
+      [...args.bends],
+      args.oldSource,
+      args.oldTarget,
+      args.newSource,
+      args.newTarget,
+    );
+    const full = [args.newSource, ...rescaled, args.newTarget];
+    if (!polylineIntersectsBoxes(full, args.obstacles)) return rescaled;
+  }
+  const rerouted = routeOrthogonal({
+    source: { point: args.newSource, side: args.srcSide },
+    target: { point: args.newTarget, side: args.tgtSide },
+    obstacles: args.obstacles,
+  });
+  if (rerouted) return rerouted.points.slice(1, -1);
+  return fallback();
+}
+
 export function wireStructuralPortDrag(cy: Core): () => void {
   interface PointLike {
     x: number;
@@ -1107,6 +1444,9 @@ export function wireStructuralPortDrag(cy: Core): () => void {
     hasClass: (c: string) => boolean;
     source: () => NodeRef;
     target: () => NodeRef;
+    /** Style bypass; the runtime object is a cytoscape edge (used by
+     *  the routed-segment bypass after the drag data write-back). */
+    style: (style: Record<string, string>) => unknown;
   }
   interface PortLike {
     id: () => string;
@@ -1123,11 +1463,22 @@ export function wireStructuralPortDrag(cy: Core): () => void {
     tgtMoved: boolean;
     // The eport on the dragged node (to reposition), its original side, and
     // the fixed endpoint's eport + side (to face / route against).
-    movedEport: NodeRef;
+    // OPTIONAL since the g3t engine (D3a): its geometry has no synth
+    // eport point nodes; routed edges attach to the host compound
+    // directly, and the anchor lives only in the seg data.
+    movedEport?: NodeRef;
     movedEportOld: PointLike;
     movedSide: AttachmentSide;
     otherEport: PointLike;
     otherSide: AttachmentSide;
+    /** RAW grab-time seg strings (MR-9): return-to-grab restores
+     *  these VERBATIM. Reconstructing via
+     *  routeToSegments(segmentsToPoints(...)) is exact only when the
+     *  parameterization endpoints match the original writer's, and
+     *  the browser pin caught a 76px mismatch on exactly that. */
+    rawDist: string;
+    rawWeight: string;
+    rawPts: string;
   }
   const parseNums = (v: unknown): number[] =>
     typeof v === "string" && v.trim() !== ""
@@ -1146,11 +1497,30 @@ export function wireStructuralPortDrag(cy: Core): () => void {
     half: { w: number; h: number };
     ports: { node: PortLike; from: PointLike }[];
     routed: RoutedCapture[];
+    /** Top-level structural boxes at grab time (G3L:RTE-011). */
+    obstacles: { id: string; box: RouteBox }[];
   } | null = null;
 
   const onGrab = (evt: { target: NodeRef }) => {
     const host = evt.target.id();
-    const half = { w: evt.target.width() / 2, h: evt.target.height() / 2 };
+    const hostGeom = (
+      evt.target as unknown as { data?: (k: string) => unknown }
+    ).data?.("_geomBox");
+    const hostGeomBox = ((): { w: number; h: number } | null => {
+      if (typeof hostGeom !== "string") return null;
+      const ns = hostGeom.trim().split(/\s+/).map(Number);
+      const w = ns[2];
+      const h = ns[3];
+      return ns.length === 4 && w !== undefined && h !== undefined
+        ? { w, h }
+        : null;
+    })();
+    // Geometry half when stamped (D3a doctrine): cy's compound
+    // width/height include padding, which floated drag anchors off
+    // the drawn border in the browser while jsdom oracles passed.
+    const half = hostGeomBox
+      ? { w: hostGeomBox.w / 2, h: hostGeomBox.h / 2 }
+      : { w: evt.target.width() / 2, h: evt.target.height() / 2 };
     const ports = cy
       .nodes(".g3t-structural-port, .g3t-structural-edge-port")
       .filter(
@@ -1186,6 +1556,9 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         routed.push({
           edge,
           bends: segmentsToPoints(distances, weights, oldSource, oldTarget),
+          rawDist: String(edge.data("_segDist") ?? ""),
+          rawWeight: String(edge.data("_segWeight") ?? ""),
+          rawPts: String(edge.data("_routePts") ?? ""),
           oldSource,
           oldTarget,
           srcMoved,
@@ -1198,6 +1571,185 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         });
       }
     }
+    // g3t capture (D3a; the MR-8 e2e "crosses" failure): under the
+    // g3t engine routed edges attach to the HOST COMPOUND itself, so
+    // the eport loop above finds nothing and, uncaptured, stale seg
+    // data re-projected against the moving center-line during drags
+    // ("routes to the center of the target", diagonal bends). The
+    // endpoints' basis is cy's LIVE drawn anchors and sides derive
+    // from anchor-vs-box geometry, since there is no eport _side.
+    const parseGeomBox = (node: {
+      data: (k: string) => unknown;
+    }): { x: number; y: number; width: number; height: number } | null => {
+      const raw = node.data("_geomBox");
+      if (typeof raw !== "string") return null;
+      const ns = raw.trim().split(/\s+/).map(Number);
+      const [x, y, w, h] = ns;
+      if (
+        ns.length !== 4 ||
+        x === undefined ||
+        y === undefined ||
+        w === undefined ||
+        h === undefined ||
+        ns.some(Number.isNaN)
+      ) {
+        return null;
+      }
+      return { x, y, width: w, height: h };
+    };
+    const sideOfAnchor = (
+      pt: PointLike,
+      center: PointLike,
+      halfBox: { w: number; h: number },
+    ): AttachmentSide => {
+      const ndx = (pt.x - center.x) / (halfBox.w || 1);
+      const ndy = (pt.y - center.y) / (halfBox.h || 1);
+      return Math.abs(ndx) >= Math.abs(ndy)
+        ? ndx >= 0
+          ? "EAST"
+          : "WEST"
+        : ndy >= 0
+          ? "SOUTH"
+          : "NORTH";
+    };
+    const hostEdges =
+      (
+        evt.target as unknown as {
+          connectedEdges?: () => Iterable<EdgeLike>;
+        }
+      ).connectedEdges?.() ?? [];
+    for (const edge of hostEdges) {
+      if (!edge.hasClass("g3t-structural-edge-routed")) continue;
+      const id = edge.id();
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const distances = parseNums(edge.data("_segDist"));
+      const weights = parseNums(edge.data("_segWeight"));
+      if (distances.length === 0 || distances.length !== weights.length) {
+        continue;
+      }
+      const sNode = edge.source();
+      const tNode = edge.target();
+      const srcMoved = sNode.id() === host;
+      const tgtMoved = tNode.id() === host;
+      if (srcMoved === tgtMoved) continue;
+      // Capture basis: the WRITER'S truth (_routePts), never cy's
+      // live endpoints. Real cy clips compound endpoints against the
+      // PADDED bbox, which skewed the captured baseline in browsers
+      // while idealized jsdom fakes passed (the round-42/43 lesson).
+      const rawPtsStr = String(edge.data("_routePts") ?? "");
+      const truthPts: PointLike[] = rawPtsStr
+        .trim()
+        .split(/\s+/)
+        .map((pair) => {
+          const [px, py] = pair.split(",").map(Number);
+          return { x: px ?? NaN, y: py ?? NaN };
+        })
+        .filter((pt) => Number.isFinite(pt.x) && Number.isFinite(pt.y));
+      const ep = edge as unknown as {
+        sourceEndpoint?: () => PointLike;
+        targetEndpoint?: () => PointLike;
+      };
+      let oldSource: PointLike;
+      let oldTarget: PointLike;
+      if (truthPts.length >= 2) {
+        oldSource = { ...(truthPts[0] as PointLike) };
+        oldTarget = { ...(truthPts[truthPts.length - 1] as PointLike) };
+      } else {
+        try {
+          oldSource = { ...(ep.sourceEndpoint?.() ?? sNode.position()) };
+        } catch {
+          oldSource = { ...sNode.position() };
+        }
+        try {
+          oldTarget = { ...(ep.targetEndpoint?.() ?? tNode.position()) };
+        } catch {
+          oldTarget = { ...tNode.position() };
+        }
+      }
+      const movedAnchor = srcMoved ? oldSource : oldTarget;
+      const otherAnchor = srcMoved ? oldTarget : oldSource;
+      const otherNode = (srcMoved ? tNode : sNode) as unknown as {
+        data: (k: string) => unknown;
+        position: () => PointLike;
+        width?: () => number;
+        height?: () => number;
+      };
+      const otherGeom = parseGeomBox(otherNode);
+      const otherHalf = otherGeom
+        ? { w: otherGeom.width / 2 || 1, h: otherGeom.height / 2 || 1 }
+        : {
+            w: (otherNode.width?.() ?? 0) / 2 || 1,
+            h: (otherNode.height?.() ?? 0) / 2 || 1,
+          };
+      const otherCenter = otherGeom
+        ? {
+            x: otherGeom.x + otherGeom.width / 2,
+            y: otherGeom.y + otherGeom.height / 2,
+          }
+        : otherNode.position();
+      routed.push({
+        edge,
+        bends:
+          truthPts.length >= 2
+            ? truthPts.slice(1, -1).map((pt) => ({ ...pt }))
+            : segmentsToPoints(distances, weights, oldSource, oldTarget),
+        rawDist: String(edge.data("_segDist") ?? ""),
+        rawWeight: String(edge.data("_segWeight") ?? ""),
+        rawPts: String(edge.data("_routePts") ?? ""),
+        oldSource,
+        oldTarget,
+        srcMoved,
+        tgtMoved,
+        movedEportOld: movedAnchor,
+        movedSide: sideOfAnchor(movedAnchor, evt.target.position(), half),
+        otherEport: otherAnchor,
+        otherSide: sideOfAnchor(otherAnchor, otherCenter, otherHalf),
+      });
+    }
+    // Obstacle capture (G3L:RTE-011 / MR-8): every top-level
+    // structural node's box, by id, so per-edge rerouting can exclude
+    // that edge's own endpoints. Captured ONCE per drag session: only
+    // the host moves during the drag, and the host is always an
+    // endpoint of its own routed edges, so static boxes stay valid.
+    const obstacles: { id: string; box: RouteBox }[] = [];
+    const cyNodes = (
+      cy as unknown as {
+        nodes?: () => Iterable<{
+          id: () => string;
+          isChild?: () => boolean;
+          hasClass: (c: string) => boolean;
+          position: () => { x: number; y: number };
+          width: () => number;
+          height: () => number;
+        }>;
+      }
+    ).nodes?.();
+    const iterable =
+      cyNodes !== undefined &&
+      typeof (cyNodes as { [Symbol.iterator]?: unknown })[Symbol.iterator] ===
+        "function"
+        ? cyNodes
+        : [];
+    {
+      for (const n of iterable) {
+        if (n.isChild?.()) continue;
+        if (
+          n.hasClass("g3t-structural-edge-port") ||
+          n.hasClass("g3t-structural-port")
+        ) {
+          continue;
+        }
+        const p = n.position();
+        const w = n.width();
+        const hgt = n.height();
+        if (!(w > 0) || !(hgt > 0)) continue;
+        obstacles.push({
+          id: n.id(),
+          box: { x: p.x - w / 2, y: p.y - hgt / 2, width: w, height: hgt },
+        });
+      }
+    }
     session = {
       host,
       from: { ...evt.target.position() },
@@ -1206,6 +1758,7 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         .filter((p) => !routedEportIds.has(p.id()))
         .map((node) => ({ node, from: { ...node.position() } })),
       routed,
+      obstacles,
     };
   };
 
@@ -1219,52 +1772,92 @@ export function wireStructuralPortDrag(cy: Core): () => void {
       p.node.position({ x: p.from.x + dx, y: p.from.y + dy });
     }
     const half = session.half;
-    for (const r of session.routed) {
-      // Which face of the dragged node should the edge attach to now? Keep
-      // the original axis; flip to the opposite face only once the fixed
-      // endpoint has crossed clear past the node on that axis.
+    const hostId = session.host;
+    const obstacles = session.obstacles.map((o) =>
+      o.id === hostId
+        ? {
+            x: pos.x - half.w,
+            y: pos.y - half.h,
+            width: half.w * 2,
+            height: half.h * 2,
+          }
+        : o.box,
+    );
+    // PRE-PASS (owner finding: bundle-aware anchors). Migrated edges
+    // sharing a face are distributed along it instead of collapsing
+    // onto the face center, sorted by the other endpoint's cross-axis
+    // coordinate so lanes never swap mid-drag.
+    const perEdge = session.routed.map((r) => {
       const desiredSide = migratedSide(r.movedSide, pos, half, r.otherEport);
-      const sameSide = desiredSide === r.movedSide;
-      // Same face: the eport rides the node (offset preserved) and the
-      // obstacle-aware ELK bends slide proportionally (no "locked" bend).
-      // Different face: the attachment migrates, and the edge is re-routed so
-      // it leaves/enters perpendicular to the new face instead of cutting
-      // across the node.
-      const movedEport: PointLike = sameSide
-        ? { x: r.movedEportOld.x + dx, y: r.movedEportOld.y + dy }
-        : sidePoint(pos, half, desiredSide);
-      const newSource = r.srcMoved ? movedEport : r.oldSource;
-      const newTarget = r.tgtMoved ? movedEport : r.oldTarget;
-      let bends: PointLike[];
-      if (sameSide) {
-        bends = rescaleBends(
-          r.bends,
-          r.oldSource,
-          r.oldTarget,
-          newSource,
-          newTarget,
-        );
-      } else {
-        const dist = Math.hypot(
-          newTarget.x - newSource.x,
-          newTarget.y - newSource.y,
-        );
-        const stub = Math.max(12, Math.min(40, dist * 0.2));
-        bends = routeBetweenSides(
-          newSource,
-          r.srcMoved ? desiredSide : r.otherSide,
-          newTarget,
-          r.tgtMoved ? desiredSide : r.otherSide,
-          stub,
-        );
+      return { r, desiredSide, sameSide: desiredSide === r.movedSide };
+    });
+    const faceGroups = new Map<
+      AttachmentSide,
+      { key: string; cross: number }[]
+    >();
+    for (const e of perEdge) {
+      if (e.sameSide) continue; // riding edges keep ELK's port spread
+      const horizontalFace =
+        e.desiredSide === "NORTH" || e.desiredSide === "SOUTH";
+      const cross = horizontalFace ? e.r.otherEport.x : e.r.otherEport.y;
+      const list = faceGroups.get(e.desiredSide) ?? [];
+      list.push({ key: e.r.edge.id(), cross });
+      faceGroups.set(e.desiredSide, list);
+    }
+    const anchors = new Map<string, PointLike>();
+    for (const [side, entries] of faceGroups) {
+      for (const [key, pt] of distributeFaceAnchors(
+        pos,
+        { w: half.w, h: half.h },
+        side,
+        entries,
+      )) {
+        anchors.set(key, pt);
       }
-      r.movedEport.position(movedEport);
+    }
+    for (const { r, desiredSide, sameSide } of perEdge) {
+      // Attachment-level policy (G3L:RTE-011 / MR-8): rescale when
+      // clear; otherwise the router over CANDIDATE FACES (desired,
+      // original, remaining two) before any unchecked fallback (the
+      // second e2e run's "c.adcs crosses imager" came from a router
+      // null degrading into an unchecked side-stub route). Endpoint
+      // boxes stay IN the obstacle set deliberately; the host's box
+      // is refreshed to its CURRENT dragged position above.
+      const riddenAnchor: PointLike = {
+        x: r.movedEportOld.x + dx,
+        y: r.movedEportOld.y + dy,
+      };
+      const resolved = resolveDragAttachment({
+        bends: r.bends,
+        oldSource: r.oldSource,
+        oldTarget: r.oldTarget,
+        movedEnd: r.srcMoved ? "source" : "target",
+        fixedPoint: r.srcMoved ? r.oldTarget : r.oldSource,
+        fixedSide: r.otherSide,
+        movedCenter: pos,
+        movedHalf: { w: half.w, h: half.h },
+        desiredSide,
+        originalSide: r.movedSide,
+        desiredAnchor: sameSide
+          ? riddenAnchor
+          : (anchors.get(r.edge.id()) ?? undefined),
+        sameSide,
+        obstacles,
+      });
+      const bends: PointLike[] = resolved.bends;
+      const newSource = resolved.source;
+      const newTarget = resolved.target;
+      const movedEport: PointLike = r.srcMoved ? newSource : newTarget;
+      r.movedEport?.position(movedEport);
+      // Straight results have no interior points; the converter's
+      // 2-point doctrine applies here too (degenerate on-baseline
+      // control), or straight edges silently stop updating.
       const seg = routeToSegments(
         [newSource, ...bends, newTarget],
         newSource,
         newTarget,
-      );
-      if (seg) {
+      ) ?? { distances: [0], weights: [0.5] };
+      {
         // Write control values to data, not a style bypass: the routed rule
         // maps segment-distances/weights FROM data(_segDist/_segWeight), so
         // this renders live AND keeps the data truthful, so a subsequent grab
@@ -1272,15 +1865,142 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         // endpoints (a style bypass would leave data stale relative to the
         // original endpoint line, skewing the next drag's reconstruction).
         r.edge.data({
+          _routePts: [newSource, ...bends, newTarget]
+            .map((pt) => `${pt.x},${pt.y}`)
+            .join(" "),
           _segDist: seg.distances.join(" "),
           _segWeight: seg.weights.join(" "),
         });
+        // Keep the style bypass in lockstep with the data truth.
+        applyRoutedSegmentBypass(r.edge);
       }
     }
   };
 
-  const onFree = () => {
+  const onFree = (evt: { target: NodeRef }) => {
+    const sess = session;
     session = null;
+    if (sess === null) return;
+    // Geometry comes from the SESSION HOST, not from evt.target: on
+    // compound scenes the free event can surface on a different
+    // element than the grab did, and the previous host-mismatch
+    // early-return silently left LAST-FRAME drag history in the seg
+    // data, which is precisely the settle-contract violation MR-9
+    // exists to prevent (suspected mechanism of the browser pin's
+    // restore-never-fired failure).
+    const hostEle =
+      sess.host === evt.target.id()
+        ? evt.target
+        : (
+            cy as unknown as {
+              $id: (id: string) => NodeRef & { length: number };
+            }
+          ).$id(sess.host);
+    if ((hostEle as { length?: number }).length === 0) return;
+    const pos = hostEle.position();
+    const half = sess.half;
+
+    // MR-9 (round-trip idempotence). Two settled-state rules:
+    // 1. RETURN-TO-GRAB (single-session wiggle back): restore the
+    //    grab-time baseline EXACTLY: the settled state at the grab
+    //    position is whatever it was before the grab (including
+    //    ELK's original routes on the first ever drag).
+    // 2. Otherwise CANONICALIZE: recompute every routed edge from
+    //    final geometry alone (canonical side from pure relative
+    //    position, canonical bundle anchors, router bends; the
+    //    rescale path and its captured-bend history are NOT used at
+    //    settle time), so the settled state is a pure function of
+    //    settled positions regardless of the path dragged.
+    const returned = Math.hypot(pos.x - sess.from.x, pos.y - sess.from.y) < 8;
+    if (returned) {
+      hostEle.position({ ...sess.from });
+      for (const p of sess.ports) p.node.position({ ...p.from });
+      for (const r of sess.routed) {
+        r.movedEport?.position({ ...r.movedEportOld });
+        // VERBATIM restore of the grab-time data: reconstruction via
+        // the parameterization helpers is exact only when the
+        // endpoint conventions match the original writer's, and the
+        // MR-9 browser pin caught a real mismatch there. The raw
+        // strings ARE the pre-drag truth; write them back untouched.
+        r.edge.data({
+          _segDist: r.rawDist,
+          _segWeight: r.rawWeight,
+          _routePts: r.rawPts,
+        });
+        applyRoutedSegmentBypass(r.edge);
+      }
+      return;
+    }
+
+    const obstacles = sess.obstacles.map((o) =>
+      o.id === sess.host
+        ? {
+            x: pos.x - half.w,
+            y: pos.y - half.h,
+            width: half.w * 2,
+            height: half.h * 2,
+          }
+        : o.box,
+    );
+    const perEdge = sess.routed.map((r) => ({
+      r,
+      side: canonicalSide(pos, half, r.otherEport),
+    }));
+    const faceGroups = new Map<
+      AttachmentSide,
+      { key: string; cross: number }[]
+    >();
+    for (const e of perEdge) {
+      const horizontalFace = e.side === "NORTH" || e.side === "SOUTH";
+      const cross = horizontalFace ? e.r.otherEport.x : e.r.otherEport.y;
+      const list = faceGroups.get(e.side) ?? [];
+      list.push({ key: e.r.edge.id(), cross });
+      faceGroups.set(e.side, list);
+    }
+    const anchors = new Map<string, PointLike>();
+    for (const [side, entries] of faceGroups) {
+      for (const [key, pt] of distributeFaceAnchors(
+        pos,
+        { w: half.w, h: half.h },
+        side,
+        entries,
+      )) {
+        anchors.set(key, pt);
+      }
+    }
+    for (const { r, side } of perEdge) {
+      const resolved = resolveDragAttachment({
+        bends: r.bends,
+        oldSource: r.oldSource,
+        oldTarget: r.oldTarget,
+        movedEnd: r.srcMoved ? "source" : "target",
+        fixedPoint: r.srcMoved ? r.oldTarget : r.oldSource,
+        fixedSide: r.otherSide,
+        movedCenter: pos,
+        movedHalf: { w: half.w, h: half.h },
+        desiredSide: side,
+        originalSide: side,
+        desiredAnchor: anchors.get(r.edge.id()) ?? undefined,
+        sameSide: false,
+        obstacles,
+      });
+      r.movedEport?.position(r.srcMoved ? resolved.source : resolved.target);
+      const seg = routeToSegments(
+        [resolved.source, ...resolved.bends, resolved.target],
+        resolved.source,
+        resolved.target,
+      ) ?? { distances: [0], weights: [0.5] };
+      {
+        r.edge.data({
+          _routePts: [resolved.source, ...resolved.bends, resolved.target]
+            .map((pt) => `${pt.x},${pt.y}`)
+            .join(" "),
+          _segDist: seg.distances.join(" "),
+          _segWeight: seg.weights.join(" "),
+        });
+        applyRoutedSegmentBypass(r.edge);
+      }
+    }
   };
 
   const sel = "node.g3t-structural-container, node.g3t-structural-node";
@@ -1291,36 +2011,5 @@ export function wireStructuralPortDrag(cy: Core): () => void {
     cy.removeListener("grab", sel, onGrab);
     cy.removeListener("drag", sel, onDrag);
     cy.removeListener("free", sel, onFree);
-  };
-}
-
-/**
- * Wire the on-container collapse toggle chips (the `g3t-structural-toggle`
- * nodes emitted by structuralToCytoscapeElements) to a host callback. A
- * left tap on a chip calls `onToggle(containerId, compartmentIds)` with the
- * ids the chip carries, then stops propagation so the canvas's generic
- * node-tap (selection) does not also fire on the chip. The host forwards
- * this to the compartment-collapse store's `toggleAll`, exactly as the
- * container context-menu action does. Store-agnostic by design: the
- * converter and this wiring stay free of the collapse store, mirroring how
- * the context menu is host-registered. Returns a disposer.
- */
-export function wireStructuralCompartmentToggle(
-  cy: Core,
-  onToggle: (containerId: string, compartmentIds: string[]) => void,
-): () => void {
-  const onTap = (evt: {
-    target: { data: (k: string) => unknown };
-    stopPropagation?: () => void;
-  }) => {
-    const containerId = evt.target.data("_toggleFor");
-    const ids = evt.target.data("_compartmentIds");
-    if (typeof containerId !== "string" || !Array.isArray(ids)) return;
-    evt.stopPropagation?.();
-    onToggle(containerId, ids as string[]);
-  };
-  cy.on("tap", "node.g3t-structural-toggle", onTap);
-  return () => {
-    cy.removeListener("tap", "node.g3t-structural-toggle", onTap);
   };
 }

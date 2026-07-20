@@ -36,18 +36,18 @@ so).
 
 ## Checks (VA-1 .. VA-10)
 
-| # | What | Pass criteria |
-|---|---|---|
-| VA-1 | Icon set, all 22 at 16px | Uniform stroke weight; nothing clipped; recognizable at a glance |
-| VA-2 | Icon sizing row (12/16/20) + currentColor | Crisp at all three; recolors with theme switch |
-| VA-3 | EmptyState + ErrorState | One anatomy; copy states what/why/how-to-fill; error reads as error |
-| VA-4 | Matrix gradient (viridis) | Magnitude ordering obvious; counts legible on both scale ends; still legible in dark theme |
-| VA-5 | Matrix truncation notice (maxSize=3 over 6 types) | Notice present, plain, non-alarming |
-| VA-6 | Table selection signature | Accent bar + tint on selected rows; follows the accent in all three themes |
-| VA-7 | Sequential + diverging ramps | Smooth perceptual progression; diverging midpoint reads neutral |
-| VA-8 | Focus ring | Tab shows the ring on every control; mouse click does not |
-| VA-9 | Reduced-motion simulation | Spinner animates; checking the box freezes it (labeled as a simulation of the OS setting) |
-| VA-10 | Theme switcher + badges | Three presets switch live; pass/fail badges differ by glyph and color |
+| #     | What                                              | Pass criteria                                                                              |
+| ----- | ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| VA-1  | Icon set, all 22 at 16px                          | Uniform stroke weight; nothing clipped; recognizable at a glance                           |
+| VA-2  | Icon sizing row (12/16/20) + currentColor         | Crisp at all three; recolors with theme switch                                             |
+| VA-3  | EmptyState + ErrorState                           | One anatomy; copy states what/why/how-to-fill; error reads as error                        |
+| VA-4  | Matrix gradient (viridis)                         | Magnitude ordering obvious; counts legible on both scale ends; still legible in dark theme |
+| VA-5  | Matrix truncation notice (maxSize=3 over 6 types) | Notice present, plain, non-alarming                                                        |
+| VA-6  | Table selection signature                         | Accent bar + tint on selected rows; follows the accent in all three themes                 |
+| VA-7  | Sequential + diverging ramps                      | Smooth perceptual progression; diverging midpoint reads neutral                            |
+| VA-8  | Focus ring                                        | Tab shows the ring on every control; mouse click does not                                  |
+| VA-9  | Reduced-motion simulation                         | Spinner animates; checking the box freezes it (labeled as a simulation of the OS setting)  |
+| VA-10 | Theme switcher + badges                           | Three presets switch live; pass/fail badges differ by glyph and color                      |
 
 ## Turn exit
 
@@ -194,7 +194,7 @@ on SHACL shapes (lock icon or similar).
   "Types" heading adopt .g3t-panel-section-header; VA-18 now renders
   all four panels side by side.
 - **VA-19 accent editor.** Live token-override demo (layer 2): a color
-  input drives --g3t-accent-* with reset; proves the
+  input drives --g3t-accent-\* with reset; proves the
   brand-in-one-variable claim interactively.
 
 Status: AWAITING REVIEW round 6 (focus: VA-18 lock + four-panel
@@ -286,7 +286,7 @@ narrow-window containment.
    slot, and asserts silence.
 3. **Feature: end-user icon sets.** Did not exist (registerIcon was
    single-glyph, adopter-trust only). Shipped registerIconSet with
-   sanitize-by-default (geometry allowlist; script elements, on*
+   sanitize-by-default (geometry allowlist; script elements, on\*
    handlers, foreignObject, url()/javascript: values are rejected BY
    NAME, never silently stripped), trusted mode reserved for
    adopter-compiled sets, optional pre-mappings filtered to
@@ -392,7 +392,7 @@ Per request, a multi-round batch without interleaved review:
 
 1. **Icons on the canvas.** iconDataUri wraps string-markup registry
    icons as white-stroke SVG data URIs; applyEncodingSpec emits
-   _icon; the node[_icon] attribute-presence rule renders them
+   \_icon; the node[_icon] attribute-presence rule renders them
    (background-image, 60% fit). Component-valued icons degrade to
    panel/legend; unregistered names produce no field. Three tests
    (one caught the registry's discriminated-union renderer shape).
@@ -400,8 +400,8 @@ Per request, a multi-round batch without interleaved review:
    slot-stable resolver over NODE_SHAPES with pinning overrides,
    panel row with per-value shape selects, the paired-redundancy
    warn-not-block notice when shape and color drivers diverge, a
-   legend shape section with glyphs, and _shape emission (flows
-   through the existing data(_shape) mapper). Five tests.
+   legend shape section with glyphs, and \_shape emission (flows
+   through the existing data(\_shape) mapper). Five tests.
 3. **Legacy encoding fully retired in-repo.** All FIVE shells (a
    Healthcare shell surfaced beyond the four originally counted) and
    DemoApp migrated to EncodingSpecPanel + SpecLegend + the
@@ -422,11 +422,11 @@ REVIEW rounds 12 + 13.
    found the style-override store had NO canvas consumer:
    NodeStyleEditor and the context-menu appearance actions wrote
    overrides nothing read, and the core stylesheet-merge helper's
-   type-scoped selector targeted a _type field never stamped. Wired
+   type-scoped selector targeted a \_type field never stamped. Wired
    as Cytoscape BYPASS styles in the canvas (win over every mapper,
    restore on removal, type scopes resolved in JS): precedence now
    holds by MECHANISM (theme=CSS vars, spec=element data, instance=
-   bypass, reserved=untouched outline-*), documented in the design
+   bypass, reserved=untouched outline-\*), documented in the design
    doc with one named tension (instance border pins vs future overlay
    emphasis).
 2. **SpecPort (tier 3).** The spec JSON as a live surface: follows
@@ -668,7 +668,7 @@ features. Doctrine: the toolkit consumes RESULTS, not computation.
    shortest path: deliberately trivial; real workloads stay
    external), overlay toggles with member counts, and the ingest
    surface (seedable). VA-26 runs the full loop live, ending with
-   'Color by _component' driving the spec from a computed result.
+   'Color by \_component' driving the spec from a computed result.
 
 Status: rounds 18-21 awaiting spot-check.
 
@@ -686,6 +686,7 @@ toolkit easily AND wire components into their own decision-support
 and process layers, including custom buttons and autodocs?
 
 Found (good skeleton, freshness cliff at ~round 7):
+
 - Adopter docs existed and were sound for the early era: root README
   with a 15-line integration, per-package READMEs, ARCHITECTURE.md,
   DEVELOPER.md (excellent boundary doctrine), CONTRIBUTING.md, one
@@ -701,6 +702,7 @@ Found (good skeleton, freshness cliff at ~round 7):
   (the actual answer to "wire a custom button").
 
 Built:
+
 1. docs/wiring-guide.md: composition levels (atoms/molecules/
    compounds), the three-channel integration surface (stores, props/
    callbacks, JSON documents), eight custom-control recipes including
@@ -747,6 +749,7 @@ toolkit's documentation system: unreferenced by the current build,
 flagged LEGACY, removal proposed for the next major.
 
 Staleness found and fixed:
+
 - Landing page claimed React 18+ (it is 19) and described the
   pre-round-7 era; package descriptions and cards refreshed, and two
   cards added: the Wiring Guide (now rendered INSIDE the API site via
@@ -770,6 +773,7 @@ Status: rounds 18-23 awaiting spot-check.
 Report: VA-26 grew without bound in the browser, blocking review.
 
 Diagnosis path (what the sandbox could and could not establish):
+
 - A render-count probe mounting the REAL island components with
   cytoscape mocked (tests/unit/va26-probe.test.tsx, kept as a
   regression guard with VA-22 as control) showed both islands settle
@@ -1192,6 +1196,7 @@ input-side geometry; this completes R1.18's third acceptance
 criterion's per-container surface).
 
 SHIPPED:
+
 - compartment-collapse-store (Zustand, mirrors position-pin-store):
   holds the SET of collapsed `${node}::${compartment}` keys with
   collapse/expand/toggle/toggleAll/setCollapsed/clear;
@@ -1241,11 +1246,12 @@ second client of the structural input model, alongside the UML views.
 SEQUENCING CORRECTION made this round: B3 presupposed B2 (shape view
 on plain child nodes) and B1 (report adapter), both still `proposed`.
 But since Group A shipped first, building the shape view directly on
-COMPARTMENTS *is* B3, with no child-node intermediate to migrate;
+COMPARTMENTS _is_ B3, with no child-node intermediate to migrate;
 B2 collapsed into B3. (ShaclShapeBrowser is a side-panel LIST view,
 not the canvas shape graph; the canvas view genuinely did not exist.)
 
 SHIPPED (core, pure):
+
 - shaclShapesToStructural: ShaclShape[] -> the identical
   StructuralGraphInput the UML views use. Each NodeShape is a
   «NodeShape» container with one "constraints" compartment; property
@@ -1259,6 +1265,7 @@ SHIPPED (core, pure):
 - closedShapeIds + the row-text/cardinality/chip formatters.
 
 SHIPPED (react):
+
 - StructuralDecorations arg on the converter + a structuralDecorations
   prop on CytoscapeCanvas: closed/open container borders (sh:closed
   solid, open dashed) and per-row severity classes (violation/warning/
@@ -1332,6 +1339,7 @@ no new rendering engine, only the shipped overlay + encoding
 machinery, over the already-reviewed data-graph canvas.
 
 SHIPPED (core, pure: reports-not-validation):
+
 - ShaclReportDocument: a versioned interchange document (version,
   conforms, source, results[] with focusNode/path/severity/
   sourceShape/message/value), the same pattern as algorithm results.
@@ -1343,7 +1351,7 @@ SHIPPED (core, pure: reports-not-validation):
   tier (violation/warning/info) over the focus nodes, with optional
   path-edge emphasis via a resolver. Reuses the overlay store's
   union/dim semantics; deactivating restores exactly.
-- shaclResultDrivers: per-node _shacl_resultCount + _shacl_maxSeverity
+- shaclResultDrivers: per-node \_shacl_resultCount + \_shacl_maxSeverity
   for ingestion, so the encoding grammar drives size from count and
   color from severity (clustering-is-a-driver applied to conformance).
 - reportFocusNodes / resultsForShape: cross-link and shape-filter
@@ -1353,7 +1361,7 @@ SHIPPED (VA-29): a live report over the satellite data graph.
 ComponentShape requires name (all have) + partNumber (only PDU and
 FlightComputer carry), so most Components fail. Load -> failing
 nodes emphasize and conforming ones dim, a toggle per tier, color
-from _shacl_maxSeverity and size from _shacl_resultCount through the
+from \_shacl_maxSeverity and size from \_shacl_resultCount through the
 grammar, legend included. Clear restores exactly.
 
 DEVIATION recorded in shacl-views.md: severity COLOR is an encoding
@@ -1380,17 +1388,17 @@ R1.16), and optional A3 styling.
 Four findings from the VA-26/27/29 review:
 
 1+3. GLOBAL-STORE CROSS-CONTAMINATION (the same root cause): the
-   overlay store is a module-level singleton shared by every canvas
-   on the page, so toggling VA-29's report tiers dimmed VA-26 and
-   the other live canvases wholesale (none of their nodes are members
-   of VA-29's overlays, so they all got g3t-ov-dim), and VA-26 thus
-   appeared to carry "validation info." FIXED defensively: the
-   overlay effect now computes whether any active overlay references
-   an element PRESENT on this canvas, and if not, leaves this canvas
-   untouched. A single-canvas app is unaffected (its overlays always
-   reference its own nodes). The deeper design point (per-canvas
-   state in a global store) is logged in roadmap/human-actions.md as
-   a non-urgent reconsideration, since production is single-canvas.
+overlay store is a module-level singleton shared by every canvas
+on the page, so toggling VA-29's report tiers dimmed VA-26 and
+the other live canvases wholesale (none of their nodes are members
+of VA-29's overlays, so they all got g3t-ov-dim), and VA-26 thus
+appeared to carry "validation info." FIXED defensively: the
+overlay effect now computes whether any active overlay references
+an element PRESENT on this canvas, and if not, leaves this canvas
+untouched. A single-canvas app is unaffected (its overlays always
+reference its own nodes). The deeper design point (per-canvas
+state in a global store) is logged in roadmap/human-actions.md as
+a non-urgent reconsideration, since production is single-canvas.
 
 2. REPORT ONLY SHOWED VIOLATIONS: the in-core validator emitted
    violation for most checks and warning only for sh:pattern, never
@@ -1405,9 +1413,9 @@ Four findings from the VA-26/27/29 review:
    color (red/amber/blue), the fill is the primary signal and the
    overlay border secondary, which is the intended layering.
 
-4. PER-COMPARTMENT COLLAPSE VIA RIGHT-CLICK: feasible with no engine
+3. PER-COMPARTMENT COLLAPSE VIA RIGHT-CLICK: feasible with no engine
    change, because the cxttap target already carries the clicked
-   row's parent and _compartment. Added a second menu action,
+   row's parent and \_compartment. Added a second menu action,
    "Collapse/expand this compartment", filtering to compartment rows
    (and dividers), toggling only that compartment; the container
    HEADER still gives the toggle-all action. Right-click attributes
@@ -1433,6 +1441,7 @@ never saw the theme. The established canvas pattern, themeColorRules
 theme change; the structural rules had bypassed it.
 
 FIX: split the structural stylesheet.
+
 - STRUCTURAL_RULES now carries STRUCTURE ONLY (shapes, sizes, label
   bindings, fonts, border-widths/styles, corner-radius, opacity,
   events, z-index): no fill, stroke, or text color.
@@ -1517,6 +1526,7 @@ report a genuinely useful PAIR, and the last substantive piece of
 R1.17.
 
 SHIPPED (core, pure): shacl-links.
+
 - resultTargets / resultSelectionIds: given a validation result,
   resolve the cross-canvas highlight targets: the focus node (data
   canvas), the source shape container, and the offending property-
@@ -1608,6 +1618,7 @@ ADDED examples/decision-dashboards, two domain dashboards sharing one
 spine (one UGM substrate; computed signals drive color/size through
 the encoding grammar, not hand-styling; selection links the canvas to
 the side panels):
+
 - ConformanceDashboard (systems engineering): a satellite power
   subsystem UGM + SHACL design rules. The decision is "which
   components fail the design gate, how badly, and what specifically is
@@ -1653,6 +1664,7 @@ LIVE in a mobile browser, mirroring how the visual-acceptance page
 works.
 
 ADDED a standalone pipeline (does NOT touch the VA build):
+
 - scripts/dashboards-page/island.tsx: a review harness mounting both
   dashboards (examples/decision-dashboards) with a domain switcher
   (conformance | impact) and the ThemeSwitcher. Logs
@@ -1696,7 +1708,7 @@ Three issues from review of the dashboards HTML:
    ~35 components across six satellite subsystems (EPS/ADCS/OBC/COMM/
    THERM/PAYLOAD) with power/data/command links; ~25 supply-chain
    nodes across four tiers with deliberate single-sourcing. Built from
-   row data via fetch*Rows() to mimic a query result.
+   row data via fetch\*Rows() to mimic a query result.
 
 3. DID NOT TELL THE APP-BUILDING STORY (the deepest issue). The
    dashboards used the toolkit but did not teach how to STRUCTURE an
@@ -1738,9 +1750,10 @@ the ready-made pipelines (createDegreeDistribution), and cy.batch for
 large graphs.
 
 ADDED examples/showcase:
+
 - infra-data.ts: a deterministic ~1200-node cloud topology
   (regions/clusters/services/databases/caches/queues/gateways) with
-  MOCKED algorithm scores (_criticality/_risk) written onto nodes, and
+  MOCKED algorithm scores (\_criticality/\_risk) written onto nodes, and
   a depth-limited blastRadius() trace. The "ingest" an integrator owns.
 - branding.ts: NEBULA_THEME (custom dark theme via createTheme + custom
   typePalette accents) and registerShowcaseIcons (custom 24x24 node
@@ -1774,14 +1787,16 @@ off); lint caught only unused imports + index-access assertions, fixed.
 838 tests (+5). Typecheck/lint/verify/spec-gates green; package bundles
 unaffected; VA and dashboards pipelines untouched. No requirement status
 change (example + review tooling). Queue unchanged: the VA + dashboards
-+ showcase visual review, wiring resultDetail into the production
-inspector (closes R1.17), the RDF shapes parser.
+
+- showcase visual review, wiring resultDetail into the production
+  inspector (closes R1.17), the RDF shapes parser.
 
 ## Demo-fixes round (2026-06-16): preferences + bugs on the four shells
 
 User-reported preferences and bugs against the trimmed four-shell demo.
 
 PREFERENCES:
+
 1. Filter swatches collided with the encoding. ROOT CAUSE: FacetFilter
    colored swatches by sorted-index Okabe-Ito while the encoding's
    categorical scale assigns colors in data INSERTION order; the two
@@ -1814,6 +1829,7 @@ PREFERENCES:
    hooks lint forbids).
 
 BUGS:
+
 1. column-visibility menu could not be closed: added outside-click +
    Escape listeners and a close (x) button, wrapped toggle+menu in a
    ref container so re-clicking the toggle does not flicker. 1 new test.
@@ -1824,7 +1840,7 @@ BUGS:
 3. View Neighbors broken in block view: ROOT CAUSE: in structural mode
    cxttap fired on a row/header/compartment whose id is a synthetic
    compound id, not a UGM node id, so context actions resolved nothing.
-   FIX: the canvas now climbs ancestors to the owning _structuralContainer
+   FIX: the canvas now climbs ancestors to the owning \_structuralContainer
    and resolves to its id before building the MenuTarget. Expand
    Neighbors (adds neighbors to selection) is left intact: the docked
    Neighborhood tab now serves that need, and the action has tests.
@@ -1844,20 +1860,23 @@ Seven follow-up remarks. Distributed each capability to its best-fit
 shell rather than cramming all into one.
 
 LIBRARY CHANGES:
+
 - Custom RASTER icons (item 4): spec-apply now passes image references
   (data: URIs, http(s)/relative image URLs) through the icon channel
   untouched via a new isImageRef() guard, instead of routing everything
   through iconDataUri (SVG-glyph-only). The canvas already stamps
-  _icon as background-image, so PNG/logo icons "just work". 1 test.
+  \_icon as background-image, so PNG/logo icons "just work". 1 test.
 - Legend collapse (item 5): SpecLegend gained collapsible/
   defaultCollapsed/title props with a chevron header. Default off, so
   existing usages are unchanged; the demos opt in.
 
 DEMO COMPONENTS:
+
 - FloatingInspector: a draggable, closeable inspector overlay (item 6)
   wrapping DetailInspector, so it does not consume sidebar height.
 
 SHELL WIRING (item 2 = GraphToolbar everywhere; the rest distributed):
+
 - Supply Chain: GraphToolbar (embedded search + layout select + force
   popover + zoom), CUSTOM PNG icons per company role (genuine 32x32
   PNG data-URIs generated with a pure-Node encoder, in
@@ -1899,10 +1918,11 @@ Turtle export never surfaced in a UI.
 Reworked the two thin near-duplicate dashboards (ConformanceDashboard +
 ImpactDashboard, each just a canvas + inspector) into two capability-
 first dashboards that fill the gaps:
+
 - AnalyticsDashboard: StatsPanel, LinkedChart bar (degree distribution)
-  + scatter (centrality vs risk), AlgorithmPanel, DerivedPropertyPanel.
-  Graph seeded with degree centrality + connected components on load,
-  nodes sized by degree.
+  - scatter (centrality vs risk), AlgorithmPanel, DerivedPropertyPanel.
+    Graph seeded with degree centrality + connected components on load,
+    nodes sized by degree.
 - SchemaDashboard: SchemaView (derived type schema), MatrixView
   (adjacency), SankeyView (type flows), live Turtle serialization
   (exportSubgraphTurtle), and a QueryEditor on an in-memory holonic
@@ -1930,6 +1950,7 @@ No code changes; documentation accuracy and handoff readiness for a new
 agent to pick up the flagship build.
 
 CREATED:
+
 - AGENT-ONBOARDING.md (repo root): dedicated onboarding for the flagship
   effort — what the project is, the four docs to read, current engine
   state, repo map, gates, editing discipline, the honesty line, the
@@ -1947,6 +1968,7 @@ CREATED:
   reference them there).
 
 CORRECTED DRIFT (found during the audit):
+
 - "Sankey REMOVED 2026-06-12" in STATUS.md and CLAUDE.md read as code
   deletion; SankeyView is shipped, tested, and in the public barrel
   (the SchemaDashboard uses it). What was removed was the ROADMAP entry
@@ -1964,6 +1986,7 @@ CORRECTED DRIFT (found during the audit):
   flagship engine).
 
 UPDATED:
+
 - CLAUDE.md intro + open-threads: now lead with the flagship as the
   current focus, point at AGENT-ONBOARDING.md, and demote the library
   roadmap to "valid, not the current focus."
@@ -1985,6 +2008,7 @@ Cytoscape encoding. THIS round fixes the freeze. The filter/encoding
 disconnect is diagnosed and queued (see NOT FIXED below).
 
 DIAGNOSIS (measured, not guessed):
+
 - Headless measurement of the data path: the MBSE fixture is 31 nodes /
   39 edges / 12 blocks; the structural input is 12 containers / 4 edges;
   layoutStructural is ~560 ms (mostly elkjs cold-start) and yields 64
@@ -2006,6 +2030,7 @@ DIAGNOSIS (measured, not guessed):
   Cytoscape constructions, 2 ELK runs.
 
 FIX (items 1-3, root causes):
+
 1. Killed the flip: MBSEDemo now renders a shimmer skeleton placeholder
    until the structural geometry resolves, instead of mounting a force
    canvas as a stand-in. Removes a Cytoscape construction, a discarded
@@ -2176,7 +2201,7 @@ DEFERRED, teed up for next round.
   prop contract, so it needs maintainer sign-off; it does not affect the
   felt runtime delay (that was items 1 and 2), only profiling hygiene.
 
-## Block-view lag, actual root cause (2026-06-17): data(_size) mapping-warning flood
+## Block-view lag, actual root cause (2026-06-17): data(\_size) mapping-warning flood
 
 The toggle/filter lag round (items 1 and 2) did not move the felt lag, and
 the lag persisted in an extension-free incognito window, which ruled out
@@ -2188,6 +2213,7 @@ per-phase cost.
 
 MEASUREMENTS (repro: load MBSE in block view, toggle a node type, click
 Block view off, click Block view on):
+
 - MBSE render count: about 2 per interaction (StrictMode doubling). No
   re-render storm.
 - ELK layoutStructural: 612 ms on first run, 0.1 ms thereafter (the freeze
@@ -2199,28 +2225,28 @@ Block view off, click Block view on):
 Alongside the slow toggle, the console was flooded, once per render frame
 per node, with: "Do not assign mappings to elements without corresponding
 data (ele blk:memory has no mapping for property height with data field
-_size); try a [_size] selector". The stack shows it firing from
+\_size); try a [_size] selector". The stack shows it firing from
 Cytoscape's render loop (renderFn under requestAnimationFrame, through
 drawImages / getLabelBox / boundingBox to printMappingErr).
 
 ROOT CAUSE: the base `node` rule in DEFAULT_STYLESHEET mapped width and
-height to data(_size). Force and encoded nodes carry _size (set in
+height to data(\_size). Force and encoded nodes carry \_size (set in
 ugm-to-cytoscape with a default, and by the encoding via spec-apply), but
-structural block nodes size via _w/_h and never set _size. So in the block
-view every blk:* node triggered a Cytoscape mapping warning on every render
+structural block nodes size via \_w/\_h and never set \_size. So in the block
+view every blk:\* node triggered a Cytoscape mapping warning on every render
 frame, and that console flood (with dev stack capture) blocked the main
 thread. This was the felt lag in every prior round; the extension only
 added a second, separate serialization cost on top while a trace was being
 recorded, which is what misled the trace reads. It is Cytoscape, not React.
 
 FIX: scope the data-driven size mapping to `node[_size]`, exactly as the
-Cytoscape warning recommends. Width and height: data(_size) moved out of
+Cytoscape warning recommends. Width and height: data(\_size) moved out of
 the base `node` rule into a new `node[_size]` rule. Force and encoded nodes
-still size from _size; structural nodes are no longer matched, so the
-per-frame warning stops. No behavior change for nodes that lacked _size:
+still size from \_size; structural nodes are no longer matched, so the
+per-frame warning stops. No behavior change for nodes that lacked \_size:
 the mapping was already failing for them, it just also warned. Verified
-that structural nodes set _w/_h and _label but not _size/_color/_shape, and
-that only the _size (width/height) mapping reached printMappingErr (color,
+that structural nodes set \_w/\_h and \_label but not \_size/\_color/\_shape, and
+that only the \_size (width/height) mapping reached printMappingErr (color,
 shape, and label mappings to missing data did not warn, consistent with the
 console output).
 
@@ -2230,12 +2256,13 @@ no longer carries width/height and a `node[_size]` rule does. 861 total.
 GATES: typecheck, test 861, lint (eslint + prettier), eslint src/,
 lint_specs, sync_spec_status, check_roadmap_coverage, visual-acceptance,
 and verify sub-steps build:packages + treeshake + smoke + types + snippets
-+ docs:check + bundle all green (core 129.3/130.0 KB, react 302.4/304.0
-KB). verify:exports red in this sandbox only (gitignored tests/dist),
-unchanged.
+
+- docs:check + bundle all green (core 129.3/130.0 KB, react 302.4/304.0
+  KB). verify:exports red in this sandbox only (gitignored tests/dist),
+  unchanged.
 
 LIVE REVIEW: confirm the block view is now responsive and the console is no
-longer flooding with _size mapping warnings on every frame. The diagnostic
+longer flooding with \_size mapping warnings on every frame. The diagnostic
 timers from the instrumented build were removed.
 
 STILL OPEN (minor, optional). The Block-view-on toggle does two structural
@@ -2248,16 +2275,16 @@ Item 4 (route the Cytoscape Core out of React state/props) remains relevant
 only for clean profiling, not for runtime, and changes GraphToolbar's
 public cy contract, so it stays deferred pending sign-off.
 
-## Mapping-warning sweep follow-up (2026-06-17): _confidence flood + invalid outline-offset
+## Mapping-warning sweep follow-up (2026-06-17): \_confidence flood + invalid outline-offset
 
-After the _size fix, two more stylesheet warnings remained (the console was
+After the \_size fix, two more stylesheet warnings remained (the console was
 "fewer but still" flooding).
 
-1. data(_confidence) flood (same class as _size). The base `edge` rule
-   mapped opacity to data(_confidence). Force/ugm edges carry _confidence
+1. data(\_confidence) flood (same class as \_size). The base `edge` rule
+   mapped opacity to data(\_confidence). Force/ugm edges carry \_confidence
    (ugm-to-cytoscape), but structural connectors (e.g. geid_198_35) do not,
    so Cytoscape warned per edge per render frame in the block view. Fix:
-   moved opacity: data(_confidence) out of the base `edge` rule into a
+   moved opacity: data(\_confidence) out of the base `edge` rule into a
    scoped `edge[_confidence]` rule. This was the remaining per-frame flood.
 
 2. Invalid `outline-offset: -2` (one-time parse warning, not a flood, but a
@@ -2287,7 +2314,7 @@ three python gates, visual-acceptance, and all verify sub-steps green (core
 only (gitignored tests/dist), unchanged.
 
 LIVE REVIEW: confirm the block-view console is now clean (no per-frame
-_size or _confidence mapping warnings, no outline-offset warning). SEPARATE
+\_size or \_confidence mapping warnings, no outline-offset warning). SEPARATE
 DECISION pending: whether to implement the theme-driven border inset so a
 selected structural row's ring does not grow the container into the ports
 (the Round-43 intent, never realized); it is a visual change needing your
@@ -2314,6 +2341,7 @@ honest states are a separate, threshold-driven classification, so the
 68% floor is independent of any state tuning.
 
 CORPUS (`src/corpus.ts`):
+
 - CONCEPT_ADJACENCY + adjacentConcepts: a lightweight undirected concept
   taxonomy. Sustainment is adjacent to Predictive Logistics (the strong
   area it reaches off); Cyber Resilience is adjacent only to thin areas.
@@ -2325,13 +2353,14 @@ CORPUS (`src/corpus.ts`):
   converting evidence.
 
 PIPELINE (`src/pipeline.ts`):
+
 - AssociationTrace gains a `bucket` ("substantiating" | "claimable-only").
 - projectMeaning rewritten: two passes. Pass 1 builds substantiating
   associations and substantiated strength. Pass 2 adds claimable-only
   reach (gated behind a strength floor so only a genuinely strong
   neighbour lends reach: this is what separates Exposed from Gap) and
-  resume assertions. Concept nodes carry _substantiated, _claimable,
-  _supportCount. `_strength` removed.
+  resume assertions. Concept nodes carry \_substantiated, \_claimable,
+  \_supportCount. `_strength` removed.
 - runRelevanceAnalytic returns per-concept substantiated/claimable
   coverage, exposure, and one of three states (discriminator/exposed/
   gap); plus fitScore (substantiated floor), claimableFitScore (the
@@ -2398,6 +2427,7 @@ reusable @g3t/react component wired to the section-1 engine output, not
 demo-only scaffolding.
 
 COMPONENT (`packages/react/src/views/coverage/CoverageMeter.tsx`):
+
 - CoverageMeter: one concept's two-strength coverage as a SOLID bar
   (substantiated, the defensible floor) behind a GHOST bar (claimable,
   the performative ceiling), with the delta between them (the exposure)
@@ -2412,7 +2442,7 @@ COMPONENT (`packages/react/src/views/coverage/CoverageMeter.tsx`):
 - CoverageMeterList: the Act II table as one component (stacked rows,
   optional mount stagger). The row is the unit of reuse.
 - Tokens follow the inline-style + CSS-custom-property convention
-  (var(--g3t-*, fallback)); per-state colors fall back to hardcoded hex
+  (var(--g3t-\*, fallback)); per-state colors fall back to hardcoded hex
   when a brand theme has not defined the semantic token, matching how
   EmptyState already references --g3t-error.
 - Exported through a new `views/coverage` barrel and registered in the
@@ -2476,6 +2506,7 @@ budget bump, the two VA pages, and the open decisions). This round added
 ProvenanceTrace, the drill-anywhere capability the demo sells.
 
 COMPONENT (`packages/react/src/views/provenance/ProvenanceTrace.tsx`):
+
 - ProvenanceTrace: renders an ordered provenance chain (a pre-order
   flattening of the provenance tree, each hop carrying depth and
   parentId) as an indented, clickable trail from a derived conclusion to
@@ -2488,6 +2519,7 @@ COMPONENT (`packages/react/src/views/provenance/ProvenanceTrace.tsx`):
   barrel and registered in the package barrel.
 
 BUILDER (`examples/flagship/src/provenance.ts`):
+
 - buildProvenanceChain: a generic pre-order DFS walker (root seed +
   childrenOf callback) that assigns depth/parentId, guards cycles (no id
   repeated on a path), and caps total hops. Reusable; kept demo-side
@@ -2543,6 +2575,7 @@ last of the SANDBOX-VERIFIABLE section-2 toolkit additions (after
 CoverageMeter 2c and ProvenanceTrace 2d).
 
 COMPONENT (`packages/react/src/interaction/camera/cameraController.ts`):
+
 - createCameraController(cy, defaults?): a thin, documented wrapper around
   cy.animate / cy.fit / cy.center exposing named moves the shell narrates
   with: focusNodes(ids) (zoom-to-subgraph, fit the union of present
@@ -2600,6 +2633,7 @@ reducer; no React, no Cytoscape, no toolkit import, so it is fully
 sandbox-verifiable.
 
 MODEL (`examples/flagship/src/narrative.ts`):
+
 - BEATS: the ten beats of the walkthrough as DATA, mirroring
   planning/flagship-narrative.html act by act (cold open, consolidate;
   project, opportunity, analytic, two-weaknesses; decision, teaming,
@@ -2661,6 +2695,7 @@ stand-in fills it for the browser preview. This is why the composition is
 testable on jsdom without a renderer.
 
 COMPONENTS (`examples/flagship/src/shell/`):
+
 - NarrationBar (act/title/narration/op), Transport (play/pause, prev/next,
   replay, a beat scrubber with dots).
 - CoveragePanel: one clickable CoverageMeter per required concept from the
@@ -2700,6 +2735,7 @@ self-checks. Zero em-dashes; no source non-null assertions. Engine harness
 still 36.
 
 NOT VERIFIED HERE (the genuinely live-review items the plan called out):
+
 - The REAL stage: wiring CytoscapeCanvas + createCameraController into the
   slot, the actual graph render, and the camera moves on a real canvas
   (build-order step 1-real and step 6). The SVG stand-in is a preview, not
@@ -2709,7 +2745,7 @@ NOT VERIFIED HERE (the genuinely live-review items the plan called out):
   real-stage increment.
 - Motion/easing/legibility and "do the two bars read instantly" (step 7):
   judgable only live.
-These are in the acceptance ledger (a new "shell live review" section).
+  These are in the acceptance ledger (a new "shell live review" section).
 
 OPEN / DECISIONS: confirm the slot architecture (renderStage prop) is the
 shape you want, vs the shell importing CytoscapeCanvas directly. The slot
@@ -2739,14 +2775,15 @@ ProvenanceTrace) justified only where no existing surface fits. A
 
 THE LOAD-BEARING MOVE (built and verified this round): the stage's visual
 meaning is produced by the toolkit's encoding system, not by the demo.
+
 - examples/flagship/src/encoding.ts: RAW_ENCODING and MEANING_ENCODING
   (real EncodingSpec data) and annotateForEncoding, which writes the
   analytic's `_state`/`_exposure` onto the meaning UGM's concept nodes so
   the spec can drive node color off state. The Act I->II transition is a
   SPEC SWAP on the same laid-out graph (applyEncodingSpec restyles only,
   so nodes do not move).
-- MEANING_ENCODING: node.size <- _substantiated (sequential 16..46),
-  node.color <- _state (categorical: discriminator green, exposed amber,
+- MEANING_ENCODING: node.size <- \_substantiated (sequential 16..46),
+  node.color <- \_state (categorical: discriminator green, exposed amber,
   gap red, none/award neutral), node.shape <- types (Concept ellipse,
   Award rectangle), node.label <- name, edge.color <- type (supports
   green, contests red), edge.width <- weight.
@@ -2786,6 +2823,7 @@ Request: in addition to the Option 1 rework, each beat should call out the
 list of toolkit components it wires together to support the demo.
 
 BUILT:
+
 - examples/flagship/src/toolkit-credits.ts: TOOLKIT_SURFACES, a registry
   of the 19 EXISTING toolkit surfaces the flagship composes. Each entry is
   { id, name (a REAL exported symbol), pkg, blurb, isNew? }. isNew marks
@@ -2806,8 +2844,9 @@ asserts every credited surface name is really exported by its claimed
 package; that every beat references the registry and lists at least one
 surface; that the epilogue stack resolves; that the demo composes mostly
 existing surface (<=3 new, >=12 existing); and that the walkthrough spans
->=10 distinct surfaces. A renamed or removed component fails this test, so
-a credit can never claim something fictional.
+
+> =10 distinct surfaces. A renamed or removed component fails this test, so
+> a credit can never claim something fictional.
 
 VERIFIED: engine harness 59 (incl. 23 grounding), react harness 51 (incl.
 ToolkitCredits 3 and the shell credit assertion); `tsc --noEmit` strict
@@ -2828,6 +2867,7 @@ fully verified headlessly and only the browser-render glue is left for the
 live pass.
 
 BUILT:
+
 - examples/flagship/src/stage.ts: the pure stage director. The stage
   renders the MEANING UGM throughout (stable node set + one stable layout,
   fcose); Act I beats encode it flat (RAW_ENCODING), and from the
@@ -2866,7 +2906,7 @@ for that pass.
 WIRING NOTE: StageCanvas stays out of the shell's headless barrel (it
 pulls the full canvas). The production entry owns the memoized meaning UGM
 and fills the shell's renderStage slot with
-  (p) => <StageCanvas ugm={ugm} beat={beatById(p.beatId)} animate />.
+(p) => <StageCanvas ugm={ugm} beat={beatById(p.beatId)} animate />.
 
 DECISION TO CONFIRM: rendering the meaning UGM throughout (so Act I shows
 the concept nodes styled flat, then the projection lights them up) is what
@@ -2889,6 +2929,7 @@ the line are exactly the exposed concepts (claim outruns proof). This
 reads the thesis better than bars and uses the shipped view authentically.
 
 BUILT:
+
 - encoding.ts: annotateForEncoding now also writes `_subCoverage` and
   `_claimCoverage` onto concept nodes, so a linked chart can query both
   strengths straight from the graph (no external state).
@@ -2916,8 +2957,7 @@ backed by a wired, tested pipeline.
 
 NOT VERIFIED HERE (ledger E): the scatter actually rendering in ECharts,
 and the point-click selecting the concept on the canvas. CoverageChart is
-the artifact for that live check. DetailInspector (the other half of step
-3) is the next increment.
+the artifact for that live check. DetailInspector (the other half of step 3) is the next increment.
 
 ## Round 60: DetailInspector wired (node drill) - build step 3 complete
 
@@ -2926,6 +2966,7 @@ is React-only (it reads attributes straight from the UGM), so this
 composition is FULLY verified headlessly, including its render.
 
 BUILT:
+
 - stage.ts: drillTargetForBeat + inspectorSelectionForBeat (the concept a
   beat drills into, as a DetailInspector selection), plus the
   InspectorSelection type.
@@ -2958,6 +2999,7 @@ Both pieces exercise REAL toolkit graph functions at runtime (not mirrors),
 verified headlessly; only the canvas OVERLAY of the result is browser.
 
 BUILT:
+
 - teaming.ts: the partner the graph "knew". The partner (ORCA) and its
   co-delivered work are deliberately NOT in Northwind's solo graph (that
   would erase the gap). buildPartnerGraph constructs the partner subgraph
@@ -2997,9 +3039,10 @@ export + workspace snapshot for the brief beat).
 ## Round 62: brand theme + brief export + workspace snapshot (build step 5)
 
 The decision and brief beats, all via REAL toolkit functions (createTheme,
-exportSubgraph*, captureWorkspace/serializeWorkspace), verified headlessly.
+exportSubgraph\*, captureWorkspace/serializeWorkspace), verified headlessly.
 
 BUILT:
+
 - theme.ts: NORTHWIND_THEME via the toolkit's createTheme (brand accent +
   type palette over the light base; WCAG-contrast-safe, no warning). The
   "this becomes OUR product" beat brands the toolkit without forking it.
@@ -3035,6 +3078,7 @@ grounded and tested, the shell is typechecked against transcribed
 signatures, and the render is a live item.
 
 BUILT:
+
 - epilogue.ts: epiloguePanels(), the ordered exploration controls derived
   from the credit registry's EPILOGUE_SURFACES (each a real toolkit
   component). The pure spec of what the epilogue exposes.
@@ -3085,8 +3129,9 @@ Quarantine the example's heavy deps and consolidate the multi-round build
 into one landable guide. Both verifiable here.
 
 BUILT:
+
 - examples/flagship/package.json: private, @g3t/flagship-example. Declares
-  @g3t/{core,react,charts} as workspace:* and carries the heavy runtime
+  @g3t/{core,react,charts} as workspace:\* and carries the heavy runtime
   deps that @g3t/react lists as PEERS (react, react-dom, cytoscape,
   cytoscape-fcose, zustand, echarts, vis-timeline, vis-data). The
   quarantine: published packages stay light (peers); the never-published
@@ -3094,8 +3139,8 @@ BUILT:
   @g3t/charts, so the example omits it.
 - examples/flagship/tsconfig.json: extends tsconfig.base.json, includes src.
 - examples/flagship/INTEGRATION.md: the consolidated guide. The sandbox-only
-  files to drop (all scripts/*-slim, the sandbox tsconfig.* and
-  vitest.*.config), the wiring map (module -> toolkit surface), packaging,
+  files to drop (all scripts/_-slim, the sandbox tsconfig._ and
+  vitest.\*.config), the wiring map (module -> toolkit surface), packaging,
   the bundle-budget procedure, the grounding-test cwd caveat, and the
   live-review checklist (ledger E).
 
@@ -3105,7 +3150,7 @@ pulled by canvas/charts at runtime). Example tsconfig is valid and extends
 the base. Engine 75, react 55, graphops 12; eleven tsc configs clean; zero
 em-dashes; no source non-null assertions. No package source changed.
 
-NOT VERIFIABLE HERE: workspace:* resolution (needs pnpm) and the bundle
+NOT VERIFIABLE HERE: workspace:\* resolution (needs pnpm) and the bundle
 measurement (needs the full package build). The bundle item: react budget
 is 304 KB with ~165 KB measured per the check's own doc, so the three new
 components very likely fit; run pnpm verify:bundle and bump only if it fails
@@ -3122,10 +3167,11 @@ visual validation externally (and start unrelated repo work in a parallel
 agent chat) and resume cleanly afterward.
 
 ADDED:
+
 - planning/flagship-resume.md: the NEXT-AGENT entry point after the review.
   It reads examples/flagship/REVIEW-RESULTS.md and carries the decision tree
-  + a failure->owning-module routing table, so a resuming agent does not
-  re-derive the review procedure.
+  - a failure->owning-module routing table, so a resuming agent does not
+    re-derive the review procedure.
 - examples/flagship/REVIEW-RUNBOOK.md: the detailed review procedure for the
   external turn (phase 0 land/cleanup, phase 1 in-repo gates, phase 2 visual).
 - examples/flagship/REVIEW-RESULTS.md: a short results inbox the maintainer
@@ -3133,7 +3179,7 @@ ADDED:
 
 UPDATED (stale "engine built, shell pending" -> composition build complete +
 packaged + awaiting visual review): CLAUDE.md (with a parallel-agent
-coordination note: do not disturb examples/flagship/** or the three new
+coordination note: do not disturb examples/flagship/\*\* or the three new
 @g3t/react components; a flagship-example resolution error or a verify:bundle
 trip is this in-flight work), STATUS.md, AGENT-ONBOARDING.md.
 

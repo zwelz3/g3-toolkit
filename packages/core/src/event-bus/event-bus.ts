@@ -26,6 +26,8 @@ export interface G3tEvents {
   "ugm:changed": { nodeCount: number; edgeCount: number };
   // Context menu action events (M12/M13)
   "context:viewNeighbors": { nodeId: string; hops: number };
+  /** Review 4.11: a host wires this to an inspector panel. */
+  "context:inspect": { nodeId: string };
   "context:viewSubgraph": { nodeIds: string[] };
   "context:findPath": { sourceId: string; targetId: string };
   "context:editAppearance": { nodeId: string };

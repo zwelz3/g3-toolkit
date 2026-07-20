@@ -38,6 +38,14 @@ describe("materializeInferences", () => {
     expect(has(ex("thr1"), ex("partOf"), ex("aquila1"))).toBe(true);
   });
 
+  it("OW-F1 regression: partOf reverses never type the whole as a Subsystem", () => {
+    // hasComponent is NOT partOf's inverse; a Satellite with parts
+    // must not be entailed as a Subsystem, and no spurious
+    // hasComponent may materialize from partOf assertions.
+    expect(has(ex("aquila1"), RDF_TYPE, ex("Subsystem"))).toBe(false);
+    expect(has(ex("aquila1"), ex("hasComponent"), ex("prop1"))).toBe(false);
+  });
+
   it("materializes the inverse hasSubsystem from subsystemOf", () => {
     expect(has(ex("aquila2"), ex("hasSubsystem"), ex("pwr2"))).toBe(true);
   });
@@ -48,6 +56,16 @@ describe("materializeInferences", () => {
 
   it("treats equivalentClass bidirectionally (comm1 typed CommSubsystem)", () => {
     expect(has(ex("comm1"), RDF_TYPE, ex("CommSubsystem"))).toBe(true);
+  });
+
+  it("never types a spacecraft as a GroundStation (symmetric range must be symmetric)", () => {
+    // Regression pin: communicatesWith once had range GroundStation
+    // while being symmetric; the materialized reverse then typed
+    // satellites as GroundStations (inconsistent with the disjointness
+    // axiom under a DL reasoner). The range is now System; the
+    // GroundStation entailment demo rides the non-symmetric uplinksTo.
+    expect(has(ex("aquila1"), RDF_TYPE, ex("GroundStation"))).toBe(false);
+    expect(has(ex("aquila2"), RDF_TYPE, ex("GroundStation"))).toBe(false);
   });
 
   it("never re-emits an asserted triple and never duplicates itself", () => {

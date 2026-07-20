@@ -20,7 +20,6 @@ import {
   ingestAlgorithmResults,
   layoutStructural,
   isChainEdgeId,
-  compartmentKey,
   shaclShapesToStructural,
   shaclRowSeverities,
   closedShapeIds,
@@ -50,9 +49,6 @@ import {
   runGraphLayout,
   DEFAULT_LAYOUT_OPTIONS,
   ContextMenuManager,
-  registerCompartmentCollapseActions,
-  useCompartmentCollapseStore,
-  collapsedCompartmentSet,
   captureWorkspace,
   applyWorkspace,
   serializeWorkspace,
@@ -288,86 +284,6 @@ describe("wiring guide: structural (UML-style) layout", () => {
     )!;
     expect(edge.classes).toContain("g3t-uml-composition");
     expect(edge.data._kind).toBe("composition");
-  });
-
-  it("collapses a compartment by feeding its key to the layout", async () => {
-    const input = {
-      nodes: [
-        {
-          id: "sensor",
-          header: { stereotype: "Block", name: "Sensor" },
-          compartments: [
-            {
-              id: "operations",
-              title: "operations",
-              rows: [
-                { id: "sensor.calibrate", text: "calibrate() : void" },
-                { id: "sensor.reset", text: "reset() : void" },
-              ],
-            },
-          ],
-        },
-      ],
-      edges: [],
-    };
-    const expanded = await layoutStructural(input);
-    const collapsed = await layoutStructural(input, {
-      collapsedCompartments: new Set([compartmentKey("sensor", "operations")]),
-    });
-    // Content rows gone, divider with hidden count remains, shorter.
-    expect(collapsed.nodes["sensor.calibrate"]!).toBeUndefined();
-    expect(collapsed.nodes["sensor::operations::title"]!.text).toBe(
-      "operations (2 hidden)",
-    );
-    expect(collapsed.nodes["sensor"]!.height).toBeLessThan(
-      expanded.nodes["sensor"]!.height,
-    );
-  });
-
-  it("right-click collapse action drives the store, which drives re-layout", async () => {
-    useCompartmentCollapseStore.getState().clear();
-    const input = {
-      nodes: [
-        {
-          id: "sensor",
-          header: { stereotype: "Block", name: "Sensor" },
-          compartments: [
-            {
-              id: "operations",
-              title: "operations",
-              rows: [{ id: "sensor.calibrate", text: "calibrate() : void" }],
-            },
-          ],
-        },
-      ],
-      edges: [],
-    };
-
-    // Host registers the built-in action; the menu reads the
-    // converter-set container tags off the target.
-    const manager = new ContextMenuManager();
-    registerCompartmentCollapseActions(manager);
-    const target = {
-      type: "node" as const,
-      id: "sensor",
-      position: { x: 0, y: 0 },
-      data: { _structuralContainer: true, _compartmentIds: ["operations"] },
-    };
-    const action = manager
-      .resolve(target)
-      .find((i) => i.id === "collapse-compartments")!;
-    action.action(target);
-
-    expect(useCompartmentCollapseStore.getState().collapsedKeys).toEqual([
-      "sensor::operations",
-    ]);
-    // Host re-runs layout with the store's set folded in.
-    const geometry = await layoutStructural(input, {
-      collapsedCompartments: collapsedCompartmentSet(
-        useCompartmentCollapseStore.getState().collapsedKeys,
-      ),
-    });
-    expect(geometry.nodes["sensor.calibrate"]).toBeUndefined();
   });
 });
 

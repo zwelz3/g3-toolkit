@@ -124,12 +124,21 @@ export function collapseByCluster(
     members.set(superId, ids);
     for (const id of ids) superOf.set(id, superId);
     const breakdown = typeBreakdown(ugm, ids);
+    const dominantType =
+      Object.entries(breakdown).sort(
+        (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+      )[0]?.[0] ?? "node";
     collapsed.addNode(superId, {
       types: ["Cluster"],
       properties: {
         memberCount: ids.length,
         typeBreakdown: JSON.stringify(breakdown),
-        name: clusterLabel(superId, breakdown, ids.length),
+        // The dominant member type as a first-class property, so
+        // consumers can drive a categorical encoding from it
+        // (review 5.14: an encoding change AT scale) without
+        // re-parsing the breakdown JSON.
+        dominantType,
+        name: clusterLabel(superId, dominantType, ugm, ids),
       },
     });
   }
@@ -215,10 +224,30 @@ function typeBreakdown(
 
 function clusterLabel(
   superId: string,
-  breakdown: Record<string, number>,
-  size: number,
+  dominantType: string,
+  ugm: UGM,
+  ids: readonly string[],
 ): string {
-  if (superId === OTHER_ID) return `Other clusters (${size})`;
-  const dominant = Object.entries(breakdown).sort((a, b) => b[1] - a[1])[0];
-  return `${dominant?.[0] ?? "Cluster"} cluster (${size})`;
+  // The label is a NAME; the member count is data and rides the
+  // memberCount property (size channel, panels). Embedding it here
+  // caused double-rendered counts wherever a consumer also showed it.
+  if (superId === OTHER_ID) return "Other clusters";
+  // Review 5.12: dominant type alone collides whenever communities
+  // share a type mix (a planted-partition graph has near-identical
+  // breakdowns, so half the rail read "Service cluster"). The
+  // highest-degree member is the distinguisher: communities are
+  // disjoint, so its name is unique across clusters.
+  let top: string | undefined;
+  let topDeg = -1;
+  for (const id of ids) {
+    const d = ugm.getNodeEdges(id).length;
+    if (d > topDeg) {
+      topDeg = d;
+      top = id;
+    }
+  }
+  const topName = ugm.getNode(top ?? "")?.properties.name;
+  return typeof topName === "string"
+    ? `${dominantType} cluster around ${topName}`
+    : `${dominantType} cluster`;
 }

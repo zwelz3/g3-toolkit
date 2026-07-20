@@ -30,7 +30,7 @@ DONE = {"implemented", "verified"}
 def spec_statuses() -> dict[str, str]:
     statuses: dict[str, str] = {}
     for spec in (ROOT / "specs").glob("*.md"):
-        for block in re.split(r"\n(?=- R\d)", spec.read_text(encoding='utf-8')):
+        for block in re.split(r"\n(?=- R\d)", spec.read_text(encoding="utf-8")):
             m = re.match(r"- (R\d+\.\d+) ", block)
             if not m:
                 continue
@@ -45,7 +45,7 @@ def roadmap_owners() -> dict[str, list[str]]:
         if f.name == "CLAUDE.md":
             continue
         rel = str(f.relative_to(ROOT / "roadmap"))
-        text = f.read_text(encoding='utf-8')
+        text = f.read_text(encoding="utf-8")
         # Owns headers may wrap; capture from "**Owns:**" to the next
         # bold field or blank line. Dedupe per file: only cross-FILE
         # double ownership violates the contract.
@@ -60,7 +60,7 @@ def roadmap_owners() -> dict[str, list[str]]:
 
 
 def claude_md_index() -> set[tuple[str, str]]:
-    text = (ROOT / "roadmap" / "CLAUDE.md").read_text(encoding='utf-8')
+    text = (ROOT / "roadmap" / "CLAUDE.md").read_text(encoding="utf-8")
     pairs: set[tuple[str, str]] = set()
     for line in text.split("\n"):
         m = re.match(r"\| (R\d+\.\d+) [^|]*\| [^|]+\| ([^|]+) \|", line)

@@ -83,8 +83,20 @@ describe("collapseByCluster invariants", () => {
       const node = res.ugm.getNode(superId);
       expect(node?.types).toEqual(["Cluster"]);
       expect(node?.properties.memberCount).toBe(ids.length);
-      expect(String(node?.properties.name)).toContain(`(${ids.length})`);
+      // The label is a bare name; the count is data on memberCount
+      // (embedding it in the label caused double-rendered counts).
+      expect(String(node?.properties.name)).not.toContain("(");
+      expect(String(node?.properties.name)).toMatch(/cluster/i);
+      // Review 5.14: the dominant member type is a first-class
+      // property so consumers can drive a categorical encoding.
+      expect(typeof node?.properties.dominantType).toBe("string");
     }
+    // Review 5.12: labels disambiguate via the top-degree member, so
+    // same-type-mix communities never collapse to identical names.
+    const names = [...res.members.keys()].map((id) =>
+      String(res.ugm.getNode(id)?.properties.name),
+    );
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it("is deterministic for a fixed rng seed", () => {

@@ -24,6 +24,9 @@ export interface SelectionState {
   selectEdges: (ids: string[]) => void;
   /** Add node IDs to the existing selection (shift-click). */
   addNodesToSelection: (ids: string[]) => void;
+  /** Remove ids from the node selection (review 4.12: the collapse
+   *  counterpart to addNodesToSelection). */
+  removeNodesFromSelection: (ids: string[]) => void;
   /** Add edge IDs to the existing selection. */
   addEdgesToSelection: (ids: string[]) => void;
   /** Clear all node and edge selections. */
@@ -57,6 +60,13 @@ export const useSelectionStore = create<SelectionState>()(
         set((state) => {
           const next = new Set(state.selectedNodeIds);
           for (const id of ids) next.add(id);
+          return { selectedNodeIds: next };
+        }),
+
+      removeNodesFromSelection: (ids) =>
+        set((state) => {
+          const next = new Set(state.selectedNodeIds);
+          for (const id of ids) next.delete(id);
           return { selectedNodeIds: next };
         }),
 

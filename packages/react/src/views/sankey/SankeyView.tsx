@@ -64,7 +64,13 @@ export function SankeyView({
   useEffect(() => {
     if (!chartRef.current || nodes.length === 0 || links.length === 0) return;
 
-    const chart = echarts.init(chartRef.current);
+    // SVG renderer: equivalent output at type-graph scale, crisper
+    // labels, and it runs in jsdom (the canvas renderer needs a real
+    // 2d context), so the view is directly testable (review 5.5:
+    // this component relocated to Analytics with no suite of its own).
+    const chart = echarts.init(chartRef.current, undefined, {
+      renderer: "svg",
+    });
 
     if (currentMode === "sankey") {
       chart.setOption({

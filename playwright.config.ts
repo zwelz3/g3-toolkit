@@ -31,7 +31,12 @@ export default defineConfig({
     ["json", { outputFile: "test-results.json" }],
   ],
   use: {
-    baseURL: "http://localhost:5173",
+    // PRODUCTION bundle under test (G3L Round 47): the owner found
+    // the graph toolbar broken in `pnpm preview` while every gate
+    // (1,354 unit + 58 e2e) ran source or dev builds: production
+    // breakage was structurally invisible. e2e now builds and serves
+    // the REAL bundle; the dev server is what `pnpm run dev` is for.
+    baseURL: "http://localhost:4173",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     // Consistent viewport for screenshot baselines
@@ -55,8 +60,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm run dev",
-    url: "http://localhost:5173",
+    command: "pnpm run build && pnpm run preview -- --port 4173 --strictPort",
+    url: "http://localhost:4173",
     reuseExistingServer: !process.env.CI,
     // Cold vite start compiling the playground can exceed 30s.
     timeout: 120000,

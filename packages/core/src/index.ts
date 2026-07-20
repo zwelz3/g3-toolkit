@@ -10,6 +10,18 @@
  */
 
 // ── Data model ──────────────────────────────────────────────────────
+// ARCHIVED FROM THE PUBLIC SURFACE (owner ruling 2026-07-12,
+// "archive don't delete"): six clusters of delivered, tested feature
+// surface with no in-repo consumer left the barrel; the modules and
+// their tests REMAIN in the tree and keep running (no rot, no
+// deletion). Registry with the restore procedure: ARCHIVE.md at the
+// package root. Analysis: planning/g3l/dead-code-analysis.md.
+// DEMOTED FROM THE PUBLIC BARREL (2026-07-11 dead-code round):
+// twenty internal helpers (text sizing, ELK graph assembly, QLT
+// metric internals, SHACL row formatting, RDF term utilities) had no
+// consumer outside @g3t/core; their tests import relatively and
+// still run. Full analysis and the T2 ruling table (tested feature
+// surface, NOT removed): planning/g3l/dead-code-analysis.md.
 export { UGM } from "./ugm";
 export type {
   NodeAttributes,
@@ -31,9 +43,7 @@ export type { GraphAdapter, SchemaModel } from "./adapter";
 export { SparqlAdapter } from "./adapter";
 export { CypherAdapter } from "./adapter";
 export { HolonicAdapter } from "./adapter";
-export { GremlinAdapter } from "./adapter";
 export type { GremlinAdapterConfig } from "./adapter";
-export { RestAdapter } from "./adapter/rest-adapter";
 export type {
   RestAdapterConfig,
   RestResponseMapping,
@@ -43,14 +53,6 @@ export type {
 export type { Holon, Portal, HolonicDataset } from "./adapter";
 
 // ── Middleware ──────────────────────────────────────────────────────
-export {
-  composeMiddleware,
-  defaultFetch,
-  bearerAuth,
-  apiKeyHeader,
-  retryOnError,
-  requestLogger,
-} from "./middleware";
 export type { AdapterRequest, AdapterResponse, Middleware } from "./middleware";
 
 // ── Event bus ───────────────────────────────────────────────────────
@@ -59,15 +61,10 @@ export type { G3tEvents, G3tEventName } from "./event-bus";
 
 // ── Pipeline (chart data integration) ───────────────────────────────
 export {
-  PipelineRegistry,
   createCountByType,
-  createCountByProperty,
   createDegreeDistribution,
-  createEdgeTypeBreakdown,
   createPropertyCorrelation,
   createCentralityVsProperty,
-  createActivityTimeline,
-  createCommunityBreakdown,
 } from "./pipeline";
 export type {
   DataPipeline,
@@ -99,21 +96,13 @@ export {
   shaclShapesToStructural,
   closedShapeIds,
   shaclRowSeverities,
-  propertyRowText,
-  cardinalitySuffix,
-  valueConstraintCount,
   shaclRowId,
-  parseShaclReport,
   reportFromValidationResults,
   severityOverlays,
-  severityOverlayId,
   shaclResultDrivers,
   reportFocusNodes,
-  resultsForShape,
-  resultTargets,
   resultSelectionIds,
   resultDetail,
-  resultsForFocusNode,
 } from "./shacl";
 export type {
   ShaclShape,
@@ -133,11 +122,6 @@ export {
   overridesToCytoscapeStyles,
   ICONS,
   ICON_NAMES,
-  svgToDataUri,
-  serializeOverrides,
-  deserializeOverrides,
-  TypeMenuProvider,
-  createDefaultTypeMenuProvider,
 } from "./style-override";
 export type {
   NodeStyleOverride,
@@ -146,17 +130,11 @@ export type {
 } from "./style-override";
 
 // ── Advanced (provenance, derived properties, pinning) ──────────────
-export {
-  extractProvOProperties,
-  PROVO_MAPPINGS,
-  DerivedPropertyEngine,
-  pinNodes,
-  unpinAll,
-} from "./advanced";
+export { DerivedPropertyEngine, pinNodes } from "./advanced";
 export type { DerivedProperty } from "./advanced";
 
 // ── Projection (RDF → LPG) ──────────────────────────────────────────
-export { ProjectionPipeline, localPart, castLiteral, RDF } from "./projection";
+export { ProjectionPipeline, RDF } from "./projection";
 export type {
   RDFTriple,
   RDFGraph,
@@ -164,14 +142,8 @@ export type {
   ProjectionStep,
   ProjectionStepConfig,
 } from "./projection";
-export {
-  typeCollapse,
-  literalCollapse,
-  blankNodeCollapse,
-  listCollapse,
-  reificationCollapse,
-} from "./projection";
-export { createPresetPipeline, checkRenderPermission } from "./projection";
+export { typeCollapse } from "./projection";
+export { createPresetPipeline } from "./projection";
 export type {
   PresetName,
   HolonicProjectionPipeline,
@@ -187,9 +159,7 @@ export type { DiffResult, NodeDiff, EdgeDiff, PropertyChange } from "./diff";
 export {
   ingestAlgorithmResults,
   parseAlgorithmResult,
-  overlayFromDocument,
   overlayFromPath,
-  ingestEdgeAlgorithmResults,
   applyAlgorithmResult,
   connectedComponents,
   degreeCentrality,
@@ -202,28 +172,82 @@ export { virtualizeRelationalData, parseCSV } from "./relational-virtualizer";
 export type { VirtualizeOptions } from "./relational-virtualizer";
 
 // ── Layout engines (D6: pure compute) ───────────────────────────────
-export { ForceLayout, HierarchyLayout, DagreLayout, ElkLayout } from "./layout";
+export {
+  ForceLayout,
+  HierarchyLayout,
+  DagreLayout,
+  G3tLayeredLayout,
+} from "./layout";
 export type {
   LayoutEngine,
   LayoutOptions,
   LayoutResult,
   Position,
 } from "./layout";
-export {
-  computeIncrementalUpdate,
-  applyIncrementalLayout,
-  capturePositions,
-  IncrementalLayout,
-} from "./layout/incremental-layout";
 export type { IncrementalLayoutOptions } from "./layout/incremental-layout";
+// ── Layout quality metrics (G3L:QLT-002): the falsifiability oracle
+//    for engine comparisons and stability assertions ────────────────
+export type {
+  LayoutMetrics,
+  LayoutMetricsInput,
+  MetricsEdge,
+  MetricsNode,
+  SketchDisplacement,
+} from "./metrics/layout-metrics";
+// ── Style resolution core (G3L:ARC-002, STY-001..005): the pure
+//    layered engine with dependency-tracked invalidation ────────────
+export { StyleEngine, resolveStyles } from "./style/style-engine";
+export type {
+  DiagnosticsSink,
+  InvalidationResult,
+  StyleDiagnostic,
+  StyleElement,
+  StyleElementKind,
+  StyleEngineConfig,
+  StyleGraph,
+  StyleRule,
+  StyleRuleContext,
+  StyleRuleDependencies,
+  StyleSelector,
+  StyleTheme,
+} from "./style/style-engine";
 export {
-  buildStructuralElkGraph,
+  contrastRatio,
+  LIGHT_TOKENS,
+  OKABE_ITO,
+  relativeLuminance,
+  themeFromTokens,
+} from "./style/tokens";
+export type { DesignTokens } from "./style/tokens";
+export { applyLod, DEFAULT_LOD_SCHEDULE, resolveLod } from "./style/lod";
+export type {
+  LodContext,
+  LodFeatureFlags,
+  LodSchedule,
+  LodTier,
+  ResolvedLod,
+} from "./style/lod";
+export type {
+  SerializableStyleRule,
+  StyleConfigDocument,
+  StyleConfigError,
+  StyleConfigParseResult,
+} from "./style/style-config-json";
+export type {
+  ArrowKind,
+  DonutSegment,
+  EdgeGradient,
+  Glyph,
+  Halo,
+  NodeShape,
+  VisualAttributeKey,
+  VisualAttributes,
+} from "./style/visual-attributes";
+export {
   layoutStructural,
-  estimateTextSize,
   isChainEdgeId,
   edgePortId,
   isEdgePortId,
-  compartmentKey,
 } from "./layout/structural";
 export type {
   StructuralGraphInput,
@@ -239,7 +263,6 @@ export type {
   StructuralLayoutOptions,
   TextMeasure,
   PortSide,
-  ElkEngine,
 } from "./layout/structural";
 
 // ── Combo (node grouping model) ─────────────────────────────────────
@@ -268,7 +291,9 @@ export {
 } from "./theme";
 
 // ── Path analysis (D6; reclassified from @g3t/react in P3.2) ────────
-export { findShortestPath } from "./path-analysis";
+export { findShortestPath, allShortestPaths } from "./path-analysis";
+export { khopNeighborhood } from "./path-analysis/khop";
+export type { KhopOptions } from "./path-analysis/khop";
 export type { PathResult, PathOptions } from "./path-analysis";
 export * from "./export";
 export { collapseByCluster, buildSubgraph } from "./scale/collapse-by-cluster";
@@ -277,3 +302,57 @@ export type {
   CollapseResult,
   SubgraphResult,
 } from "./scale/collapse-by-cluster";
+
+export {
+  routeOrthogonal,
+  polylineIntersectsBoxes,
+} from "./route/orthogonal-router";
+export type {
+  OrthogonalRouteRequest,
+  RouteBox,
+  RouteSide,
+  RouteTerminal,
+} from "./route/orthogonal-router";
+export {
+  applyChangeSet,
+  invertChangeSet,
+  affectedRegion,
+  serializeChangeSet,
+  parseChangeSet,
+} from "./model/change-set";
+export type {
+  StructuralChangeSet,
+  StructuralDiff,
+  ChangeSetDiagnostic,
+  ApplyChangeSetResult,
+  ChangeSetDocument,
+} from "./model/change-set";
+export {
+  serializeGraphDocument,
+  parseGraphDocument,
+  validateGraphDocument,
+  toStructuralInput,
+  GRAPH_DOCUMENT_SCHEMA,
+} from "./model/graph-document";
+export type {
+  GraphDocument,
+  DocNode,
+  DocEdge,
+  DocPort,
+  DocumentDiagnostic,
+} from "./model/graph-document";
+export { importElkJson } from "./model/elk-import";
+export type { ElkJsonNode, ElkJsonEdge } from "./model/elk-import";
+export { layoutStructuralWithChangeSet } from "./layout/change-driven-layout";
+export type {
+  ChangeDrivenLayoutResult,
+  ChangeDrivenLayoutOptions,
+} from "./layout/change-driven-layout";
+export { hitTestScene, hitTestStructural, distToSegment } from "./hit/hit-test";
+export type {
+  SceneHit,
+  StructuralHit,
+  HitPoint,
+  HitSceneNode,
+  HitSceneEdge,
+} from "./hit/hit-test";

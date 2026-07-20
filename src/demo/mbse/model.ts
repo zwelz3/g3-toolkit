@@ -358,6 +358,16 @@ const blocks: Record<string, Block> = {
   },
 };
 
+const testCases: Record<string, Block> = {
+  "tc.imaging": {
+    id: "tc.imaging",
+    kind: "block",
+    name: "ImagingAcceptanceTest",
+    stereotype: "testCase",
+    operations: ["captureReferenceScene()", "assessGSD()"],
+  },
+};
+
 const requirements: Record<string, Requirement> = {
   mission: {
     id: "mission",
@@ -452,6 +462,24 @@ const relationships: Record<string, Relationship> = {
     kind: "dependency",
     source: "imager",
     target: "req.image",
+    stereotype: "satisfy",
+  },
+  // Review 6.5: verification traceability. The imaging acceptance
+  // test VERIFIES the imaging requirement; the power-budget
+  // constraint block SATISFIES the power requirement analytically
+  // (its binding is the satisfaction argument).
+  "v.image": {
+    id: "v.image",
+    kind: "dependency",
+    source: "tc.imaging",
+    target: "req.image",
+    stereotype: "verify",
+  },
+  "s.budget": {
+    id: "s.budget",
+    kind: "dependency",
+    source: "powerBudget",
+    target: "req.power",
     stereotype: "satisfy",
   },
 };
@@ -566,7 +594,14 @@ const diagrams: Record<string, Diagram> = {
     type: "req",
     context: "requirements",
     requirements: ["mission"],
-    relationships: ["s.power", "s.point", "s.downlink", "s.image"],
+    relationships: [
+      "s.power",
+      "s.point",
+      "s.downlink",
+      "s.image",
+      "v.image",
+      "s.budget",
+    ],
   },
 };
 
@@ -597,7 +632,7 @@ const root: Package = {
 
 export const satelliteModel: SysMLModel = {
   root,
-  blocks,
+  blocks: { ...blocks, ...testCases },
   requirements,
   relationships,
   connectors,

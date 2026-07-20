@@ -12,6 +12,7 @@ import {
   fromLegacyConfig,
   makeColorResolver,
   makeIconResolver,
+  makeShapeResolver,
   makeSizeResolver,
   parseEncodingSpec,
   ReservedChannelError,
@@ -247,5 +248,81 @@ describe("categoricalColorMap (FacetFilter swatch consistency)", () => {
       },
     };
     expect(categoricalColorMap(spec, ugm).size).toBe(0);
+  });
+});
+
+describe("categorical domain stability (review 4.4)", () => {
+  const specWithDomain = (domain: string[]): EncodingSpec => ({
+    version: 1,
+    node: {
+      color: {
+        driver: "types",
+        scale: { kind: "categorical", palette: "okabe-ito", domain },
+      },
+      shape: {
+        driver: "types",
+        scale: { kind: "categorical", domain },
+      },
+    },
+    edge: {},
+  });
+
+  function ugmInOrder(types: string[]): UGM {
+    const g = new UGM();
+    types.forEach((t, i) => g.addNode(`n${i}`, { types: [t] }));
+    return g;
+  }
+
+  it("same spec, reversed data order: identical colors and shapes per value", () => {
+    const domain = ["Alpha", "Beta", "Gamma", "Delta"];
+    const spec = specWithDomain(domain);
+    const forward = ugmInOrder(domain);
+    const reversed = ugmInOrder([...domain].reverse());
+
+    const colorF = categoricalColorMap(spec, forward);
+    const colorR = categoricalColorMap(spec, reversed);
+    for (const v of domain) {
+      expect(colorR.get(v)).toBe(colorF.get(v));
+    }
+
+    const shapeEnc = spec.node.shape;
+    const resolveF = makeShapeResolver(shapeEnc);
+    const resolveR = makeShapeResolver(shapeEnc);
+    // Encounter in reversed order first; domain seeding must make the
+    // encounter order irrelevant.
+    for (const v of [...domain].reverse())
+      resolveR({ types: [v], properties: {} });
+    for (const v of domain) {
+      expect(resolveR({ types: [v], properties: {} })).toBe(
+        resolveF({ types: [v], properties: {} }),
+      );
+    }
+  });
+
+  it("without a domain, encounter order still assigns (unchanged legacy behavior)", () => {
+    const spec = specWithDomain([]);
+    if (spec.node.color?.scale.kind === "categorical") {
+      delete spec.node.color.scale.domain;
+    }
+    const a = categoricalColorMap(spec, ugmInOrder(["X", "Y"]));
+    const b = categoricalColorMap(spec, ugmInOrder(["Y", "X"]));
+    expect(a.get("X")).toBe(b.get("Y"));
+  });
+
+  it("out-of-domain values assign after the domain and never steal domain slots", () => {
+    const spec = specWithDomain(["A", "B"]);
+    const withExtra = categoricalColorMap(spec, ugmInOrder(["Zed", "A", "B"]));
+    const domainOnly = categoricalColorMap(spec, ugmInOrder(["A", "B"]));
+    expect(withExtra.get("A")).toBe(domainOnly.get("A"));
+    expect(withExtra.get("B")).toBe(domainOnly.get("B"));
+    expect(withExtra.get("Zed")).toBeDefined();
+    expect(withExtra.get("Zed")).not.toBe(withExtra.get("A"));
+    expect(withExtra.get("Zed")).not.toBe(withExtra.get("B"));
+  });
+
+  it("categoricalColorMap lists domain values first, in domain order", () => {
+    const spec = specWithDomain(["B", "A"]);
+    const map = categoricalColorMap(spec, ugmInOrder(["Extra", "A", "B"]));
+    expect([...map.keys()]).toEqual(["B", "A", "Extra"]);
   });
 });

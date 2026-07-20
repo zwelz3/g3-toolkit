@@ -1,5 +1,538 @@
 # g3-toolkit Status
 
+**As of:** 2026-07-20 (active: G3L Round 48 executed: the owner's
+production e2e run triaged: all three failures dispositioned (one
+was my round-45 e2e-expectation miss, recorded; two were smoke-spec
+title/affordance guesses). SCALE SMOKE PASSED: the toolbar mounts
+clean in production. Failures-only digest shipped
+(scripts/filter-e2e-failures.mjs + `pnpm run e2e:failures` + CI
+artifact), validated on the owner's actual upload. e2e 66/12.
+NEXT: owner re-runs e2e (expect 66/66), describes the toolbar
+symptom if it persists, finishes the cut-off question; then D3b
+part 2 (extraction).)
+
+## PRIOR SNAPSHOT (Round 47)
+
+**As of:** 2026-07-19 (active: G3L Round 47 executed: scale freeze
+RULED dev-only (production clean; DevTools sub-claim corrected on
+the record); e2e now runs against the PRODUCTION bundle (build +
+preview webServer) and a production-smoke spec walks every example
+(66 e2e/12 files): the toolbar-in-preview class is closed, the
+instance lands on the next e2e run or console paste. NEXT: D3b part
+2 (ARC-009 extraction). Owner: run e2e on round 47 (first
+production-bundle run), paste smoke failures or the preview console
+line for the toolbar.)
+
+## PRIOR SNAPSHOT (Round 46)
+
+**As of:** 2026-07-19 (active: G3L Round 47 executed: e2e targets
+the PRODUCTION bundle (build+preview webServer) + an 8-example
+production-smoke spec with console-clean assertions (e2e 66/12).
+Scale freeze CLOSED: owner-verified dev-only, DevTools-independent;
+verdict + P2 lever recorded in the surface. Toolbar prod break:
+statically clean, browser-witnessed by the smoke spec: owner's next
+e2e run names it. NEXT: D3b part 2 (extraction) once the toolbar
+break is dispositioned (it may be a round-45 regression; extraction
+would move the evidence). Owner: run e2e on round 47; complete the
+cut-off question ("should we add the...").)
+
+## PRIOR SNAPSHOT (Round 46)
+
+**As of:** 2026-07-19 (active: G3L Round 46 executed: Supply Thread
+Renderer toggle (Cytoscape | SVG | Canvas) over a HARVESTED scene;
+harvestSceneFromCy exported (any cy instance -> adapter scene, one
+import per demo); measured adapter hosts; opt-in fake-core test
+seam. 1,354 tests. NEXT: D3b part 2 (ARC-009 extraction) slid one
+round for this owner request; proceeds now. Owner: scale
+experiments + quality list + browser-check the new toggle.)
+
+## PRIOR SNAPSHOT (Round 45)
+
+**As of:** 2026-07-19 (active: G3L Round 45 executed: D3b PART 1:
+elkjs LEFT THE TREE (pipeline deleted, seam retired, bands frozen
+against recorded elk baselines, G3tLayeredLayout replaces ElkLayout,
+full disposition in the design doc; core rebased 192; PRF-001 199 ms
+container-green). Scale freeze NAMED: React dev-build prop
+serialization (owner profile); two 10-second experiments confirm.
+Flip ratified in substance. 1,351 tests. NEXT: D3b part 2 = ARC-009
+extraction (@g3t/layout, vocabulary rename, fresh budgets). Owner:
+scale experiments + quality-bug list when ready.)
+
+## PRIOR SNAPSHOT (Round 44)
+
+**As of:** 2026-07-18 (active: G3L Round 44 executed: e2e 58/58
+owner-confirmed (drag/routing closed). Scale block cornered: one
+17.9 s longtask right after settled on clusters return; every
+headless suspect eliminated by measurement (spec-apply 1 ms, Fuse
+4/84 ms, headless-cy 46 ms); renderer-side or browser-only. Shipped
+JS Self-Profiling: Document-Policy header + per-switch sampler
+printing top self-time functions into the owner's console paste.
+1,356 tests. Awaiting: the profile paste; the browser session (flip
+ratification = the ONLY gate left on D3b).)
+
+## PRIOR SNAPSHOT (Round 43)
+
+**As of:** 2026-07-18 (active: G3L Round 43 executed: drag basis is
+truth-carried end-to-end (_geomBox stamped; capture from _routePts;
+padded-cy values out of the loop; straight results write via the
+degenerate doctrine). NEW integration oracle: real BDD, real
+converter, real handlers, e2e's exact choreography, HOSTILE fake
+(padded dims, corrupted endpoints). Scale longtask watch runs 15 s
+past settled. 1,356 tests. Awaiting: e2e on round 43, browser
+session, scale paste. D3b holds for flip ratification.)
+
+## PRIOR SNAPSHOT (Round 42)
+
+**As of:** 2026-07-18 (active: G3L Round 42 executed: the zigzag
+root cause fixed (absolute _routePts end-to-end: converter writes,
+overlay renders verbatim, drag rewrites, MR-9 restores; seg data is
+hit-testing only now). Scale: preset restores snap; longtask +
+layoutstart diagnostics land the next paste on the culprit. 1,355
+tests. Awaiting: e2e on round 42, the browser session, fresh scale
+console lines. D3b holds for flip ratification.)
+
+## PRIOR SNAPSHOT (Round 41)
+
+**As of:** 2026-07-18 (active: G3L Round 41 executed: MR-8 drag
+reroute fixed under g3t (host-attached capture; no eports to find;
+the owner's "routes to center" parity item and the e2e crossing
+failure were one defect; stub oracle added). Scale surface gains
+phase instrumentation (cy-init/layoutstop/settled) and a
+position cache: returns mount PRESET from settled positions. 1,355
+tests. Awaiting: e2e on round 41 (drag-reroute spec should flip),
+the parity list, fresh scale console lines. D3b holds for flip
+ratification.)
+
+## PRIOR SNAPSHOT (Round 40)
+
+**As of:** 2026-07-18 (active: G3L Round 40 executed: the overlay
+bug's REAL root cause fixed (compound containers carry no cy
+position; projection centers now fall back to geometry boxes;
+headless replication of the exact e2e pipeline goes 0/5 -> 5/5
+routed). Regression pin hardened to containers. Owner reports
+rendering-parity issues (detail incoming next round) and
+scale-surface switch lag (fcose pipeline, not layoutStructural;
+instrumented numbers requested; options analysis in queue).
+Awaiting: e2e 58/58 on round 40, parity list, scale numbers. D3b
+holds until flip ratification.)
+
+## PRIOR SNAPSHOT (Round 39)
+
+**As of:** 2026-07-18 (active: G3L Round 39 executed: CI ruled the
+flip GREEN (PRF-001 = 159 ms vs 300; all asserting keys green). The
+one e2e failure fixed at its root: 2-point straight g3t routes now
+earn the routed class (the elk-era >= 3 gate made better placement
+draw fewer edges); converter regression pin added; old oracle
+evolved. PRF-001b elk leg made explicit post-flip. Core 196
+ratified; D3b fully pre-authorized (elkjs removal, no external
+imports, rebase authority). Awaiting: e2e 58/58 on this tree + the
+flip/MR-11 browser ratification; then D3b closes WS-D.)
+
+## PRIOR SNAPSHOT (Round 38)
+
+**As of:** 2026-07-18 (active: G3L Round 38 executed: WS-D D3a
+LANDED: THE DEFAULT ENGINE IS g3t. Gap routing + grid escalation
+under threshold/budget; direction support; engine-agnostic caching
+(engineKind in the key); all 15 flip failures dispositioned (elk
+pins recorded, retire at D3b); QLT-002 corpus bands ASSERT; PRF-001
+asserts now (container ~353 ms red locally, CI projection 170-235
+vs the ruled 300; next lever named). OWNER: push and run CI: the
+perf job is the arbiter. D3b next: elkjs removal + ARC-009
+extraction + budget rebases. MR-11 round-4 re-look still open.)
+
+## PRIOR SNAPSHOT (Round 37)
+
+**As of:** 2026-07-18 (active: G3L Round 37 executed: WS-D D2b
+LANDED: network-simplex (time-budgeted anytime), Coffman-Graham,
+Brandes-Koepf; defaults flipped to NS+BK on both engine paths; D1
+deviations closed. Flat R1 303.5 ms on the slow container (elkjs
+14,902 ms same run; ~180 ms projected on CI vs the 300 ms flip
+gate). Next: D3 (fixture-corpus conformance bands via QLT-002,
+PRF-001 green on g3t in CI, default flip, elkjs removal, ARC-009
+extraction). MR-11 round-4 re-look still open.)
+
+## PRIOR SNAPSHOT (Round 36)
+
+**As of:** 2026-07-18 (active: G3L Round 37 executed: WS-D D2b
+LANDED: network-simplex (anytime-budgeted, never worse than
+tight-tree), Coffman-Graham, Brandes-Koepf; defaults flipped to
+NS+BK inside the engine. R1-flat 284 ms on the container (~165 ms
+implied CI), BK nearly free at 13.5 ms. Ten-seed property sweep
+guards the strategies. D3 next: conformance bands, PRF-001 green in
+CI, default engineKind flip, elkjs removal, ARC-009 extraction.
+MR-11 round-4 re-look still open.)
+
+## PRIOR SNAPSHOT (Round 36)
+
+**As of:** 2026-07-18 (active: G3L Round 36 executed: WS-D D2a
+LANDED: structural inputs in-house (containment pre-pass reusing the
+elk assembly's sizing; row-stacking closure oracle; side-placed
+ports; sketch warm-start = INTERACTIVE by construction). Seam routes
+all g3t-requested inputs in-house; default still elk. D2b next:
+LAY-002 layering pair + LAY-004 Brandes-Koepf; then D3 conformance
+bands + the flip + ARC-009 extraction. MR-11 round-4 re-look still
+open.)
+
+## PRIOR SNAPSHOT (Round 35)
+
+**As of:** 2026-07-18 (active: G3L Round 35 executed: WS-D D1
+LANDED: the g3t layered engine, flat end-to-end behind the
+engineKind seam. Flat R1: 103.8 ms vs elkjs 11,127 ms (107x),
+already under the 300 ms budget on the slow container. QLT-002
+harness running both engines. Recorded D1 deviations: layering
+tight-tree only, placement median (both D2). Next: D2 (containment
+pre-pass, ports, sketch warm-start, LAY-002/004 strategies, full
+oracle suite behind the seam) or the MR-11 round-4 re-look.)
+
+## PRIOR SNAPSHOT (Round 34)
+
+**As of:** 2026-07-18 (active: G3L Round 34 executed: MR-5 CLOSED:
+budgets frozen on CI numbers (all asserting-now keys MEET; perf job
+is a live gate; milestone-gated keys flip at engine/channel-router
+landings). Wheel isolation fixed (native non-passive listener;
+React's passive root listener was letting the page scroll under the
+zoom). Open: MR-11 round-4 re-look. Next: WS-D D1.)
+
+## PRIOR SNAPSHOT (Round 33)
+
+**As of:** 2026-07-18 (active: G3L Round 33 executed: MBSE SVG
+preview hardened from the second owner batch: zoom crash fixed
+(currentTarget captured before the deferred updater; regression
+test), hit-aware node dragging with marked straight-edge fallbacks,
+fill-the-host sizing via ResizeObserver. MR-11 at round-3 re-look.
+MR-5 freeze still awaits CI numbers; D1 remains unblocked and next.)
+
+## PRIOR SNAPSHOT (Round 32)
+
+**As of:** 2026-07-18 (active: G3L Round 32 executed: owner batch.
+e2e 57/58 (selector fix landed); MBSE dropdown occlusion bug fixed;
+canvas gradient-taper fixed + conformance-pinned; label-halo
+readability default; react budget 440 (ledgered); MR-4 closed and
+de-referenced per ruling; WS-D APPROVED (route = module of
+@g3t/layout, no deprecation window): D1 UNBLOCKED. CI gains
+workflow_dispatch. Open: MR-5 freeze awaits CI numbers; MR-11 at
+round-3 re-look. Next: WS-D D1.)
+
+## PRIOR SNAPSHOT (Round 31)
+
+**As of:** 2026-07-12 (active: G3L Round 31 executed: RND-006 hit
+testing shipped in CORE (scene + structural, zone detail, eight
+oracles); INT-001 uniform pointer events across all three headless
+components (one hook, five dispatch oracles). React budget at 99%
+(flagged; extraction is the relief; no unilateral raise). Awaiting:
+CI perf numbers (MR-5 freeze), WS-D design approval (D1 start),
+MR-11 re-look.)
+
+## PRIOR SNAPSHOT (Round 30)
+
+**As of:** 2026-07-12 (active: G3L Round 30 executed: F2 stage 1
+shipped: pure display-list Canvas adapter consuming the identical
+scene contract; ARC-008 conformance suite running one fact table
+against both adapters with capability-honesty verification; Style
+Lab adapter select + e2e. RND-004 stage 2 (caching/snapshot/
+simplification) deferred explicitly. Owner queue: WS-D design
+review, MR-11 re-review (now three renderers to glance at), MR-4.
+Awaiting tomorrow's CI for MR-5 freeze numbers.)
+
+## PRIOR SNAPSHOT (Round 29)
+
+**As of:** 2026-07-12 (active: G3L Round 29 executed: WS-D design
+doc written against the sharpened numbers; at owner review (queue
+item 1) with two open decisions (route packaging, deprecation
+window). Build starts on approval with D1. Meanwhile the batch can
+proceed with F2 (Canvas2D adapter + the ARC-008 conformance suite)
+or MR-5 freeze when CI numbers arrive.)
+
+## PRIOR SNAPSHOT (Round 28)
+
+**As of:** 2026-07-12 (active: G3L Round 28 executed: PRF-001
+sharpened (warm 12.6 s; crossing minimization dominates; detuned
+elkjs still misses target; record at
+planning/g3l/prf-001-measurement.md) and LAY-020 shipped
+(layoutStructuralWithChangeSet: local region splice with verbatim
+carryover pinned by object identity, global-sketch fallback, reroute
+reporting; five oracles). The incremental chain MOD-010 -> LAY-020
+-> RTE-011 is now closed at the layout end. Next: WS-D design doc
+against the sharpened numbers.)
+
+## PRIOR SNAPSHOT (Round 27)
+
+**As of:** 2026-07-12 (active: G3L Round 27 executed: E2 shipped:
+IOP-001 versioned graph document (hierarchy, ports, data, layout
+options, style refs, geometry snapshot; published JSON Schema;
+round-trip pinned) with the honest lossy projection to structural
+input; IOP-002 lossless ELK JSON import into the document. WS-E now
+has E2+E3 done; E1 (model package extraction) rides with WS-D/
+ARC-009. Batch next: LAY-020 (change-set-driven local re-layout) or
+the WS-D design doc per owner priority.)
+
+## PRIOR SNAPSHOT (Round 26)
+
+**As of:** 2026-07-12 (active: G3L Round 26 executed: WS-E begins.
+MOD-010 change-set API shipped in core: transactional apply with
+exact diffs by construction, explicit recorded cascades, diagnostics
+posture, inversion for undo (round-trip pinned), the affectedRegion
+locality seed for LAY-020, versioned wire format. Eight oracles.
+Next in batch: LAY-020 consumption (local re-layout) or E2 (ELK JSON
+import + versioned document format) per owner priority; WS-D design
+doc also ready to start given the PRF-001 numbers.)
+
+## PRIOR SNAPSHOT (Round 25)
+
+**As of:** 2026-07-12 (active: G3L Round 25 executed: F1 structural
+slice shipped: StructuralSvgView renders the geometry document
+verbatim (containers/rows/ports/routed edges with UML symbols),
+reusing the overlay's arrow geometry; five jsdom conformance
+oracles; MBSE renderer toggle (cy default | SVG preview) with a
+browser test. MR-11 re-review scope extended. Batch continues: WS-E
+(change-set API) next unless redirected.)
+
+## PRIOR SNAPSHOT (Round 24)
+
+**As of:** 2026-07-12 (active: G3L Round 24 executed: MR-5 harness
+built and CI-wired (report-only until frozen per the ruled
+protocol). Three findings quantified: elkjs R1 layout ~40x over
+target (the WS-D case, now numeric); from-scratch R1 routing belongs
+to the channel-router milestone; the interactive drag path MEETS its
+frame budget at production scale. Router gained prune-verify-
+fallback. Batch continues: F1 continuation next.)
+
+## PRIOR SNAPSHOT (Round 23)
+
+**As of:** 2026-07-12 (active: G3L Round 23 executed: FIRST 100%
+e2e RUN in the owner's environment (57/57). Four rulings executed:
+T2 archived per "archive don't delete" (core at 74% of budget,
+ARCHIVE.md registry with restore procedure); MR-9 closed ("largely
+stable"); MR-5 ruled (CI baseline; bench harness is the remaining
+engineering); MR-11 background fix shipped, at re-review. Owner
+queue at two items: MR-11 re-review, MR-4 FTO. Next engineering:
+MR-5 bench harness, F1 continuation, or WS-E per owner priority.)
+
+**Owner queue:** planning/g3l/owner-queue.md is the single list of
+items blocked on the owner, each with the exact ask and what it
+unblocks.
+
+**As of:** 2026-07-11 (active: G3L Round 22 executed: the F1 pane's
+zero-label e2e failure fixed at the shell (data-derived label text
+merged into the F1 attribute maps; adapter stays attributes-only).
+MR-9's browser pin passed in the owner's run (closed-loop return
+worked); MR-9 itself remains held for owner review. Owner queue
+established at planning/g3l/owner-queue.md.)
+
+## PRIOR SNAPSHOT (Round 21)
+
+**As of:** 2026-07-11 (active: G3L Round 21 executed: dead-code
+round. -49 KB recovered with zero functionality change (dist comment
+stripping + 20 barrel demotions): core at 80% of budget, react at
+95%. Analysis doc with the T2 ruling table (six tested-but-unused
+feature clusters, ~24 KB, per-cluster owner ruling requested). MR
+log audited: index added, MR-7/MR-8 statuses corrected, MR-9 hold
+recorded. Open owner items: MR-4 FTO, MR-5 PRF, MR-9 review, MR-11
+F1 look, T2 rulings.)
+
+## PRIOR SNAPSHOT (Round 20)
+
+**As of:** 2026-07-11 (active: G3L Round 20 executed: F1 SHIPPED:
+the SvgAdapter renders the full VisualAttributes contract natively
+(halo/pulse, glyphs, donut, taper, gradient, paint-order label
+halos, 7 shapes), nine jsdom conformance oracles (SVG is fully
+headless-verifiable), Style Lab three-pane comparison with shared
+positions and LOD coupling, fixture extended with donut/pulse/
+gradient rules, browser acceptance added. MR-9 held open at owner
+request pending review; MR-11 queued (F1 first look). Next: F1
+continuation (structural-view SVG rendering path) or WS-E per owner
+priority.)
+
+## PRIOR SNAPSHOT (Round 19)
+
+**As of:** 2026-07-11 (active: G3L Round 19: the MR-9 browser pin is
+now CLOSED-LOOP (measured corrective return, release inside the
+restore band) after two falsified gesture theories; the
+deterministic 5/6 synthetic-gesture anomaly is recorded with
+telemetry as an open curiosity (human drags unaffected). Artifact
+naming is now versioned per content change (round 18 lesson).
+Awaiting the round-19 run; F1 next on green + MR-9 eyeball.)
+
+## PRIOR SNAPSHOT (Round 17)
+
+**As of:** 2026-07-11 (active: G3L Round 17 executed: MR-9 browser
+pin fixed (verbatim raw-string restore replaces reconstruction).
+MR-10 flagged (P2): during-drag endpoint tracking notes with
+warm-start suspects. Routing accepted "much better and closer to
+predictable". NEXT BATCH: F1, the SVG renderer adapter, starting
+immediately: full VisualAttributes to pixels (halo, glyphs, donut,
+taper, gradient), Style Lab F1 pane, browser-first acceptance.)
+
+## PRIOR SNAPSHOT (Round 16)
+
+**As of:** 2026-07-11 (active: G3L Round 16 executed: MR-9 shipped
+per the recorded contract: settled routes are a pure function of
+settled positions (canonicalize-on-dragfree; return-to-grab restores
+exactly; during-drag hysteresis untouched). Pinned by two unit
+oracles + the mandated browser pin. Awaiting e2e run + MR-9
+re-review. Next: F1 (SVG adapter), no open blockers.)
+
+**As of:** 2026-07-11 (updated: MR-8 accepted by owner "good enough
+for now". MR-9 FLAGGED for next round (P1): right-then-left drag
+round trips are not idempotent; warm-start analysis and the
+canonicalize-on-dragfree candidate contract recorded in the MR log.
+Next round: MR-9 first, then F1.)
+
+**As of:** 2026-07-11 (active: G3L Round 15 executed: the
+instrumented hygiene assertion NAMED its culprit (cytoscape
+mapping-warning class on data(_label); fixed with the scoped
+selector). The remaining drag crossing root-caused (sealed desired
+face -> router null -> unchecked fallback) and fixed with candidate-
+face retry (resolveDragAttachment). Both owner refinements shipped:
+bundle-aware face-distributed anchors (the group-then-break-out
+mechanism) and the 28px pre-bend terminal buffer for UML symbols.
+Awaiting fourth e2e run (expect green) + MR-8 re-review; F1 next.)
+
+## PRIOR SNAPSHOT (Round 14)
+
+**As of:** 2026-07-11 (active: G3L Round 14 executed: MR-8 second
+pass ("much better") produced the 4-way attach-side selection
+(hysteresis, no flapping; two pins evolved, one by explicit owner
+ruling over the old axis-lock). Second e2e run triaged: the
+arrow-trim anchor gap fixed at the overlay source
+(data-route-start/end published, specs read true anchors); MBSE
+console hygiene instrumented to name its messages next run. Awaiting
+third e2e run + MR-8 re-review; F1 next.)
+
+## PRIOR SNAPSHOT (Round 13)
+
+**As of:** 2026-07-11 (active: G3L Round 13 executed: B4/B5 shipped.
+In-house orthogonal obstacle router in core + resolveDragRoute policy
+(rescale-when-clear, reroute-on-collision-or-side-migration) wired
+into the drag path. Both round-1 expected-fail oracles FLIPPED (zero
+expected-fails remain; one fixture corrected at flip time, it was
+unsatisfiable as authored). MR-8 browser acceptance encodes the
+owner's symptoms verbatim. Core budget 176 -> 184 KB, documented;
+@g3t/layout extraction remains the WS-D plan. MR-8 at RE-REVIEW:
+repeat the SmallSat drag after a green e2e run. Next: F1 (SVG
+adapter).)
+
+## PRIOR SNAPSHOT (Round 12)
+
+**As of:** 2026-07-11 (active: G3L Round 12 executed: first
+real-browser e2e run triaged (IBD premise fixed: top-level nodes, not
+containers-only; scene-swap wait; overlay/pan/parity assertions
+hardened against headless-authoring assumptions). MR-8 opened for the
+owner-observed drag-routing defects: both symptoms are the pinned
+RTE-011 gap and become B4/B5's acceptance criteria. ORDER CHANGE
+under consideration: B4/B5 (routing) ahead of F1 given twice-reported
+owner pain; see the round summary for the recommendation. Post-removal
+visual verdicts: MBSE clean, ontology clean.)
+
+## PRIOR SNAPSHOT (Round 11)
+
+**As of:** 2026-07-10 (active: G3L Round 11 executed: the
+browser-acceptance layer the postmortem mandated is in place and
+CI-wired: drawn-bounds-vs-geometry per flow direction, overlay
+endpoints on drawn borders, transform-only pan, Style Lab
+parity/LOD-restore/no-growth, and console hygiene, all against
+shipped features, with an e2e-gated window hook channel (demo-side
+only). Specs authored headlessly per suite doctrine; first execution
+in CI. Next: F1 (SVG adapter), which lands INTO this harness: its
+conformance pane gets browser acceptance from round one.)
+
+## PRIOR SNAPSHOT (Round 10)
+
+**As of:** 2026-07-10 (active: G3L Round 10 executed: expand/collapse
+REMOVED from the toolkit by owner ruling after a fifth browser FAIL;
+planning/expand-collapse-postmortem.md is the ruled warning document
+(defect chain, lessons, hard reintroduction gates: read before ever
+proposing collapse again). Spec R1.18 amended. The stability
+infrastructure the saga produced survives deliberately (sketch mode,
+in-place scene patch, bounds pin, live-position capture,
+useStructuralLayout). MR-1 CLOSED. Next: F1 (SVG adapter), unblocked
+by MR-2's PASS.)
+
+## PRIOR SNAPSHOT (Round 9)
+
+**As of:** 2026-07-10 (active: G3L Round 9 executed: fourth review
+pass. MR-7 fully PASS (edge labels confirmed). MR-1's remaining
+finding (toggled container misplaced, edges broken) root-caused at
+the converter boundary: compound DRAWN bounds derive from children
+and diverged from the floored geometry box the ports sit on; fixed
+with the invisible ::extent bounds pin, converter-pinned. Awaiting
+MR-1 final re-review (drag-then-collapse placement + routing on both
+plain and dragged paths); F1 next on PASS.)
+
+## PRIOR SNAPSHOT (Round 8)
+
+**As of:** 2026-07-10 (active: G3L Round 8 executed: third review
+pass. Flash CONFIRMED GONE. Drag-revert root-caused and fixed (live
+top-level positions captured at toggle time anchor the sketch;
+layered per-axis contract pinned). Edge-label halo shipped in the lab
+(both paths, parity keys widened, oracle 0 mismatches). "Edge routing
+weird" triaged as most plausibly the revert's visible half; MR-1
+re-review procedure now separates plain-collapse from
+drag-then-collapse routing observation. Awaiting MR-1/MR-7 final
+re-review; F1 remains next.)
+
+## PRIOR SNAPSHOT (Round 7)
+
+**As of:** 2026-07-10 (active: G3L Round 7 executed: second review
+pass recorded (MR-2/3/6 PASS: overlay pattern holds at 4k, F1
+unblocked). MR-1's persistence exposed the THIRD root cause: the
+collapse hook unmounted the canvas per toggle (stale-scene guard),
+making round 6's patch path unreachable; stale-while-revalidate fix
+shipped and pinned. MR-7 parity judged correct; back affordance and
+a LOD probe that actually drives the engine pane shipped, surfacing
+and fixing a stale-bypass restore defect. MR-1/MR-7 await re-review
+(MR-1's constant-height collapse look remains the explicit judgment
+call). Next: MR-1/MR-7 re-review, then F1.)
+
+## PRIOR SNAPSHOT (Round 6)
+
+**As of:** 2026-07-10 (active: G3L Round 6 executed: the first live
+review's two FAILs (MR-1 flash+reset, MR-7 lab findings) are
+root-caused, fixed, and pinned; MR-1/MR-7 await RE-REVIEW (the
+constant-height collapse look is the explicit judgment call);
+MR-2/3/6 unblocked. Prior rounds: R5 Style Lab + projection, R4
+tokens/LOD/config-JSON, R3 style engine, R2 SVG overlay, R1
+sketch/oracles/metrics. Next: MR re-review, then F1 (SVG adapter) per
+the standing recommendation.)
+
+## PRIOR SNAPSHOT (2026-07-09)
+
+**As of:** 2026-07-09 (active: G3L Round 1 executed: sketch-mode
+layout stability (A1, criterion met at zero displacement), drag-route
+oracles (B1, 4 pass-pins + 2 expected-fail pins on the RTE-011 gap),
+and the layout-metrics module (D1, exported from @g3t/core). Governing
+documents: planning/g3l/requirements-specification.md and
+planning/g3l/implementation-plan.md. G3L Round 2 executed: B2 SVG
+overlay edge layer shipped behind `structuralEdgeLayer` with the MBSE
+shell as the ruled first opt-in surface; manual/human review tasks now
+tracked procedurally in planning/g3l/manual-review-log.md (MR-1..MR-6
+OPEN). G3L Round 3 executed: C1/C2
+style-resolution core shipped in @g3t/core (VisualAttributes contract,
+layered pure resolution, dependency-tracked incremental invalidation,
+diagnostics sink; 14 new tests including R2-scale mechanistic
+budgets). Core bundle budget raised 160 -> 176 KB per gate protocol.
+G3L Round 4 executed: C3/C4
+shipped (design tokens with WCAG-checked Okabe-Ito defaults +
+ThemeManager bridge; declarative LOD schedule; versioned style-config
+JSON with published schema). Core bundle at 98% of the raised budget;
+the D2 layered engine will force a budget-or-extraction decision.
+G3L Round 5 executed: the surface
+question was RULED (ontology shell too narrow; dedicated shell
+instead) and the Style Lab shipped as the side-by-side conformance
+surface: legacy stylesheet vs engine bypass on one shared fixture
+intent, parity computed from cytoscape's own resolved styles (0
+mismatches headlessly AND live in the shell's parity table),
+engine-only attributes surfaced honestly (halo/glyphs/taper await the
+F1 SVG adapter), LOD probe included. The engine now HAS a consuming
+surface. MR-7 (live side-by-side review) is OPEN. Next per the plan:
+D rounds (metrics-gated internal layout) or F1 (SVG adapter, which
+unlocks rendering the engine-only zone); F1 is the recommended next
+since it converts the lab's honesty report into pixels. All rendered-behavior claims (collapse stability, overlay
+parity, 4k lag) remain unverified until their MR items are executed
+live.)
+
+## PRIOR FOCUS SNAPSHOT (2026-07-03)
+
 **As of:** 2026-07-03 (active: demo quality, reliability, and OSS
 adoptability; plan in planning/demo-adoption-plan.md. The flagship
 demo and the two standalone single-file demos were RETIRED this round

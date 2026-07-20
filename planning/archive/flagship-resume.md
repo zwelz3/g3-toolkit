@@ -41,19 +41,19 @@ It is the only review artifact you need. Then act per the decision tree.
 
 ## Failure -> owning-module routing table
 
-| Review item (REVIEW-RESULTS.md) | Root-cause here first | Toolkit surface involved |
-| --- | --- | --- |
-| Stage renders / raw->meaning is restyle-only / no relayout | `shell/StageCanvas.tsx`, `stage.ts` (specForBeat, isSpecSwap, stagePropsForBeat), `encoding.ts` | CytoscapeCanvas, applyEncodingSpec |
-| Camera focus/pan/frame per beat | `camera-directives.ts`, `shell/StageCanvas.tsx`, `narrative.ts` (CameraDirective per beat) | createCameraController |
-| LinkedChart scatter renders / point-click selects on canvas | `shell/CoverageChart.tsx`, `coverage-pipeline.ts` (query + reverseMap) | LinkedChart, DataPipeline |
-| Inspector shows clicked-node attributes | `shell/InspectorPanel.tsx`, `stage.ts` (inspectorSelectionForBeat) | DetailInspector |
-| Teaming + path overlays render on canvas | `teaming.ts`, `provenance-path.ts`, the overlay draw in the shell | buildNeighborhoodUGM, findShortestPath |
-| Theme applied to live canvas | `theme.ts`, theme application at the decision beat | createTheme |
-| Export / snapshot download UX | `brief-export.ts`, `workspace-snapshot.ts`, the brief panel download wiring | exportSubgraph*, captureWorkspace |
-| Epilogue renders / controls drive the canvas | `shell/EpilogueShell.tsx`, `epilogue.ts` | GraphToolbar, SearchBar, FilterBuilder, LayoutSwitcher, AlgorithmPanel, NodeStyleEditor |
-| motion / easing / legibility (step 7) | `shell/FlagshipShell.tsx`, `shell/NarrationBar.tsx`, `shell/Transport.tsx`, StageCanvas animate/animationDuration, tokens | n/a (presentation) |
-| Example install / typecheck fails | `examples/flagship/{package.json,tsconfig.json}`; see `INTEGRATION.md` 3 | n/a |
-| `verify:bundle` trips on @g3t/react | `scripts/check-bundle-size.mjs` (raise + ledger note); see `INTEGRATION.md` 4 | n/a |
+| Review item (REVIEW-RESULTS.md)                             | Root-cause here first                                                                                                     | Toolkit surface involved                                                                |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Stage renders / raw->meaning is restyle-only / no relayout  | `shell/StageCanvas.tsx`, `stage.ts` (specForBeat, isSpecSwap, stagePropsForBeat), `encoding.ts`                           | CytoscapeCanvas, applyEncodingSpec                                                      |
+| Camera focus/pan/frame per beat                             | `camera-directives.ts`, `shell/StageCanvas.tsx`, `narrative.ts` (CameraDirective per beat)                                | createCameraController                                                                  |
+| LinkedChart scatter renders / point-click selects on canvas | `shell/CoverageChart.tsx`, `coverage-pipeline.ts` (query + reverseMap)                                                    | LinkedChart, DataPipeline                                                               |
+| Inspector shows clicked-node attributes                     | `shell/InspectorPanel.tsx`, `stage.ts` (inspectorSelectionForBeat)                                                        | DetailInspector                                                                         |
+| Teaming + path overlays render on canvas                    | `teaming.ts`, `provenance-path.ts`, the overlay draw in the shell                                                         | buildNeighborhoodUGM, findShortestPath                                                  |
+| Theme applied to live canvas                                | `theme.ts`, theme application at the decision beat                                                                        | createTheme                                                                             |
+| Export / snapshot download UX                               | `brief-export.ts`, `workspace-snapshot.ts`, the brief panel download wiring                                               | exportSubgraph\*, captureWorkspace                                                      |
+| Epilogue renders / controls drive the canvas                | `shell/EpilogueShell.tsx`, `epilogue.ts`                                                                                  | GraphToolbar, SearchBar, FilterBuilder, LayoutSwitcher, AlgorithmPanel, NodeStyleEditor |
+| motion / easing / legibility (step 7)                       | `shell/FlagshipShell.tsx`, `shell/NarrationBar.tsx`, `shell/Transport.tsx`, StageCanvas animate/animationDuration, tokens | n/a (presentation)                                                                      |
+| Example install / typecheck fails                           | `examples/flagship/{package.json,tsconfig.json}`; see `INTEGRATION.md` 3                                                  | n/a                                                                                     |
+| `verify:bundle` trips on @g3t/react                         | `scripts/check-bundle-size.mjs` (raise + ledger note); see `INTEGRATION.md` 4                                             | n/a                                                                                     |
 
 ## Pointers (only if a failure needs them)
 

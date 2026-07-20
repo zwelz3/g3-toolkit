@@ -65,12 +65,11 @@ import { useSelectionStore } from "@g3t/react/state";
 
 function MyGraphPage() {
   const [ugm, setUgm] = useState<UGM | null>(null);
-  const selectedId = useSelectionStore(s => [...s.selectedNodeIds][0]);
+  const selectedId = useSelectionStore((s) => [...s.selectedNodeIds][0]);
 
   useEffect(() => {
     const adapter = new SparqlAdapter({ endpoint: "/sparql" });
-    adapter.query("SELECT * WHERE { ?s ?p ?o } LIMIT 500")
-      .then(setUgm);
+    adapter.query("SELECT * WHERE { ?s ?p ?o } LIMIT 500").then(setUgm);
   }, []);
 
   if (!ugm) return <div>Loading...</div>;
@@ -79,7 +78,10 @@ function MyGraphPage() {
     <div style={{ display: "grid", gridTemplateColumns: "1fr 300px" }}>
       <CytoscapeCanvas ugm={ugm} />
       <div>
-        <DetailInspector ugm={ugm} selection={selectedId ? { type: "node", id: selectedId } : null} />
+        <DetailInspector
+          ugm={ugm}
+          selection={selectedId ? { type: "node", id: selectedId } : null}
+        />
         <TableView ugm={ugm} pageSize={20} />
       </div>
     </div>
@@ -190,15 +192,15 @@ These items from the enhancement plan (M11-M13) are application-
 level concerns that belong in `examples/full-workspace/`, not in
 the published packages:
 
-| Item | Current Location | Correct Location |
-|------|-----------------|-----------------|
-| WorkspaceShell (FlexLayout) | packages/react | examples/full-workspace |
-| WorkflowRunner | planned for @g3t/core | examples/full-workspace |
-| WorkflowPanel UI | planned for @g3t/react | examples/full-workspace |
-| Session persistence | planned for @g3t/core | examples/full-workspace |
-| Demo workflows (4) | planned for @g3t/react | demo/ |
-| createG3Toolkit() factory | planned for @g3t/core | examples/full-workspace |
-| Event bus | planned for @g3t/core | **keep** (small, useful utility) |
+| Item                        | Current Location       | Correct Location                 |
+| --------------------------- | ---------------------- | -------------------------------- |
+| WorkspaceShell (FlexLayout) | packages/react         | examples/full-workspace          |
+| WorkflowRunner              | planned for @g3t/core  | examples/full-workspace          |
+| WorkflowPanel UI            | planned for @g3t/react | examples/full-workspace          |
+| Session persistence         | planned for @g3t/core  | examples/full-workspace          |
+| Demo workflows (4)          | planned for @g3t/react | demo/                            |
+| createG3Toolkit() factory   | planned for @g3t/core  | examples/full-workspace          |
+| Event bus                   | planned for @g3t/core  | **keep** (small, useful utility) |
 
 The event bus stays because it's a 30-line utility that helps
 adopters observe toolkit state changes without depending on
@@ -210,6 +212,7 @@ Everything that's a **composable primitive** an adopter would
 plug into their own layout:
 
 **@g3t/core (zero React):**
+
 - UGM (the data model)
 - Adapters (SPARQL, Cypher, REST, Gremlin, file import)
 - Projection pipeline (RDF → LPG)
@@ -223,6 +226,7 @@ plug into their own layout:
 - Undo/redo stack
 
 **@g3t/react (React components):**
+
 - 12 view components (canvas, table, map, tree, etc.)
 - Control components (encoding panel, legend, filter builder, etc.)
 - Accessibility (AriaCompanion)
@@ -230,6 +234,7 @@ plug into their own layout:
 - NodeStyleEditor (the per-node customization panel)
 
 **@g3t/charts (optional, ECharts-based):**
+
 - LinkedChart wrapper
 - 6 chart renderers (bar, scatter, line, pie, donut, parallel)
 
@@ -239,6 +244,7 @@ M10.5 (Integration Core) focuses ONLY on package distribution
 and adapter infrastructure. No application-level factories.
 
 M11-M13 tickets are reviewed against the boundary:
+
 - Pipeline functions → @g3t/core (keep)
 - LinkedChart + renderers → @g3t/charts (keep)
 - PropertyFilter + FilterBuilder → core model + react component (keep)

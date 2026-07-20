@@ -36,6 +36,56 @@ import {
  *  separates cleanly from whatever node or container color it
  *  overlaps (the same punch-out trick map pins use). Theme-resolved:
  *  the pin effect re-composes on theme change. */
+/** Compose the pinned-node background stack: the encoding icon (when
+ *  the node carries one) centered at 60%, the pin badge top-right at
+ *  a FIXED 16px (percentages distorted on compound parents; finding
+ *  1b). Review 4.7: this must run at EVERY _icon write, not just at
+ *  pin time; a spec application after pinning previously left the
+ *  stack stale (badge-only), which read as "pin and custom icon
+ *  cannot coexist". Single truth: both the pin effect and the
+ *  spec-patch path call this.
+ */
+/** Style props the pin indicator bypasses; removed as one set on
+ *  unpin so the node's rule-driven appearance returns intact. */
+export const PIN_BYPASS_PROPS = [
+  "background-image",
+  "background-position-x",
+  "background-position-y",
+  "background-width",
+  "background-height",
+  "background-fit",
+  "background-clip",
+  "background-image-containment",
+] as const;
+
+export function composePinStack(
+  n: {
+    data: (k: string) => unknown;
+    style: (props: Record<string, unknown>) => void;
+  },
+  badge: string,
+): void {
+  // 12.1 (two browser failures against the previous approach): the
+  // pinned CLASS RULE mapped multi-image background properties via
+  // data() with ARRAY values, and the badge never rendered. Literal
+  // arrays as per-element style BYPASSES are Cytoscape's documented
+  // multi-background usage; mappings are the unreliable corner.
+  // Bypass precedence over class rules is safe here: emphasis dims
+  // via opacity and hidden toggles display, so nothing legitimate
+  // needs to override a pinned node's background.
+  const icon = n.data("_icon") as string | undefined;
+  n.style({
+    "background-image": icon ? [icon, badge] : [badge],
+    "background-position-x": icon ? ["50%", "100%"] : ["100%"],
+    "background-position-y": icon ? ["50%", "0%"] : ["0%"],
+    "background-width": icon ? ["60%", "16px"] : ["16px"],
+    "background-height": icon ? ["60%", "16px"] : ["16px"],
+    "background-fit": icon ? ["none", "none"] : ["none"],
+    "background-clip": "none",
+    "background-image-containment": "over",
+  });
+}
+
 export function pinBadgeUri(theme: G3tTheme): string {
   const paths =
     '<path d="M9 4h6l-1 6 3 3v2H7v-2l3-3-1-6z"/><path d="M12 15v6"/>';
@@ -47,6 +97,7 @@ export function pinBadgeUri(theme: G3tTheme): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 import { useThemeStore, type G3tTheme } from "../../theme/ThemeManager";
+import { StructuralEdgeOverlay } from "./structural-edge-overlay";
 import { overridesToCytoscapeStyles } from "@g3t/core";
 import type { EncodingSpec } from "../../interaction/encoding/encoding-spec";
 import {
@@ -57,21 +108,25 @@ import type { MenuTarget } from "../../interaction/context-menu";
 import { ContextMenu } from "../../interaction/context-menu";
 import { useSelectionStore } from "../../state/selection-store";
 import {
+  applyEmphasisClasses,
+  useEmphasisStore,
+} from "../../state/emphasis-store";
+import {
   ugmToCytoscapeElements,
   type ContainmentOptions,
 } from "./ugm-to-cytoscape";
 import {
   structuralToCytoscapeElements,
+  applyRoutedSegmentBypasses,
   STRUCTURAL_RULES,
   structuralThemeRules,
   wireStructuralPortDrag,
-  wireStructuralCompartmentToggle,
 } from "./structural-to-cytoscape";
 import type { StructuralDecorations } from "./structural-to-cytoscape";
 import type { StructuralGraphInput, StructuralGeometry } from "@g3t/core";
 import { prefersReducedMotion } from "@g3t/core";
 
-type CyStylesheet = cytoscape.StylesheetCSS | cytoscape.StylesheetStyle;
+export type CyStylesheet = cytoscape.StylesheetCSS | cytoscape.StylesheetStyle;
 
 // Register fcose layout extension (once, at module load)
 let fcoseRegistered = false;
@@ -207,6 +262,24 @@ export function themeColorRules(theme: G3tTheme): CyStylesheet[] {
       } as any,
     },
     {
+      // Emphasis layer (review 4.6): effect edges are visually
+      // DISTINCT from selection (amber, heavier), and dimmed elements
+      // fade rather than hide. Nodes in an effect carry no class at
+      // all: a route member is not a selection.
+      selector: "edge.g3t-effect-edge",
+
+      style: {
+        "line-color": "#f08c00",
+        "target-arrow-color": "#f08c00",
+        width: 4,
+      } as any,
+    },
+    {
+      selector: ".g3t-effect-dim",
+
+      style: { opacity: 0.15 } as any,
+    },
+    {
       selector: ":parent",
 
       style: {
@@ -275,22 +348,15 @@ export const COMPOUND_CONTAINER_RULE: CyStylesheet = {
  *  and the rule stops matching. Amber stroke keeps the established
  *  pin hue (CVD-safe against the blue selection gasket). */
 export const PIN_INDICATOR_RULE: CyStylesheet = {
+  // 12.1: the visual now rides per-element bypasses (composePinStack);
+  // this rule keeps the class in the stylesheet vocabulary but maps
+  // NOTHING (data()-mapped array values for background-* were the
+  // two-browser-failure root cause and are gone for good).
   selector: "node.g3t-pinned",
-
-  style: {
-    "background-image": "data(_bgStack)",
-    "background-position-x": "data(_bgPosX)",
-    "background-position-y": "data(_bgPosY)",
-    "background-width": "data(_bgW)",
-    "background-height": "data(_bgH)",
-    "background-fit": "data(_bgFit)",
-    "background-clip": "none",
-
-    "background-image-containment": "over" as any,
-  } as any,
+  style: {},
 };
 
-const DEFAULT_STYLESHEET: CyStylesheet[] = [
+export const DEFAULT_STYLESHEET: CyStylesheet[] = [
   {
     selector: "node",
     style: {
@@ -436,6 +502,21 @@ const DEFAULT_STYLESHEET: CyStylesheet[] = [
       width: 2.5,
     } as any,
   },
+  {
+    // Emphasis layer (review 4.6): distinct from selection by design
+    // (amber vs the selection blue; nodes in an effect carry NO
+    // class, so a route member never reads as selected).
+    selector: "edge.g3t-effect-edge",
+    style: {
+      "line-color": "#f08c00",
+      "target-arrow-color": "#f08c00",
+      width: 4,
+    } as any,
+  },
+  {
+    selector: ".g3t-effect-dim",
+    style: { opacity: 0.15 } as any,
+  },
 ];
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -447,6 +528,14 @@ export interface CytoscapeCanvasProps {
   ugm: UGM;
   /** Optional layout name (default: "fcose" if available, else "cose"). */
   layout?: string;
+  /** Extra options merged into the layout object AFTER the built-in
+   *  tuning, so callers can adjust spacing and fit (review 5.11:
+   *  idealEdgeLength, nodeRepulsion, padding, ...) without forking
+   *  the canvas. Keyed by CONTENT (like structuralDecorations), so an
+   *  inline literal does not re-init the instance every render; a
+   *  content change re-runs layout. Structural (preset) scenes ignore
+   *  the fit-related keys: the camera policy there is explicit. */
+  layoutOptions?: Record<string, unknown>;
   /** Optional additional stylesheet rules to merge. */
   stylesheet?: CyStylesheet[];
   /** Optional ContextMenuManager. If omitted, a default is created
@@ -485,12 +574,22 @@ export interface CytoscapeCanvasProps {
    *  (SHACL B3: closed-shape borders, per-row validation severity).
    *  Ignored unless `structural` is set. */
   structuralDecorations?: StructuralDecorations;
+  /** Which layer draws ROUTED structural edges (G3L:RND-002, the
+   *  ruled per-surface opt-in). "cytoscape" (default): the shipped
+   *  segments projection. "svg-overlay": an SVG layer above the
+   *  canvas draws the true absolute polylines (arrowheads, dashes,
+   *  labels included); the underlying Cytoscape edges stay mounted
+   *  but fully transparent so hover/context-menu interaction is
+   *  UNCHANGED (parity by construction). Declared-port edges keep
+   *  their Cytoscape taxi rendering in both modes (the ruled
+   *  perpendicular-exit behavior). Ignored unless `structural` is
+   *  set. */
+  structuralEdgeLayer?: "cytoscape" | "svg-overlay";
   /** Structural scenes only: invoked when the user taps the on-container
    *  collapse toggle chip, with the container id and its compartment ids.
    *  The host forwards this to the compartment-collapse store's toggleAll
    *  (and re-runs layoutStructural with the new collapsed set). When
    *  omitted, the chip still renders but tapping it is a no-op. */
-  onCompartmentToggle?: (containerId: string, compartmentIds: string[]) => void;
   /** F1: Animate layout transitions. Default true. */
   animate?: boolean;
   /** F1: Animation duration in ms. Default 400. */
@@ -533,9 +632,78 @@ function applyHiddenClasses(
   });
 }
 
+/**
+ * Same-graph scene patch (MR-1 flash fix, G3L:CNT-003). A same-graph
+ * structural rebuild (collapse/expand, re-layout) previously destroyed
+ * and recreated the Cytoscape instance: geometry could be pixel-stable
+ * (the sketch path) and the surface still FLASHED, because the flash
+ * IS the teardown. Instead: diff the next element definitions against
+ * the live instance and apply adds/removals/updates in one batch. No
+ * destroy, no remount, camera untouched by construction (D15 becomes
+ * a non-event on this path), and the SVG edge overlay follows via the
+ * add/remove/data/position events it already listens to.
+ */
+export function planScenePatch(
+  existingIds: ReadonlySet<string>,
+  next: readonly { data: { id?: string } }[],
+): { addIdx: number[]; removeIds: string[]; updateIdx: number[] } {
+  const nextIds = new Set<string>();
+  const addIdx: number[] = [];
+  const updateIdx: number[] = [];
+  next.forEach((def, i) => {
+    const id = def.data.id;
+    if (!id) return;
+    nextIds.add(id);
+    if (existingIds.has(id)) updateIdx.push(i);
+    else addIdx.push(i);
+  });
+  const removeIds: string[] = [];
+  for (const id of existingIds) {
+    if (!nextIds.has(id)) removeIds.push(id);
+  }
+  return { addIdx, removeIds, updateIdx };
+}
+
+function applyScenePatch(cy: Core, next: cytoscape.ElementDefinition[]): void {
+  const existing = new Set<string>();
+  cy.elements().forEach((ele) => {
+    existing.add(ele.id());
+  });
+  const plan = planScenePatch(existing, next as never);
+  cy.batch(() => {
+    if (plan.removeIds.length > 0) {
+      cy.remove(
+        cy.collection(plan.removeIds.map((id) => cy.$id(id)).flat() as never),
+      );
+    }
+    for (const i of plan.updateIdx) {
+      const def = next[i];
+      if (!def?.data.id) continue;
+      const ele = cy.$id(def.data.id);
+      if (ele.empty()) continue;
+      // json() replaces the given fields wholesale: data, classes,
+      // and (for nodes) position, which is exactly the scene's new
+      // truth. Removal-then-add would drop selection and handlers;
+      // json() preserves element identity.
+      ele.json({
+        data: def.data,
+        ...(def.classes !== undefined ? { classes: def.classes } : {}),
+        ...("position" in def && def.position !== undefined
+          ? { position: def.position }
+          : {}),
+      } as never);
+    }
+    const adds = plan.addIdx
+      .map((i) => next[i])
+      .filter((d): d is cytoscape.ElementDefinition => d !== undefined);
+    if (adds.length > 0) cy.add(adds);
+  });
+}
+
 export function CytoscapeCanvas({
   ugm,
   layout,
+  layoutOptions,
   stylesheet,
   menuManager,
   onReady,
@@ -548,11 +716,23 @@ export function CytoscapeCanvas({
   containment,
   structural,
   structuralDecorations,
-  onCompartmentToggle,
+  structuralEdgeLayer = "cytoscape",
   hidden,
 }: CytoscapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
+  // The live cy instance as STATE, for children that mount against it
+  // (the SVG edge overlay). Set when a scene finishes mounting, nulled
+  // on teardown; a state flip per rebuild, never per frame.
+  const [overlayCy, setOverlayCy] = useState<Core | null>(null);
+  // Same-graph patch path (MR-1 flash fix): the creation effect keys
+  // on graph IDENTITY (epoch), not on every scene object; a scene
+  // change over the same graph patches the live instance in place.
+  const [graphEpoch, setGraphEpoch] = useState(0);
+  const structuralRef = useRef(structural);
+  // eslint-disable-next-line react-hooks/refs
+  structuralRef.current = structural;
+  const sceneKeyRef = useRef<string>("");
 
   // Context menu state
   const [menuState, setMenuState] = useState<{
@@ -573,9 +753,6 @@ export function CytoscapeCanvas({
   const onReadyRef = useRef(onReady);
   // eslint-disable-next-line react-hooks/refs
   onReadyRef.current = onReady;
-  const onCompartmentToggleRef = useRef(onCompartmentToggle);
-  // eslint-disable-next-line react-hooks/refs
-  onCompartmentToggleRef.current = onCompartmentToggle;
   // Camera preservation across structural rebuilds: a compartment collapse
   // recreates the cy instance, and the fresh preset layout would otherwise
   // refit. Geometry is often produced asynchronously, so one collapse can
@@ -652,6 +829,19 @@ export function CytoscapeCanvas({
       if (stylesheetRef.current) {
         merged.push(...stylesheetRef.current);
       }
+      // SVG overlay mode (G3L:RND-002): routed structural edges go
+      // fully transparent in Cytoscape (line, arrows, label) while
+      // STAYING mounted and hit-testable, so hover and context-menu
+      // events keep firing on them; the overlay draws the visuals.
+      // opacity (not display:none) is load-bearing: display:none
+      // would remove the elements from hit testing.
+      if (structuralEdgeLayer === "svg-overlay") {
+        merged.push({
+          selector: "edge.g3t-structural-edge-routed",
+          style: { opacity: 0 },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any);
+      }
       // Visibility filter (hidden prop): last so it wins over every
       // mapper. display:none drops the node from layout and Cytoscape
       // auto-hides its incident edges.
@@ -662,13 +852,13 @@ export function CytoscapeCanvas({
       } as any);
       return merged;
     },
-    [edgeStyle],
+    [edgeStyle, structuralEdgeLayer],
   );
   const themeAppliedRef = useRef<G3tTheme | null>(null);
 
   // A decoration change must not tear down the instance on every parent
   // render. structuralDecorations is typically a fresh object literal each
-  // render (e.g. {{ collapsedContainers }}), so keying the rebuild on its
+  // render (e.g. an inline literal), so keying the rebuild on its
   // identity would recreate (and refit/reset positions) on unrelated
   // re-renders such as selection or hover. Key the rebuild on decoration
   // CONTENT instead, and read the live object through a ref.
@@ -681,17 +871,23 @@ export function CytoscapeCanvas({
             .map(([k, v]) => `${k}=${v}`)
             .sort()
             .join(","),
-        "collapsed:" +
-          [...(structuralDecorations.collapsedContainers ?? [])]
-            .sort()
-            .join(","),
       ].join("|")
     : "";
   const structuralDecorationsRef = useRef(structuralDecorations);
   // eslint-disable-next-line react-hooks/refs
   structuralDecorationsRef.current = structuralDecorations;
 
+  // Same content-key treatment for layoutOptions: identity churns per
+  // render for inline literals; only a content change should re-init.
+  const layoutOptionsKey = layoutOptions ? JSON.stringify(layoutOptions) : "";
+  const layoutOptionsRef = useRef(layoutOptions);
+  // eslint-disable-next-line react-hooks/refs
+  layoutOptionsRef.current = layoutOptions;
+
   const initCytoscape = useCallback((): (() => void) | undefined => {
+    // MR-1 flash fix: the scene is read from the ref (the callback's
+    // deps carry graph IDENTITY via graphEpoch, not the scene object).
+    const structural = structuralRef.current;
     if (!containerRef.current) return undefined;
 
     // Graph identity: the sorted top-level node ids. Stable across a collapse
@@ -799,9 +995,13 @@ export function CytoscapeCanvas({
               gravityRange: 1.5,
             }
           : {}),
+        // Caller spacing/fit tuning (review 5.11): wins over the
+        // built-in fcose/cose numbers above.
+        ...(layoutOptionsRef.current ?? {}),
         // Structural (preset) scenes manage the camera explicitly after
         // construction so a collapse rebuild can preserve pan/zoom; the
-        // preset layout must not fit on its own.
+        // preset layout must not fit on its own. LAST: no caller
+        // option may re-enable preset fit.
         ...(layoutName === "preset" ? { fit: false } : {}),
       } as cytoscape.LayoutOptions,
     });
@@ -925,10 +1125,6 @@ export function CytoscapeCanvas({
     // Node tap: single-select, ctrl-toggle, shift-add
     cy.on("tap", "node", (evt) => {
       const nodeId = evt.target.id();
-      // The on-container collapse chip is a node but not a selection
-      // target; wireStructuralCompartmentToggle owns its tap. Skip it
-      // here so tapping the chip toggles rather than selecting it.
-      if (evt.target.hasClass("g3t-structural-toggle")) return;
       if (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey) {
         toggleNodeSelection(nodeId);
       } else if (evt.originalEvent.shiftKey) {
@@ -948,6 +1144,53 @@ export function CytoscapeCanvas({
         clearSelection();
       }
     });
+
+    // Multi-select drag (review 4.8): the toolkit's selection is CSS
+    // classes, never cy.select(), so cytoscape's native
+    // drag-selected-together never engages. Reconstruct it: grabbing
+    // a store-selected node anchors a group drag; the anchor's delta
+    // applies to every other selected, unlocked node (locked = pinned
+    // stays put, honoring the pin contract). Structural scenes are
+    // excluded: port/compartment drags have their own wiring.
+    if (!structural) {
+      let groupDrag: {
+        anchorId: string;
+        anchorStart: { x: number; y: number };
+        starts: Map<string, { x: number; y: number }>;
+      } | null = null;
+      cy.on("grab", "node", (evt) => {
+        const anchor = evt.target;
+        const sel = useSelectionStore.getState().selectedNodeIds;
+        if (!sel.has(anchor.id()) || sel.size < 2) return;
+        const starts = new Map<string, { x: number; y: number }>();
+        for (const id of sel) {
+          if (id === anchor.id()) continue;
+          const el = cy.getElementById(id);
+          if (el.nonempty() && !el.locked()) {
+            const p = el.position();
+            starts.set(id, { x: p.x, y: p.y });
+          }
+        }
+        const ap = anchor.position();
+        groupDrag = {
+          anchorId: anchor.id(),
+          anchorStart: { x: ap.x, y: ap.y },
+          starts,
+        };
+      });
+      cy.on("drag", "node", (evt) => {
+        if (!groupDrag || evt.target.id() !== groupDrag.anchorId) return;
+        const p = evt.target.position();
+        const dx = p.x - groupDrag.anchorStart.x;
+        const dy = p.y - groupDrag.anchorStart.y;
+        for (const [id, s0] of groupDrag.starts) {
+          cy.getElementById(id).position({ x: s0.x + dx, y: s0.y + dy });
+        }
+      });
+      cy.on("free", "node", () => {
+        groupDrag = null;
+      });
+    }
 
     // Lasso (box) selection -> store. Extracted and headless-tested in
     // box-selection-sync.ts; NOT a boxend + :selected read, because
@@ -971,7 +1214,21 @@ export function CytoscapeCanvas({
       });
     });
 
+    // Emphasis/effects layer (review 4.6): same store-to-classes
+    // pattern as selection above, but a DISTINCT visual state (path
+    // results must not read as selection). Initial apply covers
+    // instances (re)built while an effect is active.
+    applyEmphasisClasses(cy, useEmphasisStore.getState());
+    const unsubEmphasis = useEmphasisStore.subscribe((state) => {
+      applyEmphasisClasses(cy, state);
+    });
+
+    // Routed structural edges: mirror the data-carried bends into
+    // per-element style bypasses (review 3.4; see the helper's doc).
+    if (structural) applyRoutedSegmentBypasses(cy);
+
     cyRef.current = cy;
+    setOverlayCy(cy);
     // Re-apply the visibility filter to this (possibly rebuilt) instance.
     applyHiddenClasses(cy, hiddenRef.current);
     // Bugfix 3: read from ref (see comment near onReadyRef above)
@@ -981,14 +1238,6 @@ export function CytoscapeCanvas({
     // outside their container), so reattach the drag-along that
     // compound children get for free.
     const disposePortDrag = structural ? wireStructuralPortDrag(cy) : undefined;
-    // On-container collapse chips: forward taps to the host callback
-    // (read from a ref so a new callback identity per render does not
-    // re-init the canvas). A no-op when no onCompartmentToggle is set.
-    const disposeToggle = structural
-      ? wireStructuralCompartmentToggle(cy, (id, cids) =>
-          onCompartmentToggleRef.current?.(id, cids),
-        )
-      : undefined;
 
     // Return cleanup: unsubscribe store + remove the native-contextmenu
     // listener (Bugfix 8). The container survives across cy rebuilds, so
@@ -996,8 +1245,8 @@ export function CytoscapeCanvas({
     const container = containerRef.current;
     return () => {
       unsub();
+      unsubEmphasis();
       disposePortDrag?.();
-      disposeToggle?.();
       container.removeEventListener("contextmenu", suppressNativeContextMenu);
     };
     // Bugfix 3: dep array is data + config only. `stylesheet`, `onReady`,
@@ -1010,18 +1259,50 @@ export function CytoscapeCanvas({
     ugm,
     containment,
     layout,
+    layoutOptionsKey,
     edgeStyle,
     composeMergedStylesheet,
     animate,
     animationDuration,
-    structural,
-    structuralDecorationsKey,
+    // MR-1 flash fix: graph IDENTITY drives recreation; scene objects
+    // over the same graph go through the patch effect above.
+    graphEpoch,
   ]);
+
+  // Scene routing (MR-1 flash fix): decide per structural change
+  // whether the live instance can be PATCHED (same graph: collapse,
+  // expand, re-layout) or the graph identity changed (recreate via
+  // epoch). The creation effect below no longer depends on the scene
+  // object itself.
+  useEffect(() => {
+    const key = structural
+      ? structural.input.nodes
+          .map((n) => n.id)
+          .sort()
+          .join("|")
+      : "";
+    const sameGraph = key !== "" && key === sceneKeyRef.current;
+    sceneKeyRef.current = key;
+    if (!structural) return;
+    const cy = cyRef.current;
+    if (sameGraph && cy) {
+      const elements = structuralToCytoscapeElements(
+        structural.input,
+        structural.geometry,
+        structuralDecorationsRef.current,
+      );
+      applyScenePatch(cy, elements);
+      applyRoutedSegmentBypasses(cy);
+      return;
+    }
+    if (!sameGraph && cyRef.current) setGraphEpoch((e) => e + 1);
+  }, [structural, structuralDecorationsKey]);
 
   useEffect(() => {
     const unsub = initCytoscape();
     return () => {
       unsub?.();
+      setOverlayCy(null);
       // Capture the live camera before teardown so the next same-graph
       // rebuild (e.g. a compartment collapse) restores it instead of fitting.
       if (cyRef.current) {
@@ -1051,6 +1332,13 @@ export function CytoscapeCanvas({
       patch.edges.forEach((data, id) => {
         const ele = cy.getElementById(id);
         if (ele.nonempty()) ele.data(data);
+      });
+      // Review 4.7: the spec may have (re)stamped _icon; pinned nodes
+      // render background-image from _bgStack, so their stacks must
+      // re-compose here or the new icon never shows under the badge.
+      const badge = pinBadgeUri(useThemeStore.getState().theme);
+      cy.nodes().forEach((n) => {
+        if (n.hasClass("g3t-pinned")) composePinStack(n, badge);
       });
     });
   }, [encodingSpec, ugm, structural]);
@@ -1141,23 +1429,12 @@ export function CytoscapeCanvas({
       cy.nodes().forEach((n) => {
         if (locked.has(n.id())) {
           n.lock();
-          // Compose the background stack: encoding icon (if any)
-          // centered, pin badge top-right. FIXED pixel badge size:
-          // percentages distorted on compound parents (finding 1b);
-          // 16px holds shape and scale on every element. Captured at
-          // pin/theme time; theme switches re-compose below.
-          const icon = n.data("_icon") as string | undefined;
-          n.data("_bgStack", icon ? [icon, badge] : [badge]);
-          n.data("_bgPosX", icon ? ["50%", "100%"] : ["100%"]);
-          n.data("_bgPosY", icon ? ["50%", "0%"] : ["0%"]);
-          n.data("_bgW", icon ? ["60%", "16px"] : ["16px"]);
-          n.data("_bgH", icon ? ["60%", "16px"] : ["16px"]);
-          n.data("_bgFit", icon ? ["none", "none"] : ["none"]);
+          composePinStack(n, badge);
           n.addClass("g3t-pinned");
         } else {
           n.unlock();
           n.removeClass("g3t-pinned");
-          n.removeData("_bgStack _bgPosX _bgPosY _bgW _bgH _bgFit");
+          n.removeStyle(PIN_BYPASS_PROPS.join(" "));
         }
       });
     });
@@ -1267,6 +1544,16 @@ export function CytoscapeCanvas({
         data-testid="cytoscape-canvas"
         onContextMenu={suppressContextMenu}
       />
+      {structural && structuralEdgeLayer === "svg-overlay" && overlayCy && (
+        <StructuralEdgeOverlay
+          cy={overlayCy}
+          theme={{
+            stroke: theme.textSecondary,
+            labelColor: theme.textPrimary,
+            labelHalo: theme.canvasBg,
+          }}
+        />
+      )}
       {menuState && (
         <ContextMenu
           items={menuState.items}

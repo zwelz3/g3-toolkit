@@ -22,30 +22,31 @@
  * plain div bars, deliberately: deterministic and jsdom-verifiable
  * where echarts is not.
  */
+import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import {
-  useEffect,
-  useMemo,
-  useState,
-  type ChangeEvent,
-  type ReactNode,
-} from "react";
-import {
+  categoricalColorMap,
+  ContextMenuManager,
   CytoscapeCanvas,
-  TableView,
   ShaclShapeBrowser,
+  GraphToolbar,
+  TableView,
   useSelectionStore,
+  useStructuralLayout,
+  type EncodingSpec,
+  FloatingLegend,
 } from "@g3t/react";
 import {
-  layoutStructural,
+  UGM,
   validateShacl,
   shaclShapesToStructural,
   closedShapeIds,
   shaclRowSeverities,
-  type StructuralGeometry,
-  type StructuralGraphInput,
 } from "@g3t/core";
-import { executeSparql, termText, type SparqlResult } from "../bio/sparql";
+import type { Core } from "cytoscape";
+import { executeSparql, type SparqlResult } from "../bio/sparql";
 import { SurfaceFrame } from "../surfaces/DashboardSurfaces";
+import { stampMultiTypePies, MULTI_TYPE_PIE_RULES } from "./multi-type";
+import { sparqlResultUgm } from "./sparql-grid";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import {
   buildOntologyGraph,
@@ -55,7 +56,13 @@ import {
 } from "./model";
 import { materializeInferences } from "./reasoner";
 import { OntologyStore, type EntityKind, type EntitySummary } from "./store";
-import { classHierarchyUgm, instancesUgm, neighborhoodUgm } from "./project";
+import {
+  classHierarchyUgm,
+  instancesUgm,
+  neighborhoodUgm,
+  validationUgm,
+  local,
+} from "./project";
 import { parseRdfFile } from "./import";
 
 type LeftTab = "classes" | "properties" | "individuals";
@@ -66,35 +73,45 @@ type CenterTab =
   | "shapes"
   | "sparql";
 
-const DEFAULT_QUERIES: Array<{ id: string; label: string; sparql: string }> = [
+const DEFAULT_QUERIES: Array<{
+  id: string;
+  label: string;
+  sparql: string;
+  note: string;
+}> = [
   {
     id: "classes",
     label: "Ontology scope: all classes",
     sparql: `PREFIX owl: <http://www.w3.org/2002/07/owl#>
 SELECT ?class WHERE { ?class rdf:type owl:Class }`,
+    note: "Every owl:Class declaration in the TBox: 22 rows from the seed, more after an import that declares classes. Unaffected by the inference toggle (the demo reasoner adds no class declarations).",
   },
   {
     id: "satellites",
     label: "Type scope: satellites and their mass",
     sparql: `PREFIX ex: <http://example.org/sat#>
 SELECT ?sat ?mass WHERE { ?sat rdf:type ex:Satellite . ?sat ex:mass ?mass }`,
+    note: "Type-scoped instance query: 2 rows (aquila1, aquila2), each with its asserted mass. Unaffected by inference (both are asserted Satellites with asserted mass).",
   },
   {
     id: "subsystems",
     label: "Instance scope: subsystems per system",
     sparql: `PREFIX ex: <http://example.org/sat#>
 SELECT ?system ?subsystem WHERE { ?system ex:hasSubsystem ?subsystem }`,
+    note: "Asserted: 3 rows (aquila1's subsystems). With inference: 4 rows, because aquila2 hasSubsystem pwr2 is materialized from the inverse-only assertion pwr2 subsystemOf aquila2.",
   },
   {
     id: "contacts",
     label: "Inference demo: communication links (toggle inference)",
     sparql: `PREFIX ex: <http://example.org/sat#>
 SELECT ?a ?b WHERE { ?a ex:communicatesWith ?b }`,
+    note: "Asserted: 2 rows (aquila1 to gsAlpha, aquila2 to gsBravo). With inference: 4 rows, because communicatesWith is symmetric and the reasoner adds both reverses.",
   },
   {
     id: "labels",
     label: "Ontology scope: labels",
     sparql: `SELECT ?s ?label WHERE { ?s rdfs:label ?label }`,
+    note: "Every rdfs:label in the graph (TBox and ABox). Row count grows with imports; inference adds none (the reasoner never invents labels).",
   },
 ];
 
@@ -131,6 +148,33 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
   const shapes = useMemo(() => buildShapes(), []);
   const stats = useMemo(() => store.stats(), [store]);
 
+  // Stable visual encoding (review 4.4): the color domain is the
+  // store's full class universe, so a class keeps its color across
+  // the instances view, the neighborhood view, scope changes, and
+  // inference toggles (encounter-order assignment previously
+  // reshuffled colors on every projection rebuild).
+  const classDomain = useMemo(
+    () => store.entities("Class").map((c) => c.iri),
+    [store],
+  );
+  const instanceSpec = useMemo<EncodingSpec>(
+    () => ({
+      version: 1,
+      node: {
+        color: {
+          driver: "types",
+          scale: {
+            kind: "categorical",
+            palette: "okabe-ito",
+            domain: classDomain,
+          },
+        },
+      },
+      edge: {},
+    }),
+    [classDomain],
+  );
+
   // ── Selection: the toolkit store is the single source ────────────
   const selectedNodeIds = useSelectionStore((s) => s.selectedNodeIds);
   const selectedIri = useMemo(() => {
@@ -139,15 +183,30 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
     }
     return null;
   }, [selectedNodeIds]);
-  const select = (iri: string) =>
+  const select = (iri: string) => {
     useSelectionStore.getState().selectNodes([iri]);
+    // 12.14: a completed pick ends the search; the filter clears so
+    // the browser returns to the full tree.
+    setSearch("");
+  };
 
   // ── UI state ─────────────────────────────────────────────────────
   const [leftTab, setLeftTab] = useState<LeftTab>("classes");
-  const [centerTab, setCenterTab] = useState<CenterTab>("hierarchy");
+  const [centerTab, setCenterTabState] = useState<CenterTab>("hierarchy");
+  // Live cytoscape instance for the ACTIVE graph view (review 4.1:
+  // the GraphToolbar operates on it). Tab switches destroy the old
+  // instance, so the handle resets until the next canvas mounts.
+  const [viewCore, setViewCore] = useState<Core | null>(null);
+  const setCenterTab = (t: CenterTab) => {
+    setViewCore(null);
+    setCenterTabState(t);
+  };
   const [search, setSearch] = useState("");
   const [hops, setHops] = useState(2);
   const [scopeClass, setScopeClass] = useState<string | null>(null);
+  // 9.28: starts collapsed per Zach's pass; the header row with the
+  // live count remains the affordance.
+  const [dockOpen, setDockOpen] = useState(false);
 
   // ── Projections ──────────────────────────────────────────────────
   const hierUgm = useMemo(
@@ -155,8 +214,18 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
     [store, inferenceOn],
   );
   const instUgm = useMemo(
-    () => instancesUgm(store, inferenceOn, scopeClass),
-    [store, inferenceOn, scopeClass],
+    // Review 5.21: multi-class membership renders as a split ring;
+    // slice colors come from the SAME categorical map as the spec and
+    // legend, so a ring slice always matches a legend row.
+    () =>
+      stampMultiTypePies(
+        instancesUgm(store, inferenceOn, scopeClass),
+        categoricalColorMap(
+          instanceSpec,
+          instancesUgm(store, inferenceOn, scopeClass),
+        ),
+      ),
+    [store, inferenceOn, scopeClass, instanceSpec],
   );
   const fullInstUgm = useMemo(
     () => instancesUgm(store, inferenceOn, null),
@@ -165,37 +234,79 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
   const neighborhood = useMemo(
     () =>
       selectedIri !== null
-        ? neighborhoodUgm(
-            fullInstUgm.hasNode(selectedIri) ? fullInstUgm : hierUgm,
-            selectedIri,
-            hops,
+        ? stampMultiTypePies(
+            neighborhoodUgm(
+              fullInstUgm.hasNode(selectedIri) ? fullInstUgm : hierUgm,
+              selectedIri,
+              hops,
+            ),
+            categoricalColorMap(instanceSpec, fullInstUgm),
           )
         : null,
-    [fullInstUgm, hierUgm, selectedIri, hops],
+    [fullInstUgm, hierUgm, selectedIri, hops, instanceSpec],
   );
 
   // ── SHACL: validate the toggle-selected graph; ELK shape view ────
+  // Validation runs on the dedicated validation projection (full-IRI
+  // keys only), never on the display UGM.
   const validation = useMemo(
-    () => validateShacl(fullInstUgm, shapes),
-    [fullInstUgm, shapes],
+    () => validateShacl(validationUgm(store, inferenceOn), shapes),
+    [store, inferenceOn, shapes],
   );
-  const [structural, setStructural] = useState<{
-    input: StructuralGraphInput;
-    geometry: StructuralGeometry;
-  } | null>(null);
-  useEffect(() => {
-    if (centerTab !== "shapes" || structural !== null) return;
-    const input = shaclShapesToStructural(shapes, {
-      references: shapeReferences(),
-    });
-    let cancelled = false;
-    void layoutStructural(input, { direction: "RIGHT" }).then((geometry) => {
-      if (!cancelled) setStructural({ input, geometry });
-    });
-    return () => {
-      cancelled = true;
+  // Validation DELTA (review 4.5): which violations inference
+  // resolves (materialized data satisfies a constraint that asserted
+  // data misses) and which it introduces (entailed typing brings a
+  // node into a target class it then fails). Computed over both
+  // toggle states so the panel explains the toggle rather than
+  // following it.
+  const validationDelta = useMemo(() => {
+    const collect = (on: boolean) => {
+      const m = new Map<
+        string,
+        { node: string; shape: string; path: string }
+      >();
+      for (const r of validateShacl(validationUgm(store, on), shapes)) {
+        for (const v of r.violations) {
+          m.set(`${r.nodeId}|${r.shapeName}|${v.path}`, {
+            node: r.nodeId,
+            shape: r.shapeName,
+            path: v.path,
+          });
+        }
+      }
+      return m;
     };
-  }, [shapes, centerTab, structural]);
+    const asserted = collect(false);
+    const inferred = collect(true);
+    const resolved = [...asserted.entries()]
+      .filter(([k]) => !inferred.has(k))
+      .map(([, v]) => v);
+    const introduced = [...inferred.entries()]
+      .filter(([k]) => !asserted.has(k))
+      .map(([, v]) => v);
+    return { resolved, introduced };
+  }, [store, shapes]);
+  // Structural layout + working compartment collapse via the shared
+  // hook (review item 3.3: the collapse chip was a dead control
+  // before this host wiring existed). Lazy-once: nothing is laid out
+  // until the shapes tab is first opened; the scene persists after.
+  const shapesInput = useMemo(
+    () => shaclShapesToStructural(shapes, { references: shapeReferences() }),
+    [shapes],
+  );
+  // Latch-once during render (the repo lints against setState inside
+  // effect bodies); the guard makes this a single extra render pass
+  // on the first shapes-tab visit.
+  const [shapesVisited, setShapesVisited] = useState(false);
+  if (centerTab === "shapes" && !shapesVisited) setShapesVisited(true);
+  // Collapse feature removed by ruling 2026-07-10 (see
+  // planning/expand-collapse-postmortem.md); the shapes view lays out
+  // through the collapse-free hook.
+  const { structural } = useStructuralLayout(
+    shapesVisited ? shapesInput : null,
+    { direction: "RIGHT" },
+  );
+  const shapesMenu = useMemo(() => new ContextMenuManager(), []);
   const decorations = useMemo(
     () => ({
       closedContainers: closedShapeIds(shapes),
@@ -210,6 +321,13 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
     DEFAULT_QUERIES[0]?.sparql ?? "",
   );
   const [sparqlResult, setSparqlResult] = useState<SparqlResult | null>(null);
+  const sparqlGridUgm = useMemo(
+    () =>
+      sparqlResult !== null && sparqlResult.ok
+        ? sparqlResultUgm(sparqlResult)
+        : new UGM(),
+    [sparqlResult],
+  );
   const runSparql = () =>
     setSparqlResult(executeSparql(store.graph(inferenceOn), sparqlText));
 
@@ -263,12 +381,21 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "260px 1fr 320px",
+          // Review 5.16: the columns template alone leaves the single
+          // IMPLICIT row auto-sized, so height:100% children resolve
+          // against content height and the shell never filled the
+          // viewport in a real browser (jsdom does no layout, so the
+          // suite could not see it). An explicit minmax(0, 1fr) row
+          // makes the grid consume the frame's remaining height; the
+          // 5.20 rail widening rides the same edit (320 -> 380).
+          gridTemplateColumns: "260px 1fr 380px",
+          gridTemplateRows: "minmax(0, 1fr)",
           gap: 8,
           padding: 8,
           flex: 1,
           minHeight: 0,
         }}
+        data-testid="ow-grid"
       >
         {/* ── Left rail: browser ─────────────────────────────────── */}
         <div style={{ ...PANEL, display: "flex", flexDirection: "column" }}>
@@ -278,18 +405,43 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
               borderBottom: "1px solid var(--g3t-border, #eee)",
             }}
           >
-            <input
-              data-testid="ow-search"
-              placeholder="Search entities"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: "100%",
-                fontSize: 12,
-                padding: "4px 6px",
-                boxSizing: "border-box",
-              }}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                data-testid="ow-search"
+                placeholder="Search entities"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  width: "100%",
+                  fontSize: 12,
+                  padding: "4px 6px",
+                  boxSizing: "border-box",
+                  paddingRight: 22,
+                }}
+              />
+              {search !== "" && (
+                <button
+                  type="button"
+                  data-testid="ow-search-clear"
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                  style={{
+                    position: "absolute",
+                    right: 2,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    color: "inherit",
+                    padding: "0 4px",
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
               {(["classes", "properties", "individuals"] as const).map((t) => (
                 <TabButton
@@ -455,16 +607,28 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
           >
             {centerTab === "hierarchy" && (
               <>
+                <div style={toolbarRowStyle}>
+                  <GraphToolbar ugm={hierUgm} cy={viewCore} />
+                </div>
                 <Legend
                   items={[
                     ["solid edge", "asserted subClassOf"],
                     ["dashed edge", "inferred (equivalence/transitivity)"],
+                    ["double edge", "equivalentClass"],
                   ]}
                 />
                 <div style={{ flex: 1, minHeight: 0 }}>
                   <CytoscapeCanvas
                     ugm={hierUgm}
-                    layout="breadthfirst"
+                    // Review 5.17: the asserted hierarchy is a tree and
+                    // breadthfirst reads as one; inference adds
+                    // equivalence and transitivity cross-edges that
+                    // breadthfirst tangles into overlapping dashed
+                    // lines. fcose spreads the cross-edges. The layout
+                    // prop is an init dependency, so the toggle
+                    // re-lays out; that is the intended transition.
+                    layout={inferenceOn ? "fcose" : "breadthfirst"}
+                    onReady={setViewCore}
                     animate={!reducedMotion}
                   />
                 </div>
@@ -502,10 +666,32 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                 <div style={{ flex: 1, minHeight: 0 }}>
                   {neighborhood !== null &&
                   neighborhood.getNodeIds().length > 0 ? (
-                    <CytoscapeCanvas
-                      ugm={neighborhood}
-                      animate={!reducedMotion}
-                    />
+                    <div style={{ position: "relative", height: "100%" }}>
+                      <div
+                        style={{
+                          ...toolbarRowStyle,
+                          position: "absolute",
+                          top: 4,
+                          left: 4,
+                          right: 4,
+                          zIndex: 5,
+                        }}
+                      >
+                        <GraphToolbar ugm={neighborhood} cy={viewCore} />
+                      </div>
+                      <CytoscapeCanvas
+                        ugm={neighborhood}
+                        encodingSpec={instanceSpec}
+                        stylesheet={MULTI_TYPE_PIE_RULES}
+                        onReady={setViewCore}
+                        animate={!reducedMotion}
+                      />
+                      <FloatingLegend
+                        ugm={neighborhood}
+                        spec={instanceSpec}
+                        labelFor={shorten}
+                      />
+                    </div>
                   ) : (
                     <EmptyNote testId="ow-neighborhood-empty">
                       Select a class or individual to see its {hops}-hop
@@ -537,27 +723,43 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                     }
                   >
                     <option value="">All individuals</option>
-                    {stats.instancesPerClass.map((c) => (
-                      <option key={c.iri} value={c.iri}>
-                        {c.label} ({c.count})
-                      </option>
-                    ))}
+                    {[...stats.instancesPerClass]
+                      .sort((a, b) => a.label.localeCompare(b.label))
+                      .map((c) => (
+                        <option key={c.iri} value={c.iri}>
+                          {c.label} ({c.count})
+                        </option>
+                      ))}
                   </select>
                   <span style={{ color: "#888" }}>
                     colored by class; dashed edges are inferred
                   </span>
                 </div>
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <CytoscapeCanvas ugm={instUgm} animate={!reducedMotion} />
-                </div>
-                <div
-                  style={{
-                    maxHeight: 220,
-                    overflow: "auto",
-                    borderTop: "1px solid var(--g3t-border, #eee)",
-                  }}
-                >
-                  <TableView ugm={instUgm} pageSize={10} density="compact" />
+                <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
+                  <div
+                    style={{
+                      ...toolbarRowStyle,
+                      position: "absolute",
+                      top: 4,
+                      left: 4,
+                      right: 4,
+                      zIndex: 5,
+                    }}
+                  >
+                    <GraphToolbar ugm={instUgm} cy={viewCore} />
+                  </div>
+                  <CytoscapeCanvas
+                    ugm={instUgm}
+                    encodingSpec={instanceSpec}
+                    stylesheet={MULTI_TYPE_PIE_RULES}
+                    onReady={setViewCore}
+                    animate={!reducedMotion}
+                  />
+                  <FloatingLegend
+                    ugm={instUgm}
+                    spec={instanceSpec}
+                    labelFor={shorten}
+                  />
                 </div>
               </>
             )}
@@ -580,12 +782,40 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                     </strong>
                   )}
                 </div>
+                {(validationDelta.resolved.length > 0 ||
+                  validationDelta.introduced.length > 0) && (
+                  <div
+                    data-testid="ow-validation-delta"
+                    style={{
+                      padding: "2px 8px 6px",
+                      fontSize: 11,
+                      borderBottom: "1px solid var(--g3t-border, #eee)",
+                    }}
+                  >
+                    <strong>What inference changes:</strong>
+                    {validationDelta.resolved.map((d, i) => (
+                      <div key={`r${i}`} data-testid="ow-delta-resolved">
+                        {"\u2713"} {store.labelOf(d.node)}: {d.shape}{" "}
+                        {shorten(d.path)} violation RESOLVED (the reasoner
+                        materializes data satisfying it)
+                      </div>
+                    ))}
+                    {validationDelta.introduced.map((d, i) => (
+                      <div key={`i${i}`} data-testid="ow-delta-introduced">
+                        {"\u26a0"} {store.labelOf(d.node)}: {d.shape}{" "}
+                        {shorten(d.path)} violation INTRODUCED (entailed typing
+                        brings the node into the target class, where it fails)
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ flex: 1, minHeight: 0 }}>
                   {structural !== null ? (
                     <CytoscapeCanvas
                       ugm={hierUgm /* ignored when structural is set */}
                       structural={structural}
                       structuralDecorations={decorations}
+                      menuManager={shapesMenu}
                       animate={!reducedMotion}
                     />
                   ) : (
@@ -647,6 +877,15 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                     padding: 6,
                   }}
                 />
+                {DEFAULT_QUERIES.find((q) => q.id === queryId)?.sparql ===
+                  sparqlText && (
+                  <div
+                    data-testid="ow-sparql-note"
+                    style={{ fontSize: 11, color: "#666" }}
+                  >
+                    {DEFAULT_QUERIES.find((q) => q.id === queryId)?.note}
+                  </div>
+                )}
                 <div
                   style={{ flex: 1, overflow: "auto" }}
                   data-testid="ow-sparql-results"
@@ -656,32 +895,21 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                       Run a query to see bindings.
                     </div>
                   ) : sparqlResult.ok ? (
-                    <table style={{ fontSize: 12, borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr>
-                          {sparqlResult.head.map((h) => (
-                            <th key={h} style={cellStyle}>
-                              ?{h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sparqlResult.rows.map((row, i) => (
-                          <tr key={i} data-testid="ow-sparql-row">
-                            {sparqlResult.head.map((h) => {
-                              const term = row[h];
-                              const text = term ? termText(term) : "";
-                              return (
-                                <td key={h} style={cellStyle} title={text}>
-                                  {shorten(text)}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    // Review 5.19: the toolkit grid replaces the
+                    // bespoke table (sorting, paging, column menu for
+                    // free). Built-in columns are hidden (ordinal id,
+                    // constant Result type) and rows are inert:
+                    // ordinal ids in the shared selection store would
+                    // clobber a live canvas selection.
+                    <div data-testid="ow-sparql-grid">
+                      <TableView
+                        ugm={sparqlGridUgm}
+                        pageSize={20}
+                        density="compact"
+                        hideBuiltinColumns={["id", "types"]}
+                        selectable={false}
+                      />
+                    </div>
                   ) : (
                     <div style={{ fontSize: 12, color: "#c92a2a" }}>
                       {sparqlResult.error}
@@ -691,39 +919,115 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
               </div>
             )}
           </div>
+
+          {/* Review 5.18 (ruling 8.5): the entity table is a
+              PERSISTENT bottom dock across every center tab, so the
+              scoped instance rows stay in reach while reading the
+              hierarchy, a neighborhood, shapes, or query results.
+              Row clicks select entities through the shared store,
+              which every canvas already renders. Collapsible; the
+              header always shows the live row count. */}
+          <div
+            style={{
+              flex: "0 0 auto",
+              borderTop: "1px solid var(--g3t-border, #eee)",
+            }}
+            data-testid="ow-entity-dock"
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "3px 8px",
+                fontSize: 11,
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>
+                Entity table ({instUgm.getNodeIds().length})
+              </span>
+              <span style={{ color: "#888" }}>
+                {scopeClass === null
+                  ? "all individuals"
+                  : `scope: ${local(scopeClass)}`}
+              </span>
+              <button
+                type="button"
+                className="g3t-btn g3t-btn-ghost"
+                data-testid="ow-dock-toggle"
+                style={{ marginLeft: "auto", fontSize: 11 }}
+                onClick={() => setDockOpen((v) => !v)}
+              >
+                {dockOpen ? "Collapse ▾" : "Expand ▴"}
+              </button>
+            </div>
+            {dockOpen && (
+              <div style={{ maxHeight: 200, overflow: "auto" }}>
+                <TableView
+                  ugm={instUgm}
+                  pageSize={8}
+                  density="compact"
+                  idFormatter={local}
+                  hideBuiltinColumns={["types"]}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Right rail: details + shapes browser + stats ───────── */}
         <div
-          style={{ ...PANEL, padding: 8, fontSize: 12 }}
+          style={{
+            ...PANEL,
+            padding: 8,
+            fontSize: 12,
+            // Review 5.20: the rail is a SCROLLABLE column of
+            // visually distinct section cards (entity details, SHACL
+            // property browser, statistics), so four shape reports
+            // fit vertically at the widened 380px instead of
+            // bleeding into the node attributes.
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            overflow: "auto",
+            minHeight: 0,
+          }}
           data-testid="ow-details"
         >
-          {selectedIri !== null ? (
-            <EntityDetails
-              store={store}
-              iri={selectedIri}
-              shapes={shapes}
-              inferenceOn={inferenceOn}
-              onSelect={select}
-              onShowShapes={() => setCenterTab("shapes")}
-            />
-          ) : (
-            <div style={{ color: "#888" }}>
-              Select an entity to see annotations, axioms, and targeting shapes.
+          <div style={railSectionStyle} data-testid="ow-rail-entity">
+            <div style={railSectionHeaderStyle}>Entity details</div>
+            <div style={{ padding: 8 }}>
+              {selectedIri !== null ? (
+                <EntityDetails
+                  store={store}
+                  iri={selectedIri}
+                  shapes={shapes}
+                  inferenceOn={inferenceOn}
+                  onSelect={select}
+                  onShowShapes={() => setCenterTab("shapes")}
+                />
+              ) : (
+                <div style={{ color: "#888" }}>
+                  Select an entity to see annotations, axioms, and targeting
+                  shapes.
+                </div>
+              )}
             </div>
-          )}
+          </div>
           {centerTab === "shapes" && (
-            <div style={{ marginTop: 8 }}>
-              <div style={groupHeaderStyle}>SHACL property browser</div>
-              <ShaclShapeBrowser
-                shapes={shapes}
-                validationResults={validation}
-                onSelectShape={() => undefined}
-              />
+            <div style={railSectionStyle} data-testid="ow-rail-shacl">
+              <div style={railSectionHeaderStyle}>SHACL property browser</div>
+              <div style={{ padding: 8 }}>
+                <ShaclShapeBrowser
+                  shapes={shapes}
+                  validationResults={validation}
+                  onSelectShape={() => undefined}
+                />
+              </div>
             </div>
           )}
-          <div style={{ marginTop: 12 }} data-testid="ow-stats">
-            <div style={groupHeaderStyle}>Ontology statistics</div>
+          <div style={railSectionStyle} data-testid="ow-stats">
+            <div style={railSectionHeaderStyle}>Ontology statistics</div>
             <div
               style={{
                 display: "flex",
@@ -848,7 +1152,16 @@ function EntityDetails({
   onShowShapes: () => void;
 }) {
   const kind = store.kindOf(iri);
-  const axioms = store.axiomsOf(iri).filter((a) => inferenceOn || !a.inferred);
+  // 9.26: sorted for scanability: asserted before inferred, then by
+  // predicate, then object; store order was insertion order, which
+  // interleaved unrelated axiom kinds.
+  const axioms = store
+    .axiomsOf(iri)
+    .filter((a) => inferenceOn || !a.inferred)
+    .sort(
+      (a, b) =>
+        Number(a.inferred) - Number(b.inferred) || a.text.localeCompare(b.text),
+    );
   const annotations = store.annotationsOf(iri);
   const targeting = shapes.filter((s) => s.targetClass === iri);
   const instances = (
@@ -1031,6 +1344,30 @@ function EmptyNote({
   );
 }
 
+const toolbarRowStyle: React.CSSProperties = {
+  padding: "4px 8px 0",
+};
+
+/** Review 5.20: rail section cards. A tinted header bar plus a
+ *  bordered body makes the three rail regions read as separate
+ *  panels rather than one run-on column. */
+const railSectionStyle: React.CSSProperties = {
+  border: "1px solid var(--g3t-border, #e3e3e3)",
+  borderRadius: 6,
+  overflow: "hidden",
+  flex: "0 0 auto",
+};
+
+const railSectionHeaderStyle: React.CSSProperties = {
+  padding: "5px 8px",
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  background: "rgba(112, 72, 232, 0.08)",
+  borderBottom: "1px solid var(--g3t-border, #e3e3e3)",
+};
+
 const groupHeaderStyle: React.CSSProperties = {
   fontSize: 10,
   textTransform: "uppercase",
@@ -1047,10 +1384,4 @@ const chipStyle: React.CSSProperties = {
   background: "var(--g3t-bg-secondary, #f1f3f5)",
   fontSize: 10,
   margin: "2px 2px 2px 0",
-};
-
-const cellStyle: React.CSSProperties = {
-  border: "1px solid var(--g3t-border, #dee2e6)",
-  padding: "2px 8px",
-  textAlign: "left",
 };

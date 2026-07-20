@@ -52,7 +52,23 @@ export function registerToolkitActions(
       icon: "📌",
       filter: (t) => t.type === "node",
       action: (t) => {
-        if (t.id) usePositionPinStore.getState().toggle(t.id);
+        if (!t.id) return;
+        const pinStore = usePositionPinStore.getState();
+        const selected = useSelectionStore.getState().selectedNodeIds;
+        // 9.16: like the color action, pinning a node that is part of
+        // a multi-selection acts on the WHOLE selection, and
+        // coherently: every selected node adopts the target's NEW
+        // state (independent toggles on a mixed selection would flip
+        // states in opposite directions).
+        if (selected.size > 1 && selected.has(t.id)) {
+          const willPin = !pinStore.pinnedIds.includes(t.id);
+          for (const id of selected) {
+            if (willPin) pinStore.pin(id);
+            else pinStore.unpin(id);
+          }
+          return;
+        }
+        pinStore.toggle(t.id);
       },
     },
     {
@@ -61,12 +77,16 @@ export function registerToolkitActions(
       icon: "🔍",
       filter: (t) => t.type === "node",
       action: (t) => {
-        if (t.id) selectNodes([t.id]);
+        if (!t.id) return;
+        selectNodes([t.id]);
+        // Review 4.11: selecting alone is not inspecting. Hosts wire
+        // this to an actual inspector panel (NodePropertyInspector).
+        config.eventBus.emit("context:inspect", { nodeId: t.id });
       },
     },
     {
       id: "view-neighbors",
-      label: `View Neighbors (${hops}-hop)`,
+      label: "View Neighbors",
       icon: "◎",
       filter: (t) => t.type === "node",
       action: (t) => {
@@ -90,6 +110,24 @@ export function registerToolkitActions(
       },
     },
     {
+      id: "collapse-neighbors",
+      label: "Collapse Neighbors",
+      icon: "⊖",
+      // Wired-or-absent: only offered when at least one neighbor is
+      // currently selected (review 4.12: expand without collapse).
+      filter: (t) => {
+        if (t.type !== "node" || !t.id) return false;
+        const selected = useSelectionStore.getState().selectedNodeIds;
+        return config.ugm.getNeighbors(t.id).some((n) => selected.has(n));
+      },
+      action: (t) => {
+        if (!t.id) return;
+        useSelectionStore
+          .getState()
+          .removeNodesFromSelection(config.ugm.getNeighbors(t.id));
+      },
+    },
+    {
       id: "focus-neighborhood",
       label: `Focus (${hops}-hop)`,
       icon: "◉",
@@ -104,19 +142,21 @@ export function registerToolkitActions(
     },
     {
       id: "find-paths-from",
-      label: "Find Paths From Here",
+      label: "Find Paths To Here",
       icon: "⟶",
       filter: (t) => t.type === "node",
       action: (t) => {
         if (!t.id) return;
         const selected = useSelectionStore.getState().selectedNodeIds;
-        // If another node is already selected, find path between them
+        // Interaction order is select-the-source-first, then
+        // right-click the destination (review 4.12): the pre-selected
+        // node is the SOURCE and the clicked node the target.
         const others = [...selected].filter((id) => id !== t.id);
         if (others.length === 1) {
           config.eventBus.emit("context:findPath", {
-            sourceId: t.id,
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            targetId: others[0]!,
+            sourceId: others[0]!,
+            targetId: t.id,
           });
         }
       },
@@ -132,17 +172,6 @@ export function registerToolkitActions(
         config.onEditAppearance?.(t.id);
       },
       separator: true,
-    },
-    {
-      id: "pin-node",
-      label: "Pin Node",
-      icon: "📌",
-      filter: (t) => t.type === "node",
-      action: (t) => {
-        if (t.id) {
-          config.eventBus.emit("context:pinNodes", { nodeIds: [t.id] });
-        }
-      },
     },
     {
       id: "hide-node",
@@ -272,6 +301,12 @@ export function registerToolkitActions(
       filter: () => useSelectionStore.getState().selectedNodeIds.size > 1,
       action: () => {
         const ids = [...useSelectionStore.getState().selectedNodeIds];
+        // 9.16: write the pin store directly; the event alone only
+        // worked in shells that happened to listen, which read as
+        // "pins only one" everywhere else. The event still fires for
+        // shells that add behavior on top.
+        const pinStore = usePositionPinStore.getState();
+        for (const id of ids) pinStore.pin(id);
         config.eventBus.emit("context:pinNodes", { nodeIds: ids });
       },
     },

@@ -142,3 +142,76 @@ describe("sh:closed indicator", () => {
     expect(screen.queryByTestId("shape-closed-Open")).toBeNull();
   });
 });
+
+describe("badge states are always visible (review 3.6)", () => {
+  const shapes = [
+    {
+      id: "http://x.org/sat#PassShape",
+      name: "PassShape",
+      targetClass: "http://x.org/sat#Pass",
+      properties: [{ path: "http://x.org/sat#p", minCount: 1 }],
+    },
+    {
+      id: "http://x.org/sat#FailShape",
+      name: "FailShape",
+      targetClass: "http://x.org/sat#Fail",
+      properties: [{ path: "http://x.org/sat#q", minCount: 1 }],
+    },
+    {
+      id: "http://x.org/sat#IdleShape",
+      name: "IdleShape",
+      targetClass: "http://x.org/sat#Idle",
+      properties: [],
+    },
+  ];
+  const results = [
+    {
+      nodeId: "n1",
+      shapeId: "http://x.org/sat#PassShape",
+      shapeName: "PassShape",
+      targetClass: "http://x.org/sat#Pass",
+      valid: true,
+      violations: [],
+    },
+    {
+      nodeId: "n2",
+      shapeId: "http://x.org/sat#FailShape",
+      shapeName: "FailShape",
+      targetClass: "http://x.org/sat#Fail",
+      valid: false,
+      violations: [
+        {
+          path: "http://x.org/sat#q",
+          message: "missing",
+          severity: "violation" as const,
+        },
+      ],
+    },
+  ];
+
+  it("renders check, X-with-count, and an explicit not-validated glyph", () => {
+    render(<ShaclShapeBrowser shapes={shapes} validationResults={results} />);
+    expect(
+      screen
+        .getByTestId("shape-badge-http://x.org/sat#PassShape")
+        .getAttribute("aria-label"),
+    ).toBe("All nodes pass");
+    const fail = screen.getByTestId("shape-badge-http://x.org/sat#FailShape");
+    expect(fail.getAttribute("aria-label")).toBe("1 failing");
+    expect(fail.textContent).toContain("1");
+    const idle = screen.getByTestId("shape-badge-http://x.org/sat#IdleShape");
+    expect(idle.getAttribute("aria-label")).toBe("Not validated");
+    expect((idle.textContent ?? "").length).toBeGreaterThan(0);
+  });
+
+  it("badges cannot be shrunk out of the row; target IRIs display as local names", () => {
+    render(<ShaclShapeBrowser shapes={shapes} validationResults={results} />);
+    const fail = screen.getByTestId("shape-badge-http://x.org/sat#FailShape");
+    expect(fail.style.flexShrink).toBe("0");
+    const header = screen.getByTestId(
+      "shape-toggle-http://x.org/sat#FailShape",
+    );
+    expect(header.textContent).toContain("Fail");
+    expect(header.textContent).not.toContain("http://x.org/sat#Fail");
+  });
+});

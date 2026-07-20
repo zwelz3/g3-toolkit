@@ -42,6 +42,7 @@ compute both. This is pure `@g3t/core`-level logic + data, no UI, fully
 testable headlessly — so it lands first and locks the story.
 
 ### 1a · Corpus additions
+
 - Add the substantiation signals to `AwardRecord`/`EvaluationRecord`
   already present (evaluation rating is the dominant one) and add the
   **claimable-only** signals: per-person self-asserted concept depth
@@ -57,20 +58,22 @@ testable headlessly — so it lands first and locks the story.
   trace in Act III, beat 8 is real, not scripted.
 
 ### 1b · Projection → two strengths
+
 - Extend `projectMeaning` so each concept carries `_substantiated` and
   `_claimable` (keep `_strength` as an alias of substantiated for back-
   compat with existing tests, or update the tests).
   - `_substantiated`: award + evaluation(≥ Satisfactory) + documentation
-    + traceable delivery, recency-weighted. Marginal efforts still sign
-    negative and drag it down.
+    - traceable delivery, recency-weighted. Marginal efforts still sign
+      negative and drag it down.
   - `_claimable`: substantiated PLUS adjacent-concept reach PLUS résumé
     self-assertion PLUS unevaluated/marginal efforts (counted positively
     here, since a proposal would still cite them).
 - Emit association traces tagged with which bucket they feed
-  (`substantiating` vs `claimable-only`) so the drill-down can show *why*
+  (`substantiating` vs `claimable-only`) so the drill-down can show _why_
   an area is exposed (claimable edges with no substantiating edge).
 
 ### 1c · Analytic → exposure + states
+
 - `runRelevanceAnalytic` returns, per required concept, both coverages
   and the **exposure delta** (claimable − substantiated), and classifies
   into `discriminator | exposed | gap` per the narrative's table.
@@ -81,8 +84,9 @@ testable headlessly — so it lands first and locks the story.
   the converting evidence. This powers beat 8.
 
 ### 1d · Decision + two-faced brief
+
 - `deriveActions` already fans out; add the teaming action sourced from
-  `traceTeaming` (not a generic "team for gap" string — the *named*
+  `traceTeaming` (not a generic "team for gap" string — the _named_
   partner with the converting past performance).
 - Split `assembleCaptureBrief` into the **internal** face (substantiated
   fit, discriminators, exposed, gap, closeable-by-partner) and the
@@ -90,6 +94,7 @@ testable headlessly — so it lands first and locks the story.
   backstop, section-M mapping). Both faces keep `tracesTo`.
 
 ### 1e · Tests
+
 - Extend `pipeline.test.ts`: sustainment is `exposed` (high claimable,
   low substantiated); cyber is `gap` (both low); a discriminator has both
   high; `traceTeaming` returns ORCA for the cyber gap with real
@@ -110,63 +115,73 @@ only scaffolding — which keeps them gate-covered and benefits the
 library. Priority-ordered.
 
 ### 2a · Camera / viewport control (required)
+
 The act transitions need programmatic camera moves (fit, pan-to-node,
 zoom-to-subgraph, smooth animated transitions). `CytoscapeCanvas`
 exposes `onReady(cy)`, so the primitive is reachable, but the demo
 should not poke Cytoscape directly all over. Add a small, documented
 imperative handle or a `camera` prop/controller:
+
 - `focusNodes(ids, opts)` — animate to fit a set with padding.
 - `frameAll(opts)`, `resetView()`.
 - ease/duration options.
-Implement as a thin wrapper around `cy.animate`/`cy.fit`; ship with
-tests that assert the calls (jsdom can't render, but can spy on the cy
-mock, consistent with existing canvas tests).
+  Implement as a thin wrapper around `cy.animate`/`cy.fit`; ship with
+  tests that assert the calls (jsdom can't render, but can spy on the cy
+  mock, consistent with existing canvas tests).
 
 ### 2b · Animated graph/encoding transitions (required)
-Act I→II is a *graph swap* (record graph → meaning graph) and a re-
+
+Act I→II is a _graph swap_ (record graph → meaning graph) and a re-
 encode, and it must read as a transformation, not a hard cut. Options,
 cheapest first:
+
 - Cross-fade two `CytoscapeCanvas` layers (pure shell-side; no toolkit
   change) — likely sufficient for v1.
 - If smoother morphing is wanted, add an encoding-transition helper that
   interpolates node color/size between two `EncodingSpec`s over time.
   This is a genuinely reusable `@g3t/react` capability (animated
   encoding changes) and worth doing if the cross-fade looks cheap.
-Decision gate: build the cross-fade first, evaluate visually, only build
-the interpolation helper if needed.
+  Decision gate: build the cross-fade first, evaluate visually, only build
+  the interpolation helper if needed.
 
 ### 2c · Two-bar "coverage" visualization (required)
+
 The substantiated-vs-claimable bars (Act II, beat 5) are the signature
 visual. `@g3t/charts` (LinkedChart/ECharts) can do grouped/overlaid bars,
 but a bespoke, animated "coverage meter" component (two concentric or
 stacked bars per concept, the ghost claimable behind the solid
 substantiated, the exposure delta highlighted) will land far harder.
+
 - Build as a small reusable `@g3t/react` component
   (`CoverageMeter` / `ExposureBar`) — concept label, two values, state
   color, animated fill. Reusable beyond the demo (any
   target-vs-actual). Gate-covered.
 
 ### 2d · Provenance drill-down panel (required — the spotlight)
+
 The drill-anywhere trace (action → analytic → concept → award →
-evaluation) is *the* capability the demo sells. There's an inspector and
+evaluation) is _the_ capability the demo sells. There's an inspector and
 a neighborhood view, but not a purpose-built **provenance trace** panel
 that walks `tracesTo` chains across tiers and renders the path with the
 raw evidence at the leaf.
+
 - Build a `ProvenanceTrace` component: given a node/action id and the
   graph(s), render the ordered chain to its raw evidence, each hop
-  clickable, the leaf showing the award + evaluation (or the *absence*
+  clickable, the leaf showing the award + evaluation (or the _absence_
   for an exposed concept). Reusable for any provenance-bearing graph.
 - This is the highest-value toolkit addition; give it real polish and
   tests.
 
 ### 2e · Branded theme + raster/logo icons (required, low risk)
+
 `createTheme` and the icon channel (with the `isImageRef` raster
 passthrough already shipped) cover this. The demo defines a Northwind
 theme (custom palette, fonts) and a logo/iconography. No new toolkit
 capability — just exercise the existing ones. Confirms the "this becomes
-*our* product" beat.
+_our_ product" beat.
 
 ### 2f · Narrative/step controller (demo-side, not toolkit)
+
 Auto-play with manual override (play/pause, next/prev, scrub, replay) is
 demo harness, not a library concern. Build it in the example. Keep it
 data-driven: an array of beats, each beat a `{ narration, op, camera,
@@ -190,6 +205,7 @@ Built in the example, composing the real toolkit components. Structure:
   `BriefPanel` (two faces), wiring to `ProvenanceTrace`.
 
 Build order within the shell (each independently viewable):
+
 1. Static three-tier stage: render raw graph, meaning graph, branded.
 2. The coverage panel from real analytic output.
 3. The two-faced brief from real `assembleCaptureBrief`.
@@ -199,7 +215,7 @@ Build order within the shell (each independently viewable):
 7. Motion/easing/visual-polish pass.
 
 Caution carried throughout: the build can verify compile/test, but the
-*rendered* cinematics (timing, easing, legibility of the transformation,
+_rendered_ cinematics (timing, easing, legibility of the transformation,
 whether the two bars read instantly) can only be judged live — so steps
 6–7 will need a visual review pass with you, and the beat script is
 deliberately data-driven so retuning is cheap.
@@ -211,7 +227,8 @@ deliberately data-driven so retuning is cheap.
 You're open to a separate repo or an optional bundled package. Analysis:
 
 ### The tension
-The four scenario shells and the two capability dashboards live *inside*
+
+The four scenario shells and the two capability dashboards live _inside_
 the toolkit repo and depend only on `@g3t/{core,react,charts}` via
 workspace paths. The flagship wants heavier, demonstrative dependencies
 (richer animation/easing, maybe a layout/physics lib, branded fonts,
@@ -219,6 +236,7 @@ possibly a PDF generator for the exported brief) that you do NOT want
 polluting the toolkit's own dependency graph or bundle budgets.
 
 ### Options
+
 1. **In-repo example (status quo)** — simplest, but drags demo-only deps
    into the workspace and tempts bundle/lint scope creep. Fine for the
    engine; awkward for the cinematic deps.
@@ -235,6 +253,7 @@ polluting the toolkit's own dependency graph or bundle budgets.
    in-repo source as easily, duplicate CI.
 
 ### Recommendation
+
 Stage it: **build now as option 2** (optional in-repo package, deps
 quarantined, engine gate-covered, shell excluded from root bundle/lint
 gates). If/when the flagship becomes a externally-hosted sales site with
@@ -243,6 +262,7 @@ already package-shaped, so the lift is moving it and swapping workspace
 paths for published deps.
 
 Concretely for option 2:
+
 - Give `examples/flagship` its own `package.json` with the demonstrative
   deps; keep `@g3t/*` as `workspace:*`.
 - Exclude `examples/flagship/**` from the root `lint`/`verify`/bundle-
@@ -276,7 +296,7 @@ Concretely for option 2:
 ## 6 · Risks &amp; honesty checkpoints
 
 - **The cinematics can't be self-verified.** Compile/test pass tells us
-  nothing about whether the transformation *reads*. Mitigate with the
+  nothing about whether the transformation _reads_. Mitigate with the
   data-driven beat script (cheap retuning) and explicit visual-review
   gates at §5.6.
 - **Over-claiming the algorithm.** The plan keeps the projection/analytic

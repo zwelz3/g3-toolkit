@@ -1,0 +1,39 @@
+{
+  "status": "frozen",
+  "frozenAt": "2026-07-18",
+  "note": "MR-5 executed in full. Baseline machine: GitHub CI runner (owner ruling 2026-07-12). The ONE permitted revision (spec section 14 preamble) restructured budgets by accountability: keys the CURRENT implementation is accountable for assert now; keys whose component is a future milestone record their target and begin asserting when that component lands (engine flip for PRF-001 per WS-D D3; channel router for the R1-scale routing keys per PRF-003). Further changes are requirement changes, not budget edits. 2026-07-18 later: the engine flip landed (WS-D D3a); PRF-001-R1-layout asserts NOW per the encoded gate. Local container read 457.6 ms (~240 ms implied on the CI baseline); a CI red here demands the incremental cut-value optimization, not a budget edit.",
+  "ciBaseline": {
+    "PRF-001-R1-layout": 7314.53,
+    "PRF-002-R1-routing-extrapolated": 885516,
+    "PRF-002-frame-reroute-mbse": 3.12,
+    "PRF-002-frame-reroute-R1": 8748.74,
+    "PRF-004-R2-full": 12.91,
+    "PRF-004-incremental": 0
+  },
+  "budgets": {
+    "PRF-001-R1-layout": {
+      "ms": 300,
+      "asserts": "now"
+    },
+    "PRF-002-R1-routing": {
+      "ms": 200,
+      "asserts": "at-channel-router"
+    },
+    "PRF-002-frame-reroute-mbse": {
+      "ms": 8,
+      "asserts": "now"
+    },
+    "PRF-002-frame-reroute-R1": {
+      "ms": 8,
+      "asserts": "at-channel-router"
+    },
+    "PRF-004-R2-full": {
+      "ms": 100,
+      "asserts": "now"
+    },
+    "PRF-004-incremental": {
+      "ms": 2,
+      "asserts": "now"
+    }
+  }
+}

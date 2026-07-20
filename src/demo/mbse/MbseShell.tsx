@@ -8,10 +8,15 @@
  * open diagram's notation, so the view reads as a modeling tool rather than a
  * generic graph.
  */
-import { useEffect, useMemo, useState } from "react";
-import { CytoscapeCanvas } from "@g3t/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  layoutStructural,
+  CytoscapeCanvas,
+  StructuralSvgView,
+  ContextMenuManager,
+  useStructuralLayout,
+} from "@g3t/react";
+import { publishCanvas, publishScene } from "../testing/e2e-hooks";
+import {
   UGM,
   type StructuralGeometry,
   type StructuralGraphInput,
@@ -21,7 +26,7 @@ import { projectDiagram } from "./diagrams";
 import { ContainmentTree } from "./ContainmentTree";
 import type { DiagramType } from "./model";
 import { MBSE_STYLES } from "./styles";
-import { CapabilityCallout } from "../components/CapabilityCallout";
+import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 
 const DIRECTION: Record<DiagramType, "DOWN" | "RIGHT"> = {
@@ -77,6 +82,44 @@ const NOTATION: Record<
   },
 };
 
+/** MR-11 round-3 (owner: "the visible canvas is smaller than the
+ * demo shell"): the SVG preview fills the canvas host like the cy
+ * renderer does, via a ResizeObserver on the wrapper. */
+function SizedStructuralSvg({
+  scene,
+}: {
+  scene: { input: StructuralGraphInput; geometry: StructuralGeometry };
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({
+    w: 960,
+    h: 560,
+  });
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r && r.width > 0 && r.height > 0) {
+        setSize({ w: Math.round(r.width), h: Math.round(r.height) });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={hostRef} style={{ width: "100%", height: "100%" }}>
+      <StructuralSvgView
+        input={scene.input}
+        geometry={scene.geometry}
+        width={size.w}
+        height={size.h}
+        data-testid="mbse-structural-svg"
+      />
+    </div>
+  );
+}
+
 export function MbseShell({ onBack }: { onBack: () => void }) {
   // Structural mode renders the laid-out scene, not the UGM projection, but
   // the canvas prop is required and must be referentially stable; an empty
@@ -92,28 +135,22 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
   );
 
   const reducedMotion = usePrefersReducedMotion();
-  const [laidOut, setLaidOut] = useState<{
-    input: StructuralGraphInput;
-    geometry: StructuralGeometry;
-  } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void layoutStructural(input, { direction: DIRECTION[type] }).then(
-      (geometry) => {
-        if (!cancelled) setLaidOut({ input, geometry });
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [input, type]);
+  // Structural layout (collapse feature removed by ruling 2026-07-10;
+  // see planning/expand-collapse-postmortem.md). A diagram switch
+  // shows loading, never a stale scene.
+  // F1 structural slice: an owner-visible renderer toggle. Default
+  // stays Cytoscape (all existing e2e hooks and specs bind to it);
+  // the SVG preview renders the SAME geometry document verbatim.
+  const [renderer, setRenderer] = useState<"cytoscape" | "svg">("cytoscape");
+  const { structural: scene } = useStructuralLayout(input, {
+    direction: DIRECTION[type],
+  });
+  // Browser-acceptance hook (no-op outside ?e2e=1): the projection
+  // specs assert DRAWN bounds against this exact geometry document.
+  publishScene("mbse", scene);
 
-  // Render only a scene laid out for the CURRENT input; a stale scene from
-  // the previous diagram reads as loading. This derives what the old
-  // synchronous setScene(null) reset expressed, without setState-in-effect
-  // (input is useMemo'd on diagramId, so identity comparison is sound).
-  const scene = laidOut && laidOut.input === input ? laidOut : null;
+  const menu = useMemo(() => new ContextMenuManager(), []);
 
   const notation = NOTATION[type];
 
@@ -148,18 +185,52 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
         </aside>
 
         <main className="mbse-canvas-wrap">
-          {scene ? (
-            <CytoscapeCanvas
-              ugm={ugm}
-              structural={scene}
-              animate={!reducedMotion}
-            />
-          ) : (
-            <div className="mbse-empty">
-              Laying out {diagram?.name ?? "diagram"}
-              {"\u2026"}
-            </div>
-          )}
+          {/* MR-11 follow-up (owner: "renderer dropdown doesn't
+              work"): the old `.mbse-canvas-wrap > *` rule
+              absolutized EVERY direct child, so this toolbar was
+              stretched under the full-bleed canvas and the select
+              was unclickable (the e2e's programmatic selectOption
+              masked it). The toolbar now lives outside the
+              absolutized host. */}
+          <div className="mbse-canvas-toolbar">
+            <label htmlFor="mbse-renderer" style={{ marginRight: 6 }}>
+              Renderer
+            </label>
+            <select
+              id="mbse-renderer"
+              data-testid="mbse-renderer-select"
+              value={renderer}
+              onChange={(e) =>
+                setRenderer(e.target.value as "cytoscape" | "svg")
+              }
+            >
+              <option value="cytoscape">Cytoscape (default)</option>
+              <option value="svg">SVG preview (F1)</option>
+            </select>
+          </div>
+          <div className="mbse-canvas-host">
+            {scene && renderer === "svg" ? (
+              <SizedStructuralSvg scene={scene} />
+            ) : scene ? (
+              <CytoscapeCanvas
+                ugm={ugm}
+                structural={scene}
+                onReady={publishCanvas("mbse")}
+                // G3L:RND-002: the MBSE shell is the ruled FIRST surface
+                // for the SVG overlay edge layer (per-surface opt-in;
+                // the ruled fallback is removing this prop if MR-2's 4k
+                // pan/zoom review finds visible lag).
+                structuralEdgeLayer="svg-overlay"
+                menuManager={menu}
+                animate={!reducedMotion}
+              />
+            ) : (
+              <div className="mbse-empty">
+                Laying out {diagram?.name ?? "diagram"}
+                {"\u2026"}
+              </div>
+            )}
+          </div>
         </main>
 
         <aside className="mbse-inspector">
@@ -187,7 +258,7 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
               relationships
             </div>
           </div>
-          <CapabilityCallout
+          <CapabilityBubble
             accent="#f97316"
             items={[
               {

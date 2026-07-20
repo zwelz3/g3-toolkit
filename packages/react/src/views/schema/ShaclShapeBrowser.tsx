@@ -15,6 +15,14 @@ import { summarizeValidation } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { Icon } from "../../icons";
 
+/** Local name of an IRI for compact display (full IRI via title). */
+function localName(iri: string): string {
+  const hash = iri.lastIndexOf("#");
+  const slash = iri.lastIndexOf("/");
+  const cut = Math.max(hash, slash);
+  return cut >= 0 && cut < iri.length - 1 ? iri.slice(cut + 1) : iri;
+}
+
 export interface ShaclShapeBrowserProps {
   shapes: ShaclShape[];
   validationResults: ShaclValidationResult[];
@@ -126,12 +134,22 @@ export function ShaclShapeBrowser({
                 ) : null}
               </span>
               <span
+                title={shape.targetClass}
                 style={{
                   fontSize: 10,
                   color: "var(--g3t-text-muted)",
+                  // The full target IRI previously rendered unshrunk
+                  // and pushed the badge out of narrow rails (review
+                  // 3.6: "failing shape has no red X that I can
+                  // see"). Local name + ellipsis; full IRI on hover.
+                  minWidth: 0,
+                  flexShrink: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
-                → {shape.targetClass}
+                → {localName(shape.targetClass)}
               </span>
               <span style={{ flex: 1 }} />
               <span
@@ -145,6 +163,8 @@ export function ShaclShapeBrowser({
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 3,
+                  // The badge is the row's point; it never yields.
+                  flexShrink: 0,
                 }}
               >
                 {badge.icon ? <Icon name={badge.icon} size={11} /> : "—"}

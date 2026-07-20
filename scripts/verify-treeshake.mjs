@@ -54,9 +54,7 @@ for (const [pkg, rules] of Object.entries(PACKAGE_RULES)) {
   const sideEffectsOk = deepEqual(pkgJson.sideEffects, rules.sideEffects);
   console.log(
     `  ${sideEffectsOk ? "✓" : "✗"} sideEffects = ${JSON.stringify(pkgJson.sideEffects)}` +
-      (sideEffectsOk
-        ? ""
-        : ` (expected ${JSON.stringify(rules.sideEffects)})`),
+      (sideEffectsOk ? "" : ` (expected ${JSON.stringify(rules.sideEffects)})`),
   );
   if (!sideEffectsOk) failures++;
 

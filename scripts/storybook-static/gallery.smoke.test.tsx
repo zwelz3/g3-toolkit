@@ -13,7 +13,13 @@ describe("static story gallery", () => {
     const { container } = render(<Gallery />);
     expect(screen.getByText("g3-toolkit component gallery")).toBeTruthy();
     expect(screen.getByText(/g3-toolkit stories/)).toBeTruthy();
-    for (const cat of ["Patterns", "Views", "Molecules", "Atoms", "Reference"]) {
+    for (const cat of [
+      "Patterns",
+      "Views",
+      "Molecules",
+      "Atoms",
+      "Reference",
+    ]) {
       expect(screen.getAllByText(cat).length).toBeGreaterThan(0);
     }
     expect(container.querySelectorAll(".g3tg-item").length).toBeGreaterThan(15);

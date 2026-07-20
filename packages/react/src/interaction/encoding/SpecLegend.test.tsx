@@ -109,4 +109,29 @@ describe("shape section (round 13)", () => {
       "(rectangle)",
     );
   });
+
+  it("documents the DEFAULT shape channel when the spec declares none (12.15)", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["Alpha"] });
+    ugm.addNode("b", { types: ["Beta"] });
+    render(
+      <SpecLegend
+        ugm={ugm}
+        spec={{
+          version: 1,
+          node: {
+            color: {
+              driver: "types",
+              scale: { kind: "categorical", palette: "okabe-ito" },
+            },
+          },
+          edge: {},
+        }}
+      />,
+    );
+    // Sorted types cycle shapeForIndex: the legend mirrors the canvas
+    // default exactly instead of showing color only.
+    expect(screen.getByTestId("legend-shape-Alpha")).toBeDefined();
+    expect(screen.getByTestId("legend-shape-Beta")).toBeDefined();
+  });
 });

@@ -8,8 +8,15 @@ here until the human picks them up.
 
 ## Open
 
+- **Execute the G3L manual-review log (MR-1..MR-6).** G3L rounds now
+  track their human/live-review tasks procedurally in
+  planning/g3l/manual-review-log.md (MR-1 CLOSED: collapse feature removed by ruling, see planning/expand-collapse-postmortem.md;
+  overlay 4k lag gate, overlay parity review, FTO review, PRF baseline
+  ruling, label taste check). That log is the single home for such
+  items going forward; this entry is the pointer, not the copy.
+
 - **Reconsider global Zustand stores for per-canvas state (multi-canvas
-  pages).** The overlay, selection, pin, and collapse stores are
+  pages).** The overlay, selection, and pin stores are
   module-level singletons. With one canvas (the production case) this
   is fine, but a page mounting several canvases (the visual-acceptance
   page; conceivably a future split view or comparison UI) shares all

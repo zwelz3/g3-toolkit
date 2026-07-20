@@ -5,8 +5,8 @@
  *
  * - ex:aquila2 is typed ONLY ex:Satellite; Spacecraft/System/Artifact
  *   arrive via subclass inference.
- * - ex:gsAlpha is never typed at all; ex:communicatesWith range
- *   entailment types it GroundStation.
+ * - ex:gsAlpha is never typed at all; ex:uplinksTo range entailment
+ *   types it GroundStation.
  * - ex:communicatesWith is symmetric and asserted one direction only.
  * - ex:partOf is transitive; thruster -> propulsion -> aquila1 gives
  *   an inferred thruster partOf aquila1.
@@ -238,19 +238,33 @@ export function buildOntologyGraph(): RDFGraph {
       u(ex("hasSubsystem"), OWL_INVERSE, ex("subsystemOf")),
     ]),
     ...objProp("subsystemOf", "subsystem of", "Subsystem", "System"),
-    ...objProp("hasComponent", "has component", "Subsystem", "Component", [
-      u(ex("hasComponent"), OWL_INVERSE, ex("partOf")),
-    ]),
+    // OW-F1: hasComponent was declared inverseOf partOf, pairing a
+    // specific property (Subsystem -> Component) with the generic
+    // transitive mereology (Artifact -> Artifact). Any asserted
+    // "X partOf aquila1" materialized "aquila1 hasComponent X", and
+    // hasComponent's domain then entailed aquila1 rdf:type Subsystem
+    // (a Satellite typed as a Subsystem). Even ignoring the domain
+    // clash, partOf's inverse is hasPart, not hasComponent. No demo
+    // rode this inverse: transitivity rides partOf itself, the
+    // subproperty demo rides hasPrimaryAntenna, and the
+    // inverse-entailment demo rides hasSubsystem/subsystemOf.
+    ...objProp("hasComponent", "has component", "Subsystem", "Component"),
     ...objProp("partOf", "part of", "Artifact", "Artifact", [
       u(ex("partOf"), RDF_TYPE, OWL_TRANSITIVE),
     ]),
-    ...objProp(
-      "communicatesWith",
-      "communicates with",
-      "System",
-      "GroundStation",
-      [u(ex("communicatesWith"), RDF_TYPE, OWL_SYMMETRIC)],
-    ),
+    // Symmetric properties must have symmetric domain/range: the
+    // original draft gave communicatesWith range GroundStation, and
+    // the reasoner faithfully typed satellites as GroundStations via
+    // the materialized reverse (with Spacecraft disjointWith
+    // GroundStation, a DL reasoner would call the ontology
+    // inconsistent; the demo reasoner does no consistency checking,
+    // so the flaw surfaced as spurious closed-shape violations).
+    ...objProp("communicatesWith", "communicates with", "System", "System", [
+      u(ex("communicatesWith"), RDF_TYPE, OWL_SYMMETRIC),
+    ]),
+    // Non-symmetric link carrying the range-entailment demo: gsAlpha
+    // is typed GroundStation only because something uplinksTo it.
+    ...objProp("uplinksTo", "uplinks to", "Spacecraft", "GroundStation"),
     ...objProp("operates", "operates", "Organization", "Spacecraft"),
     ...objProp("inOrbit", "in orbit", "Satellite", "Orbit"),
     ...objProp("verifies", "verifies", "TestReport", "Requirement"),
@@ -318,6 +332,7 @@ export function buildOntologyGraph(): RDFGraph {
     u(ex("prop1"), ex("partOf"), ex("aquila1")),
     // Symmetric, one direction; range entailment types gsAlpha.
     u(ex("aquila1"), ex("communicatesWith"), ex("gsAlpha")),
+    u(ex("aquila1"), ex("uplinksTo"), ex("gsAlpha")),
     u(ex("aquila2"), ex("communicatesWith"), ex("gsBravo")),
     u(ex("acme"), ex("operates"), ex("aquila1")),
     u(ex("acme"), ex("operates"), ex("aquila2")),
@@ -385,7 +400,13 @@ export function buildShapes(): ShaclShape[] {
       name: "GroundStationShape",
       targetClass: ex("GroundStation"),
       closed: true,
-      ignoredProperties: [RDF_TYPE, RDFS_LABEL],
+      // Checklist 7b question (answered 2026-07-07): the reviewed
+      // name/kind closed violations on gsBravo were the PRE-round-1
+      // behavior; the display/validation projection split (3.1) fixed
+      // them (see project.test.ts), and gsBravo conforming on
+      // asserted data is the pinned contract. No fixture change
+      // needed; browser re-verify.
+      ignoredProperties: [RDF_TYPE, RDFS_LABEL, ex("communicatesWith")],
       properties: [
         {
           path: ex("callSign"),

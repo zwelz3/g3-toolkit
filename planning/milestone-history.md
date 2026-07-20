@@ -62,17 +62,17 @@ checked by `python scripts/sync_spec_status.py` (policy and phantom-
 citation guards documented in that script and in
 planning/audit-remediation.md). 76 requirements total (4 adopted from research/capability-landscape.md).
 
-| Domain | Total | Implemented | In progress | Proposed |
-|---|---|---|---|---|
-| Functional Views (R1.x) | 15 | 8 | 6 | 1 |
-| Interaction (R2.x) | 17 | 11 | 3 | 3 |
-| Data Layer (R3.x) | 9 | 4 | 2 | 3 |
-| Projection (R4.x) | 6 | 6 | 0 | 0 |
-| Holonic (R5.x) | 8 | 5 | 1 | 2 |
-| Connectors (R6.x) | 4 | 1 | 1 | 2 |
-| UX & Accessibility (R7.x) | 12 | 10 | 0 | 2 |
-| Security (R8.x) | 5 | 0 | 0 | 5 |
-| **Total** | **76** | **45** | **13** | **18** |
+| Domain                    | Total  | Implemented | In progress | Proposed |
+| ------------------------- | ------ | ----------- | ----------- | -------- |
+| Functional Views (R1.x)   | 15     | 8           | 6           | 1        |
+| Interaction (R2.x)        | 17     | 11          | 3           | 3        |
+| Data Layer (R3.x)         | 9      | 4           | 2           | 3        |
+| Projection (R4.x)         | 6      | 6           | 0           | 0        |
+| Holonic (R5.x)            | 8      | 5           | 1           | 2        |
+| Connectors (R6.x)         | 4      | 1           | 1           | 2        |
+| UX & Accessibility (R7.x) | 12     | 10          | 0           | 2        |
+| Security (R8.x)           | 5      | 0           | 0           | 5        |
+| **Total**                 | **76** | **45**      | **13**      | **18**   |
 
 Proposed (no implementation): R2.15 bookmarks, R3.6 StreamAdapter,
 R3.8 document linkage, R5.6 per-holon view config, R5.8 multi-interior
@@ -86,79 +86,79 @@ commit-time SHACL).
 
 ## Feature Readiness
 
-| Feature | Data Model | Rendering | Interaction | Tests | Ready? |
-|---|---|---|---|---|---|
-| Graph Canvas | ✓ UGM | ✓ Cytoscape | ✓ right-click, select | 25 | ✓ |
-| Node Table | ✓ UGM | ✓ TanStack | ✓ sort, paginate, select | 14 | ✓ |
-| Detail Inspector | ✓ UGM | ✓ React | ✓ expand/collapse | 8 | ✓ |
-| Selection Model | ✓ Zustand | ✓ cross-view | ✓ shift, lasso | 14 | ✓ |
-| Context Menu | ✓ Manager | ✓ React | ✓ plugin API | 25 | ✓ |
-| Faceted Filter | ✓ Registry | ✓ React | ✓ toggle | 5 | ✓ |
-| Full-Text Search | ✓ UGM | ✓ React | ✓ substring | 5 | ✓ |
-| Tagging | ✓ UGM props | — | ✓ add/remove | 8 | ✓ |
-| Grouping | ✓ UGM compound | — | ✓ create/collapse | 10 | ✓ |
-| Working-Set Limits | ✓ Manager | — | — | 10 | ✓ |
-| N-Degree Expansion | ✓ BFS | — | — | 9 | ✓ |
-| Layout Switching | ✓ 4 engines | ✓ Switcher UI | ✓ pin/unpin | 23 | ✓ |
-| SPARQL Adapter | — | — | — | 0 | M3 |
-| Cypher Adapter | — | — | — | 0 | M3 |
-| RDF Projection | ✓ Pipeline | — | ✓ presets, gate | 21 | ✓ |
-| Timeline | — | — | — | 0 | M5 |
-| Map | — | — | — | 0 | M5 |
-| Schema View | — | — | — | 0 | M6 |
-| Workspace | — | — | — | 0 | M6 |
-| Accessibility (ARIA) | — | — | — | 0 | M8 |
-| Redaction | — | — | — | 0 | M10 |
+| Feature              | Data Model     | Rendering     | Interaction              | Tests | Ready? |
+| -------------------- | -------------- | ------------- | ------------------------ | ----- | ------ |
+| Graph Canvas         | ✓ UGM          | ✓ Cytoscape   | ✓ right-click, select    | 25    | ✓      |
+| Node Table           | ✓ UGM          | ✓ TanStack    | ✓ sort, paginate, select | 14    | ✓      |
+| Detail Inspector     | ✓ UGM          | ✓ React       | ✓ expand/collapse        | 8     | ✓      |
+| Selection Model      | ✓ Zustand      | ✓ cross-view  | ✓ shift, lasso           | 14    | ✓      |
+| Context Menu         | ✓ Manager      | ✓ React       | ✓ plugin API             | 25    | ✓      |
+| Faceted Filter       | ✓ Registry     | ✓ React       | ✓ toggle                 | 5     | ✓      |
+| Full-Text Search     | ✓ UGM          | ✓ React       | ✓ substring              | 5     | ✓      |
+| Tagging              | ✓ UGM props    | —             | ✓ add/remove             | 8     | ✓      |
+| Grouping             | ✓ UGM compound | —             | ✓ create/collapse        | 10    | ✓      |
+| Working-Set Limits   | ✓ Manager      | —             | —                        | 10    | ✓      |
+| N-Degree Expansion   | ✓ BFS          | —             | —                        | 9     | ✓      |
+| Layout Switching     | ✓ 4 engines    | ✓ Switcher UI | ✓ pin/unpin              | 23    | ✓      |
+| SPARQL Adapter       | —              | —             | —                        | 0     | M3     |
+| Cypher Adapter       | —              | —             | —                        | 0     | M3     |
+| RDF Projection       | ✓ Pipeline     | —             | ✓ presets, gate          | 21    | ✓      |
+| Timeline             | —              | —             | —                        | 0     | M5     |
+| Map                  | —              | —             | —                        | 0     | M5     |
+| Schema View          | —              | —             | —                        | 0     | M6     |
+| Workspace            | —              | —             | —                        | 0     | M6     |
+| Accessibility (ARIA) | —              | —             | —                        | 0     | M8     |
+| Redaction            | —              | —             | —                        | 0     | M10    |
 
 ## Automated Test Distribution
 
-| Module | Unit | Component | E2E | Total |
-|---|---|---|---|---|
-| UGM (core) | 39 | — | — | 39 |
-| Canvas | 13 | 3 | 1 stub | 16 |
-| Palette | 8 | — | — | 8 |
-| Context Menu | 12 | 7 | — | 19 |
-| Inspector | — | 8 | — | 8 |
-| Selection Store | 11 | — | — | 11 |
-| Table | — | 14 | — | 14 |
-| Working-Set Manager | 10 | — | — | 10 |
-| Neighbors | 9 | — | — | 9 |
-| TagManager | 8 | — | — | 8 |
-| GroupingManager | 10 | — | — | 10 |
-| Faceted Filter | — | 5 | — | 5 |
-| Search | — | 5 | — | 5 |
-| Multi-Select | 3 | — | — | 3 |
-| Layout Engines | 18 | — | — | 18 |
-| Layout Switcher + Pin | — | 10 | — | 10 |
-| Adapters (SPARQL, Cypher, Holonic) | 20 | — | — | 20 |
-| Algorithm Adapter | 3 | — | — | 3 |
-| Relational Virtualizer | 8 | — | — | 8 |
-| Module Boundary (D6) | 6 | — | — | 6 |
-| Projection Pipeline | 24 | — | — | 24 |
-| Secondary Views (M5) | — | 15 | — | 15 |
-| Schema + SHACL | — | 11 | — | 11 |
-| Diff Engine | 8 | — | — | 8 |
-| Workspace | 6 | — | — | 6 |
-| **Total** | **197** | **74** | **1** | **290** |
+| Module                             | Unit    | Component | E2E    | Total   |
+| ---------------------------------- | ------- | --------- | ------ | ------- |
+| UGM (core)                         | 39      | —         | —      | 39      |
+| Canvas                             | 13      | 3         | 1 stub | 16      |
+| Palette                            | 8       | —         | —      | 8       |
+| Context Menu                       | 12      | 7         | —      | 19      |
+| Inspector                          | —       | 8         | —      | 8       |
+| Selection Store                    | 11      | —         | —      | 11      |
+| Table                              | —       | 14        | —      | 14      |
+| Working-Set Manager                | 10      | —         | —      | 10      |
+| Neighbors                          | 9       | —         | —      | 9       |
+| TagManager                         | 8       | —         | —      | 8       |
+| GroupingManager                    | 10      | —         | —      | 10      |
+| Faceted Filter                     | —       | 5         | —      | 5       |
+| Search                             | —       | 5         | —      | 5       |
+| Multi-Select                       | 3       | —         | —      | 3       |
+| Layout Engines                     | 18      | —         | —      | 18      |
+| Layout Switcher + Pin              | —       | 10        | —      | 10      |
+| Adapters (SPARQL, Cypher, Holonic) | 20      | —         | —      | 20      |
+| Algorithm Adapter                  | 3       | —         | —      | 3       |
+| Relational Virtualizer             | 8       | —         | —      | 8       |
+| Module Boundary (D6)               | 6       | —         | —      | 6       |
+| Projection Pipeline                | 24      | —         | —      | 24      |
+| Secondary Views (M5)               | —       | 15        | —      | 15      |
+| Schema + SHACL                     | —       | 11        | —      | 11      |
+| Diff Engine                        | 8       | —         | —      | 8       |
+| Workspace                          | 6       | —         | —      | 6       |
+| **Total**                          | **197** | **74**    | **1**  | **290** |
 
 ## Design Decision Status
 
-| ID | Decision | Implemented? | Verified? |
-|---|---|---|---|
-| D1 | Qualified Edge model | ✓ M0.E2.T2 | ✓ 10 tests |
-| D2 | RDF projects to LPG | ✓ M4 | ✓ 21 tests |
-| D3 | Right-click primary interaction | ✓ M0.E4 | ✓ 19 tests |
-| D4 | Algorithms optional | ✓ M3.E3.T1 | ✓ 3 tests |
-| D5 | Working-set soft limits | ✓ M1.E4.T1 | ✓ 10 tests |
-| D6 | Core modules no React | ✓ convention | — (build test M3) |
-| D7 | Streaming layout modes | — (M9) | — |
-| D8 | Redaction engine | — (M10) | — |
-| D9 | Inferred edges dashed | ✓ M0.E3.T5 | ✓ visual + data |
-| D10 | GenAI query transparency | — (deferred) | — |
-| D11 | Paradigm-neutral views | ✓ convention | — (build test M3) |
-| D12 | Ontology version tracking | — (M6) | — |
-| D13 | React rendering layer | ✓ M0.E1.T1 | ✓ all views |
-| D14 | Four-layer testing strategy | ✓ post-M4 | ✓ infrastructure |
+| ID  | Decision                        | Implemented? | Verified?         |
+| --- | ------------------------------- | ------------ | ----------------- |
+| D1  | Qualified Edge model            | ✓ M0.E2.T2   | ✓ 10 tests        |
+| D2  | RDF projects to LPG             | ✓ M4         | ✓ 21 tests        |
+| D3  | Right-click primary interaction | ✓ M0.E4      | ✓ 19 tests        |
+| D4  | Algorithms optional             | ✓ M3.E3.T1   | ✓ 3 tests         |
+| D5  | Working-set soft limits         | ✓ M1.E4.T1   | ✓ 10 tests        |
+| D6  | Core modules no React           | ✓ convention | — (build test M3) |
+| D7  | Streaming layout modes          | — (M9)       | —                 |
+| D8  | Redaction engine                | — (M10)      | —                 |
+| D9  | Inferred edges dashed           | ✓ M0.E3.T5   | ✓ visual + data   |
+| D10 | GenAI query transparency        | — (deferred) | —                 |
+| D11 | Paradigm-neutral views          | ✓ convention | — (build test M3) |
+| D12 | Ontology version tracking       | — (M6)       | —                 |
+| D13 | React rendering layer           | ✓ M0.E1.T1   | ✓ all views       |
+| D14 | Four-layer testing strategy     | ✓ post-M4    | ✓ infrastructure  |
 
 ## M14: Release Engineering (11 tickets)
 
@@ -288,9 +288,9 @@ Headline order:
 - [x] M1.E3.T5 — Full-text search across labels
   - SearchBar.tsx with case-insensitive substring matching. Reports matchingIds and nonMatchingIds. Uses name property (falls back to ID). 5 tests.
 - [x] M1.E3.T6 — Tagging selected nodes
-  - TagManager persists tags as _tags property array on UGM nodes. Survives serialization round-trip. getAllTags(), getNodesWithTag(). 8 tests.
+  - TagManager persists tags as \_tags property array on UGM nodes. Survives serialization round-trip. getAllTags(), getNodesWithTag(). 8 tests.
 - [x] M1.E3.T7 — User-defined grouping
-  - GroupingManager creates _Group compound nodes with _parent refs on children. removeGroup clears refs. getAllGroups() returns GroupInfo[]. 5 tests.
+  - GroupingManager creates \_Group compound nodes with \_parent refs on children. removeGroup clears refs. getAllGroups() returns GroupInfo[]. 5 tests.
 
 ## Next Up
 
@@ -464,7 +464,7 @@ Headline order:
 - Non-null assertions allowed in test files only (ESLint override)
 - vi.fn() untyped with `as Record<string, unknown>` casts (Vitest 4.x generic API changed)
 - Cytoscape stylesheet uses `as any` for data() references (@types/cytoscape too restrictive)
-- _asserted stored as numeric 0/1 (not boolean) for Cytoscape selector compatibility
+- \_asserted stored as numeric 0/1 (not boolean) for Cytoscape selector compatibility
 - Zustand 5.x with devtools middleware (store name: "g3t-selection")
 - Selection store is a singleton; all views share via useSelectionStore hook
 - WorkingSetManager is framework-agnostic (D6); pure class, no React dependency

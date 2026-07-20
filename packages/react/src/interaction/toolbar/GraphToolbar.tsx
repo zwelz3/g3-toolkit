@@ -33,7 +33,7 @@ import {
   exportSubgraphCsv,
 } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
-import { SearchBar, type SearchResult } from "../search/SearchBar";
+import { SearchBar } from "../search/SearchBar";
 import { usePositionPinStore } from "../../state/position-pin-store";
 import {
   LAYOUTS,
@@ -159,7 +159,23 @@ export interface GraphToolbarProps {
   className?: string;
 }
 
-export function GraphToolbar({ ugm, cy, className }: GraphToolbarProps) {
+export function GraphToolbar({
+  ugm,
+  cy: cyProp,
+  className,
+}: GraphToolbarProps) {
+  // 9.9: shells hand the toolbar a live-instance handle that can go
+  // STALE between a canvas unmount and its successor's onReady (the
+  // workbench's instances -> neighborhood swap is the reproduced
+  // case; search then animated a destroyed instance and crashed the
+  // view). A destroyed instance is treated as absent: every control
+  // no-ops until a live handle arrives, instead of the shell having
+  // to reset on every swap path.
+  const cy =
+    cyProp !== null &&
+    (typeof cyProp.destroyed !== "function" || !cyProp.destroyed())
+      ? cyProp
+      : null;
   const [layoutId, setLayoutId] = useState("force");
   const [options, setOptions] = useState<LayoutOptions>(DEFAULT_LAYOUT_OPTIONS);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -172,11 +188,12 @@ export function GraphToolbar({ ugm, cy, className }: GraphToolbarProps) {
     [cy],
   );
 
-  const handleSearch = useCallback(
-    (result: SearchResult) => {
-      const first = result.matchingIds[0];
-      if (!cy || !first || result.query.trim() === "") return;
-      const ele = cy.getElementById(first);
+  // 12.9: typing only filters; the camera moves on an EXPLICIT pick,
+  // centering the picked node (not the first match).
+  const handlePick = useCallback(
+    (id: string) => {
+      if (!cy) return;
+      const ele = cy.getElementById(id);
       if (ele.nonempty()) {
         cy.animate(
           { center: { eles: ele }, zoom: Math.max(cy.zoom(), 1.2) },
@@ -208,7 +225,8 @@ export function GraphToolbar({ ugm, cy, className }: GraphToolbarProps) {
     >
       <SearchBar
         ugm={ugm}
-        onSearchChange={handleSearch}
+        onSearchChange={() => undefined}
+        onPick={handlePick}
         placeholder="Search nodes…"
         className="g3t-graph-toolbar-search"
       />

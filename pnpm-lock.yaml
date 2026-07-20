@@ -264,9 +264,6 @@ importers:
       d3-hierarchy:
         specifier: ^3.1.2
         version: 3.1.2
-      elkjs:
-        specifier: ^0.11.1
-        version: 0.11.1
       expr-eval:
         specifier: ^2.0.2
         version: 2.0.2

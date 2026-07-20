@@ -30,7 +30,7 @@ import { ontologySummary, resultToChartData } from "./derive";
 import { BioChart } from "./BioChart";
 import { OntologyExplorer } from "./OntologyExplorer";
 import { BIO_STYLES } from "./bio-styles";
-import { CapabilityCallout } from "../components/CapabilityCallout";
+import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 
 const SPEC: EncodingSpec = {
@@ -121,7 +121,6 @@ export function BioShell({ onBack }: { onBack: () => void }) {
     setText(q.sparql);
     setResult(executeSparql(bioGraph, q.sparql));
   };
-  const run = () => setResult(executeSparql(bioGraph, text));
 
   return (
     <div className="bio-shell">
@@ -199,18 +198,21 @@ export function BioShell({ onBack }: { onBack: () => void }) {
               className="bio-editor"
               value={text}
               spellCheck={false}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                // 9.28: presets auto-run via pickQuery; edits auto-run
+                // too (in-browser subset over a small graph), so the
+                // Run button was redundant and is removed.
+                setText(e.target.value);
+                setResult(executeSparql(bioGraph, e.target.value));
+              }}
             />
-            <button type="button" className="bio-run" onClick={run}>
-              Run query
-            </button>
             <div className="bio-notice">
               This runs a curated in-browser executor (a SPARQL subset: basic
               graph patterns, FILTER, ORDER BY, LIMIT). For production, bundle a
               real engine (Comunica or Oxigraph via WASM) or point the toolkit's
               SparqlAdapter at an endpoint.
             </div>
-            <CapabilityCallout
+            <CapabilityBubble
               accent="#b17ef0"
               items={[
                 {

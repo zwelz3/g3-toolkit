@@ -113,7 +113,7 @@ describe("supply data layer + impact", () => {
 });
 
 describe("origin coverage (CoverageMeter fold)", () => {
-  it("is a real partial-coverage signal: at least one tier under 100%", () => {
+  it("exhibits all three meter states: a 0% tier, a partial tier, a 100% tier (review 5.3)", () => {
     const rows = originCoverageByTier(buildSupplyNetwork());
     expect(rows.length).toBeGreaterThan(1);
     for (const r of rows) {
@@ -121,6 +121,13 @@ describe("origin coverage (CoverageMeter fold)", () => {
       expect(r.substantiated).toBeLessThanOrEqual(1);
       expect(r.total).toBeGreaterThan(0);
     }
-    expect(rows.some((r) => r.substantiated < 1)).toBe(true);
+    // The fixture invariant: every meter state (gap, exposed,
+    // discriminator) has a real tier, so fixture edits cannot regress
+    // the panel to an all-or-nothing display.
+    expect(rows.some((r) => r.substantiated === 0)).toBe(true);
+    expect(
+      rows.some((r) => r.substantiated >= 0.25 && r.substantiated <= 0.75),
+    ).toBe(true);
+    expect(rows.some((r) => r.substantiated === 1)).toBe(true);
   });
 });

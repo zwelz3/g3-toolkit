@@ -134,23 +134,19 @@ describe("registerToolkitActions: single-node", () => {
     expect(onEdit).toHaveBeenCalledWith("a");
   });
 
-  it("pin-node emits event", () => {
+  it("registers exactly one pin action per node (pin-position; pin-node removed as a duplicate concept)", () => {
     const manager = new ContextMenuManager();
-    const bus = new G3tEventBus();
-    const handler = vi.fn();
-    bus.on("context:pinNodes", handler);
-
-    registerToolkitActions(manager, { ugm: makeUGM(), eventBus: bus });
+    registerToolkitActions(manager, {
+      ugm: makeUGM(),
+      eventBus: new G3tEventBus(),
+    });
     const items = manager.resolve({
       type: "node",
       id: "a",
       position: { x: 0, y: 0 },
     });
-    items
-      .find((i) => i.id === "pin-node")
-      ?.action({ type: "node", id: "a", position: { x: 0, y: 0 } });
-
-    expect(handler).toHaveBeenCalledWith({ nodeIds: ["a"] });
+    const pinItems = items.filter((i) => /pin/i.test(i.label));
+    expect(pinItems.map((i) => i.id)).toEqual(["pin-position"]);
   });
 
   it("hide-node emits event", () => {
@@ -371,6 +367,28 @@ describe("pin-position action (round 17)", () => {
     expect(pin).toBeTruthy();
     pin!.action(target);
     expect(usePositionPinStore.getState().pinnedIds).toEqual(["a"]);
+    pin!.action(target);
+    expect(usePositionPinStore.getState().pinnedIds).toEqual([]);
+  });
+
+  it("acts on the whole selection coherently when the target is multi-selected (9.16)", () => {
+    const bus = new G3tEventBus();
+    const manager = new ContextMenuManager();
+    registerToolkitActions(manager, { ugm: makeUGM(), eventBus: bus });
+    useSelectionStore.getState().selectNodes(["a", "b", "c"]);
+    // b is ALREADY pinned: a mixed selection. Pinning via unpinned
+    // target a must pin ALL THREE (adopt the target's new state),
+    // not toggle b off.
+    usePositionPinStore.getState().pin("b");
+    const target = { type: "node" as const, id: "a", position: { x: 0, y: 0 } };
+    const pin = manager.resolve(target).find((i) => i.id === "pin-position");
+    pin!.action(target);
+    expect([...usePositionPinStore.getState().pinnedIds].sort()).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    // And unpinning via now-pinned target a releases all three.
     pin!.action(target);
     expect(usePositionPinStore.getState().pinnedIds).toEqual([]);
   });

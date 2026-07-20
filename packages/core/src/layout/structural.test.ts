@@ -1,20 +1,24 @@
+// WS-D D3a elk-pins: oracles below that carry engineKind: "elk"
+// pin ELK-PIPELINE mechanics (injected-engine counting, elk cache
+// keys, LAY-018 collapse holds). They are removed with the elk
+// pipeline at D3b; g3t-generic cache oracles live in
+// structural-engine-cache.test.ts. LAY-018 position-hold under the
+// g3t engine lands with the collapse reintroduction (recorded in
+// the WS-D design doc).
 /**
  * Structural geometry tests (Group A, round 31): the validated ELK
- * compartment recipe, asserted end to end through elkjs.
+ * compartment recipe, asserted end to end (g3t engine since D3b).
  *
  * @see specs/01-functional-views.md R1.18 (capped in-progress:
  *      geometry only; canvas application is the next slice)
  */
-import { describe, it, expect, vi } from "vitest";
-import ELK from "elkjs/lib/elk.bundled.js";
+import { describe, it, expect } from "vitest";
 import {
   buildStructuralElkGraph,
   layoutStructural,
   estimateTextSize,
   isChainEdgeId,
-  compartmentKey,
   type StructuralGraphInput,
-  type ElkEngine,
 } from "./structural";
 
 /** The «Block»/part fixture from containers slice 1, upgraded to compartments. */
@@ -204,144 +208,51 @@ describe("layoutStructural", () => {
   });
 });
 
-describe("compartment collapse", () => {
-  it("omits collapsed content rows but keeps the title divider", async () => {
-    const collapsed = new Set([compartmentKey("sensor", "attributes")]);
-    const geom = await layoutStructural(blockFixture(), {
-      collapsedCompartments: collapsed,
-    });
-    // Title divider stays, with a hidden-count suffix.
-    const title = geom.nodes["sensor::attributes::title"]!;
-    expect(title).toBeDefined();
-    expect(title.text).toBe("attributes (2 hidden)");
-    // Content rows are gone.
-    expect(geom.nodes["sensor.cal"]!).toBeUndefined();
-    expect(geom.nodes["sensor.acc"]!).toBeUndefined();
-    // The other compartment is untouched.
-    expect(geom.nodes["sensor.run"]!).toBeDefined();
-  });
+// The "compartment collapse" describe block lived here; the feature
+// was removed by ruling (2026-07-10). See
+// planning/expand-collapse-postmortem.md.
 
-  it("shrinks the container when a compartment collapses", async () => {
-    const expanded = await layoutStructural(blockFixture());
-    const collapsed = await layoutStructural(blockFixture(), {
-      collapsedCompartments: new Set([compartmentKey("sensor", "attributes")]),
-    });
-    expect(collapsed.nodes["sensor"]!.height).toBeLessThan(
-      expanded.nodes["sensor"]!.height,
-    );
-  });
+describe("layoutStructural de-dup and cache semantics", () => {
+  // RETIRED WITH ELK (D3b part 1): the injected-engine spy that
+  // counted ELK runs left with the engine seam. The same contracts
+  // now assert via RESULT IDENTITY: a cache hit returns the same
+  // object; a cache miss returns a fresh one. (Identity is the
+  // observable the cache actually promises; run-counting was a proxy
+  // for it.)
 
-  it("renders header + dividers only when all compartments collapse", async () => {
-    const geom = await layoutStructural(blockFixture(), {
-      collapsedCompartments: new Set([
-        compartmentKey("sensor", "attributes"),
-        compartmentKey("sensor", "operations"),
-      ]),
-    });
-    const rows = Object.entries(geom.nodes).filter(
-      ([, g]) => g.kind === "row" && g.parent === "sensor",
-    );
-    // Two title dividers, no content rows.
-    expect(rows).toHaveLength(2);
-    expect(rows.every(([, g]) => g.divider)).toBe(true);
-  });
-
-  it("ignores collapse for a non-collapsible compartment", async () => {
-    const fixture = blockFixture();
-    const sensor = fixture.nodes.find((n) => n.id === "sensor")!;
-    sensor.compartments![0]!.collapsible = false;
-    const geom = await layoutStructural(fixture, {
-      collapsedCompartments: new Set([compartmentKey("sensor", "attributes")]),
-    });
-    // Rows still present; title has no hidden-count suffix.
-    expect(geom.nodes["sensor.cal"]!).toBeDefined();
-    expect(geom.nodes["sensor::attributes::title"]!.text).toBe("attributes");
-  });
-
-  it("emits a synthetic divider for a collapsed untitled compartment", async () => {
-    const input: StructuralGraphInput = {
-      nodes: [
-        {
-          id: "n",
-          header: { name: "N" },
-          compartments: [
-            {
-              id: "c",
-              rows: [
-                { id: "n.a", text: "a : x" },
-                { id: "n.b", text: "b : y" },
-              ],
-            },
-          ],
-        },
-      ],
-      edges: [],
-    };
-    const geom = await layoutStructural(input, {
-      collapsedCompartments: new Set([compartmentKey("n", "c")]),
-    });
-    const divider = geom.nodes["n::c::title"]!;
-    expect(divider).toBeDefined();
-    expect(divider.text).toBe("(2 hidden)");
-    expect(geom.nodes["n.a"]!).toBeUndefined();
-  });
-});
-
-describe("layoutStructural engine injection + de-dup", () => {
-  // A spy engine that delegates to a real synchronous elkjs, so we can
-  // both assert injection is honored and count how many ELK runs happen.
-  function spyEngine(): {
-    engine: ElkEngine;
-    layout: ReturnType<typeof vi.fn>;
-  } {
-    const elk = new ELK();
-    const layout = vi.fn((g: Parameters<ElkEngine["layout"]>[0]) =>
-      elk.layout(g),
-    );
-    return { engine: { layout } as ElkEngine, layout };
-  }
-
-  it("lays out through an injected engine instead of the default", async () => {
-    const { engine, layout } = spyEngine();
-    const geom = await layoutStructural(blockFixture(), { engine });
-    expect(layout).toHaveBeenCalledTimes(1);
-    expect(Object.keys(geom.nodes).length).toBeGreaterThan(0);
-  });
-
-  it("de-dupes concurrent layouts of the same input to one ELK run", async () => {
-    const { engine, layout } = spyEngine();
+  it("de-dupes concurrent layouts of the same input to one run", async () => {
     const input = blockFixture();
     const [a, b] = await Promise.all([
-      layoutStructural(input, { engine }),
-      layoutStructural(input, { engine }),
+      layoutStructural(input),
+      layoutStructural(input),
     ]);
-    expect(layout).toHaveBeenCalledTimes(1);
     expect(a).toBe(b);
   });
 
   it("de-dupes a sequential re-layout of the same input (cached result)", async () => {
-    const { engine, layout } = spyEngine();
     const input = blockFixture();
-    const first = await layoutStructural(input, { engine });
-    const second = await layoutStructural(input, { engine });
-    expect(layout).toHaveBeenCalledTimes(1);
+    const first = await layoutStructural(input);
+    const second = await layoutStructural(input);
     expect(second).toBe(first);
   });
 
   it("does NOT cache when a custom measure is supplied", async () => {
-    const { engine, layout } = spyEngine();
     const input = blockFixture();
-    await layoutStructural(input, { engine, measure: estimateTextSize });
-    await layoutStructural(input, { engine, measure: estimateTextSize });
-    expect(layout).toHaveBeenCalledTimes(2);
+    const first = await layoutStructural(input, {
+      measure: estimateTextSize,
+    });
+    const second = await layoutStructural(input, {
+      measure: estimateTextSize,
+    });
+    expect(second).not.toBe(first);
   });
 
-  it("keys the cache by layout options (different direction = separate run)", async () => {
-    const { engine, layout } = spyEngine();
+  it("keys the cache by layout options (different direction = separate result)", async () => {
     const input = blockFixture();
-    await layoutStructural(input, { engine, direction: "DOWN" });
-    await layoutStructural(input, { engine, direction: "RIGHT" });
-    expect(layout).toHaveBeenCalledTimes(2);
+    const down = await layoutStructural(input, { direction: "DOWN" });
+    const right = await layoutStructural(input, { direction: "RIGHT" });
+    expect(down).not.toBe(right);
+    expect(await layoutStructural(input, { direction: "DOWN" })).toBe(down);
   });
 });
 
@@ -361,17 +272,11 @@ describe("layout readability knobs", () => {
 });
 
 describe("edge-edge spacing control", () => {
-  // Whether ELK's router actually separates a given pair of parallel edges
-  // is structure- and version-dependent, so we assert the control wiring
-  // deterministically: the configured gap reaches ELK's edge-edge spacing
-  // options. (The geometric spread is verified on the real thread layout.)
-  function spy() {
-    const elk = new ELK();
-    const layout = vi.fn((g: Parameters<ElkEngine["layout"]>[0]) =>
-      elk.layout(g),
-    );
-    return { engine: { layout } as ElkEngine, layout };
-  }
+  // RETIRED WITH ELK (D3b part 1): the spy that captured the graph
+  // handed to the engine left with the seam. The BUILDER still emits
+  // the spacing vocabulary (the pre-pass graph is engine input), so
+  // the wiring asserts on buildStructuralElkGraph's output directly;
+  // the cache-key contract asserts via result identity.
   const fixture = (id: string): StructuralGraphInput => ({
     nodes: [
       { id: `${id}-a`, width: 60, height: 40 },
@@ -380,32 +285,28 @@ describe("edge-edge spacing control", () => {
     edges: [{ id: `${id}-e`, source: `${id}-a`, target: `${id}-b` }],
   });
 
-  it("defaults parallel edge-edge spacing to a sane 24", async () => {
-    const { engine, layout } = spy();
-    await layoutStructural(fixture("def"), { engine });
-    const opts = layout.mock.calls[0]![0].layoutOptions!;
+  it("defaults parallel edge-edge spacing to a sane 24", () => {
+    const { graph } = buildStructuralElkGraph(fixture("def"), {});
+    const opts = graph.layoutOptions ?? {};
     expect(opts["elk.spacing.edgeEdge"]).toBe("24");
     expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("24");
   });
 
-  it("forwards a custom edgeEdgeSpacing to ELK's edge-edge spacing options", async () => {
-    const { engine, layout } = spy();
-    await layoutStructural(fixture("custom"), { engine, edgeEdgeSpacing: 40 });
-    const opts = layout.mock.calls[0]![0].layoutOptions!;
+  it("forwards a custom edgeEdgeSpacing to the builder's spacing options", () => {
+    const { graph } = buildStructuralElkGraph(fixture("custom"), {
+      edgeEdgeSpacing: 40,
+    });
+    const opts = graph.layoutOptions ?? {};
     expect(opts["elk.spacing.edgeEdge"]).toBe("40");
     expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("40");
   });
 
   it("keys the cache on edgeEdgeSpacing so the default does not alias an explicit 12", async () => {
-    const { engine, layout } = spy();
     const input = fixture("cache");
-    // Default (24) then an explicit 12 on the SAME input: the cache key must
-    // reflect the resolved default, so these are two distinct ELK runs. If
-    // the key normalized to the old 12, the second call would alias the
-    // first's 24-spaced geometry.
-    await layoutStructural(input, { engine });
-    await layoutStructural(input, { engine, edgeEdgeSpacing: 12 });
-    expect(layout).toHaveBeenCalledTimes(2);
+    const def = await layoutStructural(input);
+    const twelve = await layoutStructural(input, { edgeEdgeSpacing: 12 });
+    expect(twelve).not.toBe(def);
+    expect(await layoutStructural(input)).toBe(def);
   });
 });
 

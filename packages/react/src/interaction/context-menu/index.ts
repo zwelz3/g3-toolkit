@@ -23,8 +23,3 @@ export {
   registerMultiSelectMenu,
   applyBulkStyle,
 } from "./appearance-actions";
-
-export {
-  registerCompartmentCollapseActions,
-  compartmentCollapseSubmenu,
-} from "./compartment-collapse-menu";

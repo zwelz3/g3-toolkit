@@ -4,8 +4,6 @@
 // properties) and structure (schema/matrix/sankey + the RDF paradigm).
 export { AnalyticsDashboard } from "./AnalyticsDashboard";
 export type { AnalyticsDashboardProps } from "./AnalyticsDashboard";
-export { SchemaDashboard } from "./SchemaDashboard";
-export type { SchemaDashboardProps } from "./SchemaDashboard";
 
 // Data layer (the ingest boundary; exported so integrators can see the
 // pattern and tests can exercise it directly).

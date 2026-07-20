@@ -49,14 +49,13 @@ describe("BioShell SPARQL workbench", () => {
     fireEvent.change(editor as HTMLTextAreaElement, {
       target: { value: "SELECT WHERE {" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
+    // 9.28: edits auto-run; the Run button is removed.
     expect(container.textContent).toContain("Query error:");
     expect(container.querySelector("table.bio-results")).toBeNull();
 
     fireEvent.change(editor as HTMLTextAreaElement, {
       target: { value: valid },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Run query" }));
     expect(container.textContent).not.toContain("Query error:");
     expect(container.querySelector("table.bio-results")).not.toBeNull();
   });
@@ -81,6 +80,7 @@ describe("BioShell SPARQL workbench", () => {
   it("carries the production-engine notice and the capability callout", () => {
     const { container } = render(<BioShell onBack={() => {}} />);
     expect(container.textContent).toContain("curated in-browser executor");
+    fireEvent.click(screen.getByTestId("capability-bubble"));
     expect(screen.getByTestId("capability-callout").textContent).toContain(
       "rdfToUgm",
     );

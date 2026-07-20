@@ -1,2 +1,2 @@
-export { findShortestPath } from "./path-analysis";
+export { findShortestPath, allShortestPaths } from "./path-analysis";
 export type { PathResult, PathOptions } from "./path-analysis";

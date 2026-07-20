@@ -55,7 +55,7 @@ export const AUDIT_STYLES = `
 .au-canvas-wrap { flex: 1 1 auto; position: relative; min-width: 0; min-height: 0; }
 .au-canvas-wrap > * { position: absolute; inset: 0; }
 .au-timeline {
-  flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0;
+  flex: 0 0 440px; display: flex; flex-direction: column; min-height: 0; /* 12.8 */
   background: var(--au-panel-2); border-left: 1px solid var(--au-line); overflow: auto;
 }
 .au-panel-head {
@@ -92,7 +92,7 @@ export const AUDIT_STYLES = `
 .au-event-time { font-size: 10.5px; color: var(--au-dim); }
 .au-event-kind {
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
-  padding: 1px 5px; border-radius: 3px; justify-self: start;
+  padding: 1px 5px; border-radius: 3px; justify-self: start; min-width: 88px; text-align: center; /* 12.8: fits generated */
 }
 .au-kind-generated { background: rgba(45, 212, 191, 0.18); color: var(--au-accent); }
 .au-kind-started { background: rgba(148, 163, 184, 0.18); color: #b7c4d3; }
@@ -117,10 +117,13 @@ export const AUDIT_STYLES = `
 .au-track { position: relative; height: 34px; }
 .au-track-line { position: absolute; top: 21px; left: 0; right: 0; height: 3px; background: #0c1117; border-radius: 2px; }
 .au-track-fill { position: absolute; top: 21px; height: 3px; background: var(--au-accent); border-radius: 2px; }
-.au-tick { position: absolute; top: 6px; width: 2px; height: 10px; border-radius: 1px; transform: translateX(-1px); }
-.au-tick-generated { background: var(--au-accent); }
-.au-tick-started { background: #8fa0b2; }
-.au-tick-ended { background: #55636f; }
+.au-tick {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: 9px; line-height: 1; cursor: help; user-select: none;
+}
+.au-tick-generated { color: var(--au-accent); }
+.au-tick-started { color: #8fa0b2; }
+.au-tick-ended { color: #55636f; }
 .au-range-input {
   position: absolute; top: 12px; left: 0; width: 100%; margin: 0;
   -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none;
@@ -135,4 +138,26 @@ export const AUDIT_STYLES = `
   background: var(--au-ink); border: 3px solid var(--au-accent); cursor: pointer;
 }
 .au-empty { color: var(--au-dim); font-size: 12px; padding: 6px 8px; }
+.au-ov-chips { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px 0; }
+.au-ov-chip {
+  font: inherit; font-size: 11px; text-align: left; padding: 3px 8px;
+  border: 1px solid var(--au-line); border-radius: 4px; cursor: pointer;
+  background: transparent; color: var(--au-ink);
+}
+.au-ov-chip.on { border-color: var(--au-accent); background: rgba(45, 212, 191, 0.12); }
+.au-trace { position: relative; }
+.au-trace-close {
+  position: absolute; top: 2px; right: 2px; z-index: 2;
+  font: inherit; font-size: 11px; line-height: 1; padding: 2px 5px;
+  border: none; background: transparent; color: var(--au-dim); cursor: pointer;
+}
+.au-inspector {
+  position: relative; margin-top: 8px;
+  border: 1px solid var(--au-line); border-radius: 6px;
+  max-height: 260px; overflow: auto;
+}
+.au-undated-note {
+  font-size: 10px; padding: 4px 10px; color: var(--au-warning, #e3b341);
+  border-bottom: 1px solid var(--au-line); opacity: 0.85;
+}
 `;

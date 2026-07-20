@@ -10,12 +10,7 @@
  * the gallery injects at runtime, so component CSS (the temporal slider,
  * timeline theming, themed date fields, ...) never applies.
  */
-import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  readdirSync,
-} from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 const buildDir = resolve(process.cwd(), "scripts/storybook-static/.build");
@@ -30,7 +25,8 @@ function collectCss(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) out += collectCss(full);
-    else if (entry.name.endsWith(".css")) out += readFileSync(full, "utf8") + "\n";
+    else if (entry.name.endsWith(".css"))
+      out += readFileSync(full, "utf8") + "\n";
   }
   return out;
 }

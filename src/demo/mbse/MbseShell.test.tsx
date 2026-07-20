@@ -98,8 +98,55 @@ describe("MbseShell canvas contract", () => {
 
   it("carries the capability callout in the inspector", async () => {
     render(<MbseShell onBack={() => {}} />);
+    fireEvent.click(screen.getByTestId("capability-bubble"));
     expect(screen.getByTestId("capability-callout").textContent).toContain(
       "layoutStructural",
     );
+  });
+
+  it("the requirements SCENE carries verify + testCase + constraint header (12.2)", async () => {
+    render(<MbseShell onBack={() => {}} />);
+    // The tree renders a "Requirements" PACKAGE button (collapse
+    // toggle) and the diagram button of the same name; only the
+    // .mbse-tree-diagram row switches diagrams. Expand the package
+    // first if the diagram row is not yet in the DOM.
+    const diagramBtn = () =>
+      [...document.querySelectorAll("button.mbse-tree-diagram")].find((b) =>
+        (b.textContent ?? "").includes("Requirements"),
+      ) as HTMLElement | undefined;
+    if (!diagramBtn()) {
+      fireEvent.click(
+        screen
+          .getAllByText("Requirements")
+          .map((el) => el.closest("button.mbse-tree-pkg"))
+          .find((b) => b !== null) as HTMLElement,
+      );
+    }
+    expect(diagramBtn()).toBeDefined();
+    fireEvent.click(diagramBtn() as HTMLElement);
+    // useStructuralLayout lays out asynchronously; wait for the
+    // scene that actually CONTAINS the requirements content (the
+    // initial BDD scene also satisfies a mere non-empty check).
+    await waitFor(() => {
+      const scene = captured.scenes.at(-1);
+      expect(
+        scene?.input.nodes.some((n: { id: string }) => n.id === "tc.imaging"),
+      ).toBe(true);
+    });
+    const scene = captured.scenes.at(-1)!;
+    const edges = scene.input.edges.map(
+      (e: { label?: string }) => e.label ?? "",
+    );
+    expect(edges).toContain("\u00ABverify\u00BB");
+    const headers = scene.input.nodes.map(
+      (n: { header?: { stereotype?: string; name?: string } }) =>
+        `${n.header?.stereotype ?? ""}:${n.header?.name ?? ""}`,
+    );
+    expect(headers).toContain("testCase:ImagingAcceptanceTest");
+    expect(headers).toContain("constraint:PowerBudget");
+    // Subrequirements reach the model browser (nested walk, 12.2).
+    // A nested child (req.point, R1.2) must reach the model browser.
+    expect(screen.getByText("Pointing")).toBeDefined();
+    expect(screen.getByText("R1.2")).toBeDefined();
   });
 });

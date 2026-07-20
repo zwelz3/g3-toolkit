@@ -99,6 +99,13 @@ function FocusButton({ cy, nodeId }: { cy: Core | null; nodeId: string }) {
 
 ### Re-run or shuffle the layout
 
+The canvas also accepts `layoutOptions`, merged into the layout
+object after the built-in tuning (caller wins; keyed by content so
+inline literals never re-init the instance). Use it for per-view
+spacing (`idealEdgeLength`, `nodeRepulsion`, `padding`) or to switch
+fcose to end-mode animation (`animate: "end"`) when per-tick
+rendering is too heavy.
+
 ```tsx
 import { runGraphLayout, DEFAULT_LAYOUT_OPTIONS } from "@g3t/react";
 
@@ -590,9 +597,15 @@ from their own handlers rather than mounting as components.
 ### Path analysis
 
 ```ts
-import { findShortestPath } from "@g3t/core";
+import { findShortestPath, allShortestPaths } from "@g3t/core";
 const path = findShortestPath(ugm, "a", "c");
 // path.found, path.nodeIds (["a","b","c"]), path.edgeIds, path.length
+
+// The UNION of every shortest route (a subgraph, not one
+// representative), plus a route count capped at 50 so labels on
+// dense graphs stay honest ("50+").
+const all = allShortestPaths(ugm, "a", "c");
+// all.nodeIds, all.edgeIds, all.pathCount
 ```
 
 ### Subgraph export

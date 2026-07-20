@@ -8,7 +8,7 @@
  * now but has no MBSE-specific coupling beyond the model shape and could be
  * promoted if other shells want a containment browser.
  */
-import { useState } from "react";
+import React, { useState } from "react";
 import type { ReactNode, CSSProperties } from "react";
 import type { SysMLModel, Package, DiagramType } from "./model";
 
@@ -187,19 +187,24 @@ export function ContainmentTree({
             {(pkg.requirements ?? []).map((id) => {
               const r = model.requirements[id];
               if (!r) return null;
-              return (
-                <div
-                  key={id}
-                  className="mbse-tree-row mbse-tree-el"
-                  style={indent(depth + 1)}
-                >
-                  <span className="mbse-tree-icon" data-kind="requirement">
-                    <Glyph kind="requirement" />
-                  </span>
-                  <span className="mbse-tree-label">{r.name}</span>
-                  <span className="mbse-tree-stereo mbse-mono">{r.reqId}</span>
-                </div>
+              // 12.2: the record keys ROOTS; children nest inline.
+              // Rendering only the record dropped every
+              // subrequirement from the browser.
+              const renderReq = (req: typeof r, d: number): React.ReactNode => (
+                <React.Fragment key={req.id}>
+                  <div className="mbse-tree-row mbse-tree-el" style={indent(d)}>
+                    <span className="mbse-tree-icon" data-kind="requirement">
+                      <Glyph kind="requirement" />
+                    </span>
+                    <span className="mbse-tree-label">{req.name}</span>
+                    <span className="mbse-tree-stereo mbse-mono">
+                      {req.reqId}
+                    </span>
+                  </div>
+                  {(req.children ?? []).map((c) => renderReq(c, d + 1))}
+                </React.Fragment>
               );
+              return renderReq(r, depth + 1);
             })}
             {(pkg.diagrams ?? []).map((id) => {
               const d = model.diagrams[id];

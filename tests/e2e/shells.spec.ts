@@ -53,7 +53,10 @@ test.describe("Playground shells", () => {
   }) => {
     await enterShell(page, "Supply Chain Digital Thread");
     await expect(page.getByText("(choose a mode)")).toBeVisible();
-    await page.getByRole("button", { name: "Region", exact: true }).click();
+    // Review 5.8 turned the mode buttons into a radio group with
+    // descriptions inside each label; role/button with an exact name
+    // can never match. The testid is the stable handle.
+    await page.getByTestId("sc-mode-region").check();
     await expect(page.getByText("(choose a mode)")).toHaveCount(0);
     await expect(page).toHaveScreenshot("shell-supply-region.png", {
       animations: "disabled",
@@ -73,4 +76,40 @@ test.describe("Playground shells", () => {
       animations: "disabled",
     });
   });
+});
+
+test("MBSE Workbench: the F1 SVG renderer toggle draws the geometry document", async ({
+  page,
+}) => {
+  await page.goto("/?e2e=1");
+  await page.getByText("MBSE Satellite Workbench", { exact: true }).click();
+  await page.waitForSelector(CANVAS, { timeout: 15000 });
+  await page.waitForFunction(() => window.__g3t?.scenes.has("mbse") === true, {
+    timeout: 15000,
+  });
+  await page.getByTestId("mbse-renderer-select").selectOption("svg");
+  const svg = page.getByTestId("mbse-structural-svg");
+  await expect(svg).toBeVisible();
+  // Verbatim fidelity spot checks: container count matches the scene
+  // input's container population, and at least one routed edge path
+  // with an arrow symbol rendered.
+  const counts = await page.evaluate(() => {
+    const scene = window.__g3t!.scenes.get("mbse")!;
+    const geomContainers = Object.values(
+      (scene as { geometry: { nodes: Record<string, { kind: string }> } })
+        .geometry.nodes,
+    ).filter((n) => n.kind === "container").length;
+    return {
+      geomContainers,
+      drawn: document.querySelectorAll("[data-ssv-kind='container']").length,
+      edges: document.querySelectorAll("[data-ssv-edge-path]").length,
+      arrows: document.querySelectorAll("[data-ssv-arrow]").length,
+    };
+  });
+  expect(counts.drawn).toBe(counts.geomContainers);
+  expect(counts.edges).toBeGreaterThan(0);
+  expect(counts.arrows).toBeGreaterThan(0);
+  // Toggling back restores the Cytoscape canvas.
+  await page.getByTestId("mbse-renderer-select").selectOption("cytoscape");
+  await expect(page.locator(CANVAS)).toBeVisible();
 });

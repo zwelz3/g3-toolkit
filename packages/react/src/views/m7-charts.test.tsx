@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
+import { stubChartDims } from "../../../../tests/chart-dims";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { UGM } from "@g3t/core";
 import { useSelectionStore } from "../state/selection-store";
@@ -35,6 +36,8 @@ function createFlowGraph(): UGM {
 }
 
 // Sankey/Chord tests need ECharts (Canvas API); test empty state only
+stubChartDims();
+
 describe("SankeyView (M7.E1.T1, T2)", () => {
   it("shows empty state for graph with no edges", async () => {
     const { SankeyView } = await import("../views/sankey");

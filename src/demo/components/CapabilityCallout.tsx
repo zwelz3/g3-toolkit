@@ -1,3 +1,4 @@
+import { useState } from "react";
 /**
  * CapabilityCallout: the adoptability panel each demo shell carries.
  *
@@ -41,14 +42,26 @@ export interface CapabilityItem {
 export function CapabilityCallout({
   accent,
   items,
+  defaultOpen = false,
+  staticHeader = false,
 }: {
   /** The owning shell's accent color; keeps the callout on-identity. */
   accent: string;
   items: CapabilityItem[];
+  /** Render expanded (the floating bubble opens it pre-expanded). */
+  defaultOpen?: boolean;
+  /** 9.24: inside the floating bubble the FAB already opens and
+   *  closes the panel, so the inner disclosure toggle was a second,
+   *  pointless collapse control. Static header instead. Inline
+   *  usages keep the disclosure. */
+  staticHeader?: boolean;
 }) {
+  const Root = (staticHeader ? "div" : "details") as "details";
+  const Head = (staticHeader ? "div" : "summary") as "summary";
   return (
-    <details
+    <Root
       data-testid="capability-callout"
+      open={staticHeader ? undefined : defaultOpen || undefined}
       style={{
         margin: "10px 12px 12px",
         padding: "8px 10px",
@@ -59,16 +72,16 @@ export function CapabilityCallout({
         opacity: 0.92,
       }}
     >
-      <summary
+      <Head
         style={{
-          cursor: "pointer",
+          cursor: staticHeader ? "default" : "pointer",
           fontWeight: 600,
           letterSpacing: "0.04em",
           color: accent,
         }}
       >
         Built on the toolkit
-      </summary>
+      </Head>
       <ul style={{ margin: "8px 0 0", paddingLeft: 16 }}>
         {items.map((i) => (
           <li key={i.mechanism} style={{ marginBottom: 4 }}>
@@ -123,6 +136,86 @@ export function CapabilityCallout({
         carries a runnable snippet for each, and linked mechanisms above jump
         straight to theirs.
       </div>
-    </details>
+    </Root>
+  );
+}
+
+/**
+ * Floating variant (review 4.9): a fixed bottom-right button that
+ * opens the callout in a popover card. The in-rail placement kept
+ * getting pushed below the fold when rails filled up; a floating
+ * bubble is reachable regardless of rail content. Same {accent,
+ * items} contract, so shells swap placement without rewriting their
+ * item lists. The popover carries the same data-testid as the inline
+ * callout; tests open the bubble first.
+ */
+export function CapabilityBubble({
+  accent,
+  items,
+  bottomOffset = 16,
+}: {
+  accent: string;
+  items: CapabilityItem[];
+  /** 9.24: shells with bottom chrome (the auditor's timeline strip)
+   *  lift the bubble above it. */
+  bottomOffset?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      style={{
+        position: "fixed",
+        right: 16,
+        bottom: bottomOffset,
+        zIndex: 40,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-end",
+        gap: 8,
+      }}
+    >
+      {open && (
+        <div
+          style={{
+            width: 340,
+            maxWidth: "calc(100vw - 48px)",
+            maxHeight: "min(420px, calc(100vh - 96px))",
+            overflow: "auto",
+            background: "var(--g3t-bg-primary, #fff)",
+            borderRadius: 8,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+          }}
+        >
+          <CapabilityCallout
+            accent={accent}
+            items={items}
+            defaultOpen
+            staticHeader
+          />
+        </div>
+      )}
+      <button
+        type="button"
+        data-testid="capability-bubble"
+        aria-expanded={open}
+        aria-label="Built on the toolkit"
+        title="Built on the toolkit"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          border: "none",
+          background: accent,
+          color: "#fff",
+          fontWeight: 700,
+          fontSize: 13,
+          cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+        }}
+      >
+        {open ? "\u00d7" : "g3t"}
+      </button>
+    </div>
   );
 }
