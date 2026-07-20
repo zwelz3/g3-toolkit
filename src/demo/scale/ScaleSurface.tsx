@@ -200,6 +200,18 @@ function markSwitch(label: string) {
   startLongTaskWatch(label);
   startProfiler();
 }
+/* VERDICT (owner experiments, 2026-07-19): the multi-second
+ * post-settle freeze is DEV-BUILD-ONLY and DevTools-INDEPENDENT:
+ * `pnpm run dev` lags with DevTools closed; `pnpm build && pnpm
+ * preview` is clean. The owner's self-profile named the cost:
+ * React 19's dev-build performance-track prop serialization
+ * (getArrayKind/addValueToProperties, ~10 s self-time) walking the
+ * clustered UGM's embedded 8,000 memberships. Production users
+ * never see it. If DEV usability on this surface matters, the
+ * lever is slimming what crosses React boundaries here (ids +
+ * lookup functions instead of the full clustered UGM): recorded as
+ * a P2 for owner prioritization, not silently refactored. */
+
 /** Phase markers (owner finding, 2026-07-18: "clusters ready in
  *  91ms" printed and the tab then hung relocating nodes: "ready"
  *  fires at cy INIT, before layout and post-ready effects, so the

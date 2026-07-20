@@ -1,5 +1,124 @@
 # Changelog
 
+## G3L Round 48: the three e2e failures dispositioned; failures-only digest
+
+- **Owner's production e2e run triaged (63 expected / 3 unexpected),
+  all three dispositioned**:
+  1. sidebar "layout switcher shows all engine buttons": expected
+     "Hierarchical (ELK)", received "Layered (g3t)": MY round-45
+     sweep missed the e2e expectations (source and unit tests were
+     grep'd; tests/e2e was not: recorded). The received string
+     PROVES the registry swap works in production. Expectation
+     updated; a full e2e elk-grep now comes back empty.
+  2. Style Lab smoke: the shell's back button says "All demos", not
+     "Scenarios/Back": the universal-affordance regex broadened.
+  3. Supply smoke: the landing card is "Supply Chain Digital
+     Thread", not "Supply Thread": title corrected.
+  Notable: the SCALE smoke PASSED: the graph toolbar mounts
+  console-clean in production on this tree, and the switcher shows
+  all four engines. The owner's earlier "toolbar broken in preview"
+  is either the renamed engine option (a real, visible round-45
+  change), behavioral beyond mount-clean, or resolved: a symptom
+  description on round 48 decides.
+- **test-results-failures.json (owner request)**:
+  scripts/filter-e2e-failures.mjs distills the playwright JSON to
+  failures only: stats, per-failure error (ANSI-stripped), last
+  stdout lines, attachment paths. Validated against the owner's
+  actual round-47 upload (megabytes -> ~3 KB). Run via
+  `pnpm run e2e:failures` after a test run; CI now uploads the
+  digest as an artifact on every e2e job (all-green stub included).
+- G3tLayeredLayout's forEachEdge signature verified against every
+  other consumer (correct as written).
+
+## G3L Round 47: production bundle under test; scale verdict CLOSED
+
+- **The scale freeze is CLOSED with an owner-verified verdict**:
+  dev-build-only and DevTools-independent (`pnpm run dev` lags with
+  DevTools closed; `pnpm build && pnpm preview` is clean). Cause as
+  named by the owner's self-profile: React 19 dev-build
+  performance-track prop serialization walking the clustered UGM's
+  embedded 8,000 memberships. Production users never see it.
+  Verdict + the P2 lever (slim the surface's React-boundary props
+  for dev usability) recorded IN the surface, for owner
+  prioritization rather than silent refactoring.
+- **e2e now tests the PRODUCTION bundle**: the owner found the
+  graph toolbar broken in preview while every gate ran source or
+  dev builds: production breakage was structurally invisible. The
+  playwright webServer now runs `build && preview` (port 4173), and
+  a new production-smoke spec walks all EIGHT landing examples
+  asserting clean mounts and zero console/page errors, with
+  toolbar-presence checks on the toolbar surfaces (Scale,
+  Ontology). e2e: 58 -> 66 tests in 12 files. The next owner e2e
+  run reproduces the toolbar break with a NAMED error.
+- Toolbar prod-break triage so far: no name-based lookups
+  (minification-safe), production build clean at build time, no
+  static import of removed symbols (the round-45 engine swap is
+  typecheck-clean). The cause needs a browser; the smoke spec is
+  the witness.
+- (Recovered-session note: the playwright config change and the
+  smoke spec were found already on disk, authored against exactly
+  this owner report; verified coherent and adopted rather than
+  re-derived, per the standing doctrine.)
+
+## G3L Round 47: production under test (owner findings ruled)
+
+- **Scale freeze RULED: dev-only, production clean** (owner
+  experiments: DevTools-closed dev still lags; pnpm preview is
+  clean). The cause stands as named: React DEV-BUILD performance-
+  track prop serialization: and one sub-claim of ours is corrected
+  on the record: DevTools being open does NOT amplify it (the
+  DevTools-closed run falsified that; the dev build emits
+  unconditionally). Disposition: dev-mode caveat documented; the
+  optional named fix (memberships beside the UGM instead of inside
+  supernode attrs, making even dev fast) parked P2 with the
+  measurements.
+- **The owner found the graph toolbar broken in preview: the
+  CLASS problem is fixed this round.** Every gate (1,354 unit + 58
+  e2e) ran source or dev builds; production-only breakage was
+  structurally invisible. e2e now BUILDS AND SERVES THE REAL BUNDLE
+  (playwright webServer: build + preview on :4173; the profiling
+  header was already wired for preview), and a new
+  production-smoke spec walks EVERY landing example asserting a
+  clean mount (pageerror + console.error watched; toolbar anatomy
+  asserted where it mounts): the automated core of the owner's
+  planned manual acceptance pass. 66 e2e tests in 12 files.
+- The specific toolbar symptom is not yet reproduced here (static
+  fragility greps came up empty: fcose registration is call-gated,
+  no name-dependent logic in the toolbar path): the smoke spec on
+  the owner's next run either catches it with a console error
+  naming the module, or the owner pastes the preview console line.
+  Either lands the fix next round.
+
+## G3L Round 46: the SVG/Canvas renderers get a REAL graph (owner request)
+
+- **Supply Thread gains a three-way Renderer toggle** (Cytoscape
+  default | SVG adapter | Canvas adapter). The cy instance stays
+  mounted beneath as the source of truth; on toggle, the scene is
+  HARVESTED from what cytoscape actually drew (positions, sizes,
+  computed styles, label text), so all three renderers show the same
+  layout and styling: a parity demo over organic content, not a
+  parallel pipeline. Re-harvests when hiding or confidence dimming
+  changes under an adapter.
+- **New exported helper: harvestSceneFromCy** (packages/react):
+  lifts any live cy instance into the adapters' scene contract,
+  mapping computed cy styles into the VisualAttributes vocabulary
+  (fill/stroke/strokeWidth/strokeDash/opacity/labelText/labelColor,
+  plus the MR-11 dark-shell label-halo default at the source).
+  display:none elements and edges to hidden endpoints are skipped.
+  This makes the toggle pattern one import for ANY demo, answering
+  the owner's ask durably rather than once.
+- Adapter hosts are measured via the MBSE SizedStructuralSvg
+  pattern (ResizeObserver, jsdom-guarded), not ref reads during
+  render (the lint rule caught the first attempt; so recorded).
+- Oracles: harvest unit tests (channel mapping, hidden-element
+  honesty) + a shell toggle test through an opt-in harvestable fake
+  core (post-render onReady, so the pre-existing
+  core-not-yet-arrived oracles keep their meaning). 1,354 tests.
+- Renderer-coverage answer recorded: previously the SVG renderer
+  had ONE opt-in consumer (MBSE preview) and the Canvas adapter had
+  none outside the Style Lab; Supply Thread now exercises both over
+  a real typed/dimmed/hideable graph.
+
 ## G3L Round 45: D3b part 1: elkjs LEFT THE TREE; scale freeze NAMED
 
 - **elkjs is gone**: dependency removed, elk pipeline deleted from

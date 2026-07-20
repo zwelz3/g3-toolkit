@@ -28,6 +28,8 @@ export type {
 } from "./views/svg/svg-adapter";
 export { resolveDragAttachment } from "./views/canvas/structural-to-cytoscape";
 export { CanvasAdapter } from "./views/canvas2d/canvas-adapter";
+export { harvestSceneFromCy } from "./views/scene/harvest-scene";
+export type { HarvestedScene } from "./views/scene/harvest-scene";
 export type { CanvasAdapterProps } from "./views/canvas2d/canvas-adapter";
 export {
   buildDisplayList,

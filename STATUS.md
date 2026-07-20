@@ -1,5 +1,53 @@
 # g3-toolkit Status
 
+**As of:** 2026-07-20 (active: G3L Round 48 executed: the owner's
+production e2e run triaged: all three failures dispositioned (one
+was my round-45 e2e-expectation miss, recorded; two were smoke-spec
+title/affordance guesses). SCALE SMOKE PASSED: the toolbar mounts
+clean in production. Failures-only digest shipped
+(scripts/filter-e2e-failures.mjs + `pnpm run e2e:failures` + CI
+artifact), validated on the owner's actual upload. e2e 66/12.
+NEXT: owner re-runs e2e (expect 66/66), describes the toolbar
+symptom if it persists, finishes the cut-off question; then D3b
+part 2 (extraction).)
+
+## PRIOR SNAPSHOT (Round 47)
+
+**As of:** 2026-07-19 (active: G3L Round 47 executed: scale freeze
+RULED dev-only (production clean; DevTools sub-claim corrected on
+the record); e2e now runs against the PRODUCTION bundle (build +
+preview webServer) and a production-smoke spec walks every example
+(66 e2e/12 files): the toolbar-in-preview class is closed, the
+instance lands on the next e2e run or console paste. NEXT: D3b part
+2 (ARC-009 extraction). Owner: run e2e on round 47 (first
+production-bundle run), paste smoke failures or the preview console
+line for the toolbar.)
+
+## PRIOR SNAPSHOT (Round 46)
+
+**As of:** 2026-07-19 (active: G3L Round 47 executed: e2e targets
+the PRODUCTION bundle (build+preview webServer) + an 8-example
+production-smoke spec with console-clean assertions (e2e 66/12).
+Scale freeze CLOSED: owner-verified dev-only, DevTools-independent;
+verdict + P2 lever recorded in the surface. Toolbar prod break:
+statically clean, browser-witnessed by the smoke spec: owner's next
+e2e run names it. NEXT: D3b part 2 (extraction) once the toolbar
+break is dispositioned (it may be a round-45 regression; extraction
+would move the evidence). Owner: run e2e on round 47; complete the
+cut-off question ("should we add the...").)
+
+## PRIOR SNAPSHOT (Round 46)
+
+**As of:** 2026-07-19 (active: G3L Round 46 executed: Supply Thread
+Renderer toggle (Cytoscape | SVG | Canvas) over a HARVESTED scene;
+harvestSceneFromCy exported (any cy instance -> adapter scene, one
+import per demo); measured adapter hosts; opt-in fake-core test
+seam. 1,354 tests. NEXT: D3b part 2 (ARC-009 extraction) slid one
+round for this owner request; proceeds now. Owner: scale
+experiments + quality list + browser-check the new toggle.)
+
+## PRIOR SNAPSHOT (Round 45)
+
 **As of:** 2026-07-19 (active: G3L Round 45 executed: D3b PART 1:
 elkjs LEFT THE TREE (pipeline deleted, seam retired, bands frozen
 against recorded elk baselines, G3tLayeredLayout replaces ElkLayout,

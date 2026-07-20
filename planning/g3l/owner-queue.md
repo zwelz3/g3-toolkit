@@ -7,6 +7,24 @@ history stays in the MR log).
 
 Resolved 2026-07-18: MR-4 (owner: approved for non-IP concerns; references removed), react budget (raised to 440, ledgered), WS-D (approved; decisions recorded in the design doc).
 
+Resolved 2026-07-20 (sixth batch): round-47 e2e triaged (3
+failures: one round-45 expectation miss of mine, two smoke-spec
+guesses; all fixed). Scale smoke GREEN in production.
+
+Resolved 2026-07-19 (fifth batch): scale freeze RULED dev-only
+(production clean; our DevTools-amplification sub-claim was wrong
+and is corrected). The toolbar-in-preview finding produced the
+round-47 systemic fix: e2e now tests the production bundle.
+
+Resolved 2026-07-20 (sixth batch): round-47 e2e triaged (3
+failures: one round-45 expectation miss of mine, two smoke-spec
+guesses; all fixed). Scale smoke GREEN in production.
+
+Resolved 2026-07-19 (fifth batch): scale experiments returned:
+PRODUCTION CLEAN, dev lags with DevTools closed: verdict closed as
+dev-build-only (React dev instrumentation), recorded in the
+surface.
+
 Resolved 2026-07-19 (fourth batch): flip ratified in substance
 ("parity is achieved"); MR-11 round 4 closed; D3b part 1 EXECUTED
 (elkjs removed). The scale freeze is NAMED from the owner's
@@ -23,41 +41,30 @@ paths: the straightened-chains contract gap) is FIXED in round 39.
 
 Resolved earlier: see MR log.
 
-## 1. Scale: two ten-second experiments (confirm the named cause)
+## 1. Re-run e2e on round 48 (expect 66/66), using the new digest
 
-WHAT: Your profile named the freeze: getArrayKind /
-addValueToProperties = React DEV-BUILD performance-track prop
-serialization, scaling with MODEL size (clusters embeds all 8,000
-memberships), which is why the smaller view froze longer.
+WHAT TO DO: Usual routine, then `pnpm run e2e:failures` and upload
+test-results-failures.json instead of the full report (validated
+on your round-47 file: megabytes -> ~3 KB). On green it writes an
+all-green stub: nothing to upload.
 
-WHAT TO DO: (a) reproduce the switch with DevTools CLOSED: is the
-freeze gone or drastically shorter? (b) pnpm build && pnpm preview,
-reproduce there (the profiling header is wired for preview too).
-Reply with both observations. Prediction: production is clean and
-the freeze is a dev-environment artifact; if (a)/(b) disagree with
-that, the profile block from the preview run picks the next move.
+## 2. The toolbar symptom, if it persists
 
-UNBLOCKS: Either closure-with-a-recorded-caveat (dev-mode note in
-the scale surface) or a targeted prop-shape fix.
+WHAT: On round 47, Scale's smoke test passed (toolbar mounts
+console-clean in production) and the switcher lists all four
+engines. If what you saw was the engine option renamed
+(Hierarchical (ELK) -> Layered (g3t)): that is the round-45
+removal, working as ruled. If something else is broken, describe
+the symptom (which example, which control, what happens vs
+expected) and it gets a round.
 
-## 2. The layout/routing quality list (post-flip rounds)
+## 3. Finish the cut-off question ("Ok, so should we add the...")
 
-WHAT: You flagged "a large number of bugs in the layout algorithms
-and routing" incoming. That is the expected post-flip work and the
-engine is now the only one, so every fix lands where it stays.
-
-WHAT TO DO: Send the list in any form (screenshots welcome); items
-get root-caused and dispositioned individually, MR-style.
-
-UNBLOCKS: The quality rounds.
-
-## 3. Nothing else blocks engineering
-
-D3b part 2 (ARC-009 extraction: @g3t/layout, vocabulary rename,
-fresh measured budgets) is pre-authorized and proceeds next round
-without owner input.
+Still standing from two messages ago.
 
 ---
+
+D3b part 2 (extraction) proceeds once item 2 is dispositioned.
 
 If an ask here is unclear, say which number; the entry gets
 rewritten, not defended.

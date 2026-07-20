@@ -78,7 +78,7 @@ test.describe("Layout switcher", () => {
     await expect(switcher).toContainText("Force-Directed");
     await expect(switcher).toContainText("Hierarchical Tree");
     await expect(switcher).toContainText("DAG (Dagre)");
-    await expect(switcher).toContainText("Hierarchical (ELK)");
+    await expect(switcher).toContainText("Layered (g3t)");
     await expect(switcher).toHaveScreenshot("layout-switcher.png");
   });
 

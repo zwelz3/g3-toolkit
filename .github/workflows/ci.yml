@@ -105,6 +105,17 @@ jobs:
       - run: pnpm run test:e2e
         env:
           CI: "true"
+      # Failures-only digest (owner upload workflow): megabytes of
+      # passing noise filtered to the failures + errors + attachment
+      # paths. Runs on success too (writes an all-green stub).
+      - run: pnpm run e2e:failures
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-failures-digest
+          path: test-results-failures.json
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

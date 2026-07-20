@@ -14,9 +14,13 @@
  */
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
+  CanvasAdapter,
   ContextMenuManager,
   createDefaultMenuManager,
   CytoscapeCanvas,
+  harvestSceneFromCy,
+  SvgAdapter,
+  type HarvestedScene,
   Minimap,
   useEmphasisStore,
   useSelectionStore,
@@ -140,6 +144,59 @@ function makeSpec(mode: Mode): EncodingSpec {
   };
 }
 
+/** Measured host for the headless adapters (the MBSE SizedStructuralSvg
+ *  pattern): width/height are numeric adapter props, so the box is
+ *  observed rather than ref-read during render. */
+function SizedAdapter({
+  kind,
+  scene,
+  "data-testid": testId,
+}: {
+  kind: "svg" | "canvas";
+  scene: HarvestedScene;
+  "data-testid"?: string;
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({
+    w: 1200,
+    h: 800,
+  });
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    if (typeof ResizeObserver === "undefined") return; // jsdom: defaults hold
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r && r.width > 0 && r.height > 0) {
+        setSize({ w: Math.round(r.width), h: Math.round(r.height) });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const shared = {
+    nodes: scene.nodes,
+    edges: scene.edges,
+    resolved: scene.resolved,
+    width: size.w,
+    height: size.h,
+    background: "#0b1120",
+  };
+  return (
+    <div
+      ref={hostRef}
+      style={{ position: "absolute", inset: 0, zIndex: 2 }}
+      data-testid={testId}
+    >
+      {kind === "svg" ? (
+        <SvgAdapter {...shared} />
+      ) : (
+        <CanvasAdapter {...shared} />
+      )}
+    </div>
+  );
+}
+
 export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   const ugm = useMemo(() => buildDigitalThread(), []);
   const findings = useMemo(() => analyzeGaps(ugm, supplyShapes), [ugm]);
@@ -175,6 +232,15 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   // control (see confidence-dim.ts for why a data patch, not a
   // bypass).
   const [dimByConfidence, setDimByConfidence] = useState(false);
+  // Renderer toggle (G3L Round 46, owner request): the SAME graph,
+  // rendered through the headless SVG or Canvas adapters. The cy
+  // instance stays mounted (hidden beneath) as the source of truth:
+  // on toggle, the scene is HARVESTED from what cytoscape drew, so
+  // all three renderers show the same layout and styling: a parity
+  // demo, not a parallel pipeline.
+  const [threadRenderer, setThreadRenderer] = useState<
+    "cytoscape" | "svg" | "canvas"
+  >("cytoscape");
   const confidenceOriginals = useRef(new Map<string, number>());
   useEffect(() => {
     if (!core) return;
@@ -301,6 +367,14 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
     () => (supplier ? tracePaths(ugm, supplier, "Assembly") : []),
     [ugm, supplier],
   );
+
+  // Harvested at render time (a pure read of the live instance; the
+  // lint rule rightly rejected the setState-in-effect version).
+  const harvested = useMemo(
+    () =>
+      threadRenderer !== "cytoscape" && core ? harvestSceneFromCy(core) : null,
+    [threadRenderer, core, hiddenIds, dimByConfidence],
+  );
   useEffect(() => {
     if (!supplier) return;
     const overlay = tracePathOverlay(ugm, paths);
@@ -363,6 +437,22 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
           <b>Supply Thread</b>
           <span>consolidated sourcing graph</span>
         </div>
+        <label className="sc-renderer-select">
+          Renderer{" "}
+          <select
+            value={threadRenderer}
+            onChange={(e) =>
+              setThreadRenderer(
+                e.target.value as "cytoscape" | "svg" | "canvas",
+              )
+            }
+            data-testid="thread-renderer-select"
+          >
+            <option value="cytoscape">Cytoscape (default)</option>
+            <option value="svg">SVG adapter</option>
+            <option value="canvas">Canvas adapter</option>
+          </select>
+        </label>
       </header>
 
       <div className="sc-body">
@@ -371,6 +461,13 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
               here. Inline four-side offsets defeat the wrap's
               inset:0 stretch rule. */}
           <FloatingLegend ugm={ugm} spec={spec} />
+          {threadRenderer !== "cytoscape" && harvested ? (
+            <SizedAdapter
+              kind={threadRenderer}
+              scene={harvested}
+              data-testid={`thread-adapter-${threadRenderer}`}
+            />
+          ) : null}
           <CytoscapeCanvas
             ugm={ugm}
             // Review 5.6: the sourcing graph is a DAG (supplier ->

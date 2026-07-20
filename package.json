@@ -34,7 +34,8 @@
     "verify:types": "node scripts/verify-types.mjs",
     "verify:snippets": "node scripts/check-readme-snippets.mjs",
     "verify:exports": "vitest run --config vitest.dist.config.ts",
-    "storybook-static": "vite build --config vite.sb-client.config.ts && node scripts/storybook-static/inline.mjs"
+    "storybook-static": "vite build --config vite.sb-client.config.ts && node scripts/storybook-static/inline.mjs",
+    "e2e:failures": "node scripts/filter-e2e-failures.mjs"
   },
   "dependencies": {
     "@g3t/charts": "workspace:*",

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 /**
  * SupplyThreadShell contract test. CytoscapeCanvas is replaced by a stub
  * that snapshots, AT RENDER TIME, whether every node already carries the
@@ -38,6 +39,7 @@ type CapturedMenu = {
   }>;
 };
 const captured = vi.hoisted(() => ({
+  autoCore: false,
   menus: [] as CapturedMenu[],
   hidden: [] as Array<ReadonlySet<string>>,
   calls: [] as Array<{
@@ -81,10 +83,81 @@ vi.mock("@g3t/react", async (importOriginal) => {
         animate: props.animate,
       });
       if (props.menuManager) captured.menus.push(props.menuManager);
+      // Renderer-toggle support (round 46): when a test opts in
+      // (captured.autoCore), hand onReady a minimal harvestable core
+      // POST-RENDER so the adapter path has a scene to lift. Eager
+      // and unconditional both break the tests that assert
+      // core-not-yet-arrived states.
+      const onReady = props.onReady;
+      useEffect(() => {
+        if (!captured.autoCore) return;
+        onReady?.(fakeHarvestableCore());
+      }, [onReady]);
       return <div data-testid="canvas-stub" />;
     },
   };
 });
+
+function fakeHarvestableCore(): unknown {
+  return {
+    // Other consumers of the core touch these (Minimap paints from
+    // it; confidence-dim batches over it): inert stubs.
+    destroyed: () => false,
+    batch: (fn?: () => void) => fn?.(),
+    on: () => undefined,
+    off: () => undefined,
+    removeListener: () => undefined,
+    container: () => null,
+    extent: () => ({ x1: 0, y1: 0, w: 200, h: 200 }),
+    elements: () => ({
+      forEach: () => undefined,
+      boundingBox: () => ({ x1: 0, y1: 0, w: 200, h: 200, x2: 200, y2: 200 }),
+    }),
+    $id: () => ({
+      length: 0,
+      style: () => undefined,
+      forEach: () => undefined,
+    }),
+    width: () => 800,
+    height: () => 600,
+    zoom: () => 1,
+    pan: () => ({ x: 0, y: 0 }),
+    nodes: () => ({
+      forEach: (fn: (n: unknown) => void) =>
+        [
+          {
+            id: () => "s1",
+            position: () => ({ x: 10, y: 10 }),
+            width: () => 40,
+            height: () => 30,
+            style: (k: string) =>
+              k === "background-color" ? "#123456" : undefined,
+            data: () => "S1",
+          },
+          {
+            id: () => "p1",
+            position: () => ({ x: 120, y: 10 }),
+            width: () => 40,
+            height: () => 30,
+            style: () => undefined,
+            data: () => "P1",
+          },
+        ].forEach(fn),
+    }),
+    edges: () => ({
+      forEach: (fn: (e: unknown) => void) =>
+        [
+          {
+            id: () => "e1",
+            source: () => ({ id: () => "s1" }),
+            target: () => ({ id: () => "p1" }),
+            style: () => undefined,
+            data: () => undefined,
+          },
+        ].forEach(fn),
+    }),
+  };
+}
 
 import { SupplyThreadShell } from "./ThreadShell";
 import { buildDigitalThread } from "./model";
@@ -266,5 +339,24 @@ describe("supply redesign (reviews 5.6-5.9)", () => {
   it("the canvas carries a floating legend (12.16)", () => {
     render(<SupplyThreadShell onBack={() => {}} />);
     expect(screen.getByTestId("g3t-floating-legend")).toBeDefined();
+  });
+  it("the renderer toggle mounts the SVG and Canvas adapters over the harvested scene (round 46)", async () => {
+    captured.autoCore = true;
+    render(<SupplyThreadShell onBack={() => {}} />);
+    const select = (await screen.findByTestId(
+      "thread-renderer-select",
+    )) as HTMLSelectElement;
+    // Default: cytoscape only; no adapter host.
+    expect(screen.queryByTestId("thread-adapter-svg")).toBeNull();
+    fireEvent.change(select, { target: { value: "svg" } });
+    const svgHost = await screen.findByTestId("thread-adapter-svg");
+    // The SVG adapter draws real <svg> content from the harvested scene.
+    expect(svgHost.querySelector("svg")).not.toBeNull();
+    fireEvent.change(select, { target: { value: "canvas" } });
+    const canvasHost = await screen.findByTestId("thread-adapter-canvas");
+    expect(canvasHost.querySelector("canvas")).not.toBeNull();
+    fireEvent.change(select, { target: { value: "cytoscape" } });
+    expect(screen.queryByTestId("thread-adapter-canvas")).toBeNull();
+    captured.autoCore = false;
   });
 });
