@@ -6,11 +6,6 @@ import { externalsFromPackageJson } from "../../scripts/vite-externals.mjs";
 const external = externalsFromPackageJson(resolve(__dirname, "package.json"));
 
 export default defineConfig({
-  esbuild: {
-    minifyIdentifiers: false,
-    minifySyntax: false,
-    minifyWhitespace: true,
-  },
   plugins: [react()],
   resolve: {
     alias: {
@@ -22,8 +17,22 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
       name: "g3tCharts",
-      formats: ["es", "cjs"],
-      fileName: (format) => `index.${format === "es" ? "mjs" : "cjs"}`,
+      // ESM-ONLY as of 2026-08-16. The `cjs` format and
+      // the `require` conditions went together. Reasons, in order of
+      // weight: the library's primary integration channel is exported
+      // zustand store SINGLETONS, and a consumer whose tree reaches a
+      // package through `import` on one path and `require` on another
+      // gets two module instances and therefore two stores, so the
+      // canvas subscribes to one while the table writes to the other
+      // and selection silently stops working with nothing in a stack
+      // trace. That hazard cannot be fixed from inside the library
+      // while both formats ship. Typed CJS never worked anyway (one
+      // ESM-flavored .d.ts per entry, so `require` from a .cts raised
+      // TS1479), and no consumer, example, doc snippet or test in this
+      // repository requires a @g3t package. Dropping it also removes
+      // 44% of emitted runtime JS.
+      formats: ["es"],
+      fileName: () => "index.mjs",
     },
     rollupOptions: {
       external,

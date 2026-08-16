@@ -19,7 +19,6 @@ test.describe("Faceted filter", () => {
     await expect(filter).toContainText("Person");
     await expect(filter).toContainText("Organization");
     await expect(filter).toContainText("Location");
-    await expect(filter).toHaveScreenshot("filter-initial.png");
   });
 
   test("unchecking a type updates hidden types display", async ({ page }) => {
@@ -79,27 +78,44 @@ test.describe("Layout switcher", () => {
     await expect(switcher).toContainText("Hierarchical Tree");
     await expect(switcher).toContainText("DAG (Dagre)");
     await expect(switcher).toContainText("Layered (g3t)");
-    await expect(switcher).toHaveScreenshot("layout-switcher.png");
   });
 
   test("clicking layout button changes active highlight", async ({ page }) => {
     const dagreBtn = page.locator("[data-testid='layout-btn-dagre']");
+    await expect(dagreBtn).toHaveAttribute("aria-pressed", "false");
     await dagreBtn.click();
     await page.waitForTimeout(300);
 
-    const switcher = page.locator("[data-testid='layout-switcher']");
-    await expect(switcher).toHaveScreenshot("layout-switcher-dagre-active.png");
+    // The active engine is carried on the button as aria-pressed. The
+    // screenshot this replaces compared against no baseline, so the
+    // test passed whether or not the click did anything.
+    await expect(dagreBtn).toHaveAttribute("aria-pressed", "true");
   });
 });
 
-test.describe("Full harness screenshot", () => {
-  test("complete test harness layout", async ({ page }) => {
+test.describe("Harness composition", () => {
+  // Was "Full harness screenshot", a single page-level toHaveScreenshot
+  // against no baseline. What it was really guarding is that every
+  // region of the harness mounts, which is assertable without a
+  // baseline and fails loudly if a panel stops rendering.
+  test("every harness region mounts", async ({ page }) => {
     await page.goto(HARNESS);
     await page.waitForSelector("[data-testid='test-harness']", {
       timeout: 10000,
     });
     await page.waitForTimeout(2000); // layout settle
 
-    await expect(page).toHaveScreenshot("full-harness.png");
+    for (const id of [
+      "sidebar-left",
+      "canvas-container",
+      "table-container",
+      "sidebar-right",
+      "layout-switcher",
+      "facet-filter",
+      "search-input",
+      "selection-info",
+    ]) {
+      await expect(page.locator(`[data-testid='${id}']`)).toBeVisible();
+    }
   });
 });

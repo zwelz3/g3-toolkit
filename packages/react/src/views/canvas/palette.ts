@@ -1,16 +1,22 @@
 /**
- * Okabe-Ito colorblind-safe palette and node shape mapping.
+ * Canvas categorical palette and node shape mapping.
  *
  * No information is encoded solely by color; shape serves as a
  * redundant channel (R7.8, C38).
  *
- * Palette source: Okabe & Ito (2008), "Color Universal Design."
- * 8 colors optimized for all forms of color vision deficiency.
+ * Palette source: Okabe & Ito (2008), "Color Universal Design," with
+ * ONE substitution: the published palette's black is grey here,
+ * because a filled black node reads as a hole on a light canvas.
+ * `@g3t/core`'s OKABE_ITO is the unmodified palette and keeps black.
+ * The two therefore DIFFER in their last entry, and used to do so under
+ * the same name, since palette-bridge re-exported this one as
+ * `OKABE_ITO`. Whether the canvas should adopt core's black is a visual
+ * decision for review, not a rename; the values are unchanged here.
  */
 
-// Implements: R7.8 (colorblind-safe Okabe-Ito palette).
+// Implements: R7.8 (colorblind-safe categorical palette).
 
-/** Okabe-Ito palette (hex). */
+/** Canvas categorical palette (hex), Okabe-Ito with grey for black. */
 // @see R7.8: colorblind-safe palette
 export const OKABE_ITO_COLORS = [
   "#E69F00", // orange

@@ -82,7 +82,11 @@ export const AUDIT_STYLES = `
 
 /* Timeline table */
 .au-event {
-  display: grid; grid-template-columns: 116px 74px 1fr; align-items: baseline;
+  /* VR-25 (owner re-verify 2026-07-28): the kind column was 74px
+     while the chip's min-width is 88px: the chip OVERFLOWED its
+     track and physically overlapped the name. Track now fits the
+     chip with breathing room. */
+  display: grid; grid-template-columns: 116px 96px 1fr; align-items: baseline;
   gap: 6px; width: 100%; text-align: left; border: 0; background: transparent;
   padding: 5px 8px; color: var(--au-ink); cursor: pointer; border-radius: 5px;
   border-left: 2px solid transparent;
@@ -92,7 +96,7 @@ export const AUDIT_STYLES = `
 .au-event-time { font-size: 10.5px; color: var(--au-dim); }
 .au-event-kind {
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
-  padding: 1px 5px; border-radius: 3px; justify-self: start; min-width: 88px; text-align: center; /* 12.8: fits generated */
+  padding: 1px 5px; border-radius: 3px; justify-self: start; min-width: 88px; text-align: center; /* 12.8: fits generated; VR-25: the TRACK carries the gap now */
 }
 .au-kind-generated { background: rgba(45, 212, 191, 0.18); color: var(--au-accent); }
 .au-kind-started { background: rgba(148, 163, 184, 0.18); color: #b7c4d3; }

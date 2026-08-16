@@ -111,6 +111,64 @@ describe("TableView rendering (M1.E2.T1)", () => {
 
 // ── T2: Table-to-canvas selection linking ───────────────────────────
 
+describe("TableView sorting affordance (e2e failure 2026-08-16)", () => {
+  // Two e2e tests asserted that clicking a column header reorders the
+  // rows, and both failed: the row order never changed. The app was
+  // right and the tests were wrong about WHERE to click. The sort
+  // handler is on a div inside the th, and the th also contains the
+  // inline filter input, so a click on the th's center landed on the
+  // input. The th nonetheless carried cursor:pointer, keyed off
+  // `selectable` (row selection, unrelated to sorting), so the whole
+  // header cell advertised a click that only part of it answered.
+  //
+  // These run in jsdom, so unlike the e2e specs they are verified.
+
+  it("reports sort state on the th as aria-sort, not only as an icon", () => {
+    const ugm = createTestUGM(6);
+    render(<TableView ugm={ugm} />);
+
+    const header = screen.getByTestId("column-sort-types").closest("th");
+    expect(header).not.toBeNull();
+    expect(header).toHaveAttribute("aria-sort", "none");
+
+    fireEvent.click(screen.getByTestId("column-sort-types"));
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+
+    fireEvent.click(screen.getByTestId("column-sort-types"));
+    expect(header).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("reorders rows when the sort affordance is clicked", () => {
+    // Types cycle Type0/Type1/Type2, so a descending sort must move a
+    // Type2 row to the top. This is the assertion the e2e specs meant
+    // to make.
+    const ugm = createTestUGM(6);
+    render(<TableView ugm={ugm} />);
+
+    const firstId = () =>
+      document
+        .querySelector("[data-testid^='table-row-']")
+        ?.getAttribute("data-testid");
+
+    const before = firstId();
+    fireEvent.click(screen.getByTestId("column-sort-types"));
+    fireEvent.click(screen.getByTestId("column-sort-types"));
+    expect(firstId()).not.toBe(before);
+  });
+
+  it("clicking the inline column filter does not toggle sorting", () => {
+    // Why the handler stays on the div rather than moving to the th.
+    const ugm = createTestUGM(6);
+    render(<TableView ugm={ugm} />);
+
+    const header = screen.getByTestId("column-sort-types").closest("th");
+    fireEvent.click(screen.getByTestId("column-filter-types"));
+    expect(header).toHaveAttribute("aria-sort", "none");
+  });
+});
+
+// ── T2: selection linking ───────────────────────────────────────────
+
 describe("TableView selection linking (M1.E2.T2)", () => {
   it("clicking a row selects the node in the store", () => {
     const ugm = createTestUGM(5);

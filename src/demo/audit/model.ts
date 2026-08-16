@@ -126,17 +126,21 @@ const entities: EntityRec[] = [
     generatedBy: "act:review",
     derivedFrom: "ent:tests",
   },
-  // No generation time recorded: a provenance gap (violation).
   {
     id: "ent:release",
     name: "Signed approval",
+    generated: "2025-03-14T10:00:00Z",
     generatedBy: "act:approve",
     derivedFrom: "ent:review",
   },
+  // LR-12 (owner review 2026-07-22): the missing generation time
+  // moved here from Signed approval. The terminal artifact vanishing
+  // from the play animation made the SHACL story confusing; a
+  // mid-timeline hazard log with an unrecorded time is just as
+  // realistic a provenance gap and keeps the timeline's ending.
   {
     id: "ent:hazards",
     name: "Hazard log",
-    generated: "2025-02-05T17:00:00Z",
     generatedBy: "act:hazard",
     derivedFrom: "ent:reqs",
   },

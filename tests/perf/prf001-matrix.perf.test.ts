@@ -69,26 +69,19 @@ describe.skipIf(!ENABLED)("PRF-001 sharpening matrix", () => {
         log("assembly-only", performance.now() - t0);
       }
 
-      // Tuning variants (warm; single run each to keep the matrix
-      // tractable on slow machines; the deltas are the signal).
-      log("warm-polyline", await timeLayout({ edgeRouting: "POLYLINE" }));
-      log("warm-place-simple", await timeLayout({ nodePlacement: "SIMPLE" }));
-      log(
-        "warm-place-linear",
-        await timeLayout({ nodePlacement: "LINEAR_SEGMENTS" }),
-      );
-      log(
-        "warm-cross-interactive",
-        await timeLayout({ crossingMinimization: "INTERACTIVE" }),
-      );
-      log(
-        "warm-cheap-combo",
-        await timeLayout({
-          edgeRouting: "POLYLINE",
-          nodePlacement: "SIMPLE",
-          crossingMinimization: "INTERACTIVE",
-        }),
-      );
+      // RETIRED 2026-08-15 with the options they varied. Five variants
+      // measured edgeRouting, nodePlacement and crossingMinimization
+      // (warm-polyline, warm-place-simple, warm-place-linear,
+      // warm-cross-interactive, warm-cheap-combo). Since elkjs left the
+      // tree those options fed a string map no engine reads, so every
+      // variant ran the identical code path and the matrix was
+      // reporting run-to-run noise as a tuning delta. Do not restore
+      // them against options that do not reach an engine; a variant is
+      // worth measuring when something downstream branches on it.
+      //
+      // Tuning variants that DO branch (layering, placement, the three
+      // budget knobs on G3tLayoutOptions) belong here and are not yet
+      // covered.
 
       const prior = existsSync(RESULTS_PATH)
         ? (JSON.parse(readFileSync(RESULTS_PATH, "utf8")) as Record<

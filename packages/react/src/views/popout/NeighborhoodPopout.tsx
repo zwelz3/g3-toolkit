@@ -15,6 +15,8 @@ import { useMemo, useState } from "react";
 import { FloatingPanel } from "./FloatingPanel";
 import { khopNeighborhood, type UGM } from "@g3t/core";
 import { CytoscapeCanvas } from "../canvas/CytoscapeCanvas";
+import type { CyStylesheet } from "../canvas/CytoscapeCanvas";
+import type { EncodingSpec } from "../../interaction/encoding/encoding-spec";
 
 export interface NeighborhoodPopoutProps {
   /** The full graph the neighborhood is cut from. */
@@ -27,6 +29,15 @@ export interface NeighborhoodPopoutProps {
   onClose: () => void;
   /** Corner the popout docks to (default bottom-left). */
   corner?: "bottom-left" | "bottom-right";
+  /** Upstream P2 + owner VR-24 (both 2026-07-28, found
+   *  independently): the preview inherits the PARENT canvas's
+   *  encoding so shapes/colors match the main graph. */
+  encodingSpec?: EncodingSpec;
+  /** Extra stylesheet rules, same contract as CytoscapeCanvas. */
+  stylesheet?: CyStylesheet[];
+  /** Camera behavior: "fit" (default: the whole cut in frame) or
+   *  "center" (close-up on the focus). */
+  camera?: "fit" | "center";
   /** 9.20: "absolute" anchors the popout inside a positioned
    *  ancestor (the graph view), instead of the viewport, so it sits
    *  over the canvas corner rather than whatever chrome happens to
@@ -37,6 +48,9 @@ export interface NeighborhoodPopoutProps {
 }
 
 export function NeighborhoodPopout({
+  encodingSpec,
+  stylesheet,
+  camera = "fit",
   ugm,
   focusId,
   focusLabel,
@@ -127,16 +141,27 @@ export function NeighborhoodPopout({
         <CytoscapeCanvas
           ugm={result.ugm}
           layout="breadthfirst"
-          // 12.10: the popout's contract is the WHOLE neighborhood in
-          // frame, never a close-up of the subject. Fit now and again
-          // when the layout settles (whichever ordering occurs).
+          encodingSpec={encodingSpec}
+          stylesheet={stylesheet}
+          // 12.10 default: the WHOLE neighborhood in frame; "center"
+          // opts into a focus close-up (upstream P2 made both
+          // explicit). Applied now and again when the layout
+          // settles (whichever ordering occurs).
           onReady={(c) => {
-            const fitAll = () => {
+            const applyCamera = () => {
               if (typeof c.destroyed === "function" && c.destroyed()) return;
+              if (camera === "center") {
+                const ele = c.getElementById(focusId);
+                if (ele.nonempty()) {
+                  c.center(ele);
+                  c.zoom(Math.max(c.zoom(), 1.1));
+                  return;
+                }
+              }
               c.fit(undefined, 16);
             };
-            c.one("layoutstop", fitAll);
-            fitAll();
+            c.one("layoutstop", applyCamera);
+            applyCamera();
           }}
         />
       </div>

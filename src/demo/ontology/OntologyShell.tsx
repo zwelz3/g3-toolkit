@@ -22,10 +22,17 @@
  * plain div bars, deliberately: deterministic and jsdom-verifiable
  * where echarts is not.
  */
-import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
+import {
+  StructuralSvgView,
   categoricalColorMap,
-  ContextMenuManager,
   CytoscapeCanvas,
   ShaclShapeBrowser,
   GraphToolbar,
@@ -36,6 +43,8 @@ import {
   FloatingLegend,
 } from "@g3t/react";
 import {
+  type StructuralGraphInput,
+  type StructuralGeometry,
   UGM,
   validateShacl,
   shaclShapesToStructural,
@@ -121,6 +130,55 @@ const PANEL: React.CSSProperties = {
   background: "var(--g3t-bg-primary, #fff)",
   overflow: "auto",
 };
+
+/** LR-46 (owner review 2026-07-22): the shapes surface rides the
+ *  interactive StructuralSvgView (drag with live re-routing, row
+ *  grabs, separators) instead of the cytoscape structural adapter.
+ *  Severity tints and closed-shape borders ride the view's new
+ *  decoration props. */
+function SizedShapesSvg({
+  scene,
+  rowSeverities,
+  closedContainers,
+}: {
+  scene: { input: StructuralGraphInput; geometry: StructuralGeometry };
+  rowSeverities: ReadonlyMap<string, "violation" | "warning" | "info">;
+  closedContainers: ReadonlySet<string>;
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>({
+    w: 960,
+    h: 560,
+  });
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    // jsdom has no ResizeObserver; the default size carries tests.
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r && r.width > 0 && r.height > 0) {
+        setSize({ w: Math.round(r.width), h: Math.round(r.height) });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={hostRef} style={{ width: "100%", height: "100%" }}>
+      <StructuralSvgView
+        input={scene.input}
+        geometry={scene.geometry}
+        width={size.w}
+        height={size.h}
+        direction="RIGHT"
+        rowSeverities={rowSeverities}
+        closedContainers={closedContainers}
+        data-testid="ow-shapes-svg"
+      />
+    </div>
+  );
+}
 
 export function OntologyShell({ onBack }: { onBack: () => void }) {
   const reducedMotion = usePrefersReducedMotion();
@@ -218,13 +276,16 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
     // slice colors come from the SAME categorical map as the spec and
     // legend, so a ring slice always matches a legend row.
     () =>
-      stampMultiTypePies(
-        instancesUgm(store, inferenceOn, scopeClass),
-        categoricalColorMap(
-          instanceSpec,
-          instancesUgm(store, inferenceOn, scopeClass),
-        ),
-      ),
+      // LR-45: build the projection ONCE (the previous version
+      // ran instancesUgm twice per evaluation: once for the stamp,
+      // once for the color map).
+      ((): UGM => {
+        const inst = instancesUgm(store, inferenceOn, scopeClass);
+        return stampMultiTypePies(
+          inst,
+          categoricalColorMap(instanceSpec, inst),
+        );
+      })(),
     [store, inferenceOn, scopeClass, instanceSpec],
   );
   const fullInstUgm = useMemo(
@@ -306,7 +367,9 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
     shapesVisited ? shapesInput : null,
     { direction: "RIGHT" },
   );
-  const shapesMenu = useMemo(() => new ContextMenuManager(), []);
+  // (LR-46 note: the cytoscape context menu did not carry over to
+  // the SVG shapes view; recorded as a conscious trade in the
+  // owner queue.)
   const decorations = useMemo(
     () => ({
       closedContainers: closedShapeIds(shapes),
@@ -608,7 +671,15 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
             {centerTab === "hierarchy" && (
               <>
                 <div style={toolbarRowStyle}>
-                  <GraphToolbar ugm={hierUgm} cy={viewCore} />
+                  <GraphToolbar
+                    key={inferenceOn ? "force" : "hierarchy"}
+                    ugm={hierUgm}
+                    cy={viewCore}
+                    // VR-5: the hierarchy tab mounts breadthfirst
+                    // (fcose only when inferred cross-edges are on);
+                    // the dropdown now says so.
+                    initialLayout={inferenceOn ? "force" : "hierarchy"}
+                  />
                 </div>
                 <Legend
                   items={[
@@ -677,12 +748,29 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                           zIndex: 5,
                         }}
                       >
-                        <GraphToolbar ugm={neighborhood} cy={viewCore} />
+                        <GraphToolbar
+                          ugm={neighborhood}
+                          cy={viewCore}
+                          // G4 (owner 2026-07-28): the tab now mounts
+                          // hierarchic; the dropdown says so.
+                          initialLayout="hierarchy"
+                        />
                       </div>
                       <CytoscapeCanvas
                         ugm={neighborhood}
                         encodingSpec={instanceSpec}
                         stylesheet={MULTI_TYPE_PIE_RULES}
+                        // G4 (owner 2026-07-28): default to hierarchy,
+                        // ranked by HOPS from the focus: breadthfirst
+                        // with the selected node as the explicit root
+                        // layers exactly like the hop count, which is
+                        // what a neighborhood view should show.
+                        layout="breadthfirst"
+                        layoutOptions={
+                          selectedIri !== null
+                            ? { roots: [selectedIri], directed: false }
+                            : undefined
+                        }
                         onReady={setViewCore}
                         animate={!reducedMotion}
                       />
@@ -811,12 +899,10 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                 )}
                 <div style={{ flex: 1, minHeight: 0 }}>
                   {structural !== null ? (
-                    <CytoscapeCanvas
-                      ugm={hierUgm /* ignored when structural is set */}
-                      structural={structural}
-                      structuralDecorations={decorations}
-                      menuManager={shapesMenu}
-                      animate={!reducedMotion}
+                    <SizedShapesSvg
+                      scene={structural}
+                      rowSeverities={decorations.rowSeverities}
+                      closedContainers={new Set(decorations.closedContainers)}
                     />
                   ) : (
                     <EmptyNote testId="ow-shapes-loading">

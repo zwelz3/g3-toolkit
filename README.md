@@ -1,4 +1,4 @@
-# g3-toolkit (v1.0.0-rc.2)
+# g3-toolkit (v1.0.0)
 
 Composable graph visualization components for RDF, LPG, and Holonic architectures.
 
@@ -8,8 +8,11 @@ g3t is a **component library**, not an application framework. You install it, im
 
 - [Playground](https://zwelz3.github.io/g3-toolkit/playground/): four
   domain shells (provenance auditing, an MBSE workbench, a supply-chain
-  digital thread, a biomedical knowledge graph) plus the two capability
-  dashboards, live in the browser.
+  digital thread, a biomedical knowledge graph) plus three capability
+  surfaces (analytics, an ontology workbench, and an 8,000-node scale
+  demo), live in the browser. A fourth, Style Lab, is dev-server only;
+  `src/demo/DemoLanding.tsx` is the register and decides which appear
+  where.
 - [Storybook](https://zwelz3.github.io/g3-toolkit/storybook/): every
   component and control in isolation.
 - [API reference](https://zwelz3.github.io/g3-toolkit/api/): typedoc,
@@ -22,15 +25,36 @@ g3t is a **component library**, not an application framework. You install it, im
 | Package       | What it is                                                        | Peer dependencies           |
 | ------------- | ----------------------------------------------------------------- | --------------------------- |
 | `@g3t/core`   | Data model, adapters, projection pipeline, algorithms, theming    | graphology                  |
-| `@g3t/react`  | 12 view components + 15 controls (canvas, table, map, tree, etc.) | react, @g3t/core, cytoscape |
+| `@g3t/react`  | View components and controls (graph canvas, structural SVG, table, matrix, map, tree, timeline, sankey, schema, stats) | react, @g3t/core, cytoscape |
 | `@g3t/charts` | Linked statistical charts (bar, scatter, line, pie)               | react, @g3t/core, echarts   |
 
-## Minimal Integration (15 lines)
+## Install
+
+```bash
+pnpm add @g3t/core @g3t/react
+```
+
+Peer dependencies are not installed for you; see
+[docs/consuming-g3t.md](docs/consuming-g3t.md) for the full list,
+the relayout and interaction contracts, and the vendored-tarball
+recipe.
+
+**Import the stylesheet.** The packages ship CSS as a separate file
+and the bundle does not import it for you (auto-injection breaks
+strict CSP and server rendering). Without this line every view
+renders unstyled, with no error:
+
+```ts
+import "@g3t/react/style.css";
+```
+
+## Minimal Integration
 
 ```tsx
 import { useEffect, useState } from "react";
 import { UGM, SparqlAdapter } from "@g3t/core";
 import { CytoscapeCanvas, TableView } from "@g3t/react";
+import "@g3t/react/style.css";
 
 function MyGraphPage() {
   const [ugm, setUgm] = useState<UGM | null>(null);
@@ -79,7 +103,7 @@ g3t does **not** provide a complete application shell, workflow engine, or sessi
 | `CytoscapeCanvas`   | Graph layout (7 engines) with animated transitions, edge styles (bezier/straight/taxi), selection, context menu, lasso |
 | `TableView`         | Sortable, paginated data table with multi-select (ctrl+click, shift+click)                                             |
 | `DetailInspector`   | Property panel for selected node/edge                                                                                  |
-| `TimelineView`      | Temporal visualization (vis-timeline)                                                                                  |
+| `TimelineView`      | Temporal visualization. Ships on `@g3t/react/timeline`, not the root barrel: it needs the optional peers `vis-timeline` and `vis-data` |
 | `MapView`           | Geographic markers with edges between geo-positioned nodes                                                             |
 | `TreeView`          | Expandable containment hierarchy with breadcrumb                                                                       |
 | `SchemaView`        | Ontology class hierarchy with SHACL constraint badges                                                                  |
@@ -149,6 +173,15 @@ decision-support components) lives in
 [`docs/wiring-guide.md`](docs/wiring-guide.md); every snippet runs in
 CI at `examples/wiring/`.
 
+Two companions:
+[`docs/consuming-g3t.md`](docs/consuming-g3t.md) covers what host
+applications need and types cannot express (the stylesheet import,
+which props re-run layout, the interaction contracts, the styling
+escape hatch, vendored tarballs), and
+[`docs/structural-patterns.md`](docs/structural-patterns.md) gives
+the five structural rendering recipes with the behaviors each one
+guarantees, every guarantee backed by an executable oracle.
+
 ## Examples & demos
 
 Not sure which one shows your need? The
@@ -177,6 +210,26 @@ The former cinematic flagship demo was retired 2026-07-03: the four
 scenario shells replaced it, and every public API it alone
 demonstrated was folded into the shells, the dashboards, or the
 wiring guide first (`planning/flagship-retirement.md` is the audit).
+
+## Stability and deprecations (v1.0)
+
+The published surface follows semantic versioning from v1.0.0:
+breaking changes to exported components, props, and core types
+require a major bump.
+
+Deprecated in v1.0, still functional, slated for removal in a
+future major:
+
+- `CytoscapeCanvas`'s `structural` prop. Structural scenes should
+  use `StructuralSvgView`, which is ahead of the cytoscape path on
+  routing, dragging, and labels. The deprecated path warns once in
+  development.
+
+Not covered by the stability promise: exact pixel positions from
+layout (deterministic, but constants may be tuned), route SHAPE
+beyond the invariants documented per pattern, and anything under a
+package's `src/` reached by deep import rather than through the
+exports map.
 
 ## Data-paradigm support (honest scope)
 
@@ -238,6 +291,27 @@ planning/           ← Milestones, audits, evaluations; retired-effort
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the toolkit/application boundary.
+
+## Security
+
+Report vulnerabilities privately, not as public issues. See
+[SECURITY.md](SECURITY.md), which also covers the one question every
+adopter connecting a browser to a graph store should read first: what
+the auth middleware does and does not protect.
+
+## Contributing
+
+[CONTRIBUTING.md](CONTRIBUTING.md) for setup and the PR process,
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the standard everyone here
+is held to, [ARCHITECTURE.md](ARCHITECTURE.md) for where a change
+belongs.
+
+## Security
+
+Report vulnerabilities privately, not as public issues. See
+[SECURITY.md](SECURITY.md), which also covers the one question every
+adopter connecting a browser to a graph store should read first: what
+the auth middleware does and does not protect.
 
 ## License
 

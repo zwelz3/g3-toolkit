@@ -165,7 +165,14 @@ export function routeOrthogonal(
   // keeps UML terminal symbols on a straight run). Each terminal
   // independently degrades toward `clearance` when its long stub
   // would land inside an inflated obstacle.
-  const stubLengths = [minStub, Math.max(clearance, minStub / 2), clearance];
+  // VR-7 (owner verification 2026-07-27): the ladder ends at ZERO:
+  // in dense clusters even a clearance-length stub can land inside a
+  // NEIGHBOR's inflation, and the old unconditional clearance-stub
+  // return then failed the terminal check for every face. With a
+  // zero stub the caller's anchor itself is the terminal; the first
+  // A* step is still midpoint-validated, so the degrade trades the
+  // straight-run guarantee for reachability, never for a crossing.
+  const stubLengths = [minStub, Math.max(clearance, minStub / 2), clearance, 0];
   const freeStub = (p: Pt, side: RouteSide): Pt => {
     for (const len of stubLengths) {
       const cand = stub(p, side, len);
@@ -217,7 +224,16 @@ export function routeOrthogonal(
   const sr = at(yi.get(s.y));
   const tc = at(xi.get(t.x));
   const tr = at(yi.get(t.y));
-  if (blockedPoint(sc, sr) || blockedPoint(tc, tr)) return null;
+  // VR-7 (owner verification 2026-07-27): terminals are judged by
+  // the POINT, not the containing cell's midpoint. A terminal tip a
+  // hair outside every inflated obstacle is legal even when its
+  // grid cell's midpoint falls inside a NEIGHBOR's inflation (dense
+  // post-drag clusters); path cells keep the midpoint rule, so the
+  // relaxation cannot admit a crossing segment: an unreachable
+  // terminal still fails in A*.
+  const pointBlocked = (p: Pt): boolean =>
+    inflated.some((b) => strictlyInside(p, b, eps));
+  if (pointBlocked(s) || pointBlocked(t)) return null;
 
   // A* over (grid node, incoming direction) states; deterministic via
   // an insertion-order tiebreak.

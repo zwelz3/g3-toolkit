@@ -1,7 +1,8 @@
-// Capability dashboards (view layer). Where the four dev-server
-// scenarios are domain stories, these foreground the toolkit surface
-// the scenarios don't: analytics (charts/stats/algorithms/derived
-// properties) and structure (schema/matrix/sankey + the RDF paradigm).
+// Capability dashboard (view layer). Where the dev-server scenarios are
+// domain stories, this foregrounds the toolkit surface they don't:
+// charts, stats, algorithms and derived properties, plus the adjacency
+// matrix and the type-flow sankey folded in when the Schema Dashboard
+// was retired (planning/schema-dashboard-retirement.md).
 export { AnalyticsDashboard } from "./AnalyticsDashboard";
 export type { AnalyticsDashboardProps } from "./AnalyticsDashboard";
 

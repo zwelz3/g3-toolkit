@@ -9,10 +9,21 @@
 
 import { useMemo } from "react";
 import type { UGM } from "@g3t/core";
-import type { SchemaModel } from "@g3t/core";
+import type { SchemaModel, ShaclShape } from "@g3t/core";
 import { EmptyState } from "../../interaction/feedback";
 
-export interface ShaclShape {
+/**
+ * The display-only shape this view reads.
+ *
+ * This type used to be called `ShaclShape`, which collided with
+ * `@g3t/core`'s `ShaclShape` (the validator's model) under one name
+ * across two packages. The two are structurally different: core keys
+ * its constraint list `properties`, this one keys it `constraints`, so
+ * the natural import built an array the component rejected. Renamed so
+ * `ShaclShape` means one thing everywhere; `shapes` accepts either
+ * form, so no runtime value that worked before stops working.
+ */
+export interface SchemaViewShape {
   id: string;
   targetClass: string;
   constraints: Array<{
@@ -23,17 +34,37 @@ export interface ShaclShape {
   }>;
 }
 
+/** Constraint list as this view reads it, from either shape form. */
+type ViewConstraints = SchemaViewShape["constraints"];
+
+/**
+ * Read the constraint list off either shape form.
+ *
+ * Core's `ShaclPropertyConstraint` is a superset of what this view
+ * renders (it adds pattern, ranges, severity), and its narrower
+ * `datatype` union is assignable to the string this view expects, so
+ * the projection is a field rename and nothing is lost that is drawn.
+ */
+function constraintsOf(shape: ShaclShape | SchemaViewShape): ViewConstraints {
+  return "properties" in shape ? shape.properties : shape.constraints;
+}
+
 export interface SchemaViewProps {
   ugm?: UGM;
   schema?: SchemaModel;
-  shapes?: ShaclShape[];
+  /**
+   * SHACL shapes to badge target classes with. Accepts `@g3t/core`'s
+   * `ShaclShape` (what `ShaclValidator` and `ShaclShapeBrowser` use) or
+   * this view's display-only {@link SchemaViewShape}.
+   */
+  shapes?: Array<ShaclShape | SchemaViewShape>;
   className?: string;
 }
 
 interface ClassNode {
   name: string;
   properties: string[];
-  shapeConstraints: ShaclShape["constraints"];
+  shapeConstraints: ViewConstraints;
 }
 
 export function SchemaView({
@@ -52,17 +83,17 @@ export function SchemaView({
         result.push({
           name: nodeType,
           properties: props,
-          shapeConstraints: matchingShape?.constraints ?? [],
+          shapeConstraints: matchingShape ? constraintsOf(matchingShape) : [],
         });
       }
     } else if (ugm) {
       const registry = ugm.getRegistry();
       for (const nodeType of registry.nodeTypes) {
+        const matchingShape = shapes.find((s) => s.targetClass === nodeType);
         result.push({
           name: nodeType,
           properties: [...registry.nodePropertyKeys],
-          shapeConstraints:
-            shapes.find((s) => s.targetClass === nodeType)?.constraints ?? [],
+          shapeConstraints: matchingShape ? constraintsOf(matchingShape) : [],
         });
       }
     }

@@ -108,7 +108,11 @@ function projectIBD(model: SysMLModel, diagram: Diagram): StructuralGraphInput {
     return {
       id: part.id,
       header: { name: `${part.name} : ${typeName}` },
-      ports: part.ports.map((p) => ({ id: p.id, side: p.side })),
+      ports: part.ports.map((p) => ({
+        id: p.id,
+        side: p.side,
+        multiplicity: p.multiplicity, // LR-18
+      })),
     };
   });
   const present = new Set(nodes.map((n) => n.id));
@@ -168,11 +172,16 @@ function projectParametric(
     const b = model.bindings[bid];
     return b ? [b] : [];
   });
+  // Owner 2026-07-28: value properties render as CONTAINER + PORT
+  // (the binding leaves the value's EAST port toward the
+  // constraint's WEST params), demonstrating the port-anchored
+  // form instead of a bare box.
   const valueNodes: StructuralNode[] = bindingList.map((b) => ({
     id: `val.${b.id}`,
     header: { name: b.value },
     width: 150,
-    height: 34,
+    height: 40,
+    ports: [{ id: `val.${b.id}.out`, side: "EAST" as const }],
   }));
   const edges: StructuralEdge[] = bindingList.flatMap((b) =>
     paramIds.has(b.param)
@@ -180,6 +189,7 @@ function projectParametric(
           {
             id: `bind.${b.id}`,
             source: `val.${b.id}`,
+            sourcePort: `val.${b.id}.out`,
             target: cb.id,
             targetPort: b.param,
             kind: "association" as const,

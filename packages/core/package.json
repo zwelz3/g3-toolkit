@@ -1,76 +1,66 @@
 {
   "name": "@g3t/core",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0",
   "description": "Framework-agnostic graph data model, adapters, and algorithms for the g3-toolkit.",
   "type": "module",
-  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.mjs"
     },
     "./adapters": {
       "types": "./dist/adapter/index.d.ts",
-      "import": "./dist/adapters.mjs",
-      "require": "./dist/adapters.cjs"
+      "import": "./dist/adapters.mjs"
     },
     "./middleware": {
       "types": "./dist/middleware/index.d.ts",
-      "import": "./dist/middleware.mjs",
-      "require": "./dist/middleware.cjs"
+      "import": "./dist/middleware.mjs"
     },
     "./events": {
       "types": "./dist/event-bus/index.d.ts",
-      "import": "./dist/events.mjs",
-      "require": "./dist/events.cjs"
+      "import": "./dist/events.mjs"
     },
     "./projection": {
       "types": "./dist/projection/index.d.ts",
-      "import": "./dist/projection.mjs",
-      "require": "./dist/projection.cjs"
+      "import": "./dist/projection.mjs"
     },
     "./pipeline": {
       "types": "./dist/pipeline/index.d.ts",
-      "import": "./dist/pipeline.mjs",
-      "require": "./dist/pipeline.cjs"
+      "import": "./dist/pipeline.mjs"
     },
     "./shacl": {
       "types": "./dist/shacl/index.d.ts",
-      "import": "./dist/shacl.mjs",
-      "require": "./dist/shacl.cjs"
+      "import": "./dist/shacl.mjs"
     },
     "./diff": {
       "types": "./dist/diff/index.d.ts",
-      "import": "./dist/diff.mjs",
-      "require": "./dist/diff.cjs"
+      "import": "./dist/diff.mjs"
     },
     "./layout": {
       "types": "./dist/layout/index.d.ts",
-      "import": "./dist/layout.mjs",
-      "require": "./dist/layout.cjs"
+      "import": "./dist/layout.mjs"
     },
     "./algorithms": {
       "types": "./dist/algorithm-adapter/index.d.ts",
-      "import": "./dist/algorithms.mjs",
-      "require": "./dist/algorithms.cjs"
+      "import": "./dist/algorithms.mjs"
     },
     "./undo-redo": {
       "types": "./dist/undo-redo/index.d.ts",
-      "import": "./dist/undo-redo.mjs",
-      "require": "./dist/undo-redo.cjs"
+      "import": "./dist/undo-redo.mjs"
     },
     "./theme": {
       "types": "./dist/theme/index.d.ts",
-      "import": "./dist/theme.mjs",
-      "require": "./dist/theme.cjs"
+      "import": "./dist/theme.mjs"
     },
     "./path-analysis": {
       "types": "./dist/path-analysis/index.d.ts",
-      "import": "./dist/path-analysis.mjs",
-      "require": "./dist/path-analysis.cjs"
+      "import": "./dist/path-analysis.mjs"
+    },
+    "./internal": {
+      "types": "./dist/internal/index.d.ts",
+      "import": "./dist/internal.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -102,6 +92,7 @@
   "homepage": "https://github.com/zwelz3/g3-toolkit/tree/main/packages/core#readme",
   "scripts": {
     "build": "vite build",
+    "prepack": "node ../../scripts/check-dist-fresh.mjs",
     "test": "pnpm -w exec vitest run packages/core/src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "tsc --build --clean && rm -rf dist"

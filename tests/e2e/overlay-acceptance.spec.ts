@@ -19,8 +19,15 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 
-const CANVAS = "[data-testid='cytoscape-canvas']";
-const OVERLAY = "[data-testid='structural-edge-overlay']";
+// RETARGETED TO SVG 2026-08-16 (owner ruling). These asserted against
+// the Cytoscape canvas and its svg-overlay edge layer. The MBSE shell
+// defaults to the SVG renderer and marks Cytoscape deprecated, so the
+// invariants are now pinned on the renderer users actually get.
+//
+// The SVG view's contract: one `[data-ssv-scene]` group carrying the
+// whole view transform, `[data-ssv-edge-path="<id>"]` per drawn edge,
+// and `[data-ssv-edge-fallback]` marking edges the router skipped.
+const SVG = "[data-testid='mbse-structural-svg']";
 
 function collectConsole(page: Page): { text: string; type: string }[] {
   const entries: { text: string; type: string }[] = [];
@@ -39,14 +46,15 @@ function collectConsole(page: Page): { text: string; type: string }[] {
 async function openMbse(page: Page): Promise<void> {
   await page.goto("/?e2e=1");
   await page.getByText("MBSE Satellite Workbench", { exact: true }).click();
-  await page.waitForSelector(OVERLAY, { timeout: 15000 });
+  // No renderer selection: SVG is the default, which is the point.
+  await page.waitForSelector(SVG, { timeout: 15000 });
   await page.waitForFunction(() => window.__g3t?.scenes.has("mbse") === true, {
     timeout: 15000,
   });
 }
 
 test.describe("overlay structure and pan behavior", () => {
-  test("overlay paths are non-empty and each maps to a routed geometry edge", async ({
+  test("every drawn edge path maps to a routed geometry edge", async ({
     page,
   }) => {
     await openMbse(page);
@@ -54,33 +62,42 @@ test.describe("overlay structure and pan behavior", () => {
       const scene = window.__g3t!.scenes.get("mbse")!;
       const routed = new Set(Object.keys(scene.geometry.edges ?? {}));
       const orphans: string[] = [];
+      const empty: string[] = [];
       let paths = 0;
-      document.querySelectorAll("[data-overlay-edge]").forEach((el) => {
+      document.querySelectorAll("[data-ssv-edge-path]").forEach((el) => {
         paths += 1;
-        const id = el.getAttribute("data-overlay-edge")!;
+        const id = el.getAttribute("data-ssv-edge-path")!;
         if (!routed.has(id)) orphans.push(id);
+        if ((el.getAttribute("d") ?? "").trim() === "") empty.push(id);
       });
-      return { paths, orphans };
+      return {
+        paths,
+        orphans,
+        empty,
+        fallbacks: document.querySelectorAll("[data-ssv-edge-fallback]").length,
+      };
     });
-    // Subset, not equality: declared-port edges legitimately render on
-    // the cy taxi layer instead of the overlay. What must NEVER exist
-    // is an overlay path with no routed geometry behind it.
+    // Equality is not asserted in either direction: the router may skip
+    // an edge, and a skipped edge draws a straight fallback rather than
+    // vanishing. What must NEVER exist is a drawn path with no routed
+    // geometry behind it, or a path with no geometry in it at all.
     expect(res.paths).toBeGreaterThan(0);
     expect(res.orphans).toEqual([]);
+    expect(res.empty).toEqual([]);
+    // No edge should be falling back on the flagship fixture. This is
+    // the assertion that would catch the router silently degrading.
+    expect(res.fallbacks).toBe(0);
   });
 
-  test("pan is transform-only: group transform changes, path geometry does not", async ({
+  test("pan is transform-only: scene transform changes, path geometry does not", async ({
     page,
   }) => {
     await openMbse(page);
     const before = await page.evaluate(() => {
-      const overlay = document.querySelector(
-        "[data-testid='structural-edge-overlay']",
-      )!;
-      const group = overlay.querySelector("g");
+      const scene = document.querySelector("[data-ssv-scene]");
       return {
-        transform: group?.getAttribute("transform") ?? "",
-        ds: [...document.querySelectorAll("[data-overlay-edge]")].map(
+        transform: scene?.getAttribute("transform") ?? "",
+        ds: [...document.querySelectorAll("[data-ssv-edge-path]")].map(
           (p) => p.getAttribute("d") ?? "",
         ),
       };
@@ -90,24 +107,24 @@ test.describe("overlay structure and pan behavior", () => {
     // node instead of the viewport. Zoom is a pure viewport op and
     // pins the same invariant: the group transform changes, path
     // geometry does not.
-    const canvas = page.locator(CANVAS);
-    const box = (await canvas.boundingBox())!;
+    const svg = page.locator(SVG);
+    const box = (await svg.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.wheel(0, -240);
     await expect
       .poll(
         () =>
-          page.evaluate(() => {
-            const overlay = document.querySelector(
-              "[data-testid='structural-edge-overlay']",
-            )!;
-            return overlay.querySelector("g")?.getAttribute("transform") ?? "";
-          }),
+          page.evaluate(
+            () =>
+              document
+                .querySelector("[data-ssv-scene]")
+                ?.getAttribute("transform") ?? "",
+          ),
         { timeout: 5000 },
       )
       .not.toBe(before.transform);
     const after = await page.evaluate(() =>
-      [...document.querySelectorAll("[data-overlay-edge]")].map(
+      [...document.querySelectorAll("[data-ssv-edge-path]")].map(
         (p) => p.getAttribute("d") ?? "",
       ),
     );
@@ -120,9 +137,8 @@ test.describe("console hygiene (zero errors/warnings)", () => {
     const entries = collectConsole(page);
     await openMbse(page);
     await page.getByText("SmallSat Internal").click();
-    await page.waitForSelector(CANVAS, { timeout: 15000 });
-    const canvas = page.locator(CANVAS);
-    const box = (await canvas.boundingBox())!;
+    await page.waitForSelector(SVG, { timeout: 15000 });
+    const box = (await page.locator(SVG).boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.wheel(0, -240);
     await page.waitForTimeout(500);

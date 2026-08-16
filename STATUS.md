@@ -1,5 +1,446 @@
 # g3-toolkit Status
 
+**As of:** 2026-08-16 (active: **audit remediation CLOSED except 23.**
+Item 19 ruled branch A: the packages publish ESM ONLY. The `require`
+condition is gone from all 23 exports entries, `main` is gone from all
+three manifests, the vite builds emit `formats: ["es"]`, and zero .cjs
+files ship (44% less runtime JS). Rationale: typed CJS never worked
+(TS1479 from one ESM-flavored .d.ts per entry), nothing in the repo
+required a @g3t package, and TS1479 was the only thing preventing a
+consumer from mixing formats and duplicating the exported store
+singletons. Paired .d.cts was REJECTED as fixing the compile error
+while worsening the hazard. Guarded in tests/dist/public-api.test.ts.
+E2E: the 12 failures are fixed and the suite is RETARGETED off the
+deprecated Cytoscape renderer onto SVG; verified by running it against
+the production bundle (49 passed; the rest fail only on this
+container's blocked font CDN). **E2E CONFIRMED GREEN locally and in CI
+2026-08-16 (PR #2)**, which closes that verification. v1.0.0 still
+UNTAGGED and deliberately held until the latent MRs land (owner,
+2026-08-16). REMAINING: item 23 (phase 2), never run and covering
+typing, performance, memory, bundle delivery, accessibility and
+concurrency. **The audit artifacts were RESTORED from backup 2026-08-16
+and the audit is RESUMABLE**: state.json is v2, 4/10 stages complete,
+123 confirmed phase-1 findings, next stage `structure-p2`, 21 pass
+instances left. Two corrections that restoration forced: the 23 roadmap
+items are a prioritized synthesis of 25 deduped top findings, NOT the
+123 findings themselves; and phase-1 coverage was never exhaustive,
+since 7 of 11 passes hit the findings cap with roughly 27 findings seen
+and unwritten, putting the true phase-1 total nearer 154.)
+
+## PRIOR SNAPSHOT (2026-08-15 remediation round)
+
+**As of:** 2026-08-15 (active: audit remediation items 17, 20 and 21
+CLOSED; 18 PARTIAL; 19 needs an owner ruling. Adapters honor or reject
+`depth` instead of discarding it, and algorithm ingest reports
+matched-versus-supplied counts. Five layout options that had reached no
+engine since elkjs left are removed, with the docs that described them
+and five perf "tuning variants" that were measuring nothing. The event
+bus is ruled a context-action command bus, NOT a fourth integration
+channel; 13 never-emitted event types deleted, `eventBus` singleton
+deprecated. FIRST COVERAGE NUMBER EVER COLLECTED: 84.63% stmts / 75.90%
+branch, reported not gated. `passWithNoTests` removed and it caught an
+empty describe block that had been reporting as a pass. All 16 inert
+screenshot assertions and every e2e `isVisible()` guard are gone.
+Measured on native Linux: verify green including verify:exports at the
+default timeout, full suite ~4.5 min on one vCPU. v1.0.0 still UNTAGGED.
+REMAINING: **e2e has been red since roughly 2026-07-20 and the CI job is
+blocking, so the whole CI signal is being ignored** (owner is supplying
+the findings); then item 19's format ruling, then phase 2.)
+
+## PRIOR SNAPSHOT (2026-08-06 register)
+
+**As of:** 2026-08-06 (active: register R-15/R-16/R-17 answered:
+capability-gated editor controls (and the same over-promise fixed
+in StructuralNodeStyle itself), FloatingLegend elements
+descriptor, and a new verify:typeref gate that found three
+unreachable public types beyond the one reported. 1,433 tests
+exit-0. v1.0.0 still UNTAGGED. REMAINING: the owner's review
+walk.)
+
+## PRIOR SNAPSHOT (round 21)
+
+**As of:** 2026-08-05 (active: round 21 full text answered: R-12
+all four parts (structural applier with stated precedence,
+renderer-neutral editor target, size REPORTED per their option 2
+rather than my provisional option 3, controlled drag offsets) and
+R-13.3 (one legend serving both renderers). 1,428 tests exit-0.
+v1.0.0 still UNTAGGED. REMAINING: the owner's review walk.)
+
+## PRIOR SNAPSHOT (2026-08-05 register)
+
+**As of:** 2026-08-05 (active: the 2026-08-05 register: R-10
+(affordance presses no longer pan; screen-space slop reversing my
+model-unit error), R-9 (pinch zoom + controlled view transform +
+proportional wheel), R-11 (row glyphs), R-13 correctness half
+(override selectors + legend disclosure). R-12 SCOPED, not
+started, pending its full text. Their re-measurement confirms the
+R-4 fix: 34/34 views differ, 900 to 826 bends. 1,419 tests
+exit-0. v1.0.0 still UNTAGGED; all of this is release content.
+REMAINING: the owner's review walk.)
+
+## PRIOR SNAPSHOT (2026-08-03 register)
+
+**As of:** 2026-08-03 (active: consolidated upstream register
+answered: R-4 as shipped in 1.0.0 was a MEASURED NO-OP (consumer
+found it; my oracle did not discriminate) and is now real and
+oracle-pinned; a latent CI flake in the determinism test fixed
+(anytime layout vs wall-clock budget); R-5 plain-node glyphs and
+two-line headers, R-6 anchor forwarding, R-7 relayoutAroundFixed,
+R-8 pie shape suppression. 1,406 tests exit-0. NOTE: 1.0.0 has
+NOT been tagged; these fixes fold into the release rather than
+following it. REMAINING: the owner's review walk.)
+
+## PRIOR SNAPSHOT (v1.0.0 release prep)
+
+**As of:** 2026-08-03 (active: v1.0.0 RELEASE PREP executed: the
+consumer-facing gaps closed (typed CSS entry point, Install
+section, docs/consuming-g3t.md), verify:package gate added (77
+entry points), stability/deprecation policy stated, versions
+bumped rc.2 -> 1.0.0. Gates green. REMAINING BEFORE TAG: owner's
+deferred review walk (supply first, then MBSE under the SVG
+default), and the two owner decisions if they change the release
+shape (registry publishing was deferred; the publish workflow is
+tag-driven and ready when it is not).)
+
+## PRIOR SNAPSHOT (Round 66)
+
+**As of:** 2026-07-28 late (active: G3L Round 66 executed: the
+round-17 upstream requests, all four adopted: R-1 drag-suppressed
+clicks (a real bug on the now-default SVG surface), R-2 glyph
+slots with their own hit zone, R-3 two-line headers, R-4
+anchor: source|target with a corrected diagnosis (fans already
+spread; the gap was ordering input). 1,395 tests exit-0; e2e
+68/14. NEXT: the owner's deferred review walk (supply first, then
+MBSE under the SVG default).)
+
+## PRIOR SNAPSHOT (Round 65b)
+
+**As of:** 2026-07-28 late (active: G3L Round 65b executed: the
+round-6 upstream report dispositioned: containment prop
+content-keyed (the REAL snap-back gap their static suspicion
+found), multi-type promoted to @g3t/react, compound verification
+matrix (headless), TreeView onSelect, inspector titleAccessory;
+two items already resolved post-round61 (legend delegation,
+subtle :active overlay). 1,387 tests exit-0; e2e 68/14. NEXT: the
+owner's deferred review walk (supply first, then MBSE under the
+SVG default with an eye on flicker).)
+
+## PRIOR SNAPSHOT (Round 65)
+
+**As of:** 2026-07-28 late (active: G3L Round 65 executed: the
+three owner directives: (1) cytoscape-structural deprecated (SVG
+default in the MBSE shell, @deprecated prop + dev warning; the
+filed drag flicker lives in the deprecated path and may dissolve
+with the SVG default); (2) congestion sizing first increment
+(exact port demand + degree fan floor, oracle-pinned); (3)
+docs/structural-patterns.md with five recipes whose guarantees
+run as the executable pattern-oracle suite. 1,383 tests exit-0;
+e2e 68/14. NEXT: owner review walk (supply guard fix from 64e
+first), then flicker re-check under the SVG default, then the
+filed upstream backlog.)
+
+## PRIOR SNAPSHOT (Round 64e)
+
+**As of:** 2026-07-28 late (active: G3L Round 64e executed: the
+owner's walk findings: MY 64b guard regression root-caused and
+fixed (group-keyed validateAssembledElements; supply restored);
+legend star/barrel glyphs drawn + rect grown; matrix square via
+inner div (td ignores aspect-ratio); stats chart de-theme-blinded;
+parametric PORT pairs snap within their own bodies (my
+container+port change had regressed the verified straightening);
+IBD edge labels moved to the opposite quadrant from port labels.
+FILED: IBD drag flicker (sticky-face mechanism identified).
+Owner: publishing deferred, d.ts queued. 1,376 tests exit-0; e2e
+68/14. NEXT: owner re-walk (supply above all), then the flicker
+fix and the filed upstream backlog.)
+
+## PRIOR SNAPSHOT (Round 64d)
+
+**As of:** 2026-07-28 evening (active: G3L Round 64d executed:
+G3 all four mechanisms (charts fill via CSS-length height,
+datagrid natural width + host scroll, pageSize 16, matrix cells
+square UP via aspect-ratio); edge labels END-ANCHORED at the
+target with perpendicular offset (was the middle vertex = a
+bend); parametric value properties as container + EAST port.
+1,371 tests exit-0; e2e 68/14. The owner batch of 2026-07-28 is
+now fully dispositioned; open: owner re-verifies (fresh IBD look,
+VR-2 revert + legend, 64c/64d walk), the two parked decisions
+(registry publishing, d.ts round ordering), and the filed
+upstream items.)
+
+## PRIOR SNAPSHOT (Round 64c)
+
+**As of:** 2026-07-28 evening (active: G3L Round 64c executed:
+VR-9 lead fixed (router-failure fallback detours around the
+obstacle band instead of drawing through it; helper unit-tested
++ screenshot-shaped integration oracle); G4 both halves
+(neighborhood hierarchic by default AND hop-ranked via
+breadthfirst roots=[selected]); G5 legend rect squared; shapes
+edge predicates as local names. 1,371 tests exit-0; e2e 68/14.
+NEXT (64d): G3 analytics fills (vertical space, datagrid
+overflow, square-up matrix cells), end-anchored edge labels
+(VR-9's label collisions + shapes placement), parametric
+container+port model.)
+
+## PRIOR SNAPSHOT (Round 64b)
+
+**As of:** 2026-07-28 evening (active: G3L Round 64b executed:
+upstream prm-analyzer report dispositioned (adopted: element
+validation guard, interactionOptions, popout
+encoding/stylesheet/camera = VR-24, TreeView showBreadcrumb, dev
+stylesheet warning; filed: d.ts emission, line-style/border
+channels, peer isolation, consumption guide, fill wrapper,
+findShortestPath option); IBD screenshots analyzed, VR-9
+mechanisms filed (through-container fallback is the 64c lead).
+1,369 tests exit-0; e2e 68/14. NEXT (64c): VR-9
+through-container fix, G3 analytics fills, G4 neighborhood
+hierarchy default + hop-rank, G5 legend rect, shapes
+edge-predicate labels, parametric container+port.)
+
+## PRIOR SNAPSHOT (Round 64a)
+
+**As of:** 2026-07-28 evening (active: G3L Round 64a executed:
+the owner's evening batch: VR-2b stale-channel clearing (Color
+now reverts) + VR-2c edge-color legend rows; VR-27 v2 dashed
+open shapes per ruling; G1 outside+offset port labels; G2
+userSelect none; VR-29 v2 spacing only; popover Run removed;
+VR-17b tick ink. 1,370 tests exit-0; e2e 68/14. NEXT (64b): G3
+analytics fills + datagrid overflow + square matrix cells, G4
+neighborhood hierarchy default + hop-rank investigation, G5
+legend rect scale, shapes edge-predicate localName +
+end-anchored labels, parametric container+port model. VR-9
+waits on the IBD screenshots that did not arrive.)
+
+## PRIOR SNAPSHOT (Round 63d)
+
+**As of:** 2026-07-28 (active: G3L Round 63d executed: VR-8
+(mixed-pair straightening; port pairs keep their centered jog by
+design), VR-11 (length-tapered width estimate: the "padding" was
+estimation error accumulating with text length), VR-27 («closed»
+keyword + heavier border, oracle asserts both). 1,369 tests
+exit-0; e2e 68/14. The VR batch remainder: VR-9 (IBD pass: a
+fresh owner screenshot against 63b+ recalibrates the target),
+VR-6 large-count palettes, VR-19..24 analytics inspector cluster
+(round 64). VR-2 awaits the owner's e2e re-run.)
+
+## PRIOR SNAPSHOT (Round 63c)
+
+**As of:** 2026-07-28 (active: G3L Round 63c executed: VR-4
+closed at both mechanisms (live debounced option apply +
+hierarchy consuming both sliders), VR-5 (initialLayout truth,
+keyed for the inferred toggle), VR-18 (matrix fill). 1,367 tests
+exit-0; e2e 68/14. REMAINING VR: VR-8 (unify straightening
+across views), VR-9 (IBD pass; the 63b routing work runs under
+it), VR-11 (padding scaling), VR-27 (closed-shape
+strengthening), VR-6 + VR-19..24 (round 64). VR-2 awaits the
+owner's e2e re-run.)
+
+## PRIOR SNAPSHOT (Round 63b)
+
+**As of:** 2026-07-28 (active: G3L Round 63b executed: the BDD
+trio VR-7d/e/f closed at their shared flow-vs-side root
+(side-driven simple template with straight-line collapse,
+side-relative snap, border-gap sides + exposure-aware anchors),
+plus VR-25 (track width, the real mechanism), VR-26 (+ most of
+VR-10: local names + inside labels), VR-17 (axis legibility,
+charts budget 7->7.5 with rationale), VR-29 (landing divider).
+1,365 tests exit-0; e2e 68/14. NEXT (63c): VR-4/5 toolbar
+propagation investigation, VR-8 unify straightening across
+views, VR-9 IBD pass against the owner screenshots, VR-18 matrix
+rail fill, VR-27 closed-shape strengthening.)
+
+## PRIOR SNAPSHOT (Round 63a)
+
+**As of:** 2026-07-28 (active: G3L Round 63a executed: VR-2
+root-caused from the owner's browser evidence (theme rules
+clobbered encoding rules in the merge order); the merge is now an
+exported pure function with an order contract and a computed-style
+presentation oracle. Owner feedback filed as VR-7d/e/f + IBD
+evidence on VR-9/10. 1,361 tests exit-0; e2e 68/14. NEXT (63b):
+the BDD routing trio (VR-7d simple-route preference, VR-7e
+side-relative snap, VR-7f overlap side choice), VR-29 landing
+spacing, then the toolbar propagation investigation VR-4/5.)
+
+## PRIOR SNAPSHOT (Round 62)
+
+**As of:** 2026-07-27 (active: G3L Round 62 executed: owner
+inputs resolved (LR-3 URL live, chunk ruled, LR-25 ruled ->
+VR-15); VR-1 drag-stuck and VR-3 gray dots root-caused and fixed;
+VR-2 data path proven with a permanent oracle + browser falsifier
+authored (needs a browser run); VR-7 BDD routing rebuilt seven
+mechanisms deep (universal stubs, dominant-axis sides, point-based
+terminals, zero-rung stub ladder, roomy-first retries, fixed-face
+swing, settle-pass parity). 1,360 tests exit-0; e2e 68/14. NEXT:
+round 62's smalls (VR-25/26/29, VR-17/18) then the round-63
+clusters (VR-4/5 toolbar propagation; VR-8..11 routing remainder).)
+
+## PRIOR SNAPSHOT (Round 61)
+
+**As of:** 2026-07-23 (active: G3L Round 61 executed: the ENTIRE
+remaining LR backlog in one batch: LR-12 (violation to the hazard
+log), LR-18 closed (multiplicity end to end), LR-23 (compartment
+separators), LR-35 (Channel tier, five-stage sankey), LR-46
+(shapes tab on the interactive SVG view with severity/closed
+decorations), LR-47 (any-membership type scopes). Container reset
+mid-batch was owned and the work replayed from the round-60 zip.
+1,358 tests exit-0; e2e 67/13. ALL LR-1..50 items now carry final
+dispositions. Owner inputs open: repo URL, LR-25 scope, chunk
+a/b/c; owner verification passes queued for rounds 52-61.)
+
+## PRIOR SNAPSHOT (Round 60)
+
+**As of:** 2026-07-23 (active: G3L Round 60 executed: inspector
+pair closed in BOTH shells (bare inspector, own close, height cap;
+selection-follow via render derivation), plus an owned correction:
+round 57's LR-40 dashboard wiring had never reached disk and is
+now applied and grep-verified. 1,358 tests exit-0; e2e 67/13.
+REMAINING LR backlog: fixture round (LR-12/18-remainder/35), LR-23
+design, LR-46/47 enhancement. Owner inputs open: repo URL, LR-25
+scope, chunk a/b/c; owner verification passes queued for rounds
+52-60.)
+
+## PRIOR SNAPSHOT (Round 59)
+
+**As of:** 2026-07-23 (active: G3L Round 59 executed: LR-45
+closed: the CNT-003 same-graph mechanism extended to ugm graphs
+(identity = node+edge ids; positions captured at teardown; same
+graph -> preset replay + camera restore), so the inferred toggle
+is visually data-only; instUgm builds its projection once.
+LR-50 partial: hops re-layouts are semantically right; a
+hops=1-specific mechanism not pinnable statically; stale-viewCore
+suspicion recorded for owner repro. 1,358 tests exit-0; e2e
+67/13. NEXT: fixture round (LR-12/18-remainder/35) or auditor
+inspector (LR-10/11), owner's pick. Owner inputs open: repo URL,
+LR-25 scope, chunk a/b/c.)
+
+## PRIOR SNAPSHOT (Round 58)
+
+**As of:** 2026-07-23 (active: G3L Round 58 executed: LR-37
+closed: the editor's icon overrides bypassed composePinStack's
+single truth (_icon data) as flat background-image styles; both
+reported symptoms trace to that one mismatch. Icons now travel as
+_icon data via a pure tested split; pinned stacks re-compose per
+override pass. Analytics cluster (LR-31..44) fully closed.
+1,358 tests exit-0; e2e 67/13. NEXT: owner's pick of perf pair
+(LR-45/50) / fixture round (LR-12/18-remainder/35) / auditor
+inspector (LR-10/11). Owner inputs open: repo URL, LR-25 scope,
+chunk a/b/c.)
+
+## PRIOR SNAPSHOT (Round 57)
+
+**As of:** 2026-07-23 (active: G3L Round 57 executed: Analytics
+remainder: Spacing reaches the force layout (LR-31; Re-run's
+incremental behavior is the round-16 ruling, kept + explained);
+inspector dots show ACTUAL applied colors with type maps gated to
+the types driver (LR-40); edit-appearance widget inside the
+canvas, geometry root-caused (LR-41, supersedes 4.13); custom
+color wheel (LR-42); unified status-bar dismiss model (LR-44).
+LR-37 deferred with mechanism hypothesis (background-image slot
+conflict). 1,356 tests exit-0; e2e 67/13. NEXT: LR-37 focused
+round, or owner's pick of perf pair (LR-45/50) / fixture round
+(LR-12/18-remainder/35) / auditor inspector (LR-10/11). Owner
+inputs open: repo URL, LR-25 scope, chunk a/b/c.)
+
+## PRIOR SNAPSHOT (Round 56)
+
+**As of:** 2026-07-23 (active: G3L Round 56 executed: Analytics
+batch 1: export dropdown styled + BOTH dropdowns close on outside
+click (LR-32; .g3t-menu had no rule at all); search clears on
+selection (LR-36); focus-neighborhood FITS the remainder (LR-39);
+charts fill their pane with named axes (LR-33); adjacency matrix
+in the rail under coverage (LR-34, supersedes 8.4 placement,
+narrows 12.6, recorded in the oracle). 1,356 tests exit-0; e2e
+67/13. NEXT: round 57 = analytics remainder
+(LR-31/37/40/41/42/44). Owner inputs open: repo URL, LR-25 scope,
+chunk a/b/c.)
+
+## PRIOR SNAPSHOT (Round 55)
+
+**As of:** 2026-07-23 (active: G3L Round 55 executed: routing round
+B: ports mount fully OUTSIDE (LR-19, D2a contract updated), edges
+terminate at the outer face (LR-20), port approaches run along the
+port axis via stubs (LR-17), own-box obstacle for port ends
+(LR-16), side-aware port name labels (LR-18 label parts; fixture
+research + multiplicity remain). 1,356 tests exit-0; e2e 67/13.
+NEXT: Analytics arc (LR-31..44) or perf pair (LR-45/50), owner's
+pick; LR-12/18/35 fixture round available. Owner inputs open: repo
+URL, LR-25 scope, chunk a/b/c.)
+
+## PRIOR SNAPSHOT (Round 54)
+
+**As of:** 2026-07-23 (active: G3L Round 54 executed: MBSE SVG
+routing round A: RTE-011 live drag re-routing (offset geometry +
+pure router; orthogonal routes and labels survive drags), LR-21
+snap-to-alignment (phantom Z-jogs for pixel-level center deltas
+collapse straight, oracle falsifiable both ways), LR-13 row-grabs
+drag their container, LR-14 centered sections. 1,355 tests exit-0;
+e2e 67/13. NEXT: routing round B (LR-16..20: IBD initial routes
+inside nodes, port-side-aware entry, ports mounted fully outside,
+arrow termination offsets). Owner inputs open: repo URL, LR-25
+adapter scope, chunk a/b/c.)
+
+## PRIOR SNAPSHOT (Round 53)
+
+**As of:** 2026-07-22 (active: G3L Round 53 executed: the
+supply/bio/ontology batch: supply zoom clamp + top-right legible
+legend + three-mode confidence control (Color via encoding grammar,
+thicker inverted-width edges); bio scatter axis labels + class-dot
+sync (localName keying); ontology stable-height datagrid pages +
+legend collecting ALL type memberships (inferred supertypes now
+listed). LR-24/26/27/28/29/48/49 closed pending owner eyes.
+1,354 tests exit-0; e2e 67/13. NEXT: MBSE SVG routing rounds A/B
+(LR-13..23) unless the owner reorders; Analytics arc after. Owner
+inputs still open: repo URL, LR-25 adapter scope, chunk a/b/c.)
+
+## PRIOR SNAPSHOT (Round 52)
+
+**As of:** 2026-07-22 (active: G3L Round 52 executed: owner review
+FILED as LR-1..50 (tracked, round-assigned); quick-win batch landed
+(landing LR-1..6, gating LR-7/8 with e2e-flag override preserving
+the MR-7 oracles, small fixes LR-9/30/38/43) with downstream
+oracles updated. 1,354 tests exit-0; e2e 67/13. NEXT: round 53 =
+supply/bio/ontology small-medium batch (LR-24/26/27/28/29/48/49);
+then MBSE SVG routing rounds A/B (LR-13..23); Analytics round(s);
+perf round. Owner inputs queued: repo URL (LR-3), adapter
+interactivity scope (LR-25), chunk warning a/b/c.)
+
+## PRIOR SNAPSHOT (Round 51)
+
+**As of:** 2026-07-22 (active: G3L Round 51 executed: preview arc
+CLOSED: owner confirms preview fixed; stylesheet witness green in
+production; toolbar interaction pass console-clean. The single red
+(67th) was the spec clicking design-disabled Shuffle: fixed
+(force-layout first + enabledness guard). NEXT: the owner's held
+routing/dev notes land as MR-style rounds; then D3b part 2
+(ARC-009 extraction). Open owner call: chunk warning a/b/c.)
+
+## PRIOR SNAPSHOT (Round 50)
+
+**As of:** 2026-07-20 (active: G3L Round 50 executed: TOOLBAR
+PREVIEW BREAK FIXED: g3t-base.css was tree-shaken out of prod (bare
+*.css sideEffects glob missed subdirectory css); explicit app-entry
+import + recursive glob + gate expectation corrected; dist now
+ships index-*.css with the toolbar styles (empirically verified
+absent -> present). Stylesheet witness added to the toolbar e2e
+spec (computed display === flex). Owner must `pnpm exec playwright
+install` (1.61.1 binaries) before running. NEXT: owner's round-50
+e2e run (expect toolbar green in preview); then the owner's held
+routing/dev notes; then D3b part 2.)
+
+## PRIOR SNAPSHOT (Round 49)
+
+**As of:** 2026-07-20 (active: G3L Round 49 executed: esbuild/oxc
+warning eliminated at root (lib minify trio removed; dist now FULL
+minify: core 146.0/react 357.1/charts 6.4; budgets rebased 152/372/7,
+ledger); eight shells code-split (landing paints small; vendor +
+lazy-echarts chunks documented); toolbar-interaction e2e witness
+added (67/13) for the owner's persistent preview break; dependency
+churn repaired (react pair 19.2.7, vite 8.1.5, playwright pair
+1.61.1) with all chunks at exit 0. 1,354 tests. NEXT: owner runs
+e2e (toolbar spec names the broken step); then D3b part 2.)
+
+## PRIOR SNAPSHOT (Round 48)
+
 **As of:** 2026-07-20 (active: G3L Round 48 executed: the owner's
 production e2e run triaged: all three failures dispositioned (one
 was my round-45 e2e-expectation miss, recorded; two were smoke-spec
@@ -248,7 +689,7 @@ or MR-5 freeze when CI numbers arrive.)
 **As of:** 2026-07-12 (active: G3L Round 28 executed: PRF-001
 sharpened (warm 12.6 s; crossing minimization dominates; detuned
 elkjs still misses target; record at
-planning/g3l/prf-001-measurement.md) and LAY-020 shipped
+planning/archive/g3l/prf-001-measurement.md) and LAY-020 shipped
 (layoutStructuralWithChangeSet: local region splice with verbatim
 carryover pinned by object identity, global-sketch fallback, reroute
 reporting; five oracles). The incremental chain MOD-010 -> LAY-020
@@ -308,7 +749,7 @@ engineering); MR-11 background fix shipped, at re-review. Owner
 queue at two items: MR-11 re-review, MR-4 FTO. Next engineering:
 MR-5 bench harness, F1 continuation, or WS-E per owner priority.)
 
-**Owner queue:** planning/g3l/owner-queue.md is the single list of
+**Owner queue:** planning/archive/g3l/owner-queue.md is the single list of
 items blocked on the owner, each with the exact ask and what it
 unblocks.
 
@@ -317,7 +758,7 @@ zero-label e2e failure fixed at the shell (data-derived label text
 merged into the F1 attribute maps; adapter stays attributes-only).
 MR-9's browser pin passed in the owner's run (closed-loop return
 worked); MR-9 itself remains held for owner review. Owner queue
-established at planning/g3l/owner-queue.md.)
+established at planning/archive/g3l/owner-queue.md.)
 
 ## PRIOR SNAPSHOT (Round 21)
 
@@ -501,7 +942,7 @@ the standing recommendation.)
 layout stability (A1, criterion met at zero displacement), drag-route
 oracles (B1, 4 pass-pins + 2 expected-fail pins on the RTE-011 gap),
 and the layout-metrics module (D1, exported from @g3t/core). Governing
-documents: planning/g3l/requirements-specification.md and
+documents: planning/archive/g3l/requirements-specification.md and
 planning/g3l/implementation-plan.md. G3L Round 2 executed: B2 SVG
 overlay edge layer shipped behind `structuralEdgeLayer` with the MBSE
 shell as the ruled first opt-in surface; manual/human review tasks now
@@ -560,11 +1001,17 @@ planning/rdf-lpg-virtualization-audit.md for the full
 shipped-vs-gap accounting and the reconciliation.
 
 This document is the current-state snapshot for humans; agents start
-at CLAUDE.md. The authoritative round-by-round history is
-planning/archive/visual-acceptance-1.md (surface retired 2026-07-04); per-area design records live in
-roadmap/design/; milestone-era tracking (the former PROGRESS.md and
-planning/status.md) is archived verbatim in
+at CLAUDE.md. The authoritative round-by-round history is the CHANGELOG
+(the former planning/visual-acceptance-1.md round log was deleted with
+the visual-acceptance surface on 2026-07-04); per-area design records
+live in roadmap/design/; milestone-era tracking (the former PROGRESS.md
+and planning/status.md) is archived verbatim in
 planning/milestone-history.md.
+
+**Where planning documents live.** `planning/` holds the records that
+tracked files cite, so every such citation resolves in a clone.
+`planning/archive/` is retained in the maintainer's working copy and is
+NOT published: a path under it is a local reference, not a link.
 
 ## PRIOR FOCUS (2026-06-21, superseded 2026-07-03): structural-view rendering + Storybook reshape
 
@@ -628,7 +1075,14 @@ Patterns, plus a Reference group for supporting material. State:
   D2), and the DS2 chart-rendering sub-part; plus DS5 (a minimal starter
   example), open.
 
-## CURRENT FOCUS (2026-06-17): the flagship demo
+## PRIOR FOCUS (2026-06-17, superseded 2026-07-03): the flagship demo
+
+NOTE (2026-08-14): the flagship demo was RETIRED on 2026-07-03 and its
+planning documents were deleted with it. The four reading-order entries
+below are kept for the record; only `planning/rdf-lpg-virtualization-audit.md`
+still resolves. What the flagship alone demonstrated was folded into
+the shells and the wiring guide first; the audit of that fold is
+`planning/flagship-retirement.md`.
 
 The library is feature-stable at v1.0.0-rc.2. Active work has shifted
 from library features to a **cinematic flagship demonstration** of the

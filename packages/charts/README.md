@@ -87,7 +87,7 @@ in the canvas and table.
 ## Documentation
 
 Full documentation, architecture overview, and integration examples:
-[g3-toolkit repository](https://github.com/anthropic-experiments/g3-toolkit).
+[g3-toolkit repository](https://github.com/zwelz3/g3-toolkit).
 
 ## License
 

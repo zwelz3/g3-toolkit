@@ -42,6 +42,21 @@ export interface SerializableStyleRule {
   attributes: Readonly<Partial<VisualAttributes>>;
 }
 
+/**
+ * A problem found in a style-config document.
+ *
+ * `parseStyleConfig` accumulates every one of these rather than
+ * throwing on the first, because this document is authored by hand and
+ * handing back all five mistakes beats handing back the first one five
+ * times. That is arm 2 of the versioned-JSON failure convention; see
+ * `../model/document-errors.ts` for all three and for why they differ.
+ *
+ * The `CFG_` prefix namespaces the shared vocabulary in that module:
+ * `CFG_NOT_OBJECT` is its `NOT_OBJECT`, `CFG_BAD_VERSION` its
+ * `UNSUPPORTED_VERSION`, and the two `_SHAPE` codes are `BAD_SHAPE`
+ * narrowed to a location. The prefix predates the shared type and is
+ * kept because renaming a published code breaks hosts that match on it.
+ */
 export interface StyleConfigError {
   code:
     | "CFG_NOT_OBJECT"

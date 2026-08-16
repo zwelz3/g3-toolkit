@@ -11,14 +11,19 @@
  */
 
 import {
-  OKABE_ITO,
+  CANVAS_CATEGORICAL,
   NODE_SHAPES,
   SEQUENTIAL_SCALE,
   DIVERGING_SCALE,
   scaleColor,
-  contrastRatioCore,
+  contrastRatioOrNull,
 } from "./palette-bridge";
 import type { UGM } from "@g3t/core";
+import {
+  MalformedDocumentError,
+  parseJsonObject,
+  requireVersion,
+} from "@g3t/core";
 
 // ── Channels ─────────────────────────────────────────────────────────
 
@@ -138,7 +143,7 @@ function paletteArray(
       return DIVERGING_SCALE;
     case "okabe-ito":
     default:
-      return OKABE_ITO;
+      return CANVAS_CATEGORICAL;
   }
 }
 
@@ -174,8 +179,11 @@ function categoricalIndexer(seed?: readonly string[]): (v: string) => number {
 }
 
 export interface ResolveContext {
-  /** Auto domains and categorical value order need the data. */
-  ugm: UGM;
+  /** Auto domains and categorical value order need the data.
+   *  R-13.3 (round 21, 2026-08-05): optional, because a structural
+   *  scene has no UGM. Resolvers fall back to explicit domains and
+   *  overrides when it is absent. */
+  ugm?: UGM;
 }
 
 function numericDomain(
@@ -233,7 +241,12 @@ export function makeColorResolver(
   // sequential
   const dom =
     scale.domain === "auto"
-      ? numericDomain(ctx.ugm, driver ?? "", target)
+      ? // R-13.3: an auto domain needs the data; without a UGM the
+        // caller must state the domain, and a neutral unit range is
+        // the honest fallback rather than a guess.
+        ctx.ugm !== undefined
+        ? numericDomain(ctx.ugm, driver ?? "", target)
+        : ([0, 1] as [number, number])
       : scale.domain;
   const ramp = scale.ramp === "diverging" ? DIVERGING_SCALE : SEQUENTIAL_SCALE;
   return (attrs) => {
@@ -300,7 +313,12 @@ export function makeSizeResolver(
   if (scale.kind === "fixed") return () => scale.value;
   const dom =
     scale.domain === "auto"
-      ? numericDomain(ctx.ugm, driver ?? "", target)
+      ? // R-13.3: an auto domain needs the data; without a UGM the
+        // caller must state the domain, and a neutral unit range is
+        // the honest fallback rather than a guess.
+        ctx.ugm !== undefined
+        ? numericDomain(ctx.ugm, driver ?? "", target)
+        : ([0, 1] as [number, number])
       : scale.domain;
   const [outLo, outHi] = scale.range ?? [4, 32];
   return (attrs) => {
@@ -350,12 +368,27 @@ export function makeShapeResolver(
 
 // ── Validation, serialization, warnings ──────────────────────────────
 
-export class ReservedChannelError extends Error {
+/**
+ * A spec tried to map a channel the library owns.
+ *
+ * Extends `MalformedDocumentError` so a host with one handler for the
+ * versioned-JSON channel catches this too, while `instanceof
+ * ReservedChannelError` still distinguishes it. The message is
+ * unchanged.
+ */
+export class ReservedChannelError extends MalformedDocumentError {
+  /** The rejected channel, e.g. "node.opacity". */
+  readonly channel: string;
+
   constructor(channel: string) {
-    super(
-      `Channel "${channel}" is reserved: it is owned by ${RESERVED_CHANNELS[channel]} and cannot be attribute-mapped (see roadmap/design/encoding-controls.md).`,
-    );
+    super({
+      documentKind: "encoding-spec",
+      code: "RESERVED_NAME",
+      message: `channel "${channel}" is reserved: it is owned by ${RESERVED_CHANNELS[channel]} and cannot be attribute-mapped (see roadmap/design/encoding-controls.md).`,
+      path: `/${channel.replace(".", "/")}`,
+    });
     this.name = "ReservedChannelError";
+    this.channel = channel;
   }
 }
 
@@ -363,14 +396,19 @@ export function serializeEncodingSpec(spec: EncodingSpec): string {
   return JSON.stringify(spec, null, 2);
 }
 
-/** Parse + validate. Rejects unknown versions and reserved channels. */
+/**
+ * Parse + validate. Rejects unknown versions and reserved channels.
+ *
+ * Throws rather than degrading: there is no half an encoding spec. The
+ * failure convention and its error hierarchy are documented in
+ * `@g3t/core`'s `model/document-errors.ts`. This used to call
+ * `JSON.parse` bare, so malformed text escaped as a raw `SyntaxError`
+ * and the literal `"null"` escaped as a `TypeError`; both are typed
+ * failures now.
+ */
 export function parseEncodingSpec(json: string): EncodingSpec {
-  const raw = JSON.parse(json) as Record<string, unknown>;
-  if (raw["version"] !== 1) {
-    throw new Error(
-      `Unsupported encoding spec version: ${String(raw["version"])}`,
-    );
-  }
+  const raw = parseJsonObject("encoding-spec", json);
+  requireVersion("encoding-spec", raw);
   for (const target of ["node", "edge", "effects", "canvas"] as const) {
     const block = raw[target];
     if (block && typeof block === "object") {
@@ -397,7 +435,7 @@ export function warnOnCustomPalette(
 ): string[] {
   const warnings: string[] = [];
   const low = palette
-    .map((c) => ({ c, r: contrastRatioCore(c, canvasBg) }))
+    .map((c) => ({ c, r: contrastRatioOrNull(c, canvasBg) }))
     .filter(({ r }) => r !== null && r < 1.6)
     .map(({ c, r }) => `${c} (${(r as number).toFixed(2)}:1)`);
   if (low.length > 0) {

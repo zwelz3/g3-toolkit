@@ -7,16 +7,20 @@ queued work)
 
 ## Items (priority order)
 
-1. **P0: Typed CommonJS consumption.** `require("@g3t/*")` from a TS
-   .cts file under node16 fails with TS1479: the packages emit one
-   ESM-flavored .d.ts per entry. Runtime CJS works (verify:smoke);
-   typing does not. Durable fix is per-entry declaration bundling
-   emitting paired .d.ts/.d.cts (api-extractor or vite-plugin-dts
-   rollup), which would also retire scripts/fix-dts-extensions.mjs.
-   When fixed, extend scripts/verify-types.mjs with a CJS-mode
-   consumer so the gate proves it. P0 because the packages claim dual
-   ESM/CJS in their exports maps; until then the claim is half-true
-   and documented as such in the CHANGELOG.
+1. **RESOLVED 2026-08-16: published ESM only.** `require("@g3t/*")`
+   from a TS `.cts` raised TS1479 because each entry shipped one
+   ESM-flavored `.d.ts`. The fix considered here was paired
+   `.d.ts`/`.d.cts` emission via api-extractor or vite-plugin-dts.
+   That branch was REJECTED: it doubles declaration emit and needs a
+   drift gate, and it fixes the compile error while making the real
+   problem worse. TS1479 was the only thing preventing a TypeScript
+   consumer from mixing formats and duplicating the exported zustand
+   store singletons, which is an undebuggable selection failure rather
+   than a build error. Dropping the `require` condition and the cjs
+   format removes the hazard at its source and 44% of emitted runtime
+   JS with it. Cost accepted: Node `require` consumers move to
+   `import`, and Jest-in-CJS needs transform config. Guarded by an
+   ESM-only assertion in `tests/dist/public-api.test.ts`.
 2. **P1: Playwright screenshot baselines.** The CI e2e job gates
    functional assertions with --ignore-snapshots because no Linux
    baselines are committed. Bootstrap per the inline ci.yml

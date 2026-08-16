@@ -26,29 +26,33 @@ test.describe("Foundation (M0)", () => {
     expect(box?.height).toBeGreaterThan(100);
   });
 
-  test("right-click opens context menu", async ({ page }) => {
-    const canvas = page.locator("[data-testid='cytoscape-canvas']");
-    await canvas.click({ button: "right", position: { x: 200, y: 200 } });
-    // Context menu or default browser menu should appear
-  });
+  // DELETED 2026-08-15: "right-click opens context menu". Its body was
+  // a right-click and a comment; it asserted nothing, so it could not
+  // fail. Writing the assertion it implies needs a decision this file
+  // cannot make: a background right-click only opens a menu when the
+  // manager resolves items for a "background" target, and the harness
+  // registers none, so the honest assertion is that NO menu appears,
+  // which is not what the title claims. Canvas context menus are
+  // asserted where they are actually wired: selection.spec's table-row
+  // right-click.
 
   test("inspector shows node properties on selection", async ({ page }) => {
-    // Click a node in the table to select it
+    // Both guards removed: the harness renders the table and mounts
+    // DetailInspector into sidebar-right unconditionally, so an
+    // if-visible check here only converted a real regression into a
+    // silent pass.
     const firstRow = page.locator("[data-testid^='table-row-']").first();
-    if (await firstRow.isVisible()) {
-      await firstRow.click();
-      // Inspector should show properties
-      const inspector = page.locator("[data-testid='detail-inspector']");
-      if (await inspector.isVisible()) {
-        await expect(inspector).toContainText(/name|type|id/i);
-      }
-    }
+    await firstRow.click();
+    const inspector = page.locator("[data-testid='detail-inspector']");
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText(/name|type|id/i);
   });
 
-  test("status bar shows node and edge counts", async ({ page }) => {
-    const status = page.locator("[data-testid='status-bar']");
-    if (await status.isVisible()) {
-      await expect(status).toContainText("Nodes:");
-    }
-  });
+  // DELETED 2026-08-15: "status bar shows node and edge counts". The
+  // status bar lives in UxSurface, which the test harness does not
+  // mount, so the guard was permanently false and the test was a
+  // no-op. Converting it to a real assertion would land a
+  // guaranteed-red gate, which planning/audit-remediation.md already
+  // rules against. Restore it against a fixture that renders
+  // UxSurface, or drop the intent.
 });

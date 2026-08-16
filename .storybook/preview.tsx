@@ -1,4 +1,4 @@
-import type { Preview } from "@storybook/react-vite";
+import type { Decorator, Preview } from "@storybook/react-vite";
 import { useEffect } from "react";
 // Use package-level imports rather than reaching into source. After the
 // Phase-2 workspace split the theme modules live in @g3t/react (for
@@ -15,8 +15,12 @@ import { injectDesignTokens } from "@g3t/core";
 // works against the live source file.
 import "../packages/react/src/theme/g3t-base.css";
 
-const withTheme = (Story: React.ComponentType, context: any) => {
-  const themeId = context.globals.theme || "light";
+// Capitalised because Storybook RENDERS a decorator as a component, and
+// this one calls hooks. Lowercase `withTheme` read to react-hooks as a
+// plain function calling useThemeStore/useEffect, which is a rules-of-hooks
+// error. `Decorator` also types `context`, which was `any`.
+const WithTheme: Decorator = (Story, context) => {
+  const themeId = (context.globals["theme"] as string | undefined) || "light";
   const setTheme = useThemeStore((s) => s.setTheme);
 
   useEffect(() => {
@@ -39,7 +43,7 @@ const withTheme = (Story: React.ComponentType, context: any) => {
 };
 
 const preview: Preview = {
-  decorators: [withTheme],
+  decorators: [WithTheme],
   globalTypes: {
     theme: {
       name: "Theme",

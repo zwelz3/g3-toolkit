@@ -172,7 +172,7 @@ export const THEME_PRESETS: Record<string, G3tTheme> = {
 
 // ── Zustand Store ───────────────────────────────────────────────────
 
-interface ThemeState {
+export interface ThemeState {
   theme: G3tTheme;
   setTheme: (themeId: string) => void;
   setCustomTheme: (theme: G3tTheme) => void;
@@ -182,10 +182,24 @@ export const useThemeStore = create<ThemeState>((set) => ({
   theme: LIGHT_THEME,
   setTheme: (themeId: string) => {
     const preset = THEME_PRESETS[themeId];
-    if (preset) {
-      set({ theme: preset });
-      injectCssVariables(preset);
+    if (!preset) {
+      // Silently doing nothing was the previous behavior, and it is the
+      // worst answer available: the caller sees the theme not change
+      // with no error, no warning and nothing in the console, which
+      // reads as a rendering bug rather than a bad id. Warn rather than
+      // throw, matching createTheme's posture: a bad theme id should
+      // not take down a host's render.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[g3t] setTheme("${themeId}"): unknown theme id, keeping the ` +
+          `current theme. Known ids: ${Object.keys(THEME_PRESETS).join(", ")}. ` +
+          `For a theme of your own, build it with createTheme and pass it ` +
+          `to setCustomTheme.`,
+      );
+      return;
     }
+    set({ theme: preset });
+    injectCssVariables(preset);
   },
   setCustomTheme: (theme: G3tTheme) => {
     set({ theme });
@@ -248,9 +262,19 @@ function relativeLuminance(hex: string): number | null {
   return 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
 }
 
-/** WCAG contrast ratio between two hex colors (1..21); null if either
- *  color is not plain hex (e.g. rgba() strings are skipped, not failed). */
-export function contrastRatio(a: string, b: string): number | null {
+/**
+ * WCAG contrast ratio between two hex colors (1..21); null if either
+ * color is not plain hex (e.g. rgba() strings are skipped, not failed).
+ *
+ * Named for the null, because `@g3t/core` exports a `contrastRatio`
+ * that returns a plain `number` and the two used to share that name
+ * across the two packages. They are not interchangeable: this one is
+ * what `createTheme` needs, since a theme may legitimately carry an
+ * rgba() value that has to be SKIPPED rather than scored. Swapping in
+ * core's would silently score such a pair instead of skipping it, so
+ * the difference is behavioral and the names say so.
+ */
+export function contrastRatioOrNull(a: string, b: string): number | null {
   const la = relativeLuminance(a);
   const lb = relativeLuminance(b);
   if (la === null || lb === null) return null;
@@ -279,7 +303,7 @@ export function createTheme(
   ];
   const failures = checks
     .map(([label, fg, bg, min]) => {
-      const ratio = contrastRatio(fg, bg);
+      const ratio = contrastRatioOrNull(fg, bg);
       return ratio !== null && ratio < min
         ? `${label} ${ratio.toFixed(2)}:1 (needs ${min}:1)`
         : null;

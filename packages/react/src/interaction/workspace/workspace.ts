@@ -24,6 +24,11 @@ import {
   serializeEncodingSpec,
   type EncodingSpec,
 } from "../encoding/encoding-spec";
+import {
+  parseJsonObject,
+  requireVersion,
+  UnsupportedVersionError,
+} from "@g3t/core";
 
 export interface WorkspaceSnapshot {
   version: 1;
@@ -67,9 +72,7 @@ export function applyWorkspace(
   ctx: ApplyContext,
 ): void {
   if (snapshot.version !== 1) {
-    throw new Error(
-      `Unsupported workspace version ${String(snapshot.version)}; this build reads version 1`,
-    );
+    throw new UnsupportedVersionError("workspace", snapshot.version);
   }
   const cy = ctx.cy;
   if (cy) {
@@ -111,13 +114,18 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): string {
   );
 }
 
+/**
+ * Parse a workspace snapshot.
+ *
+ * Throws rather than degrading (see `@g3t/core`'s
+ * `model/document-errors.ts`): a snapshot half-applied is worse than
+ * one rejected, because the camera and the pins would disagree. A
+ * nested encoding spec is parsed by its own parser, so a bad spec
+ * surfaces as an encoding-spec error rather than as a workspace one.
+ */
 export function parseWorkspace(json: string): WorkspaceSnapshot {
-  const raw = JSON.parse(json) as Record<string, unknown>;
-  if (raw["version"] !== 1) {
-    throw new Error(
-      `Unsupported workspace version ${String(raw["version"])}; this build reads version 1`,
-    );
-  }
+  const raw = parseJsonObject("workspace", json);
+  requireVersion("workspace", raw);
   const spec = raw["encodingSpec"]
     ? parseEncodingSpec(JSON.stringify(raw["encodingSpec"]))
     : undefined;

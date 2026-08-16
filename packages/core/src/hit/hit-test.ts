@@ -50,10 +50,28 @@ export interface SceneHit {
   glyphSlot?: string;
 }
 
+/** Upstream R-2 (round 17, 2026-07-28): the slots a per-node glyph
+ *  can occupy. Shared by the scene hit tester and the structural
+ *  SVG view's glyph rendering. */
+export type GlyphSlot =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right"
+  | "top"
+  | "bottom"
+  /** R-11: a compartment row's own affordance, right-aligned in the
+   *  row band. Rows have no corners to choose between. */
+  | "row";
+
 export interface StructuralHit {
   elementId: string;
   kind: "node" | "edge" | "port" | "row";
-  zone: "header" | "body" | "border" | "segment" | "port" | "row";
+  /** R-2: "glyph" is an affordance drawn in the header strip; a
+   *  consumer can act on it alone rather than on the whole box. */
+  zone: "header" | "body" | "border" | "segment" | "port" | "row" | "glyph";
+  /** For glyph hits: which slot was hit. */
+  glyphSlot?: GlyphSlot;
 }
 
 const GLYPH_SLOT: Record<string, { ux: number; uy: number }> = {
@@ -171,6 +189,17 @@ export function hitTestStructural(
   input: StructuralGraphInput,
   geometry: StructuralGeometry,
   p: HitPoint,
+  options?: {
+    /** R-2 (round 17, 2026-07-28): the VIEW owns glyph geometry
+     *  (it draws them), so it supplies a probe rather than core
+     *  duplicating the layout math. Returning a slot for a point
+     *  makes that point a "glyph" hit, tested ABOVE the header so
+     *  the affordance is reachable. */
+    glyphAt?: (
+      elementId: string,
+      point: HitPoint,
+    ) => GlyphSlot | null | undefined;
+  },
 ): StructuralHit | null {
   // Ports paint above everything.
   for (const [id, port] of Object.entries(geometry.ports)) {
@@ -205,6 +234,19 @@ export function hitTestStructural(
       p.y >= g.y &&
       p.y <= g.y + g.height
     ) {
+      // R-11 (register, 2026-08-05): a row can carry an affordance
+      // too; probe it BEFORE falling through to the row zone, so a
+      // single zone: "glyph" navigation rule reaches container
+      // contents as well as nodes.
+      const rowSlot = options?.glyphAt?.(id, p);
+      if (rowSlot !== null && rowSlot !== undefined) {
+        return {
+          elementId: id,
+          kind: "row",
+          zone: "glyph",
+          glyphSlot: rowSlot,
+        };
+      }
       return { elementId: id, kind: "row", zone: "row" };
     }
   }
@@ -221,6 +263,13 @@ export function hitTestStructural(
     const inside =
       p.x >= g.x && p.x <= g.x + g.width && p.y >= g.y && p.y <= g.y + g.height;
     if (!inside) continue;
+    // R-2: the glyph is an affordance ABOVE every other zone,
+    // including the border band it may overlap; otherwise a glyph
+    // drawn near the header's edge would be unreachable.
+    const slot = options?.glyphAt?.(id, p);
+    if (slot !== null && slot !== undefined) {
+      return { elementId: id, kind: "node", zone: "glyph", glyphSlot: slot };
+    }
     const nearBorder =
       p.x <= g.x + BORDER_BAND ||
       p.x >= g.x + g.width - BORDER_BAND ||

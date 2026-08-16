@@ -39,6 +39,13 @@ export * from "./annotations";
 export { findShortestPath } from "@g3t/core";
 export type { PathResult, PathOptions } from "@g3t/core";
 
+// Type-only re-exports so this subpath is self-sufficient: both name a
+// prop type of a component this barrel already exports, and both were
+// reachable only from the root barrel. Enforced per entry point by
+// scripts/check-type-reachability.mjs.
+export type { NodeStyleTarget } from "./encoding/NodeStyleEditor";
+export type { LegendElement } from "./encoding/SpecLegend";
+
 // Loose-file exports
 export { expandNeighbors } from "./neighbors";
 export type { ExpandResult } from "./neighbors";
@@ -66,3 +73,7 @@ export type {
 } from "./workspace/workspace";
 export { AlgorithmPanel } from "./algorithms/AlgorithmPanel";
 export type { AlgorithmPanelProps } from "./algorithms/AlgorithmPanel";
+export {
+  relayoutAroundFixed,
+  type RelayoutAroundFixedOptions,
+} from "./relayout";

@@ -25,7 +25,11 @@ import {
   type PaletteName,
 } from "./encoding-spec";
 import { glyphStrokeFor } from "./spec-apply";
-import { OKABE_ITO, NODE_SHAPES, SEQUENTIAL_SCALE } from "./palette-bridge";
+import {
+  CANVAS_CATEGORICAL,
+  NODE_SHAPES,
+  SEQUENTIAL_SCALE,
+} from "./palette-bridge";
 
 // ── Shared bits ──────────────────────────────────────────────────────
 
@@ -217,7 +221,7 @@ function CategoricalColorEditor({
     ? (scale.palette as string[])
     : scale.palette === "viridis-9"
       ? SEQUENTIAL_SCALE
-      : OKABE_ITO;
+      : CANVAS_CATEGORICAL;
   // The colors the user actually SEES per value: this is what the
   // warnings evaluate (round-8 bug: warnings checked the stale
   // palette array, so they never cleared as colors changed).
@@ -225,7 +229,7 @@ function CategoricalColorEditor({
     (v, i) => scale.overrides?.[v] ?? palette[i % palette.length] ?? "#000000",
   );
   const SAFE = new Set(
-    [...OKABE_ITO, ...SEQUENTIAL_SCALE].map((c) => c.toLowerCase()),
+    [...CANVAS_CATEGORICAL, ...SEQUENTIAL_SCALE].map((c) => c.toLowerCase()),
   );
   const customWarnings = effective.every((c) => SAFE.has(c.toLowerCase()))
     ? []

@@ -25,6 +25,31 @@ export interface Scenario {
  * examples/decision-dashboards as plain importable components; the
  * landing routes to thin wrappers around them.
  */
+/** Visibility gating (LR-7/LR-8, owner review 2026-07-22):
+ *  - Scale is HIDDEN in dev: React's dev-build prop serialization
+ *    makes the surface misleadingly slow there (see the verdict in
+ *    ScaleSurface.tsx); it ships in prod/preview where it is clean.
+ *  - Style Lab is DEV-ONLY: it is an engineering comparison
+ *    harness, not a product example.
+ *  Vitest sets DEV=true, so unit tests see the dev set (Style Lab
+ *  visible, Scale hidden); the production e2e smoke walks the prod
+ *  set (Scale visible, Style Lab absent). */
+function surfaceVisibleHere(id: string): boolean {
+  // The e2e flag exposes everything in any build: the MR-7 Style
+  // Lab acceptance oracles run against the production bundle and
+  // keep their surface, and the owner can opt in for debugging via
+  // ?e2e=1. Default prod visitors see the gated set.
+  if (
+    typeof location !== "undefined" &&
+    new URLSearchParams(location.search).has("e2e")
+  ) {
+    return true;
+  }
+  if (id === "scale") return !import.meta.env.DEV;
+  if (id === "style-lab") return import.meta.env.DEV;
+  return true;
+}
+
 export const CAPABILITY_SURFACES: Scenario[] = [
   {
     id: "analytics-dashboard",
@@ -93,11 +118,7 @@ export const SCENARIOS: Scenario[] = [
     accent: "#f97316",
     accentGlow: "rgba(249, 115, 22, 0.15)",
     icon: "◫",
-    tags: [
-      "BDD / IBD / parametric / req",
-      "containment tree",
-      "structural renderer",
-    ],
+    tags: ["containment tree", "structural renderer"],
   },
   {
     id: "supply-chain",
@@ -199,8 +220,8 @@ export function DemoLanding({
           }}
         >
           A toolkit of composable views, a declarative visual-encoding grammar,
-          and selection-linked panels for RDF, property-graph, and holonic data.
-          Pick a scenario to see the pieces working together.
+          and selection-linked panels for RDF and property-graph data. Pick a
+          scenario to see the pieces working together.
         </p>
 
         {/* Capability strip */}
@@ -217,7 +238,7 @@ export function DemoLanding({
             ["10+", "linked views"],
             ["5", "layout engines"],
             ["SHACL", "validation"],
-            ["RDF · LPG", "+ holonic"],
+            ["3", "renderers"],
           ].map(([big, small], i) => (
             <div
               key={big}
@@ -265,21 +286,14 @@ export function DemoLanding({
           />
         ))}
       </div>
-      <h2
-        style={{
-          margin: "28px 0 4px",
-          fontSize: 15,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          opacity: 0.75,
-        }}
-      >
-        Capability surfaces
-      </h2>
-      <p style={{ margin: "0 0 12px", fontSize: 13, opacity: 0.65 }}>
-        The scenarios above are domain stories; these foreground the toolkit
-        surface directly.
-      </p>
+      {/* LR-1: 'Capability surfaces' header removed (owner review
+          2026-07-22); the cards keep their own grid. VR-29 (owner
+          re-verify 2026-07-28): the removed header WAS the visual
+          separation between the grids: a divider rule + breathing
+          room restores it without reintroducing text. */}
+      {/* VR-29 v2 (owner 2026-07-28): breathing room only, no
+          divider line. */}
+      <div aria-hidden style={{ height: 40 }} />
       <div
         style={{
           display: "grid",
@@ -289,13 +303,15 @@ export function DemoLanding({
           width: "100%",
         }}
       >
-        {CAPABILITY_SURFACES.map((scenario) => (
-          <ScenarioCard
-            key={scenario.id}
-            scenario={scenario}
-            onClick={() => onSelect(scenario)}
-          />
-        ))}
+        {CAPABILITY_SURFACES.filter((sc) => surfaceVisibleHere(sc.id)).map(
+          (scenario) => (
+            <ScenarioCard
+              key={scenario.id}
+              scenario={scenario}
+              onClick={() => onSelect(scenario)}
+            />
+          ),
+        )}
       </div>
 
       {/* Footer */}
@@ -307,10 +323,43 @@ export function DemoLanding({
           textAlign: "center",
         }}
       >
+        {/* LR-5: scope disclaimer (owner review 2026-07-22). */}
+        <p style={{ margin: "0 0 14px", maxWidth: 620 }}>
+          These examples are not fully engineered applications: they demonstrate
+          the basics of wiring toolkit components together.
+        </p>
         <span style={{ fontFamily: "var(--g3t-font-mono, monospace)" }}>
           npm run storybook
         </span>{" "}
         for individual component exploration
+        {/* LR-3: repo link. URL is a PLACEHOLDER pending the owner's
+            real repo location (flagged in the owner queue). */}
+        <div style={{ marginTop: 14 }}>
+          <a
+            href="https://github.com/zwelz3/g3-toolkit"
+            target="_blank"
+            rel="noreferrer"
+            data-testid="landing-repo-link"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              color: "#94a3b8",
+              textDecoration: "none",
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+            </svg>
+            Source on GitHub
+          </a>
+        </div>
       </div>
     </div>
   );

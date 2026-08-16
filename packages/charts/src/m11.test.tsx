@@ -18,7 +18,7 @@ import {
 import type { FilterGroup, ViewFilter } from "@g3t/core";
 import { LinkedChart } from "./LinkedChart";
 import { FilterBuilder } from "@g3t/react";
-import { createCountByType } from "@g3t/core";
+import { createCountByType, createPropertyCorrelation } from "@g3t/core";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -287,5 +287,117 @@ describe("FilterBuilder", () => {
     expect(onApply).toHaveBeenCalledOnce();
     const result = onApply.mock.calls[0]?.[0] as Set<string>;
     expect(result.size).toBe(5);
+  });
+});
+
+// ── Option builders (coverage gap found 2026-08-16) ─────────────────
+//
+// The two LinkedChart tests above assert that a container renders. They
+// say nothing about what is IN the chart, and buildBarOptions,
+// buildScatterOptions, buildLineOptions, buildPieOptions and
+// buildParallelOptions are the bulk of this package: they were the
+// reason charts sat at 35.3% statements and 12.5% branches while the
+// rest of core was at 84% or better.
+//
+// The builders are module-private, correctly: exporting them to test
+// them would widen the published surface. They are reached through the
+// component instead, by capturing the `option` prop handed to
+// echarts-for-react. ECharts renders to canvas and jsdom has no
+// getContext, so the mock is required regardless.
+
+const capturedOptions: Record<string, unknown>[] = [];
+
+vi.mock("echarts-for-react", () => ({
+  default: (props: { option: Record<string, unknown> }) => {
+    capturedOptions.push(props.option);
+    return null;
+  },
+}));
+
+/**
+ * Render with a pipeline whose DATA SHAPE matches the chart type and
+ * return the option object the chart was handed.
+ *
+ * The pairing is not cosmetic: buildOptions casts (`data as
+ * ScatterData`) rather than validating, so a categorical pipeline on a
+ * scatter chart throws inside the builder on a missing `.map`. That is
+ * a programmer error rather than a supported input, so it is recorded
+ * here rather than asserted as behavior; validating the shape at the
+ * cast would be a real improvement and is not this commit's job.
+ */
+function optionFor(
+  type: string,
+  pipeline: Parameters<
+    typeof LinkedChart
+  >[0]["pipeline"] = createCountByType() as never,
+): Record<string, unknown> {
+  capturedOptions.length = 0;
+  const { unmount } = render(
+    <LinkedChart
+      ugm={makeUGM()}
+      pipeline={pipeline}
+      type={type as "bar"}
+      height={200}
+    />,
+  );
+  const last = capturedOptions[capturedOptions.length - 1];
+  unmount();
+  expect(last).toBeDefined();
+  return last!;
+}
+
+describe("LinkedChart option builders", () => {
+  it("bar builds a category axis and a bar series", () => {
+    const o = optionFor("bar");
+    expect((o.series as { type: string }[])[0]!.type).toBe("bar");
+    expect((o.xAxis as { type: string }).type).toBe("category");
+  });
+
+  it("pie builds a pie series with no axes", () => {
+    const o = optionFor("pie");
+    expect((o.series as { type: string }[])[0]!.type).toBe("pie");
+    expect(o.xAxis).toBeUndefined();
+    expect(o.yAxis).toBeUndefined();
+  });
+
+  it("scatter and line build their own series types", () => {
+    const scatter = optionFor(
+      "scatter",
+      createPropertyCorrelation("risk", "risk") as never,
+    );
+    expect((scatter.series as { type: string }[])[0]!.type).toBe("scatter");
+
+    // A minimal TimeSeriesData pipeline built here rather than
+    // createActivityTimeline, which was withdrawn from the public
+    // surface: a test importing a withdrawn symbol would quietly
+    // reinstate a dependency on it.
+    const timeline = {
+      id: "test-timeline",
+      name: "Test Timeline",
+      query: () => ({
+        series: [
+          { time: 1, value: 2, nodeIds: ["p1", "p2"] },
+          { time: 2, value: 1, nodeIds: ["p3"] },
+        ],
+      }),
+      reverseMap: () => [],
+    };
+    const line = optionFor("line", timeline as never);
+    expect((line.series as { type: string }[])[0]!.type).toBe("line");
+  });
+
+  it("an unknown chart type yields an empty option rather than throwing", () => {
+    // The `default:` arm of buildOptions. A bad type must not take down
+    // a host's render, matching setTheme's warn-do-not-throw posture.
+    expect(optionFor("treemap")).toEqual({});
+  });
+
+  it("axis and label colors are concrete values, never CSS var() strings", () => {
+    // ECharts draws to canvas and cannot resolve custom properties: a
+    // var(--g3t-*) string is an invalid fill and silently falls back to
+    // a fixed default, which is how the axes stopped following dark
+    // mode. This asserts the fix stays fixed.
+    const vars = JSON.stringify(optionFor("bar")).match(/var\(--[^)]*\)/g);
+    expect(vars).toBeNull();
   });
 });

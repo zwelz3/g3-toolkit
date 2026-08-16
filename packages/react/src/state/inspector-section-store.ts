@@ -15,7 +15,7 @@
 
 import { create } from "zustand";
 
-interface InspectorSectionState {
+export interface InspectorSectionState {
   /** Collapsed section ids. */
   collapsed: string[];
   /** Toggle one section's collapsed state (idempotent per call). */

@@ -268,7 +268,11 @@ export function buildDigitalThread(): UGM {
         certificationStatus,
       },
     });
-    ugm.addEdge(p.id, p.assembly, { type: "partOf", confidence: 1 });
+    ugm.addEdge(p.id, p.assembly, {
+      type: "partOf",
+      confidence: 1,
+      properties: { confBand: "authoritative" },
+    });
   }
 
   // Assembly nesting (review 5.10): the sensor core is itself a part
@@ -276,13 +280,25 @@ export function buildDigitalThread(): UGM {
   ugm.addEdge("asm.sensor-core", "asm.avionics", {
     type: "partOf",
     confidence: 1,
+    properties: { confBand: "authoritative" },
   });
 
   for (const s of supplies) {
-    ugm.addEdge(s.supplier, s.part, { type: "supplies", confidence: 0.9 });
+    ugm.addEdge(s.supplier, s.part, {
+      type: "supplies",
+      confidence: 0.9,
+      // LR-27: a derived band label so the encoding grammar can
+      // drive color/width categorically (merged procurement records
+      // vs authoritative links).
+      properties: { confBand: "merged" },
+    });
   }
   for (const o of operates) {
-    ugm.addEdge(o.supplier, o.facility, { type: "operatesAt", confidence: 1 });
+    ugm.addEdge(o.supplier, o.facility, {
+      type: "operatesAt",
+      confidence: 1,
+      properties: { confBand: "authoritative" },
+    });
   }
 
   return ugm;

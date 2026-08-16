@@ -19,3 +19,8 @@ export type {
   ContainmentOptions,
   UgmToCytoscapeOptions,
 } from "./ugm-to-cytoscape";
+export {
+  stampMultiTypePies,
+  MULTI_TYPE_PIE_RULES,
+  MAX_SLICES,
+} from "./multi-type";

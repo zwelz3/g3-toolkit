@@ -7,9 +7,13 @@ export {
   HIGH_CONTRAST_THEME,
   THEME_PRESETS,
   createTheme,
-  contrastRatio,
+  contrastRatioOrNull,
 } from "./ThemeManager";
 export type { G3tTheme } from "./ThemeManager";
+// Core's WCAG helper, re-exported so `contrastRatio` on this entry
+// means one function. The null-returning variant next to it is
+// contrastRatioOrNull; pick that one when a color may not be plain hex.
+export { contrastRatio } from "@g3t/core";
 export { ThemeSwitcher } from "./ThemeSwitcher";
 export type { ThemeSwitcherProps } from "./ThemeSwitcher";
 

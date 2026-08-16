@@ -15,9 +15,11 @@
 import { UGM } from "../ugm";
 import type { GraphAdapter, SchemaModel } from "./types";
 import type { PropertyMap } from "../ugm";
+import { coerceDepth } from "./query-safety";
+import { assertOk } from "./adapter-error";
 import {
   composeMiddleware,
-  defaultFetch,
+  createDefaultFetch,
   type Middleware,
   type AdapterRequest,
   type AdapterResponse,
@@ -60,6 +62,11 @@ export interface GremlinAdapterConfig {
   middleware?: Middleware[];
   /** Optional: source graph name for Neptune/Cosmos. */
   source?: string;
+  /**
+   * Request timeout in milliseconds. Defaults to
+   * `DEFAULT_TIMEOUT_MS` (30 s); pass 0 to disable it.
+   */
+  timeoutMs?: number;
 }
 
 // ── Adapter ─────────────────────────────────────────────────────────
@@ -73,9 +80,10 @@ export class GremlinAdapter implements GraphAdapter {
   constructor(config: GremlinAdapterConfig) {
     this.config = config;
     this.name = `Gremlin (${config.endpoint})`;
+    const base = createDefaultFetch({ timeoutMs: config.timeoutMs });
     this.fetcher = config.middleware
-      ? composeMiddleware(config.middleware, defaultFetch)
-      : defaultFetch;
+      ? composeMiddleware(config.middleware, base)
+      : base;
   }
 
   async query(q: string): Promise<UGM> {
@@ -88,16 +96,30 @@ export class GremlinAdapter implements GraphAdapter {
     depth = 1,
     edgeTypes?: string[],
   ): Promise<UGM> {
-    const typeFilter = edgeTypes
-      ? `.hasLabel(${edgeTypes.map((t) => `'${t}'`).join(",")})`
-      : "";
+    // Every caller-supplied value goes through `bindings`; the script
+    // text below is a constant apart from the generated binding names.
+    const bindings: Record<string, unknown> = {
+      nodeId,
+      depth: coerceDepth(depth),
+    };
+
+    let typeFilter = "";
+    if (edgeTypes && edgeTypes.length > 0) {
+      const names = edgeTypes.map((t, i) => {
+        const key = `edgeType${i}`;
+        bindings[key] = t;
+        return key;
+      });
+      typeFilter = `.hasLabel(${names.join(",")})`;
+    }
 
     const gremlin =
-      `g.V('${nodeId}')` +
+      `g.V(nodeId)` +
       `.repeat(bothE()${typeFilter}.otherV().simplePath())` +
-      `.times(${depth}).path().by(elementMap())`;
+      `.times(depth).path().by(elementMap())`;
 
-    return this.query(gremlin);
+    const response = await this.executeGremlin(gremlin, bindings);
+    return this.responseToUGM(response);
   }
 
   async getSchema(): Promise<SchemaModel> {
@@ -120,7 +142,9 @@ export class GremlinAdapter implements GraphAdapter {
   }
 
   async getNodeProperties(nodeId: string): Promise<PropertyMap> {
-    const result = await this.executeGremlin(`g.V('${nodeId}').elementMap()`);
+    const result = await this.executeGremlin("g.V(nodeId).elementMap()", {
+      nodeId,
+    });
     const data = result.result.data;
     if (Array.isArray(data) && data.length > 0) {
       return this.flattenVertexProperties(data[0] as Record<string, unknown>);
@@ -130,10 +154,22 @@ export class GremlinAdapter implements GraphAdapter {
 
   // ── Internals ───────────────────────────────────────────────────
 
-  private async executeGremlin(gremlin: string): Promise<GremlinResponse> {
+  /**
+   * POST a Gremlin script with its bindings.
+   *
+   * `language` stays `gremlin-groovy` because this is the HTTP
+   * endpoint, which evaluates scripts; bytecode submission is a
+   * different protocol and a different client. That makes the
+   * bindings map the security boundary rather than a convenience:
+   * callers must not interpolate untrusted values into `gremlin`.
+   */
+  private async executeGremlin(
+    gremlin: string,
+    bindings: Record<string, unknown> = {},
+  ): Promise<GremlinResponse> {
     const body: Record<string, unknown> = {
       gremlin,
-      bindings: {},
+      bindings,
       language: "gremlin-groovy",
     };
     if (this.config.source) {
@@ -150,11 +186,7 @@ export class GremlinAdapter implements GraphAdapter {
       body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      throw new Error(
-        `Gremlin query failed: ${response.status} from ${this.config.endpoint}`,
-      );
-    }
+    assertOk("Gremlin", this.config.endpoint, response);
 
     return JSON.parse(response.body) as GremlinResponse;
   }

@@ -12,7 +12,7 @@
  * see the canvas); the data driving every panel comes from tested pure
  * functions (model, analytics, viz).
  */
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   CanvasAdapter,
   ContextMenuManager,
@@ -49,6 +49,7 @@ import {
   OVERLAY_PATH,
 } from "./viz";
 import { THREAD_STYLES } from "./thread-styles";
+import { publishCanvas } from "../testing/e2e-hooks";
 import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import { useHiddenSuppliersStore } from "./hidden-suppliers-store";
@@ -110,7 +111,9 @@ const KIND_LABEL: Record<GapFinding["kind"], string> = {
   "incomplete-provenance": "Incomplete provenance",
 };
 
-function makeSpec(mode: Mode): EncodingSpec {
+type ConfMode = "off" | "dim" | "color";
+
+function makeSpec(mode: Mode, confMode: ConfMode): EncodingSpec {
   return {
     version: 1,
     node: {
@@ -140,7 +143,38 @@ function makeSpec(mode: Mode): EncodingSpec {
         },
       },
     },
-    edge: { label: { driver: "type" } },
+    edge: {
+      label: { driver: "type" },
+      // LR-27: thicker edges so confidence presentation reads;
+      // merged records slightly heavier than authoritative links.
+      width: {
+        driver: "confidence",
+        scale: {
+          // Sequential over the numeric confidence, INVERTED range:
+          // lower confidence draws heavier (3.2 px at the fixture's
+          // 0.9, 2 px at authoritative 1.0), so dim/color modes have
+          // strokes thick enough to read.
+          kind: "sequential",
+          domain: [0.9, 1],
+          range: [3.2, 2],
+        },
+      },
+      ...(confMode === "color"
+        ? {
+            color: {
+              driver: "confBand",
+              scale: {
+                kind: "categorical",
+                overrides: {
+                  authoritative: "#22c55e",
+                  merged: "#eab308",
+                  low: "#ef4444",
+                },
+              },
+            },
+          }
+        : {}),
+    },
   };
 }
 
@@ -231,7 +265,7 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   // data-driven confidence dimming only appears via this explicit
   // control (see confidence-dim.ts for why a data patch, not a
   // bypass).
-  const [dimByConfidence, setDimByConfidence] = useState(false);
+  const [confMode, setConfMode] = useState<ConfMode>("off");
   // Renderer toggle (G3L Round 46, owner request): the SAME graph,
   // rendered through the headless SVG or Canvas adapters. The cy
   // instance stays mounted (hidden beneath) as the source of truth:
@@ -242,14 +276,36 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
     "cytoscape" | "svg" | "canvas"
   >("cytoscape");
   const confidenceOriginals = useRef(new Map<string, number>());
+  const handleReady = useCallback((c: Core) => {
+    setCore(c);
+    // VR-2: publish the live core under ?e2e=1 so the browser spec
+    // can assert painted edge colors (no-op otherwise).
+    publishCanvas("supply")?.(c);
+    // LR-24: the whole-graph fit left nodes unreadably small; clamp
+    // the initial zoom to a readable floor (users can still zoom
+    // out). Stable identity: the canvas stub in tests re-fires
+    // onReady when its identity changes, so an inline arrow here
+    // loops the render.
+    setTimeout(() => {
+      if (c.destroyed?.() !== true && c.zoom() < 0.55) {
+        const e = c.extent?.();
+        c.zoom({
+          level: 0.55,
+          position: e
+            ? { x: e.x1 + e.w / 2, y: e.y1 + e.h / 2 }
+            : { x: 0, y: 0 },
+        });
+      }
+    }, 600);
+  }, []);
   useEffect(() => {
     if (!core) return;
     applyConfidenceDim(
       core as unknown as ConfidenceCoreLike,
-      dimByConfidence,
+      confMode === "dim",
       confidenceOriginals.current,
     );
-  }, [core, dimByConfidence]);
+  }, [core, confMode]);
 
   // Suppliers seed HIDDEN so "Expand suppliers" is real graph
   // expansion (review 3.8: the old action only grew the selection on
@@ -343,8 +399,8 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
       );
       ingestAlgorithmResults(ugm, full);
     }
-    return makeSpec(mode);
-  }, [mode, ugm]);
+    return makeSpec(mode, confMode);
+  }, [mode, ugm, confMode]);
 
   // 9.10 root cause (and the dominant source of the original 5.7
   // "most nodes muted" finding, which the confidence-edge fix only
@@ -373,7 +429,7 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
   const harvested = useMemo(
     () =>
       threadRenderer !== "cytoscape" && core ? harvestSceneFromCy(core) : null,
-    [threadRenderer, core, hiddenIds, dimByConfidence],
+    [threadRenderer, core, hiddenIds, confMode],
   );
   useEffect(() => {
     if (!supplier) return;
@@ -460,7 +516,8 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
           {/* 12.16: the canvas legend 4.3 asked for; never adopted
               here. Inline four-side offsets defeat the wrap's
               inset:0 stretch rule. */}
-          <FloatingLegend ugm={ugm} spec={spec} />
+          {/* LR-26: top-right keeps the legend clear of the route-status bar. */}
+          <FloatingLegend ugm={ugm} spec={spec} corner="top-right" />
           {threadRenderer !== "cytoscape" && harvested ? (
             <SizedAdapter
               kind={threadRenderer}
@@ -477,7 +534,7 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
             layout="breadthfirst"
             encodingSpec={spec}
             hidden={hiddenIds}
-            onReady={setCore}
+            onReady={handleReady}
             animate={!reducedMotion}
             menuManager={menuManager}
           />
@@ -578,18 +635,22 @@ export function SupplyThreadShell({ onBack }: { onBack: () => void }) {
                 marginTop: 6,
               }}
             >
-              <input
-                type="checkbox"
-                checked={dimByConfidence}
-                onChange={(e) => setDimByConfidence(e.target.checked)}
+              <select
+                value={confMode}
+                onChange={(e) => setConfMode(e.target.value as ConfMode)}
                 data-testid="sc-dim-confidence"
-              />
+              >
+                <option value="off">Off</option>
+                <option value="dim">Dim low confidence</option>
+                <option value="color">Color by confidence</option>
+              </select>
               <span className="sc-src-name">
-                <b>Dim by record confidence</b>
+                <b>Record confidence</b>
                 <span style={{ display: "block", opacity: 0.7 }}>
                   Supplies links come from merged procurement records (0.9
                   confidence); ownership and operation links are authoritative.
-                  Off by default so nothing is faded without saying why.
+                  Off by default so nothing is styled without saying why; Color
+                  paints authoritative green, merged amber.
                 </span>
               </span>
             </label>

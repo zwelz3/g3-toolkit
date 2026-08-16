@@ -1,0 +1,7 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/zwelz3/g3-toolkit/security/advisories/new
+    about: >-
+      Report privately, not as a public issue. SECURITY.md states what is
+      in scope and what the auth middleware does and does not protect.

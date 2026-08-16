@@ -8,7 +8,7 @@ import { MapView } from "./map";
 import { TreeView } from "./tree";
 import { QueryEditor } from "./query";
 import { MatrixView } from "./matrix";
-import type { ShaclShape } from "./schema";
+import type { SchemaViewShape } from "./schema";
 import type { DiffResult } from "@g3t/core";
 
 function makeUGM() {
@@ -95,7 +95,7 @@ export const InspectorEmpty: StoryObj = {
 
 export const Schema: StoryObj = {
   render: () => {
-    const shapes: ShaclShape[] = [
+    const shapes: SchemaViewShape[] = [
       {
         id: "s1",
         targetClass: "Person",

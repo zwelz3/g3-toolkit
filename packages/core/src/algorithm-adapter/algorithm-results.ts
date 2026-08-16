@@ -28,6 +28,12 @@
  */
 
 import type { UGM } from "../ugm";
+import type { AlgorithmIngestReport } from "./algorithm-adapter";
+import {
+  MalformedDocumentError,
+  parseJsonObject,
+  requireVersion,
+} from "../model/document-errors";
 
 // ── Interchange contract (version 1) ─────────────────────────────────
 
@@ -49,29 +55,46 @@ export interface AlgorithmResultDocument {
 
 const KINDS = new Set(["nodeProperties", "edgeProperties", "overlay"]);
 
+const KIND = "algorithm-result" as const;
+
+/**
+ * Parse an algorithm-result document.
+ *
+ * Throws rather than degrading: a result document is a single object
+ * with no partial reading worth having. See `model/document-errors.ts`
+ * for the rule and for the error hierarchy every failure here uses.
+ */
 export function parseAlgorithmResult(json: string): AlgorithmResultDocument {
-  const raw = JSON.parse(json) as Record<string, unknown>;
-  if (raw["version"] !== 1) {
-    throw new Error(
-      `Unsupported algorithm-result version ${String(raw["version"])}; this build reads version 1`,
-    );
-  }
+  const raw = parseJsonObject(KIND, json);
+  requireVersion(KIND, raw);
   const kind = raw["kind"];
   if (typeof kind !== "string" || !KINDS.has(kind)) {
-    throw new Error(
-      `Unknown result kind ${String(kind)}; expected nodeProperties, edgeProperties, or overlay`,
-    );
+    throw new MalformedDocumentError({
+      documentKind: KIND,
+      message: `unknown result kind ${JSON.stringify(kind)}; expected nodeProperties, edgeProperties, or overlay`,
+      path: "/kind",
+    });
   }
   if (kind === "overlay") {
     const overlay = raw["overlay"] as Record<string, unknown> | undefined;
     if (!overlay || typeof overlay["id"] !== "string") {
-      throw new Error("overlay results require overlay.id");
+      throw new MalformedDocumentError({
+        documentKind: KIND,
+        code: "MISSING_FIELD",
+        message: "overlay results require overlay.id",
+        path: "/overlay/id",
+      });
     }
   } else if (
     typeof raw["properties"] !== "object" ||
     raw["properties"] === null
   ) {
-    throw new Error(`${kind} results require a properties object`);
+    throw new MalformedDocumentError({
+      documentKind: KIND,
+      code: "MISSING_FIELD",
+      message: `${kind} results require a properties object`,
+      path: "/properties",
+    });
   }
   return raw as unknown as AlgorithmResultDocument;
 }
@@ -90,7 +113,11 @@ export function overlayFromDocument(
   doc: AlgorithmResultDocument,
 ): StructuralOverlay {
   if (doc.kind !== "overlay" || !doc.overlay) {
-    throw new Error("not an overlay-kind result document");
+    throw new MalformedDocumentError({
+      documentKind: KIND,
+      message: "not an overlay-kind result document",
+      path: "/kind",
+    });
   }
   return {
     id: doc.overlay.id,
@@ -112,26 +139,47 @@ export function overlayFromPath(
 // ── Property ingestion (edges join nodes) ────────────────────────────
 
 /** Edge twin of ingestAlgorithmResults: merges per-edge properties
- *  (edge betweenness, flow, predicted-link scores). */
+ *  (edge betweenness, flow, predicted-link scores). Reports the same
+ *  matched-versus-supplied counts, for the same reason: an id
+ *  convention mismatch is invisible from the call alone. */
 export function ingestEdgeAlgorithmResults(
   ugm: UGM,
   results: Map<string, Record<string, unknown>>,
-): void {
+): AlgorithmIngestReport {
   const known = new Set<string>();
   ugm.forEachEdge((edgeId) => {
     known.add(edgeId);
   });
+  let matched = 0;
   for (const [edgeId, properties] of results) {
     if (known.has(edgeId)) {
       ugm.updateEdgeProperties(edgeId, properties);
+      matched++;
     }
   }
+  return {
+    supplied: results.size,
+    matched,
+    unmatched: results.size - matched,
+  };
 }
 
 /** Apply a parsed document to a UGM (property kinds) or convert it
  *  (overlay kind belongs to the overlay registry, not the UGM:
  *  structure-shaped results never mutate the graph). Returns the
- *  overlay when the document is structural, undefined otherwise. */
+ *  overlay when the document is structural, undefined otherwise.
+ *
+ *  The return type is the overlay, so the ingest report reaches the
+ *  caller through the optional `onIngest` callback instead. It fires
+ *  once for a property-shaped document and not at all for an overlay
+ *  one. A host that ignores it is where the gap was: this
+ *  is the documented door for the result-document channel, and a
+ *  document whose ids match nothing looked identical to one that
+ *  matched everything.
+ *
+ *  `ingestNodeResults` is declared as returning `void` so any
+ *  existing implementation stays assignable; the report is read from
+ *  the return value when there is one. */
 export function applyAlgorithmResult(
   ugm: UGM,
   doc: AlgorithmResultDocument,
@@ -139,11 +187,26 @@ export function applyAlgorithmResult(
     ugm: UGM,
     results: Map<string, Record<string, unknown>>,
   ) => void,
+  onIngest?: (report: AlgorithmIngestReport) => void,
 ): StructuralOverlay | undefined {
   if (doc.kind === "overlay") return overlayFromDocument(doc);
   const entries = new Map(Object.entries(doc.properties ?? {}));
-  if (doc.kind === "nodeProperties") ingestNodeResults(ugm, entries);
-  else ingestEdgeAlgorithmResults(ugm, entries);
+  // The callback is DECLARED `=> void` so that any existing
+  // implementation stays assignable, which means TypeScript types the
+  // call as `void` even when the function returns a report. The cast
+  // reads what is actually there; the `if (report)` below is what
+  // makes it safe when there is nothing.
+  const report =
+    doc.kind === "nodeProperties"
+      ? (ingestNodeResults(ugm, entries) as unknown as
+          | AlgorithmIngestReport
+          | undefined)
+      : ingestEdgeAlgorithmResults(ugm, entries);
+  // A caller-supplied ingest that returns nothing yields no report,
+  // and onIngest stays silent. Synthesizing one from `entries.size`
+  // would report a full match for a call whose outcome is unknown,
+  // which is the failure this parameter exists to end.
+  if (onIngest && report) onIngest(report);
   return undefined;
 }
 

@@ -29,6 +29,8 @@ export interface FlowPort {
   direction: "in" | "out" | "inout";
   /** Carried item (e.g. "Power", "TelemetryFrame"). */
   type?: string;
+  /** LR-18: SysML multiplicity for the port (e.g. "1", "0..*"). */
+  multiplicity?: string;
   /** Preferred side on the owning box; the router still owns final routing. */
   side?: "NORTH" | "SOUTH" | "EAST" | "WEST";
 }
@@ -162,6 +164,7 @@ const blocks: Record<string, Block> = {
             direction: "out",
             type: "Power",
             side: "EAST",
+            multiplicity: "1..3", // LR-18: one bus, several loads
           },
         ],
       },
@@ -176,6 +179,7 @@ const blocks: Record<string, Block> = {
             direction: "in",
             type: "Cmd",
             side: "WEST",
+            multiplicity: "1",
           },
           {
             id: "p.adcs.pin",

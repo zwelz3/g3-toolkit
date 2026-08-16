@@ -443,6 +443,27 @@ body {
   gap: 6px;
 }
 
+/* LR-32 (owner review 2026-07-22): the export menu had NO rule at
+   all: an unstyled div with wrapping items. It now shares the layout
+   popover's visual language, and items keep to one row. */
+.g3t-menu {
+  background: var(--g3t-bg-primary);
+  border: 1px solid var(--g3t-border);
+  border-radius: var(--g3t-radius-md, 6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  padding: var(--g3t-space-1, 4px);
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.g3t-menu-item {
+  white-space: nowrap;
+  text-align: left;
+  padding: 5px 10px;
+  border-radius: var(--g3t-radius-sm, 4px);
+}
+
 .g3t-menu-item:hover {
   background: var(--g3t-bg-secondary) !important;
 }

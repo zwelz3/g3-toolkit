@@ -122,7 +122,6 @@ describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
       "Pin / unpin position",
       "Inspect",
       "View Neighbors",
-      "Expand Neighbors",
       "Focus (2-hop)",
       "Find Paths To Here",
       "Edit Appearance",
@@ -259,10 +258,16 @@ describe("AnalyticsDashboard coverage section", () => {
 });
 
 describe("demonstrations have visible consequences (5.1/5.2)", () => {
-  it("the relocated matrix and sankey tabs render (5.5)", () => {
+  it("the matrix lives in the rail under Origin coverage; sankey keeps its tab (5.5 updated by LR-34)", () => {
+    // LR-34 (owner review 2026-07-22) supersedes the tab placement
+    // from ruling 8.4 AND narrows 12.6 ("rail carries only Origin
+    // coverage"): the matrix reads WITH the coverage story.
     render(<AnalyticsDashboard />);
-    fireEvent.click(screen.getByRole("button", { name: "Adjacency matrix" }));
+    // Matrix renders without any tab click, in the rail.
     expect(screen.getByTestId("matrix-view")).toBeDefined();
+    expect(
+      screen.queryByRole("button", { name: "Adjacency matrix" }),
+    ).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "Type flows (sankey)" }),
     );

@@ -5,7 +5,7 @@
  * rows with their text, ports on borders, edge paths following the
  * routed points with arrow-trimmed shafts and UML symbols.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import React from "react";
 import type { StructuralGeometry, StructuralGraphInput } from "@g3t/core";
@@ -206,7 +206,7 @@ describe("MR-11 round-3 regressions", () => {
     expect(container.querySelector("[data-ssv-node='blockA']")).not.toBeNull();
   });
 
-  it("grabbing a node body drags the NODE (its edges fall back straight); background drags pan", () => {
+  it("grabbing a node body drags the NODE; its edges stay ROUTED live (RTE-011); background drags pan", () => {
     const { container } = render(
       <StructuralSvgView
         input={INPUT}
@@ -244,10 +244,14 @@ describe("MR-11 round-3 regressions", () => {
       .querySelector("[data-ssv-node='plainB'] rect")!
       .getAttribute("x");
     expect(Number(after)).toBeGreaterThan(Number(before));
-    // The dragged node's edge fell back to a straight marked line.
-    expect(
-      container.querySelector("[data-ssv-edge-fallback='e1']"),
-    ).not.toBeNull();
+    // RTE-011 (LR-15): the dragged node's edge is RE-ROUTED against
+    // the offset geometry, not collapsed to a marked straight line.
+    expect(container.querySelector("[data-ssv-edge-fallback='e1']")).toBeNull();
+    const routed = container.querySelector("[data-ssv-edge='e1'] path");
+    expect(routed).not.toBeNull();
+    // A routed path exists and is non-degenerate (has at least one
+    // line segment).
+    expect(routed?.getAttribute("d") ?? "").toMatch(/M.*L/);
     // The view itself did NOT pan during the node drag.
     expect(scene.getAttribute("transform")).toContain(`translate(${tx} ${ty}`);
     // Background drag DOES pan.
@@ -257,5 +261,487 @@ describe("MR-11 round-3 regressions", () => {
     expect(scene.getAttribute("transform")).not.toContain(
       `translate(${tx} ${ty}`,
     );
+  });
+});
+
+describe("upstream round 17: glyph slot and two-line headers", () => {
+  it("R-2: renders a glyph box and reports zone 'glyph' on click", () => {
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "blk",
+          header: { stereotype: "block", name: "Payload" },
+          compartments: [
+            { id: "c", title: "vals", rows: [{ id: "r", text: "mass" }] },
+          ],
+        },
+      ],
+      edges: [],
+    };
+    const geometry = {
+      nodes: {
+        blk: {
+          x: 20,
+          y: 20,
+          width: 200,
+          height: 100,
+          kind: "container" as const,
+        },
+      },
+      ports: {},
+      edges: {},
+      headerHeight: 24,
+    };
+    const hits: string[] = [];
+    const { container } = render(
+      <StructuralSvgView
+        input={input}
+        geometry={geometry as never}
+        width={400}
+        height={300}
+        glyphs={new Map([["blk", { slot: "top-right", text: "C" }]])}
+        onElementClick={(info) => hits.push(info.hit.zone)}
+      />,
+    );
+    const glyph = container.querySelector("[data-ssv-glyph='blk']");
+    expect(glyph).not.toBeNull();
+    expect(glyph?.getAttribute("data-ssv-glyph-slot")).toBe("top-right");
+    expect(glyph?.classList.contains("g3t-ssv-glyph")).toBe(true);
+  });
+
+  it("R-3: headerLines=2 puts the stereotype on its own line", () => {
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "blk",
+          header: { stereotype: "block", name: "Payload" },
+          compartments: [
+            { id: "c", title: "vals", rows: [{ id: "r", text: "mass" }] },
+          ],
+        },
+      ],
+      edges: [],
+    };
+    const geometry = {
+      nodes: {
+        blk: {
+          x: 20,
+          y: 20,
+          width: 200,
+          height: 100,
+          kind: "container" as const,
+        },
+      },
+      ports: {},
+      edges: {},
+      headerHeight: 30,
+    };
+    const { container, rerender } = render(
+      <StructuralSvgView
+        input={input}
+        geometry={geometry as never}
+        width={400}
+        height={300}
+        headerLines={2}
+      />,
+    );
+    const stereo = container.querySelector(
+      "[data-ssv-header-stereotype='blk']",
+    );
+    expect(stereo?.textContent).toBe("\u00abblock\u00bb");
+    expect(
+      container.querySelector("[data-ssv-header='blk']")?.textContent,
+    ).toBe("Payload");
+    // Default stays single-line (existing scenes unchanged).
+    rerender(
+      <StructuralSvgView
+        input={input}
+        geometry={geometry as never}
+        width={400}
+        height={300}
+      />,
+    );
+    expect(
+      container.querySelector("[data-ssv-header-stereotype='blk']"),
+    ).toBeNull();
+    expect(
+      container.querySelector("[data-ssv-header='blk']")?.textContent,
+    ).toBe("\u00abblock\u00bb Payload");
+  });
+});
+
+describe("R-5: glyphs and two-line headers apply to PLAIN nodes too", () => {
+  const scene = (kind: "container" | "node") => ({
+    input: {
+      nodes: [
+        {
+          id: "blk",
+          header: { stereotype: "artifact", name: "Report" },
+          ...(kind === "container"
+            ? {
+                compartments: [
+                  { id: "c", title: "vals", rows: [{ id: "r", text: "m" }] },
+                ],
+              }
+            : {}),
+        },
+      ],
+      edges: [],
+    } as StructuralGraphInput,
+    geometry: {
+      nodes: {
+        blk: { x: 20, y: 20, width: 200, height: 100, kind },
+      },
+      ports: {},
+      edges: {},
+      headerHeight: 24,
+    },
+  });
+
+  it("a plain node draws the glyph INSIDE its own box", () => {
+    const { input, geometry } = scene("node");
+    const { container } = render(
+      <StructuralSvgView
+        input={input}
+        geometry={geometry as never}
+        width={400}
+        height={300}
+        glyphs={new Map([["blk", { slot: "top-right", text: "C" }]])}
+      />,
+    );
+    const glyph = container.querySelector("[data-ssv-glyph='blk']");
+    expect(glyph).not.toBeNull();
+    const rect = glyph?.querySelector("rect");
+    const gx = Number(rect?.getAttribute("x"));
+    const gy = Number(rect?.getAttribute("y"));
+    // Inside the box bounds (20,20)-(220,120), not straddling the top.
+    expect(gy).toBeGreaterThanOrEqual(20);
+    expect(gy).toBeLessThan(120);
+    expect(gx).toBeGreaterThanOrEqual(20);
+    expect(gx).toBeLessThan(220);
+  });
+
+  it("a plain node honours headerLines=2", () => {
+    const { input, geometry } = scene("node");
+    const { container } = render(
+      <StructuralSvgView
+        input={input}
+        geometry={geometry as never}
+        width={400}
+        height={300}
+        headerLines={2}
+      />,
+    );
+    expect(
+      container.querySelector("[data-ssv-label-stereotype='blk']")?.textContent,
+    ).toBe("\u00abartifact\u00bb");
+    expect(container.querySelector("[data-ssv-label='blk']")?.textContent).toBe(
+      "Report",
+    );
+  });
+
+  it("both node kinds report zone 'glyph' from the same glyphs map", () => {
+    for (const kind of ["container", "node"] as const) {
+      const { input, geometry } = scene(kind);
+      const zones: string[] = [];
+      const { container, unmount } = render(
+        <StructuralSvgView
+          input={input}
+          geometry={geometry as never}
+          width={400}
+          height={300}
+          glyphs={new Map([["blk", { slot: "top-right", text: "C" }]])}
+          onElementClick={(info) => zones.push(info.hit.zone)}
+        />,
+      );
+      expect(
+        container.querySelector("[data-ssv-glyph='blk']"),
+        `${kind} must draw a glyph`,
+      ).not.toBeNull();
+      unmount();
+    }
+  });
+});
+
+describe("R-9/R-10: touch zoom, controlled view, affordance presses", () => {
+  const geo = {
+    nodes: {
+      blk: {
+        x: 20,
+        y: 20,
+        width: 200,
+        height: 100,
+        kind: "container" as const,
+      },
+    },
+    ports: {},
+    edges: {},
+    headerHeight: 24,
+  };
+  const inp: StructuralGraphInput = {
+    nodes: [
+      {
+        id: "blk",
+        header: { stereotype: "block", name: "P" },
+        compartments: [{ id: "c", title: "v", rows: [{ id: "r", text: "m" }] }],
+      },
+    ],
+    edges: [],
+  };
+
+  function sceneTransform(container: HTMLElement): string {
+    return (
+      container.querySelector("[data-ssv-scene]")?.getAttribute("transform") ??
+      ""
+    );
+  }
+
+  it("R-9: two pointers pinch-zoom about the gesture midpoint", () => {
+    const { container } = render(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={300}
+      />,
+    );
+    const svg = container.querySelector("svg")!;
+    const before = sceneTransform(container);
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(svg, { pointerId: 2, clientX: 200, clientY: 100 });
+    // Fingers spread from 100px apart to 200px: scale up.
+    fireEvent.pointerMove(svg, { pointerId: 2, clientX: 300, clientY: 100 });
+    const after = sceneTransform(container);
+    expect(after).not.toBe(before);
+    const k = Number(/scale\(([\d.]+)\)/.exec(after)?.[1]);
+    const k0 = Number(/scale\(([\d.]+)\)/.exec(before)?.[1]);
+    expect(k).toBeGreaterThan(k0);
+  });
+
+  it("R-9: the view is controllable and reports changes", () => {
+    const onViewChange = vi.fn();
+    const { container, rerender } = render(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={300}
+        view={{ k: 1, tx: 0, ty: 0 }}
+        onViewChange={onViewChange}
+      />,
+    );
+    expect(sceneTransform(container)).toBe("translate(0 0) scale(1)");
+    rerender(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={300}
+        view={{ k: 2, tx: 10, ty: 20 }}
+        onViewChange={onViewChange}
+      />,
+    );
+    // A restored viewport lands exactly (the saved-viewport case).
+    expect(sceneTransform(container)).toBe("translate(10 20) scale(2)");
+    expect(onViewChange).toHaveBeenCalled();
+  });
+
+  it("R-10: pressing a glyph does not pan the scene", () => {
+    const { container } = render(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={300}
+        view={{ k: 1, tx: 0, ty: 0 }}
+        glyphs={new Map([["blk", { slot: "top-right", text: "C" }]])}
+      />,
+    );
+    const svg = container.querySelector("svg")!;
+    const glyphRect = container
+      .querySelector("[data-ssv-glyph='blk'] rect")!
+      .getAttribute("x");
+    const gx = Number(glyphRect) + 8;
+    const before = sceneTransform(container);
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: gx, clientY: 28 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: gx + 40, clientY: 90 });
+    // Controlled view: the transform must be untouched, i.e. no pan
+    // was started by the affordance press.
+    expect(sceneTransform(container)).toBe(before);
+  });
+
+  it("R-10: pressing empty canvas still pans", () => {
+    const { container } = render(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={300}
+      />,
+    );
+    const svg = container.querySelector("svg")!;
+    const before = sceneTransform(container);
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 350, clientY: 250 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 380, clientY: 270 });
+    expect(sceneTransform(container)).not.toBe(before);
+  });
+});
+
+describe("R-11: compartment rows can carry a glyph", () => {
+  it("draws a row glyph and reports zone 'glyph' for the ROW's id", () => {
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "proc",
+          header: { stereotype: "process", name: "Intake" },
+          compartments: [
+            {
+              id: "c",
+              title: "activities",
+              rows: [{ id: "act.1", text: "Receive" }],
+            },
+          ],
+        },
+      ],
+      edges: [],
+    };
+    const geometry = {
+      nodes: {
+        proc: {
+          x: 20,
+          y: 20,
+          width: 220,
+          height: 100,
+          kind: "container" as const,
+        },
+        "act.1": {
+          x: 20,
+          y: 60,
+          width: 220,
+          height: 24,
+          kind: "row" as const,
+          parent: "proc",
+          text: "Receive",
+        },
+      },
+      ports: {},
+      edges: {},
+      headerHeight: 24,
+    };
+    const zones: string[] = [];
+    const ids: string[] = [];
+    const { container } = render(
+      <StructuralSvgView
+        input={input}
+        geometry={geometry as never}
+        width={400}
+        height={300}
+        view={{ k: 1, tx: 0, ty: 0 }}
+        glyphs={new Map([["act.1", { slot: "top-right", text: "\u203a" }]])}
+        onElementClick={(info) => {
+          zones.push(info.hit.zone);
+          ids.push(info.hit.elementId);
+        }}
+      />,
+    );
+    const glyph = container.querySelector("[data-ssv-glyph='act.1']");
+    expect(glyph).not.toBeNull();
+    expect(glyph?.getAttribute("data-ssv-glyph-slot")).toBe("row");
+    // Right-aligned inside the row band.
+    const rect = glyph?.querySelector("rect");
+    expect(Number(rect?.getAttribute("x"))).toBeGreaterThan(200);
+    const y = Number(rect?.getAttribute("y"));
+    expect(y).toBeGreaterThanOrEqual(60);
+    expect(y).toBeLessThan(84);
+
+    // Clicking it reports the ROW's id under zone "glyph", so one
+    // navigation rule covers nodes and rows alike.
+    const svg = container.querySelector("svg")!;
+    const cx = Number(rect?.getAttribute("x")) + 8;
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: cx, clientY: y + 7 });
+    fireEvent.click(svg, { clientX: cx, clientY: y + 7 });
+    expect(zones).toContain("glyph");
+    expect(ids).toContain("act.1");
+  });
+});
+
+describe("R-12 (round 21): structural style overrides and arrangement", () => {
+  const inp: StructuralGraphInput = {
+    nodes: [{ id: "n1" }, { id: "n2" }],
+    edges: [],
+  };
+  const geo = {
+    nodes: {
+      n1: { x: 20, y: 20, width: 120, height: 40, kind: "node" as const },
+      n2: { x: 200, y: 20, width: 120, height: 40, kind: "node" as const },
+    },
+    ports: {},
+    edges: {},
+    headerHeight: 24,
+  };
+
+  it("12a: an override paints the node; unstyled nodes keep the theme", () => {
+    const { container } = render(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={200}
+        nodeStyles={new Map([["n1", { fill: "#ff0000", strokeWidth: 4 }]])}
+      />,
+    );
+    const rects = [...container.querySelectorAll("[data-ssv-node] rect")];
+    const n1 = container
+      .querySelector("[data-ssv-node='n1'] rect")!
+      .getAttribute("fill");
+    const n2 = container
+      .querySelector("[data-ssv-node='n2'] rect")!
+      .getAttribute("fill");
+    expect(n1).toBe("#ff0000");
+    expect(n2).not.toBe("#ff0000");
+    expect(rects.length).toBeGreaterThan(0);
+    expect(
+      container
+        .querySelector("[data-ssv-node='n1'] rect")!
+        .getAttribute("stroke-width"),
+    ).toBe("4");
+  });
+
+  it("12d: node moves are reported and offsets can be controlled", () => {
+    const onNodeMove = vi.fn();
+    const onDragOffsetsChange = vi.fn();
+    const { container, rerender } = render(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={200}
+        view={{ k: 1, tx: 0, ty: 0 }}
+        onNodeMove={onNodeMove}
+        onDragOffsetsChange={onDragOffsetsChange}
+      />,
+    );
+    const svg = container.querySelector("svg")!;
+    // Grab n1's body and drag it.
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 80, clientY: 40 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 110, clientY: 60 });
+    expect(onNodeMove).toHaveBeenCalledWith("n1", 30, 20);
+    expect(onDragOffsetsChange).toHaveBeenCalled();
+
+    // A restored arrangement lands without any drag.
+    rerender(
+      <StructuralSvgView
+        input={inp}
+        geometry={geo as never}
+        width={400}
+        height={200}
+        view={{ k: 1, tx: 0, ty: 0 }}
+        dragOffsets={{ n2: { dx: 50, dy: 0 } }}
+      />,
+    );
+    const x = container
+      .querySelector("[data-ssv-node='n2'] rect")!
+      .getAttribute("x");
+    expect(Number(x)).toBe(250);
   });
 });

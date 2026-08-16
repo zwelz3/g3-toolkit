@@ -23,24 +23,55 @@ import {
 } from "./encoding-spec";
 import { SEQUENTIAL_SCALE, DIVERGING_SCALE } from "./palette-bridge";
 
+/** R-13.3: an element descriptor, the same shape NodeStyleTarget
+ *  uses, so one legend can serve a UGM-backed canvas and a
+ *  structural scene. */
+export interface LegendElement {
+  id: string;
+  type?: string;
+  label?: string;
+  properties?: Record<string, unknown>;
+}
+
 function distinctValues(
-  ugm: UGM,
+  ugm: UGM | undefined,
   driver: string | undefined,
   target: "node" | "edge",
+  elements?: readonly LegendElement[],
 ): string[] {
   if (!driver) return [];
   const out = new Set<string>();
   const visit = (attrs: ElementAttrs) => {
+    if (driver === "types") {
+      // LR-49 (owner review 2026-07-22): collect EVERY membership,
+      // not just the primary type. Inference adds supertypes as
+      // secondary types, and the 5.21 multi-type rings render those
+      // memberships as visible slices: a slice on screen must have a
+      // legend row.
+      for (const t of attrs.types ?? []) out.add(String(t));
+      return;
+    }
     const v =
-      driver === "types"
-        ? attrs.types?.[0]
-        : driver === "type" && attrs.type !== undefined
-          ? attrs.type
-          : attrs.properties[driver];
+      driver === "type" && attrs.type !== undefined
+        ? attrs.type
+        : attrs.properties[driver];
     if (v !== undefined && v !== null) out.add(String(v));
   };
-  if (target === "node") ugm.forEachNode((_id, a) => visit(a));
-  else ugm.forEachEdge((_id, a) => visit(a as ElementAttrs));
+  if (ugm !== undefined) {
+    if (target === "node") ugm.forEachNode((_id, a) => visit(a));
+    else ugm.forEachEdge((_id, a) => visit(a as ElementAttrs));
+  } else if (target === "node") {
+    // R-13.3 (round 21, 2026-08-05): a structural scene has no UGM,
+    // so one legend serves both renderers from the same descriptor
+    // list R-12b introduced. Hand-writing a second legend is the
+    // answer every previous round established as wrong.
+    for (const el of elements ?? []) {
+      visit({
+        ...(el.type !== undefined ? { types: [el.type], type: el.type } : {}),
+        properties: el.properties ?? {},
+      } as ElementAttrs);
+    }
+  }
   return [...out];
 }
 
@@ -57,7 +88,19 @@ function sampleFor(driver: string | undefined, v: string): ElementAttrs {
 }
 
 export interface SpecLegendProps {
-  ugm: UGM;
+  /** R-13 (register, 2026-08-05): the manual style overrides in
+   *  scope. The legend asserts that a colour means a class; a
+   *  reader repainting one node makes that assertion FALSE, and
+   *  the legend had no way to know. Passing them lets it disclose
+   *  rather than mislead. */
+  overrides?: readonly { scope: { nodeId: string } | { type: string } }[];
+  /** Shown as a reset control beside the disclosure. */
+  onResetOverrides?: () => void;
+  /** Omit when rendering for a structural scene and pass
+   *  `elements` instead (R-13.3). */
+  ugm?: UGM;
+  /** R-13.3: element descriptors for renderers without a UGM. */
+  elements?: readonly LegendElement[];
   spec: EncodingSpec;
   /** When true, render a header with a collapse/expand toggle so the
    *  legend can be tucked away (it can otherwise cover the canvas). */
@@ -81,9 +124,23 @@ function ShapeGlyph({ shape }: { shape: string }) {
       {shape === "ellipse" ? (
         <circle cx="7" cy="7" r="5" {...common} />
       ) : shape === "rectangle" ? (
-        <rect x="2" y="3" width="10" height="8" {...common} />
-      ) : shape === "round-rectangle" ? (
-        <rect x="2" y="3" width="10" height="8" rx="2.5" {...common} />
+        // G5 v2 (owner screenshot 2026-07-28): grown to the diamond's
+        // 11-span so the square reads the same visual weight.
+        <rect x="1.5" y="1.5" width="11" height="11" {...common} />
+      ) : shape === "round-rectangle" || shape === "roundrectangle" ? (
+        <rect x="1.5" y="1.5" width="11" height="11" rx="3" {...common} />
+      ) : shape === "star" ? (
+        // G5 v2: star and barrel had NO branch and fell to the
+        // dashed-circle default (the screenshot's mystery glyphs).
+        <polygon
+          points="7,1 8.6,5.2 13,5.4 9.6,8.2 10.8,12.5 7,10 3.2,12.5 4.4,8.2 1,5.4 5.4,5.2"
+          {...common}
+        />
+      ) : shape === "barrel" ? (
+        <path
+          d="M 2.5 3.5 Q 7 1.8 11.5 3.5 L 11.5 10.5 Q 7 12.2 2.5 10.5 Z"
+          {...common}
+        />
       ) : shape === "diamond" ? (
         <polygon points="7,1.5 12.5,7 7,12.5 1.5,7" {...common} />
       ) : shape === "triangle" ? (
@@ -113,6 +170,9 @@ function orderByDomain(
 }
 
 export function SpecLegend({
+  elements,
+  overrides,
+  onResetOverrides,
   ugm,
   spec,
   collapsible = false,
@@ -128,6 +188,11 @@ export function SpecLegend({
   const iconEnc = spec.node.icon;
   const shapeEnc = spec.node.shape;
   const edgeWidthEnc = spec.edge.width;
+  // VR-2 follow-up (owner verification 2026-07-28): the edge COLOR
+  // channel had no legend representation at all, so
+  // color-by-confidence painted the graph while the legend said
+  // nothing about it.
+  const edgeColorEnc = spec.edge.color;
 
   // 12.15: when the spec declares NO shape encoding, the canvas still
   // assigns shapes (buildTypeVisualMap: sorted types cycled through
@@ -138,10 +203,16 @@ export function SpecLegend({
   const defaultShapeRows = useMemo(() => {
     if (shapeEnc !== undefined) return [];
     const types = new Set<string>();
-    ugm.forEachNode((_id, attrs) => {
-      const t = attrs.types[0];
-      if (t) types.add(t);
-    });
+    if (ugm !== undefined) {
+      ugm.forEachNode((_id, attrs) => {
+        const t = attrs.types[0];
+        if (t) types.add(t);
+      });
+    } else {
+      for (const el of elements ?? []) {
+        if (el.type !== undefined) types.add(el.type);
+      }
+    }
     if (types.size < 2) return [];
     return [...types]
       .sort()
@@ -152,7 +223,7 @@ export function SpecLegend({
     if (shapeEnc?.scale.kind !== "categorical") return [];
     const resolve = makeShapeResolver(shapeEnc);
     return orderByDomain(
-      distinctValues(ugm, shapeEnc.driver, "node"),
+      distinctValues(ugm, shapeEnc.driver, "node", elements),
       shapeEnc.scale.domain,
     )
       .map((v) => ({ value: v, shape: resolve(sampleFor(shapeEnc.driver, v)) }))
@@ -163,9 +234,12 @@ export function SpecLegend({
 
   const colorRows = useMemo(() => {
     if (colorEnc?.scale.kind !== "categorical") return [];
-    const resolve = makeColorResolver(colorEnc, { ugm });
+    const resolve = makeColorResolver(
+      colorEnc,
+      ugm !== undefined ? { ugm } : {},
+    );
     return orderByDomain(
-      distinctValues(ugm, colorEnc.driver, "node"),
+      distinctValues(ugm, colorEnc.driver, "node", elements),
       colorEnc.scale.domain,
     ).map((v) => ({
       value: v,
@@ -177,7 +251,7 @@ export function SpecLegend({
     if (iconEnc?.scale.kind !== "categorical") return [];
     const resolve = makeIconResolver(iconEnc);
     return orderByDomain(
-      distinctValues(ugm, iconEnc.driver, "node"),
+      distinctValues(ugm, iconEnc.driver, "node", elements),
       iconEnc.scale.domain,
     )
       .map((v) => ({ value: v, icon: resolve(sampleFor(iconEnc.driver, v)) }))
@@ -194,8 +268,41 @@ export function SpecLegend({
     return { lo, hi, domain: dom, driver: sizeEnc.driver, resolve };
   }, [sizeEnc, ugm]);
 
+  // R-13: the disclosure. A legend that keeps asserting a rule the
+  // reader has locally broken is worse than one that admits it.
+  const overrideCount = overrides?.length ?? 0;
   return (
     <div className={className} data-testid="g3t-spec-legend">
+      {overrideCount > 0 && (
+        <div
+          data-testid="legend-override-notice"
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 6,
+            marginBottom: 6,
+            fontSize: 11,
+            color: "var(--g3t-text-muted, #868e96)",
+          }}
+        >
+          <span>
+            {overrideCount === 1
+              ? "1 manual style override is active; the key below does not describe it."
+              : `${overrideCount} manual style overrides are active; the key below does not describe them.`}
+          </span>
+          {onResetOverrides !== undefined && (
+            <button
+              type="button"
+              data-testid="legend-override-reset"
+              className="g3t-btn"
+              onClick={onResetOverrides}
+              style={{ fontSize: 11, padding: "1px 6px" }}
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      )}
       {collapsible && (
         <button
           type="button"
@@ -317,6 +424,30 @@ export function SpecLegend({
                   <Icon name={r.icon} size={12} /> {display(r.value)}
                 </div>
               ))}
+            </section>
+          ) : null}
+
+          {edgeColorEnc?.scale.kind === "categorical" &&
+          edgeColorEnc.scale.overrides ? (
+            <section>
+              <div className="g3t-legend-title">
+                edge color: <code>{edgeColorEnc.driver}</code>
+              </div>
+              {Object.entries(edgeColorEnc.scale.overrides).map(
+                ([value, color]) => (
+                  <div
+                    className="g3t-legend-row"
+                    key={value}
+                    data-testid={`legend-edge-color-${value}`}
+                  >
+                    <span
+                      className="g3t-legend-line"
+                      style={{ height: 3, background: String(color) }}
+                    />{" "}
+                    {display(value)}
+                  </div>
+                ),
+              )}
             </section>
           ) : null}
 

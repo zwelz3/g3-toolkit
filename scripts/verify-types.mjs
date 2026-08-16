@@ -14,9 +14,12 @@
  *   - node16  (Node ESM consumers)
  *   - bundler (Vite / webpack / Next consumers)
  *
- * Typed CJS consumption (require from .cts) is a documented known
- * limitation pending declaration bundling; it is intentionally not
- * gated here. Runtime CJS is covered by verify:smoke.
+ * There is no CJS mode to gate. The packages are ESM only as of
+ * 2026-08-16: the `require` condition and the cjs
+ * build format were dropped together, because publishing both formats
+ * is what made the dual-package hazard reachable against the exported
+ * store singletons. The ESM-only shape itself is asserted in
+ * tests/dist/public-api.test.ts.
  */
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { resolve, dirname } from "node:path";

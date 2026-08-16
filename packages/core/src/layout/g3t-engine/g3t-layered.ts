@@ -50,6 +50,10 @@ export interface G3tLayoutOptions {
    * budget is spent; the simple route stands after (best-so-far).
    */
   routingBudgetMs?: number;
+  /** R-6 (upstream register, 2026-08-03): forwarded to the router.
+   *  "target" fixes arrival points first and aligns departures to
+   *  them; default "source" is unchanged. */
+  anchor?: "source" | "target";
 }
 
 interface FlatNode {

@@ -112,6 +112,7 @@ export const BIO_STYLES = `
 .bio-view-btn {
   font: inherit;
   font-size: 11px;
+  white-space: nowrap; /* LR-30: inactive state wrapped to two lines */
   padding: 2px 8px;
   border: 1px solid #b17ef0;
   background: transparent;

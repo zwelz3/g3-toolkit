@@ -312,12 +312,13 @@ they are not retried.
 
 Conclusion: the offset-endpoint-on-taxi approach was reverted in full.
 
-### ELK layout control surface (modeled on yFiles)
+### ELK layout control surface (modeled on yFiles), mostly retired
 
-The top-level layout previously set only algorithm, direction, and node
-spacing. The yFiles routers (OrthogonalEdgeRouter, the newer EdgeRouter,
-ChannelEdgeRouter) were used as the reference for the controllable
-surface, mapped to ELK and exposed on `StructuralLayoutOptions`:
+Historical. The top-level layout once set only algorithm, direction, and
+node spacing. The yFiles routers (OrthogonalEdgeRouter, the newer
+EdgeRouter, ChannelEdgeRouter) were used as the reference for a
+controllable surface, mapped to ELK and exposed on
+`StructuralLayoutOptions`:
 
 - routing style -> `edgeRouting` (ORTHOGONAL | POLYLINE | SPLINES),
   `elk.edgeRouting`
@@ -331,14 +332,28 @@ surface, mapped to ELK and exposed on `StructuralLayoutOptions`:
 - node placement, crossing minimization -> `nodePlacement`,
   `crossingMinimization`
 
-Defaults favor legibility: 16px edge-to-node, 12px edge-to-edge,
-BRANDES_KOEPF placement, LAYER_SWEEP crossing minimization. These knobs
-move node placement and are verifiable from the geometry (a wider
-`layerSpacing` widens the extent; covered by a test). NOTE: `edgeRouting`
-presently affects only how much room ELK reserves, because the geometry
-document does not yet carry ELK's computed edge sections (see the open
-item). `layoutOptionsKey` includes every knob so the layout cache is
-correct.
+**Five of those options were REMOVED 2026-08-15**: `edgeRouting`,
+`nodePlacement`, `crossingMinimization`, `edgeNodeSpacing` and
+`edgeEdgeSpacing`. They outlived the engine that read them. When elkjs
+left the tree (D3b part 1) the g3t engine took over layout, and it reads
+`options` directly rather than the `elk.*` string map the builder emits,
+so each of the five reached nothing: a caller passing `SPLINES` got
+orthogonal routes, and the only observable effect was a changed memo key
+and a spurious cache miss. The builder no longer emits routing or
+edge-spacing keys at all, on the principle that a default nobody chose
+does not belong in the recipe.
+
+What survives and works: `direction`, `spacing`, `layerSpacing`,
+`routeEdges`, `hPadding`, `vPadding`, `sketch`, `measure`, and the g3t
+engine's own tuning (`layering`, `layerWidth`, `placement`, and the three
+budget values). `layoutOptionsKey` keys the cache on exactly those,
+so the cache no longer misses on values that cannot change the result.
+Port constraints are unaffected: `elk.portConstraints` and `elk.port.side`
+are emitted per node from the declared-port policy, not from an option.
+
+A host driving its own ELK through `buildStructuralElkGraph` sets routing
+and spacing on the returned graph's `layoutOptions` directly, where they
+reach an engine that honors them.
 
 ### Port-based body-edge attachment (the approach that works)
 
@@ -424,7 +439,8 @@ substantive change.
   knobs; `StructuralPort.side` made optional; `edgePortId`/`isEdgePortId`;
   side policy (forward/backward/body sides, `declaredPortSide`); synth
   port synthesis; ELK graph options (edgeRouting, nodePlacement,
-  crossingMin, edge-node/edge-edge spacing); edges repointed to synth
+  crossingMin, edge-node/edge-edge spacing: ALL FIVE REMOVED 2026-08-15,
+  see the control-surface section above); edges repointed to synth
   ports; geometry flattening reads the resolved side and includes synth
   ports; `layoutOptionsKey` includes the new knobs.
 - `packages/core/src/index.ts`: export `edgePortId`/`isEdgePortId`.

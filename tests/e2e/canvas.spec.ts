@@ -1,56 +1,29 @@
 /**
- * Canvas visual regression tests.
+ * Canvas rendering e2e.
  *
- * Captures screenshots of the graph canvas under various states
- * and compares against baselines. First run creates baselines;
- * subsequent runs detect visual regressions.
+ * EMPTIED 2026-08-15, deliberately. This file held three tests
+ * ("initial graph renders with nodes and edges", "node selection shows
+ * blue border", "context menu appears on right-click") whose entire
+ * assertion was a toHaveScreenshot call. No Linux baselines are
+ * committed and playwright.config.ts sets ignoreSnapshots unless
+ * PW_SNAPSHOTS=1, so all three passed without comparing anything: a
+ * canvas that rendered nothing at all would have passed them too. Two
+ * also right-clicked a fixed pixel and hoped to hit a node, which the
+ * removed comments admitted.
+ *
+ * They are not rewritten as functional assertions here because canvas
+ * rendering is what screenshots are FOR, and the functional part is
+ * already covered: foundation.spec asserts the canvas mounts with a
+ * non-zero box, selection.spec asserts selection state and the table
+ * context menu against the DOM, and shells.spec counts real drawn
+ * elements out of the SVG renderer.
+ *
+ * To restore visual coverage, land the baselines: generate on Linux
+ * with PW_SNAPSHOTS=1 --update-snapshots, commit
+ * tests/e2e/__screenshots__, flip ignoreSnapshots per the note in
+ * playwright.config.ts, then reinstate these three. That is
+ * roadmap/architecture/release-engineering.md item 2. Baselines
+ * generated on any other platform cannot be compared against CI.
  */
 
-import { test, expect } from "@playwright/test";
-
-const HARNESS = "/?test-harness";
-
-test.describe("Canvas rendering", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto(HARNESS);
-    // Wait for Cytoscape to initialize (canvas has children)
-    await page.waitForSelector("[data-testid='cytoscape-canvas']", {
-      timeout: 10000,
-    });
-    // Allow layout to settle
-    await page.waitForTimeout(1500);
-  });
-
-  test("initial graph renders with nodes and edges", async ({ page }) => {
-    const canvas = page.locator("[data-testid='canvas-container']");
-    await expect(canvas).toHaveScreenshot("canvas-initial.png");
-  });
-
-  test("node selection shows blue border", async ({ page }) => {
-    // Click a node in the canvas (approximate center area)
-    const canvas = page.locator("[data-testid='cytoscape-canvas']");
-    await canvas.click({ position: { x: 400, y: 300 } });
-    await page.waitForTimeout(300);
-
-    // Check selection info updated
-    // const selectionInfo = page.locator("[data-testid='selection-info']");
-    // May or may not hit a node; screenshot captures the state
-    await expect(
-      page.locator("[data-testid='canvas-container']"),
-    ).toHaveScreenshot("canvas-after-click.png");
-  });
-
-  test("context menu appears on right-click", async ({ page }) => {
-    const canvas = page.locator("[data-testid='cytoscape-canvas']");
-    // Right-click in the center (likely hits a node given 20 nodes)
-    await canvas.click({
-      position: { x: 400, y: 300 },
-      button: "right",
-    });
-    await page.waitForTimeout(300);
-
-    await expect(page.locator("body")).toHaveScreenshot(
-      "canvas-context-menu.png",
-    );
-  });
-});
+export {};

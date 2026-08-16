@@ -1263,6 +1263,12 @@ export function resolveDragAttachment(args: {
    *  ridden eport offset); other candidate faces use their centers. */
   desiredAnchor?: { x: number; y: number };
   sameSide: boolean;
+  /** VR-7: the FIXED endpoint's true geometry (center + half), so
+   *  a fully jammed moved-face sweep can re-anchor the fixed end on
+   *  a perpendicular face (the 12px-corridor drop from the owner
+   *  screenshots). */
+  fixedCenter?: { x: number; y: number };
+  fixedHalf?: { w: number; h: number };
   obstacles: readonly {
     x: number;
     y: number;
@@ -1317,27 +1323,115 @@ export function resolveDragAttachment(args: {
   ] as const) {
     if (!candidates.includes(side)) candidates.push(side);
   }
-  for (const side of candidates) {
-    const moved = anchorFor(side);
-    const { source, target } = endpoints(moved);
-    const rerouted = routeOrthogonal({
-      source: {
-        point: source,
-        side: args.movedEnd === "source" ? side : args.fixedSide,
-      },
-      target: {
-        point: target,
-        side: args.movedEnd === "target" ? side : args.fixedSide,
-      },
-      obstacles: args.obstacles,
-    });
-    if (rerouted) {
-      return {
-        bends: rerouted.points.slice(1, -1),
-        source,
-        target,
-        movedSide: side,
-      };
+  // VR-7 (owner verification 2026-07-27): the router keeps endpoint
+  // boxes as obstacles (deliberately, see the caller), so a RAW
+  // border anchor sits inside its own box's inflation and the
+  // router reports unreachable on every face; step 3 then kept a
+  // crossing route. STUB TIPS just outside the inflation (14 >
+  // clearance 12) give the router legal terminals, the same fix the
+  // core-side scene router received.
+  const tipOf = (
+    p: { x: number; y: number },
+    side: AttachmentSide,
+    len: number,
+  ): { x: number; y: number } =>
+    side === "EAST"
+      ? { x: p.x + len, y: p.y }
+      : side === "WEST"
+        ? { x: p.x - len, y: p.y }
+        : side === "SOUTH"
+          ? { x: p.x, y: p.y + len }
+          : { x: p.x, y: p.y - len };
+  // Per-face retry: default clearance first; then TIGHT clearance
+  // for dense drops (the screenshot case leaves a 12px corridor
+  // between the dragged host and the fixed block, unreachable at
+  // clearance 12). Tips shrink with the clearance so they stay
+  // legal inside the corridor.
+  const ATTEMPTS: Array<{ clearance?: number; tip: number }> = [
+    { tip: 14 },
+    { clearance: 4, tip: 6 },
+  ];
+  // Attempt nesting: ROOMY FIRST ACROSS ALL FACES. A default-
+  // clearance route on any face beats a tight-clearance route on
+  // the desired face (the sealed-face oracle's face swap stays the
+  // preferred outcome); the tight pass only runs when no face
+  // routes roomily.
+  for (const attempt of ATTEMPTS) {
+    for (const side of candidates) {
+      const moved = anchorFor(side);
+      const { source, target } = endpoints(moved);
+      const sSide = args.movedEnd === "source" ? side : args.fixedSide;
+      const tSide = args.movedEnd === "target" ? side : args.fixedSide;
+      const rerouted = routeOrthogonal({
+        source: { point: tipOf(source, sSide, attempt.tip), side: sSide },
+        target: { point: tipOf(target, tSide, attempt.tip), side: tSide },
+        obstacles: args.obstacles,
+        ...(attempt.clearance !== undefined
+          ? { clearance: attempt.clearance, minStub: attempt.clearance }
+          : {}),
+      });
+      if (rerouted) {
+        return {
+          // The routed points span tip to tip; every one is an
+          // interior bend between the border anchors.
+          bends: rerouted.points,
+          source,
+          target,
+          movedSide: side,
+        };
+      }
+    }
+  }
+
+  // 2b. VR-7: every moved face nulled with the fixed side pinned.
+  // Swing the fixed anchor to its perpendicular faces (then the
+  // opposite) and sweep the moved faces again: the screenshot drop
+  // leaves the original fixed face staring at a sliver no
+  // clearance can thread.
+  if (args.fixedCenter && args.fixedHalf) {
+    const fc = args.fixedCenter;
+    const fh = args.fixedHalf;
+    const faceAnchor = (side: AttachmentSide): { x: number; y: number } =>
+      side === "EAST"
+        ? { x: fc.x + fh.w, y: fc.y }
+        : side === "WEST"
+          ? { x: fc.x - fh.w, y: fc.y }
+          : side === "SOUTH"
+            ? { x: fc.x, y: fc.y + fh.h }
+            : { x: fc.x, y: fc.y - fh.h };
+    const swingOrder: Record<AttachmentSide, AttachmentSide[]> = {
+      EAST: ["NORTH", "SOUTH", "WEST"],
+      WEST: ["NORTH", "SOUTH", "EAST"],
+      NORTH: ["EAST", "WEST", "SOUTH"],
+      SOUTH: ["EAST", "WEST", "NORTH"],
+    };
+    for (const attempt of ATTEMPTS) {
+      for (const altFixed of swingOrder[args.fixedSide]) {
+        const fPoint = faceAnchor(altFixed);
+        for (const side of candidates) {
+          const movedPt = anchorFor(side);
+          const src = args.movedEnd === "source" ? movedPt : fPoint;
+          const tgt = args.movedEnd === "target" ? movedPt : fPoint;
+          const sSide = args.movedEnd === "source" ? side : altFixed;
+          const tSide = args.movedEnd === "target" ? side : altFixed;
+          const rerouted = routeOrthogonal({
+            source: { point: tipOf(src, sSide, attempt.tip), side: sSide },
+            target: { point: tipOf(tgt, tSide, attempt.tip), side: tSide },
+            obstacles: args.obstacles,
+            ...(attempt.clearance !== undefined
+              ? { clearance: attempt.clearance, minStub: attempt.clearance }
+              : {}),
+          });
+          if (rerouted) {
+            return {
+              bends: rerouted.points,
+              source: src,
+              target: tgt,
+              movedSide: side,
+            };
+          }
+        }
+      }
     }
   }
 
@@ -1471,6 +1565,11 @@ export function wireStructuralPortDrag(cy: Core): () => void {
     movedSide: AttachmentSide;
     otherEport: PointLike;
     otherSide: AttachmentSide;
+    /** VR-7: the fixed box's true geometry (the plane its anchors
+     *  live on), for the fixed-face swing. Session obstacle boxes
+     *  are the padded OUTER bounds and float 12px off. */
+    otherCenter?: PointLike;
+    otherHalf?: { w: number; h: number };
     /** RAW grab-time seg strings (MR-9): return-to-grab restores
      *  these VERBATIM. Reconstructing via
      *  routeToSegments(segmentsToPoints(...)) is exact only when the
@@ -1705,6 +1804,8 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         movedSide: sideOfAnchor(movedAnchor, evt.target.position(), half),
         otherEport: otherAnchor,
         otherSide: sideOfAnchor(otherAnchor, otherCenter, otherHalf),
+        otherCenter,
+        otherHalf,
       });
     }
     // Obstacle capture (G3L:RTE-011 / MR-8): every top-level
@@ -1843,6 +1944,8 @@ export function wireStructuralPortDrag(cy: Core): () => void {
           : (anchors.get(r.edge.id()) ?? undefined),
         sameSide,
         obstacles,
+        fixedCenter: r.otherCenter,
+        fixedHalf: r.otherHalf,
       });
       const bends: PointLike[] = resolved.bends;
       const newSource = resolved.source;
@@ -1983,6 +2086,11 @@ export function wireStructuralPortDrag(cy: Core): () => void {
         desiredAnchor: anchors.get(r.edge.id()) ?? undefined,
         sameSide: false,
         obstacles,
+        // VR-7: the SETTLE pass needs the fixed-face swing too; the
+        // drag-time site alone left the final geometry to step-3
+        // crossings (the two-call-site trap from the diagnosis).
+        fixedCenter: r.otherCenter,
+        fixedHalf: r.otherHalf,
       });
       r.movedEport?.position(r.srcMoved ? resolved.source : resolved.target);
       const seg = routeToSegments(

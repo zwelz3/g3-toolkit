@@ -15,12 +15,11 @@
  * TS maps the .js suffix back to the adjacent .d.ts declaration.
  * Runs as the final step of build:packages.
  *
- * KNOWN LIMITATION (documented in CHANGELOG): typed consumption from
- * CommonJS under node16 (`require("@g3t/core")` in a TS .cts file)
- * still fails with TS1479 because the packages emit a single
- * ESM-flavored .d.ts per entry. Runtime CJS works (verify:smoke).
- * The durable fix is per-entry declaration bundling (.d.ts + .d.cts);
- * tracked in planning/audit-remediation.md.
+ * One ESM-flavored .d.ts per entry is now the whole story: the
+ * packages are ESM only as of 2026-08-16, so there is
+ * no CJS declaration to pair it with and no TS1479 to work around.
+ * Paired .d.ts/.d.cts emission was the rejected branch of that
+ * decision.
  */
 import {
   readdirSync,

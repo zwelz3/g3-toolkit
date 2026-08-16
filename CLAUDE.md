@@ -10,7 +10,8 @@ several times; when a number disagrees with a gate script, the script
 is right.
 
 **CURRENT FOCUS (2026-07-03): demo quality, reliability, and OSS
-adoptability.** The library is feature-stable (v1.0.0-rc.2). The
+adoptability.** The library is feature-stable at 1.0.0 (package.json is
+the authority; this line said rc.2 long after the manifests moved). The
 cinematic flagship demo was RETIRED per maintainer ruling: the four
 dev-server shells replaced it, and every public API it alone
 demonstrated was folded first (planning/flagship-retirement.md is the
@@ -32,10 +33,31 @@ wiring-guide snippet + executable twin in examples/wiring/.
 TypeScript, React 19, Vite 8, pnpm (enforced), Cytoscape + Graphology,
 Zustand, Vitest + RTL.
 
+THREE channels, and the count is a ruling rather than an omission:
+`@g3t/core/events` was assessed 2026-08-16 and ruled a context-action
+COMMAND BUS, not a fourth integration channel. 13 of its 21 declared
+event types were emitted by nothing and were deleted; the `eventBus`
+singleton is deprecated (it carries the cross-instance identity hazard
+the stores had). Do not promote events to a channel without revisiting
+that ruling.
+
+**The packages publish ESM ONLY** as of 2026-08-16. No `require`
+condition in any exports entry, no `main` field, no `.cjs` in dist,
+`formats: ["es"]` in all three vite configs. Typed CJS never worked
+(TS1479 from one ESM-flavored `.d.ts` per entry), and that failure was
+the only thing stopping a consumer from mixing formats and duplicating
+the exported store singletons, which presents as selection silently not
+propagating between views. Paired `.d.cts` was REJECTED for fixing the
+compile error while worsening the hazard. `tests/dist/public-api.test.ts`
+asserts the absence per package; do not "restore dual format" without
+reading that reasoning.
+
 ## Non-negotiable gates (run before claiming done)
 
     pnpm run gates
-    # = typecheck && lint && verify && test, the exact ci.yml order.
+    # = typecheck && lint && verify && test && gates:spec, the exact
+    # ci.yml order. FIVE steps: gates:spec runs the three Python spec
+    # scripts, so running the four listed below it is not the gate.
     # verify builds the packages and runs the dist/export/smoke/bundle
     # checks; a round is not done on unit tests alone. Environment
     # self-test if typecheck seems suspiciously quiet: inject a
@@ -160,10 +182,19 @@ auditor shell, and the camera/encoding/theme/path/export programmatic
 APIs in the wiring guide with CI-executed examples. The beat-runner
 narrative was deliberately dropped, recoverable from history.
 
-**Demo/examples surface (supporting).** Four dev-server scenario shells
-(`pnpm run dev`: Auditor, MBSE, Supply Chain, Biomedical) plus two
-capability dashboards (examples/decision-dashboards: Analytics,
-Schema). Showcase example deleted. Custom raster/logo icons supported
+**Demo/examples surface (supporting).** `src/demo/DemoLanding.tsx` is
+the register and the authority; count from it rather than from here.
+It currently registers EIGHT scenarios, each with its own shell: four
+domain stories (Provenance Auditor, MBSE Satellite Workbench, Supply
+Chain Digital Thread, Biomedical Knowledge Graph) and four capability
+surfaces (Analytics Dashboard, Scale, Style Lab, Ontology Workbench).
+Two are environment-gated there: Scale is hidden in DEV and Style Lab
+is shown only in DEV. `examples/decision-dashboards` exports ONE
+dashboard, AnalyticsDashboard; the Schema Dashboard was retired
+2026-07-07 (planning/schema-dashboard-retirement.md) with MatrixView
+and SankeyView folded into Analytics, and this file kept listing it, as
+did that package's own README. Showcase example deleted. Custom
+raster/logo icons supported
 (isImageRef passthrough) and shown in Supply Chain. These are
 desktop-only and AWAIT VISUAL REVIEW — the build can verify
 compile/test/bundle but not rendered output; the reviewer (Zach) checks

@@ -74,6 +74,15 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
   // caused the tree to re-root (and visually collapse) whenever a
   // hop was clicked.
   const [inspectId, setInspectId] = useState<string | null>(null);
+  // LR-11 (owner review 2026-07-22): once the inspector is open, it
+  // FOLLOWS the canvas selection instead of pinning its opening
+  // subject; closed stays closed (selection alone never opens it).
+  // Derived at render (no state-sync effect): the shown subject is
+  // the live selection while one exists, else the opening subject.
+  const followedId = useSelectionStore(
+    (s) => [...s.selectedNodeIds][0] ?? null,
+  );
+  const shownInspectId = inspectId !== null ? (followedId ?? inspectId) : null;
   const auNodeColors = useMemo(() => categoricalColorMap(SPEC, ugm), [ugm]);
   const undatedCount = useMemo(() => {
     let n = 0;
@@ -333,24 +342,33 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
             </FloatingPanel>
           )}
           {inspectId !== null && (
-            <FloatingPanel
-              positioning="absolute"
-              corner="top-right"
-              onClose={() => setInspectId(null)}
-              testId="au-inspector"
-              closeTestId="au-inspector-close"
-              header={<strong>Inspect properties</strong>}
+            // LR-10 (owner review 2026-07-22): NO wrapper panel: the
+            // inspector renders bare with its OWN header/close
+            // (inspector-close), height-capped so it never outgrows
+            // the canvas. The double-chrome (panel header over
+            // inspector header) and the too-short container were the
+            // complaint.
+            <div
+              data-testid="au-inspector"
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                width: 300,
+                maxHeight: "min(420px, calc(100% - 16px))",
+                overflowY: "auto",
+                zIndex: 25,
+              }}
             >
-              <div style={{ maxHeight: 260, overflow: "auto" }}>
-                <NodePropertyInspector
-                  ugm={ugm}
-                  selection={{ type: "node", id: inspectId }}
-                  // 12.11: chip colors from the SURFACE's map so the
-                  // panel matches the graph encoding.
-                  typeColorOf={(t) => auNodeColors.get(t)}
-                />
-              </div>
-            </FloatingPanel>
+              <NodePropertyInspector
+                ugm={ugm}
+                selection={{ type: "node", id: shownInspectId ?? inspectId }}
+                onClose={() => setInspectId(null)}
+                // 12.11: chip colors from the SURFACE's map so the
+                // panel matches the graph encoding.
+                typeColorOf={(t) => auNodeColors.get(t)}
+              />
+            </div>
           )}
           <CytoscapeCanvas
             ugm={ugm}

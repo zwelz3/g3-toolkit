@@ -141,18 +141,24 @@ exit/entry through `routeBetweenSides`' stubs.
 
 ## Edge density / parallel-edge spacing
 
-Static routes come from ELK. When several edges fan from one side to
-vertically-aligned targets, their orthogonal segments can bunch up or
-superimpose in the shared routing channel. `layoutStructural`'s
-`edgeEdgeSpacing` controls the minimum gap between parallel edge segments;
-it maps to both `elk.spacing.edgeEdge` and
-`elk.layered.spacing.edgeEdgeBetweenLayers`. The default is 24 (a sane gap
-that keeps fans legible); raise it for denser edge sets. For the structural
-layouts here it is the effective lever (node/layer spacing does not separate
-parallel edges in the same channel). It is verified two ways: a deterministic
-wiring test (an injected ELK engine captures the layout options and asserts
-the configured gap reaches both spacing keys) and an empirical check that the
-minimum inter-edge gap on the thread layout grows as the value rises.
+When several edges fan from one side to vertically-aligned targets, their
+orthogonal segments can bunch up or superimpose in the shared routing
+channel.
+
+`layoutStructural` used to expose `edgeEdgeSpacing` for this, mapped to
+`elk.spacing.edgeEdge` and `elk.layered.spacing.edgeEdgeBetweenLayers`.
+**That option was removed 2026-08-15 and there is currently no lever
+here.** It stopped working when elkjs left the tree: the g3t engine reads
+`options` directly and never consulted the string map the value landed
+in, so the documented default of 24 and any raised value alike reached
+nothing. The two verifications this section used to claim went with it.
+The wiring test asserted the value reached the spacing keys, which was
+true and meaningless; the empirical gap check retired with the ELK seam.
+
+Separation between parallel segments is now whatever the g3t router
+produces. Node and layer spacing still do not separate edges sharing a
+channel, so a dense fan is an open weakness rather than a tuning
+question. PRF-003's channel router is where a real lever would live.
 
 ## Test layers (all run under vitest, no browser)
 

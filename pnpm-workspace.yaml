@@ -1,12 +1,19 @@
-# Workspace members. The root (".") is still a workspace member because src/
-# still contains consuming code (views, interaction, charts, etc.); subsequent
-# turns move those into packages/react and packages/charts. Once src/ at root
-# is empty, "." is dropped from this list.
+# Workspace members. The root (".") is a member because it carries the dev
+# server, the demo under src/, and the shared tooling every package builds
+# and tests through.
 packages:
   - "packages/*"
   - "examples/*"
   - "."
 
-# pnpm 9+: allow esbuild's postinstall to run (it builds a native binary).
+# pnpm 9+: which postinstall scripts may run.
 allowBuilds:
+  # esbuild builds a native binary and needs its postinstall.
   esbuild: true
+  # canvas is an OPTIONAL peer of jsdom and is deliberately not installed:
+  # it needs native compilation, and the component tests mock cytoscape
+  # rather than render to a real 2D context. The key was a literal
+  # placeholder string ("set this to true or false") where pnpm expects a
+  # boolean; false is the value that matches what the repo actually does.
+  canvas: false
+

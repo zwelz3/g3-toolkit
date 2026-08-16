@@ -120,8 +120,9 @@ describe("GraphToolbar (rebuilt, round 16)", () => {
     fireEvent.change(screen.getByLabelText("Repulsion"), {
       target: { value: "12000" },
     });
-    expect(raw.layout).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId("toolbar-run-layout"));
+    // Owner 2026-07-28: the popover Run button is gone; edits apply
+    // live (debounced). The toolbar Re-run stays for explicit runs.
+    fireEvent.click(screen.getByTestId("toolbar-rerun"));
     expect(raw.layout).toHaveBeenCalledWith(
       expect.objectContaining({ name: "fcose", nodeRepulsion: 12000 }),
     );
@@ -250,5 +251,55 @@ describe("export (R2.11 slice, round 26)", () => {
     expect(
       (dead as unknown as { fit: ReturnType<typeof vi.fn> }).fit,
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe("VR-4: option edits apply LIVE (debounced, incremental)", () => {
+  it("dragging Spacing re-runs the current layout after the debounce", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cy, raw } = mockCy();
+      render(<GraphToolbar ugm={graph()} cy={cy} />);
+      fireEvent.click(screen.getByLabelText("Layout options"));
+      const slider = screen.getByLabelText("Edge length");
+      const before = raw.layout.mock.calls.length;
+      fireEvent.change(slider, { target: { value: "140" } });
+      expect(raw.layout.mock.calls.length).toBe(before); // debounced
+      await vi.advanceTimersByTimeAsync(350);
+      expect(raw.layout.mock.calls.length).toBe(before + 1);
+      const config = (raw.layout.mock.calls as unknown[][]).at(
+        -1,
+      )?.[0] as Record<string, unknown>;
+      // Default layout is force: the slider must reach fcose's
+      // idealEdgeLength with the NEW value.
+      expect(config.name).toBe("fcose");
+      expect(config.idealEdgeLength).toBe(140);
+      expect(config.randomize).toBe(false); // incremental: mental map holds
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("VR-5: initialLayout drives the dropdown and hierarchy consumes BOTH sliders", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cy, raw } = mockCy();
+      render(<GraphToolbar ugm={graph()} cy={cy} initialLayout="hierarchy" />);
+      const select = screen.getByLabelText("Layout") as HTMLSelectElement;
+      expect(select.value).toBe("hierarchy");
+      fireEvent.click(screen.getByLabelText("Layout options"));
+      fireEvent.change(screen.getByLabelText("Spacing"), {
+        target: { value: "120" },
+      });
+      await vi.advanceTimersByTimeAsync(350);
+      const config = (raw.layout.mock.calls as unknown[][]).at(
+        -1,
+      )?.[0] as Record<string, unknown>;
+      expect(config.name).toBe("breadthfirst");
+      // rankSeparation default 80 (factor 1) x spacing 120/60 = 2.
+      expect(config.spacingFactor).toBeCloseTo(2, 5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

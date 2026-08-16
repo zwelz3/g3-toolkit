@@ -37,6 +37,14 @@ tests/e2e/__screenshots__/*-retry*
 .cache/
 .turbo/
 
+# === Round deliverables ===
+# Packaged zips and the handoff documents that ship with them. Both are
+# point-in-time artifacts naming a specific commit, and the handoffs
+# quote the remediation queue, which follows the same
+# keep-it-out-of-the-repo rule as audit/. The zip is a 6 MB binary per
+# round and does not belong in history either.
+outputs/
+
 # === pnpm / npm pack outputs ===
 *.tgz
 pnpm-debug.log
@@ -64,3 +72,11 @@ docs-out/
 .verify-snippets
 test-results.json
 tests/perf/last-results.json
+
+# 
+planning/archive/
+
+# AI
+.devcontainer/
+.mcp.json
+audit/

@@ -22,7 +22,7 @@
  */
 
 import type { Core } from "cytoscape";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
   degreeCentrality,
   connectedComponents,
@@ -34,6 +34,7 @@ import {
   allShortestPaths,
 } from "@g3t/core";
 import {
+  makeColorResolver,
   CoverageMeter,
   ContextMenuManager,
   registerToolkitActions,
@@ -52,13 +53,12 @@ import {
   MatrixView,
   SankeyView,
   GraphToolbar,
-  FloatingPanel,
   categoricalColorMap,
 } from "@g3t/react";
 import { LinkedChart } from "@g3t/charts";
 import { buildSupplyNetwork, originCoverageByTier } from "./supply-data";
 
-type Tab = "degree" | "scatter" | "stats" | "matrix" | "sankey";
+type Tab = "degree" | "scatter" | "stats" | "sankey";
 
 export interface AnalyticsDashboardProps {
   className?: string;
@@ -92,10 +92,32 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
   const [menuStatus, setMenuStatus] = useState<string | null>(null);
   const [core, setCore] = useState<Core | null>(null);
+  const coreRef = useRef<Core | null>(null);
+  // Written in an effect, not during render. A ref mutation during
+  // render is not safe under concurrent rendering: React may discard
+  // and replay the render, and the ref would keep the discarded value.
+  // The only reader is a post-hide setTimeout, which runs after commit.
+  useEffect(() => {
+    coreRef.current = core;
+  }, [core]);
   // 9.17: the path effect needs a visible exit; the chip renders
   // whenever the emphasis layer is active.
   const emphasisActive = useEmphasisStore((s) => s.active);
   const [editNodeId, setEditNodeId] = useState<string | null>(null);
+  // Declared HERE, above the context-menu effect that closes over their
+  // setters, rather than beside the panels that render them. A `const`
+  // captured before its declaration is a temporal-dead-zone hazard: it
+  // happens to work because the effect body runs after the whole
+  // component function has, but nothing enforces that ordering.
+  //
+  // Review 4.10: "View Neighbors" opens a floating second graph view
+  // instead of selecting the whole neighborhood on the main canvas.
+  const [neighborsOf, setNeighborsOf] = useState<{
+    nodeId: string;
+    hops: number;
+  } | null>(null);
+  // Review 4.11: "Inspect" opens an actual inspector panel.
+  const [inspected, setInspected] = useState<string | null>(null);
   const { menuManager, bus } = useMemo(() => {
     const eventBus = new G3tEventBus();
     const manager = new ContextMenuManager();
@@ -142,6 +164,19 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
         setMenuStatus(
           `Focused on ${nodeId} (${hops}-hop): ${hidden.size} nodes hidden`,
         );
+        // LR-39 (owner review 2026-07-22): FIT the remaining
+        // neighborhood instead of leaving the camera wherever the
+        // subject happened to sit. Post-render so the hide has
+        // applied.
+        setTimeout(() => {
+          const c = coreRef.current;
+          if (c && c.destroyed?.() !== true) {
+            c.fit(
+              c.elements().filter((el) => el.style("display") !== "none"),
+              32,
+            );
+          }
+        }, 80);
       }),
       bus.on("context:hideNodes", (d) => {
         const { nodeIds } = d as { nodeIds: string[] };
@@ -196,10 +231,16 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
   // Reviews 5.1/5.2: every demonstration has a visible consequence,
   // wired through the encoding spec. Size follows the last computed
   // numeric property (degree by default, or a derived property);
-  // color switches to _component after the components demo. The
-  // reset chip returns both to defaults.
-  const [sizeKey, setSizeKey] = useState("_degree");
-  const [colorKey, setColorKey] = useState<string | null>(null);
+  // color switches to _component after the components demo.
+  //
+  // The setters are deliberately not destructured: 12.6 removed the
+  // property-writing panels that called them and the reset chip they
+  // fed, so both values are fixed at their defaults today. They stay as
+  // state, and stay named, because the spec below and the inspector's
+  // LR-40 type-chip guard both read them; restoring a switcher means
+  // taking the setter back, nothing else.
+  const [sizeKey] = useState("_degree");
+  const [colorKey] = useState<string | null>(null);
   const spec = useMemo<EncodingSpec>(() => {
     const base = fromLegacyConfig({
       ...DEFAULT_ENCODING,
@@ -218,7 +259,6 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
       },
     };
   }, [sizeKey, colorKey]);
-  const styledOffDefault = sizeKey !== "_degree" || colorKey !== null;
 
   const degreePipeline = useMemo(() => createDegreeDistribution(), []);
   // Centrality vs a domain property (supply nodes carry a numeric
@@ -228,17 +268,24 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
     () => createCentralityVsProperty("_degree", "risk"),
     [],
   );
-  const nodeColors = useMemo(() => categoricalColorMap(spec, ugm), [ugm]);
+  const nodeColors = useMemo(() => categoricalColorMap(spec, ugm), [spec, ugm]);
+  // LR-40: the node dot shows the node's ACTUAL applied color (the
+  // spec's own resolver), not the primary type's palette entry.
+  const nodeColorResolver = useMemo(
+    () =>
+      spec.node.color ? makeColorResolver(spec.node.color, { ugm }) : null,
+    [spec, ugm],
+  );
 
   const [tab, setTab] = useState<Tab>("degree");
-  // Review 4.10: "View Neighbors" opens a floating second graph view
-  // instead of selecting the whole neighborhood on the main canvas.
-  const [neighborsOf, setNeighborsOf] = useState<{
-    nodeId: string;
-    hops: number;
-  } | null>(null);
-  // Review 4.11: "Inspect" opens an actual inspector panel.
-  const [inspected, setInspected] = useState<string | null>(null);
+  // (neighborsOf / inspected are declared above the context-menu effect
+  //  that sets them.)
+  // LR-11: once open, the inspector follows canvas selection;
+  // closed stays closed. Derived at render, no state-sync effect.
+  const followedId = useSelectionStore(
+    (st) => [...st.selectedNodeIds][0] ?? null,
+  );
+  const shownInspected = inspected !== null ? (followedId ?? inspected) : null;
 
   return (
     <div
@@ -287,7 +334,7 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           hidden={hiddenIds}
           onReady={setCore}
         />
-        {(menuStatus !== null || hiddenIds.size > 0) && (
+        {(menuStatus !== null || hiddenIds.size > 0 || emphasisActive) && (
           <div
             data-testid="menu-status"
             style={{
@@ -304,7 +351,32 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
               borderRadius: 4,
             }}
           >
-            <span>{menuStatus}</span>
+            {menuStatus !== null && (
+              <span
+                style={{ display: "inline-flex", gap: 6, alignItems: "center" }}
+              >
+                {menuStatus}
+                <button
+                  type="button"
+                  data-testid="status-dismiss"
+                  aria-label="Dismiss status"
+                  onClick={() => setMenuStatus(null)}
+                  style={{
+                    font: "inherit",
+                    fontSize: 11,
+                    lineHeight: 1,
+                    padding: "1px 5px",
+                    border: "1px solid rgba(255,255,255,0.5)",
+                    borderRadius: 3,
+                    background: "transparent",
+                    color: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  {"\u00D7"}
+                </button>
+              </span>
+            )}
             {emphasisActive && (
               <button
                 type="button"
@@ -330,6 +402,7 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
             {hiddenIds.size > 0 && (
               <button
                 type="button"
+                data-testid="show-all"
                 onClick={() => {
                   setHiddenIds(new Set());
                   setMenuStatus(null);
@@ -337,12 +410,12 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
                 style={{
                   font: "inherit",
                   fontSize: 11,
-                  cursor: "pointer",
-                  border: "1px solid #fff",
-                  borderRadius: 3,
+                  padding: "1px 8px",
+                  border: "1px solid rgba(255,255,255,0.7)",
+                  borderRadius: 4,
                   background: "transparent",
                   color: "inherit",
-                  padding: "1px 6px",
+                  cursor: "pointer",
                 }}
               >
                 Show all ({hiddenIds.size} hidden)
@@ -354,18 +427,21 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           <div
             data-testid="dashboard-style-editor"
             style={{
-              // Review 4.13: the absolute-in-section placement could
-              // clip against the overflow-hidden canvas section and
-              // abut the right panel. Fixed positioning escapes
-              // ancestor clipping; the right offset clears the
-              // 380px panel plus the grid gap by construction.
-              position: "fixed",
-              top: 72,
-              right: 404,
-              width: 260,
-              maxWidth: "calc(100vw - 420px)",
-              maxHeight: "70vh",
-              overflow: "auto",
+              // LR-41 (owner review 2026-07-22) SUPERSEDES review
+              // 4.13's fixed positioning: the owner wants the editor
+              // INSIDE the graph canvas, below the toolbar, with a
+              // max height that cannot spill over other UI. Absolute
+              // within the canvas section, sized to fit its inner
+              // 300px width (the old 260px wrapper around a 280px
+              // editor was the right-side cutoff AND the horizontal
+              // scroll).
+              position: "absolute",
+              top: 56,
+              right: 12,
+              width: 300,
+              maxHeight: "calc(100% - 68px)",
+              overflowY: "auto",
+              overflowX: "hidden",
               zIndex: 30,
             }}
           >
@@ -388,31 +464,48 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           {ugm.getNodeIds().length} nodes · sized by degree centrality
         </div>
         {inspected !== null && (
-          <FloatingPanel
-            testId="dashboard-inspector"
-            corner="top-right"
-            positioning="absolute"
-            onClose={() => setInspected(null)}
-            closeTestId="inspector-close"
-            header={<strong>Inspector</strong>}
+          // LR-10 (owner review 2026-07-22, "same issues" as the
+          // auditor): NO wrapper panel; the inspector renders bare
+          // with its OWN header/close (inspector-close), height-
+          // capped inside the canvas.
+          <div
+            data-testid="dashboard-inspector"
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              width: 300,
+              maxHeight: "min(420px, calc(100% - 16px))",
+              overflowY: "auto",
+              zIndex: 25,
+            }}
           >
-            {/* 12.11: no sizing wrapper (the reviewed box was too
-                small); the inspector renders at its natural width
-                and the panel scrolls. Type chip colors come from the
-                SURFACE's categorical map so they match the graph. */}
-            <div style={{ maxHeight: 340, overflow: "auto" }}>
-              <NodePropertyInspector
-                ugm={ugm}
-                selection={{ type: "node", id: inspected }}
-                typeColorOf={(t) => nodeColors.get(t)}
-              />
-            </div>
-          </FloatingPanel>
+            <NodePropertyInspector
+              ugm={ugm}
+              selection={{ type: "node", id: shownInspected ?? inspected }}
+              onClose={() => setInspected(null)}
+              // LR-40: type chips map through the palette ONLY while
+              // the graph colors by type; the node dot resolves the
+              // node's actual applied color.
+              typeColorOf={(t) =>
+                colorKey === "types" ? nodeColors.get(t) : undefined
+              }
+              nodeColorOf={(id) => {
+                const attrs = ugm.getNode(id);
+                return attrs && nodeColorResolver
+                  ? nodeColorResolver(attrs)
+                  : undefined;
+              }}
+            />
+          </div>
         )}
         {neighborsOf !== null && (
           <NeighborhoodPopout
             ugm={ugm}
             focusId={neighborsOf.nodeId}
+            // VR-24: the preview inherits the main canvas's encoding
+            // so shapes and colors match.
+            encodingSpec={spec}
             // 9.20: always start at ONE hop; the stepper widens.
             defaultHops={1}
             positioning="absolute"
@@ -464,6 +557,15 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
             />
           ))}
         </div>
+        {/* LR-34 (owner review 2026-07-22): the adjacency matrix
+            reads WITH the coverage story, so it lives under it in
+            the rail (moved out of the bottom tabs). */}
+        <div className="g3t-card" style={{ padding: 12, marginTop: 12 }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>Adjacency matrix</h3>
+          <div style={{ maxHeight: 260, overflow: "auto" }}>
+            <MatrixView ugm={ugm} fill />
+          </div>
+        </div>
       </aside>
 
       {/* Charts / stats (bottom, spans both columns) */}
@@ -487,36 +589,29 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
             borderBottom: "1px solid var(--g3t-border)",
           }}
         >
-          {(["degree", "scatter", "stats", "matrix", "sankey"] as Tab[]).map(
-            (t) => (
-              <button
-                key={t}
-                className={`g3t-btn ${tab === t ? "g3t-btn-active" : "g3t-btn-ghost"}`}
-                onClick={() => setTab(t)}
-              >
-                {t === "degree"
-                  ? "Degree distribution (bar)"
-                  : t === "scatter"
-                    ? "Centrality vs risk (scatter)"
-                    : t === "stats"
-                      ? "Statistics"
-                      : t === "matrix"
-                        ? "Adjacency matrix"
-                        : "Type flows (sankey)"}
-              </button>
-            ),
-          )}
+          {(["degree", "scatter", "stats", "sankey"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              className={`g3t-btn ${tab === t ? "g3t-btn-active" : "g3t-btn-ghost"}`}
+              onClick={() => setTab(t)}
+            >
+              {t === "degree"
+                ? "Degree distribution (bar)"
+                : t === "scatter"
+                  ? "Centrality vs risk (scatter)"
+                  : t === "stats"
+                    ? "Statistics"
+                    : "Type flows (sankey)"}
+            </button>
+          ))}
           <span style={{ flex: 1 }} />
         </div>
-        {tab === "matrix" || tab === "sankey" ? (
+        {tab === "sankey" ? (
           // Relocated from the retired Schema Dashboard (ruling 8.4):
-          // structure-shaped views take the full row.
+          // structure-shaped views take the full row. (The adjacency
+          // matrix moved to the rail under Origin coverage: LR-34.)
           <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 8 }}>
-            {tab === "matrix" ? (
-              <MatrixView ugm={ugm} />
-            ) : (
-              <SankeyView ugm={ugm} mode="sankey" />
-            )}
+            <SankeyView ugm={ugm} mode="sankey" />
           </div>
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
@@ -533,7 +628,9 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
                   ugm={ugm}
                   pipeline={degreePipeline}
                   type="bar"
-                  height={180}
+                  height="100%" // G3 (owner 2026-07-28): truly fill
+                  xLabel="degree"
+                  yLabel="nodes"
                 />
               )}
               {tab === "scatter" && (
@@ -541,7 +638,9 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
                   ugm={ugm}
                   pipeline={scatterPipeline}
                   type="scatter"
-                  height={180}
+                  height="100%" // G3 (owner 2026-07-28): truly fill
+                  xLabel="degree centrality"
+                  yLabel="risk"
                 />
               )}
               {tab === "stats" && (
@@ -559,7 +658,11 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
                 overflow: "auto",
               }}
             >
-              <TableView ugm={ugm} density="compact" pageSize={12} />
+              {/* G3 (owner 2026-07-28): more of the pane's height
+                  (still paged), and the table takes its NATURAL width
+                  with the pane scrolling horizontally instead of
+                  clipping columns. */}
+              <TableView ugm={ugm} density="compact" pageSize={16} />
             </div>
           </div>
         )}

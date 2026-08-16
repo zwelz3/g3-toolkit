@@ -46,10 +46,15 @@ describe("DemoLanding", () => {
       "style-lab",
     ]);
     const { container } = render(<DemoLanding onSelect={() => {}} />);
-    expect(container.textContent).toContain("Capability surfaces");
-    for (const s of CAPABILITY_SURFACES) {
-      expect(screen.getByText(s.title)).toBeDefined();
-    }
+    // LR-1: the section header was removed; the cards themselves
+    // are the contract now.
+    expect(container.textContent).not.toContain("Capability surfaces");
+    expect(container.textContent).toContain("Analytics Dashboard");
+    expect(container.textContent).toContain("Ontology Workbench");
+    // LR-7/LR-8 gating oracle: vitest runs with DEV=true, so the
+    // dev set applies: Style Lab visible, Scale hidden.
+    expect(screen.getByText("Style Lab")).toBeDefined();
+    expect(screen.queryByText("Scale")).toBeNull();
   });
 
   it("hands a clicked capability surface to onSelect like any scenario", () => {

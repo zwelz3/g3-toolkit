@@ -12,10 +12,12 @@ import { UGM } from "../ugm";
 import type { GraphAdapter, SchemaModel } from "../adapter";
 import {
   composeMiddleware,
-  defaultFetch,
+  createDefaultFetch,
   type Middleware,
   type AdapterRequest,
 } from "../middleware/middleware";
+import { assertOk } from "./adapter-error";
+import { AdapterArgumentError, coerceDepth } from "./query-safety";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -48,6 +50,11 @@ export interface RestAdapterConfig {
   mapResponse: (json: unknown) => RestResponseMapping;
   /** Middleware chain (auth, retry, logging). */
   middleware?: Middleware[];
+  /**
+   * Request timeout in milliseconds. Defaults to
+   * `DEFAULT_TIMEOUT_MS` (30 s); pass 0 to disable it.
+   */
+  timeoutMs?: number;
 }
 
 // ── Adapter ─────────────────────────────────────────────────────────
@@ -67,9 +74,10 @@ export class RestAdapter implements GraphAdapter {
   constructor(config: RestAdapterConfig) {
     this.config = config;
     this.name = `REST (${config.url})`;
+    const base = createDefaultFetch({ timeoutMs: config.timeoutMs });
     this.fetcher = config.middleware
-      ? composeMiddleware(config.middleware, defaultFetch)
-      : defaultFetch;
+      ? composeMiddleware(config.middleware, base)
+      : base;
   }
 
   async query(queryString: string): Promise<UGM> {
@@ -85,18 +93,35 @@ export class RestAdapter implements GraphAdapter {
 
     const response = await this.fetcher(request);
 
-    if (!response.ok) {
-      throw new Error(
-        `REST adapter: ${response.status} from ${this.config.url}`,
-      );
-    }
+    assertOk("REST", this.config.url, response);
 
     const json = JSON.parse(response.body);
     const mapped = this.config.mapResponse(json);
     return this.buildUGM(mapped);
   }
 
-  async expandNeighborhood(nodeId: string, _hops?: number): Promise<UGM> {
+  /**
+   * Re-query the configured endpoint with the node id as the filter.
+   * DEPTH IS REJECTED ABOVE 1 rather than ignored.
+   *
+   * How many hops a REST response covers is decided by the endpoint
+   * and by the adopter's `mapResponse`, neither of which this adapter
+   * can see or parameterize. There is no traversal contract to bind a
+   * hop count to, so a supplied depth cannot be honored, and returning
+   * whatever the endpoint happens to send while accepting `depth: 3`
+   * misreports the result. An adopter whose API does take a depth
+   * should encode it in `url` or `mapResponse` and call with 1.
+   *
+   * @throws AdapterArgumentError when `depth` resolves above 1.
+   */
+  async expandNeighborhood(nodeId: string, depth = 1): Promise<UGM> {
+    if (coerceDepth(depth) > 1) {
+      throw new AdapterArgumentError(
+        "depth",
+        `RestAdapter has no traversal contract and cannot honor depth ${depth}; ` +
+          `encode the hop count in the configured url or mapResponse and pass 1`,
+      );
+    }
     // Default: re-query with the node ID as a filter
     return this.query(nodeId);
   }

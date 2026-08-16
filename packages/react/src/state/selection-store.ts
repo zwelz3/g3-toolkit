@@ -11,10 +11,20 @@ import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
 export interface SelectionState {
-  /** Currently selected node IDs. */
-  selectedNodeIds: Set<string>;
-  /** Currently selected edge IDs. */
-  selectedEdgeIds: Set<string>;
+  /**
+   * Currently selected node IDs.
+   *
+   * `ReadonlySet` on purpose. This store is one of the three declared
+   * host-integration channels, so the collection is handed to code this
+   * package does not own; typed as a mutable `Set` a host could call
+   * `.add()` on it and change the selection without going through an
+   * action, leaving subscribers unnotified and the canvas out of sync
+   * with the store. The narrowing is compile-time only, so nothing
+   * changes at runtime for a host that was already using the actions.
+   */
+  selectedNodeIds: ReadonlySet<string>;
+  /** Currently selected edge IDs. See {@link selectedNodeIds}. */
+  selectedEdgeIds: ReadonlySet<string>;
   /** Node currently being hovered (null if none). */
   hoveredNodeId: string | null;
 
@@ -29,7 +39,19 @@ export interface SelectionState {
   removeNodesFromSelection: (ids: string[]) => void;
   /** Add edge IDs to the existing selection. */
   addEdgesToSelection: (ids: string[]) => void;
-  /** Clear all node and edge selections. */
+  /**
+   * Clear all node and edge selections.
+   *
+   * The uniform reset name across every exported store. The other six
+   * have always called it `clear`; this one called it `clearSelection`,
+   * so a host wiring up two stores had to remember which was which.
+   */
+  clear: () => void;
+  /**
+   * @deprecated Use {@link clear}. Kept working so this is not a
+   * breaking change, and removed no earlier than the next major, per
+   * the deprecation policy in RELEASE.md.
+   */
   clearSelection: () => void;
   /** Toggle a node in/out of selection (ctrl-click). */
   toggleNodeSelection: (id: string) => void;
@@ -39,7 +61,7 @@ export interface SelectionState {
 
 export const useSelectionStore = create<SelectionState>()(
   devtools(
-    (set) => ({
+    (set, get) => ({
       selectedNodeIds: new Set<string>(),
       selectedEdgeIds: new Set<string>(),
       hoveredNodeId: null,
@@ -77,11 +99,15 @@ export const useSelectionStore = create<SelectionState>()(
           return { selectedEdgeIds: next };
         }),
 
-      clearSelection: () =>
+      clear: () =>
         set({
           selectedNodeIds: new Set(),
           selectedEdgeIds: new Set(),
         }),
+      // The deprecated alias DELEGATES rather than duplicating the
+      // reset. Two copies of the same set() would be two things to keep
+      // in step for as long as the alias lives.
+      clearSelection: () => get().clear(),
 
       toggleNodeSelection: (id) =>
         set((state) => {

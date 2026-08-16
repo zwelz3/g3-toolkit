@@ -9,6 +9,7 @@
 
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import * as echarts from "echarts";
+import { useThemeStore } from "../../theme/ThemeManager";
 import type { UGM } from "@g3t/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { EmptyState } from "../../interaction/feedback";
@@ -129,6 +130,7 @@ export function StatsPanel({
   bins: binCount = 20,
   className,
 }: StatsPanelProps) {
+  const { theme } = useThemeStore();
   const chartRef = useRef<HTMLDivElement>(null);
   const echartsRef = useRef<echarts.ECharts | null>(null);
   const { selectNodes } = useSelectionStore();
@@ -156,18 +158,28 @@ export function StatsPanel({
     const chart = echarts.init(chartRef.current);
     echartsRef.current = chart;
 
+    // Owner 2026-07-28: this chart was fully THEME-BLIND (no text
+    // colors at all), so echarts' dark-gray defaults vanished on
+    // the dark background. Every text surface now takes theme ink.
     chart.setOption({
       title: {
         text: `Distribution: ${propertyKey}`,
-        textStyle: { fontSize: 13 },
+        textStyle: { fontSize: 13, color: theme.textPrimary },
       },
       tooltip: { trigger: "axis" },
       xAxis: {
         type: "category",
         data: histogram.map((b) => b.label),
-        axisLabel: { rotate: 45, fontSize: 10 },
+        axisLabel: { rotate: 45, fontSize: 10, color: theme.textPrimary },
+        axisLine: { lineStyle: { color: theme.border } },
       },
-      yAxis: { type: "value", name: "Count" },
+      yAxis: {
+        type: "value",
+        name: "Count",
+        nameTextStyle: { color: theme.textPrimary, fontWeight: 600 },
+        axisLabel: { color: theme.textPrimary },
+        splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
+      },
       series: [
         {
           type: "bar",
@@ -194,7 +206,7 @@ export function StatsPanel({
       chart.dispose();
       echartsRef.current = null;
     };
-  }, [histogram, propertyKey, handleBrush]);
+  }, [histogram, propertyKey, handleBrush, theme]);
 
   return (
     <div

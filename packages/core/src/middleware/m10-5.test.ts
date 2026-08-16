@@ -7,12 +7,16 @@ import {
   composeMiddleware,
   bearerAuth,
   apiKeyHeader,
-  retryOnError,
-  requestLogger,
   type AdapterRequest,
   type AdapterResponse,
   type Middleware,
 } from "../middleware";
+// retryOnError and requestLogger were withdrawn from the barrel on
+// 2026-08-15 (undocumented, unused). Per the archive convention the
+// modules and their tests STAY IN THE TREE AND KEEP RUNNING, so this
+// imports them relatively rather than through the public entry. That is
+// what stops withdrawn code rotting silently.
+import { retryOnError, requestLogger } from "./middleware";
 import { RestAdapter } from "../adapter/rest-adapter";
 import { G3tEventBus } from "../event-bus";
 
@@ -300,6 +304,14 @@ describe("RestAdapter", () => {
 });
 
 // ── Event Bus (M10.5.E3.T2) ────────────────────────────────────────
+//
+// These exercise bus MECHANICS (subscribe, once, unsubscribe, off,
+// listener counting, handler-error isolation), not any particular
+// event. They were written against node:selected, theme:changed and
+// selection:cleared, three of the thirteen types removed 2026-08-15
+// for having no emitter anywhere in the tree; they are retargeted onto
+// surviving context intents rather than deleted, because the mechanics
+// are worth a test and the event name is incidental to all of them.
 
 describe("G3tEventBus", () => {
   let bus: G3tEventBus;
@@ -310,53 +322,53 @@ describe("G3tEventBus", () => {
 
   it("emits and receives events", () => {
     const handler = vi.fn();
-    bus.on("node:selected", handler);
-    bus.emit("node:selected", { nodeIds: ["n1", "n2"] });
+    bus.on("context:viewSubgraph", handler);
+    bus.emit("context:viewSubgraph", { nodeIds: ["n1", "n2"] });
     expect(handler).toHaveBeenCalledWith({ nodeIds: ["n1", "n2"] });
   });
 
   it("supports multiple handlers for same event", () => {
     const h1 = vi.fn();
     const h2 = vi.fn();
-    bus.on("theme:changed", h1);
-    bus.on("theme:changed", h2);
-    bus.emit("theme:changed", { themeId: "dark" });
+    bus.on("context:inspect", h1);
+    bus.on("context:inspect", h2);
+    bus.emit("context:inspect", { nodeId: "n1" });
     expect(h1).toHaveBeenCalledOnce();
     expect(h2).toHaveBeenCalledOnce();
   });
 
   it("unsubscribes via returned function", () => {
     const handler = vi.fn();
-    const unsub = bus.on("node:selected", handler);
-    bus.emit("node:selected", { nodeIds: ["n1"] });
+    const unsub = bus.on("context:viewSubgraph", handler);
+    bus.emit("context:viewSubgraph", { nodeIds: ["n1"] });
     expect(handler).toHaveBeenCalledOnce();
 
     unsub();
-    bus.emit("node:selected", { nodeIds: ["n2"] });
+    bus.emit("context:viewSubgraph", { nodeIds: ["n2"] });
     expect(handler).toHaveBeenCalledOnce(); // not called again
   });
 
   it("once fires handler exactly once", () => {
     const handler = vi.fn();
-    bus.once("selection:cleared", handler);
-    bus.emit("selection:cleared", {});
-    bus.emit("selection:cleared", {});
+    bus.once("context:pinNodes", handler);
+    bus.emit("context:pinNodes", { nodeIds: [] });
+    bus.emit("context:pinNodes", { nodeIds: [] });
     expect(handler).toHaveBeenCalledOnce();
   });
 
   it("off removes all handlers for an event", () => {
     const h1 = vi.fn();
     const h2 = vi.fn();
-    bus.on("theme:changed", h1);
-    bus.on("theme:changed", h2);
-    bus.off("theme:changed");
-    bus.emit("theme:changed", { themeId: "light" });
+    bus.on("context:inspect", h1);
+    bus.on("context:inspect", h2);
+    bus.off("context:inspect");
+    bus.emit("context:inspect", { nodeId: "n2" });
     expect(h1).not.toHaveBeenCalled();
   });
 
   it("off() with no args clears everything", () => {
-    bus.on("node:selected", vi.fn());
-    bus.on("theme:changed", vi.fn());
+    bus.on("context:viewSubgraph", vi.fn());
+    bus.on("context:inspect", vi.fn());
     expect(bus.listenerCount).toBe(2);
     bus.off();
     expect(bus.listenerCount).toBe(0);
@@ -371,9 +383,9 @@ describe("G3tEventBus", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    bus.on("node:selected", h1);
-    bus.on("node:selected", h2);
-    bus.emit("node:selected", { nodeIds: ["n1"] });
+    bus.on("context:viewSubgraph", h1);
+    bus.on("context:viewSubgraph", h2);
+    bus.emit("context:viewSubgraph", { nodeIds: ["n1"] });
 
     expect(h2).toHaveBeenCalledOnce(); // h2 still fires despite h1 error
     consoleError.mockRestore();
@@ -381,8 +393,8 @@ describe("G3tEventBus", () => {
 
   it("listenerCount tracks active subscriptions", () => {
     expect(bus.listenerCount).toBe(0);
-    const unsub1 = bus.on("node:selected", vi.fn());
-    const unsub2 = bus.on("theme:changed", vi.fn());
+    const unsub1 = bus.on("context:viewSubgraph", vi.fn());
+    const unsub2 = bus.on("context:inspect", vi.fn());
     expect(bus.listenerCount).toBe(2);
     unsub1();
     expect(bus.listenerCount).toBe(1);
@@ -392,6 +404,6 @@ describe("G3tEventBus", () => {
 
   it("emitting unsubscribed event is a no-op", () => {
     // Should not throw
-    bus.emit("selection:cleared", {});
+    bus.emit("context:pinNodes", { nodeIds: [] });
   });
 });

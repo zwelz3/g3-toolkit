@@ -17,7 +17,7 @@ import { UGM } from "@g3t/core";
 import { diffGraphs, computeSchemaHash } from "@g3t/core";
 import { SchemaView } from "./SchemaView";
 import { DiffRenderer } from "./DiffRenderer";
-import type { ShaclShape } from "./SchemaView";
+import type { SchemaViewShape } from "./SchemaView";
 
 // ── E2.T1: Schema view ──────────────────────────────────────────────
 
@@ -69,7 +69,7 @@ describe("SchemaView (M6.E2.T1)", () => {
 
 describe("SchemaView SHACL overlay (M6.E2.T2)", () => {
   it("displays SHACL badges on target classes", () => {
-    const shapes: ShaclShape[] = [
+    const shapes: SchemaViewShape[] = [
       {
         id: "s1",
         targetClass: "Person",

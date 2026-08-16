@@ -19,6 +19,12 @@ import { EmptyState } from "../../interaction/feedback";
 export interface TreeViewProps {
   /** Row density (B3): "comfortable" (default) or "compact". */
   density?: "comfortable" | "compact";
+  /** Upstream P3 (prm-analyzer, 2026-07-28): render the breadcrumb
+   *  trail. Default true. */
+  showBreadcrumb?: boolean;
+  /** Upstream round-6 P3: observe row selection (tree-to-canvas
+   *  sync for hosts outside the selection store). */
+  onSelect?: (id: string) => void;
   ugm: UGM;
   /** Root node ID for the tree. If omitted, auto-detects. */
   rootId?: string;
@@ -39,6 +45,8 @@ interface TreeNode {
 }
 
 export function TreeView({
+  showBreadcrumb = true,
+  onSelect,
   density = "comfortable",
   ugm,
   rootId,
@@ -148,8 +156,9 @@ export function TreeView({
   const navigateTo = useCallback(
     (nodeId: string) => {
       selectNodes([nodeId]);
+      onSelect?.(nodeId);
     },
-    [selectNodes],
+    [selectNodes, onSelect],
   );
 
   if (!tree) {
@@ -170,7 +179,7 @@ export function TreeView({
       style={{ fontSize: 13, overflow: "auto" }}
     >
       {/* Breadcrumb */}
-      {breadcrumb.length > 0 && (
+      {showBreadcrumb && breadcrumb.length > 0 && (
         <div
           data-testid="tree-breadcrumb"
           style={{
@@ -218,7 +227,10 @@ export function TreeView({
 
 interface TreeNodeRowProps {
   node: TreeNode;
-  selectedNodeIds: Set<string>;
+  // ReadonlySet: this row only calls .has(). Declaring the mutable
+  // type here was what made SelectionState's narrowing surface as an
+  // error, which is the narrowing doing its job.
+  selectedNodeIds: ReadonlySet<string>;
   onSelect: (ids: string[]) => void;
   onToggle: (nodeId: string) => void;
   onNavigate: (nodeId: string) => void;

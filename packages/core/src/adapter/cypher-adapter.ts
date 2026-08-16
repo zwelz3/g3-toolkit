@@ -14,10 +14,12 @@ import type { PropertyMap } from "../ugm";
 import type { GraphAdapter, SchemaModel } from "./types";
 import {
   composeMiddleware,
-  defaultFetch,
+  createDefaultFetch,
   type Middleware,
   type AdapterRequest,
 } from "../middleware/middleware";
+import { assertPlainIdentifier, coerceDepth } from "./query-safety";
+import { assertOk } from "./adapter-error";
 
 /** Neo4j HTTP API response format. */
 interface Neo4jResult {
@@ -60,18 +62,23 @@ export class CypherAdapter implements GraphAdapter {
     endpointUrl: string,
     fetchFn?: typeof fetch,
     auth?: { username: string; password: string },
-    options?: { middleware?: Middleware[] },
+    options?: { middleware?: Middleware[]; timeoutMs?: number },
   ) {
     this.endpointUrl = endpointUrl;
     this.auth = auth;
+    const base = createDefaultFetch({ timeoutMs: options?.timeoutMs });
     if (options?.middleware) {
-      this.fetchImpl = composeMiddleware(options.middleware, defaultFetch);
+      this.fetchImpl = composeMiddleware(options.middleware, base);
     } else if (fetchFn) {
+      // `timeoutMs` does NOT apply on this path: the caller supplied
+      // the transport, so the timeout is theirs. The signal is
+      // forwarded so cancellation still works if their fetch honors it.
       this.fetchImpl = async (req) => {
         const res = await fetchFn(req.url, {
           method: req.method,
           headers: req.headers,
           body: req.body,
+          signal: req.signal,
         });
         let body = "";
         if (typeof res.text === "function") {
@@ -87,7 +94,7 @@ export class CypherAdapter implements GraphAdapter {
         };
       };
     } else {
-      this.fetchImpl = defaultFetch;
+      this.fetchImpl = base;
     }
   }
 
@@ -101,13 +108,20 @@ export class CypherAdapter implements GraphAdapter {
     depth: number,
     edgeTypes?: string[],
   ): Promise<UGM> {
-    const typeFilter = edgeTypes ? `:${edgeTypes.join("|")}` : "";
+    // Relationship types and the depth bound are Cypher SYNTAX, not
+    // terms, so neither can be parameterized. Both are validated
+    // before interpolation; only `nodeId` is bound.
+    const typeFilter =
+      edgeTypes && edgeTypes.length > 0
+        ? `:${edgeTypes.map((t) => assertPlainIdentifier(t, "edgeTypes")).join("|")}`
+        : "";
     const cypher = `
-      MATCH path = (n)-[r${typeFilter}*1..${depth}]-(m)
+      MATCH path = (n)-[r${typeFilter}*1..${coerceDepth(depth)}]-(m)
       WHERE n.id = $nodeId OR id(n) = toInteger($nodeId)
       RETURN path
     `;
-    return this.query(cypher);
+    const result = await this.executeCypher(cypher, { nodeId });
+    return this.resultToUGM(result);
   }
 
   async getSchema(): Promise<SchemaModel> {
@@ -133,10 +147,10 @@ export class CypherAdapter implements GraphAdapter {
 
   async getNodeProperties(nodeId: string): Promise<PropertyMap> {
     const cypher = `
-      MATCH (n) WHERE n.id = "${nodeId}" OR id(n) = toInteger("${nodeId}")
+      MATCH (n) WHERE n.id = $nodeId OR id(n) = toInteger($nodeId)
       RETURN properties(n) AS props
     `;
-    const result = await this.executeCypher(cypher);
+    const result = await this.executeCypher(cypher, { nodeId });
     const row = result.results[0]?.data[0]?.row[0];
     if (row && typeof row === "object") {
       return row as PropertyMap;
@@ -144,7 +158,17 @@ export class CypherAdapter implements GraphAdapter {
     return {};
   }
 
-  private async executeCypher(cypher: string): Promise<Neo4jResult> {
+  /**
+   * POST one statement to the transaction endpoint.
+   *
+   * `parameters` is sent whenever the statement declares any, which is
+   * what makes the `$nodeId` placeholders real: without it Neo4j
+   * answers `Expected parameter(s): nodeId` and the query never runs.
+   */
+  private async executeCypher(
+    cypher: string,
+    parameters?: Record<string, unknown>,
+  ): Promise<Neo4jResult> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -163,19 +187,27 @@ export class CypherAdapter implements GraphAdapter {
         statements: [
           {
             statement: cypher,
+            ...(parameters ? { parameters } : {}),
             resultDataContents: ["row", "graph"],
           },
         ],
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`Cypher query failed: ${response.status}`);
-    }
+    assertOk("Cypher", this.endpointUrl, response);
 
     const data = JSON.parse(response.body) as Neo4jResult;
     if (data.errors.length > 0) {
-      throw new Error(`Cypher error: ${data.errors[0]?.message}`);
+      // Neo4j answers a rejected statement with HTTP 200 and an errors
+      // array, so this is not an `assertOk` case. Report every error
+      // with its code: the code is the machine-readable half
+      // (`Neo.ClientError.Statement.SyntaxError` distinguishes a bad
+      // query from `Neo.ClientError.Security.Unauthorized`), and only
+      // the first message was surfaced before.
+      const detail = data.errors
+        .map((e) => `${e.code}: ${e.message}`)
+        .join("; ");
+      throw new Error(`Cypher error: ${detail}`);
     }
 
     return data;

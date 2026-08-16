@@ -1,55 +1,55 @@
 {
   "name": "@g3t/react",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0",
   "description": "React components for graph visualization: canvas, table, tree, map, schema, charts. Pairs with @g3t/core.",
   "type": "module",
-  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.mjs"
     },
     "./views": {
       "types": "./dist/views/index.d.ts",
-      "import": "./dist/views.mjs",
-      "require": "./dist/views.cjs"
+      "import": "./dist/views.mjs"
     },
     "./controls": {
       "types": "./dist/interaction/index.d.ts",
-      "import": "./dist/controls.mjs",
-      "require": "./dist/controls.cjs"
+      "import": "./dist/controls.mjs"
     },
     "./state": {
       "types": "./dist/state/index.d.ts",
-      "import": "./dist/state.mjs",
-      "require": "./dist/state.cjs"
+      "import": "./dist/state.mjs"
     },
     "./theme": {
       "types": "./dist/theme/index.d.ts",
-      "import": "./dist/theme.mjs",
-      "require": "./dist/theme.cjs"
+      "import": "./dist/theme.mjs"
     },
     "./a11y": {
       "types": "./dist/a11y/index.d.ts",
-      "import": "./dist/a11y.mjs",
-      "require": "./dist/a11y.cjs"
+      "import": "./dist/a11y.mjs"
     },
     "./icons": {
       "types": "./dist/icons/index.d.ts",
-      "import": "./dist/icons.mjs",
-      "require": "./dist/icons.cjs"
+      "import": "./dist/icons.mjs"
     },
-    "./style.css": "./dist/style.css",
+    "./timeline": {
+      "types": "./dist/views/timeline/index.d.ts",
+      "import": "./dist/timeline.mjs"
+    },
+    "./style.css": {
+      "types": "./style.css.d.ts",
+      "default": "./dist/style.css"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "README.md",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "style.css.d.ts"
   ],
   "keywords": [
     "graph",
@@ -71,6 +71,7 @@
   "homepage": "https://github.com/zwelz3/g3-toolkit/tree/main/packages/react#readme",
   "scripts": {
     "build": "vite build",
+    "prepack": "node ../../scripts/check-dist-fresh.mjs",
     "test": "pnpm -w exec vitest run packages/react/src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "tsc --build --clean && rm -rf dist"
@@ -99,7 +100,7 @@
     }
   },
   "sideEffects": [
-    "*.css"
+    "**/*.css"
   ],
   "devDependencies": {
     "vitest": "^4.1.7",

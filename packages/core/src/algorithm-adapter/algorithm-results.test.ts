@@ -13,6 +13,11 @@ import {
   degreeCentrality,
 } from "./algorithm-results";
 import { ingestAlgorithmResults } from "./algorithm-adapter";
+import {
+  DocumentParseError,
+  MalformedDocumentError,
+  UnsupportedVersionError,
+} from "../model/document-errors";
 
 function graph(): { ugm: UGM; e1: string; e2: string } {
   const ugm = new UGM();
@@ -37,13 +42,41 @@ describe("interchange contract v1", () => {
       }),
     );
     expect(doc.kind).toBe("nodeProperties");
-    expect(() => parseAlgorithmResult('{"version": 2}')).toThrow(/version 2/);
+
+    // Assert the TYPE, not the message. These used to be bare `Error`s
+    // distinguishable only by string-matching, which is what the shared
+    // hierarchy replaces; the messages are still checked, but a
+    // rewording is no longer a test failure on its own.
+    expect(() => parseAlgorithmResult('{"version": 2}')).toThrow(
+      UnsupportedVersionError,
+    );
     expect(() =>
       parseAlgorithmResult('{"version": 1, "kind": "magic"}'),
-    ).toThrow(/Unknown result kind/);
+    ).toThrow(MalformedDocumentError);
     expect(() =>
       parseAlgorithmResult('{"version": 1, "kind": "overlay"}'),
     ).toThrow(/overlay.id/);
+
+    // One handler catches every failure of this parser.
+    for (const bad of [
+      "not json at all",
+      "null",
+      "[1,2]",
+      '{"version": 2}',
+      '{"version": 1, "kind": "magic"}',
+      '{"version": 1, "kind": "nodeProperties"}',
+    ]) {
+      const err = (() => {
+        try {
+          parseAlgorithmResult(bad);
+        } catch (e) {
+          return e;
+        }
+        return undefined;
+      })();
+      expect(err, bad).toBeInstanceOf(DocumentParseError);
+      expect((err as DocumentParseError).documentKind).toBe("algorithm-result");
+    }
   });
 
   it("applies node and edge property documents into the UGM", () => {

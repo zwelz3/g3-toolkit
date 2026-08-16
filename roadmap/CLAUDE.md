@@ -21,7 +21,7 @@ roadmap/
 │   ├── data-layer.md                  federation, algorithm plugin protocol
 │   ├── holonic-backend.md             backend-connected HolonicAdapter, layers
 │   ├── security-model.md              redaction, RBAC, audit (M10 core)
-│   └── release-engineering.md         typed CJS, e2e baselines, doc generation
+│   └── release-engineering.md         e2e baselines, doc generation (typed CJS closed: ESM only)
 ├── design/                            ← decisions that gate engineering
 │   ├── design-system.md               tokens, icons, motion, selection signature
 │   ├── demonstration-surface.md       Storybook/demos/docs as adopter eval path (owns nothing)

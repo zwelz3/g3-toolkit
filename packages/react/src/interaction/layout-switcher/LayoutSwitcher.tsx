@@ -79,6 +79,11 @@ export function LayoutSwitcher({
         <button
           key={engine.id}
           data-testid={`layout-btn-${engine.id}`}
+          // The active engine was conveyed by background color alone,
+          // which no assistive technology reads and no test can assert
+          // without pinning a hex value. These are toggle buttons, so
+          // aria-pressed is the right carrier for the state.
+          aria-pressed={engine.id === activeId}
           onClick={() => onSwitch(engine.id)}
           style={{
             padding: "2px 8px",

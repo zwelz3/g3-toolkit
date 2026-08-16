@@ -56,18 +56,62 @@ export function g3tLayoutStructural(
 
   // Top-level boxes: plain children carry explicit sizes; containers
   // derive theirs from the shared row width and the stacked heights.
+  // Owner directive 2026-07-28 (#2, part a): sides must be LONG
+  // ENOUGH for their attachments. Ports are declared, so per-side
+  // port demand is exact: E/W ports need HEIGHT, N/S ports need
+  // WIDTH (port 12 + gap 8, with 12 margin at both ends). Box-edge
+  // fans get a degree floor on the cross extent (the side split is
+  // decided at routing time; the floor covers the common case of
+  // attachments concentrating on the flow-facing sides).
+  const PORT_PITCH = 20;
+  const EDGE_PITCH = 20;
+  const SIDE_MARGIN = 24;
+  const degree = new Map<string, number>();
+  for (const e of input.edges) {
+    if (e.source === e.target) continue;
+    degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+    degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+  }
+  const sideDemand = (id: string): { minWidth: number; minHeight: number } => {
+    const ports = inputById.get(id)?.ports ?? [];
+    const count = (pred: (side: string | undefined) => boolean): number =>
+      ports.filter((pt) => pred(pt.side)).length;
+    const ew = Math.max(
+      count((sd) => sd === "EAST"),
+      count((sd) => sd === "WEST"),
+    );
+    const ns = Math.max(
+      count((sd) => sd === "NORTH"),
+      count((sd) => sd === "SOUTH"),
+    );
+    // Box edges: assume up to ceil(degree/2) can land on one side.
+    const fan = Math.ceil((degree.get(id) ?? 0) / 2);
+    return {
+      minWidth: ns > 0 ? ns * PORT_PITCH + SIDE_MARGIN : 0,
+      minHeight:
+        Math.max(ew, fan) > 0
+          ? Math.max(ew * PORT_PITCH, fan * EDGE_PITCH) + SIDE_MARGIN
+          : 0,
+    };
+  };
   const boxes = (graph.children ?? []).map((child) => {
+    const demand = sideDemand(child.id);
     const rows = child.children ?? [];
     if (rows.length === 0) {
       return {
         id: child.id,
-        width: child.width ?? 100,
-        height: child.height ?? 44,
+        width: Math.max(child.width ?? 100, demand.minWidth),
+        height: Math.max(child.height ?? 44, demand.minHeight),
       };
     }
-    const width = Math.max(...rows.map((r) => r.width ?? 0));
-    const height =
-      headerHeight + rows.reduce((sum, r) => sum + (r.height ?? 0), 0);
+    const width = Math.max(
+      Math.max(...rows.map((r) => r.width ?? 0)),
+      demand.minWidth,
+    );
+    const height = Math.max(
+      headerHeight + rows.reduce((sum, r) => sum + (r.height ?? 0), 0),
+      demand.minHeight,
+    );
     return { id: child.id, width, height };
   });
   const edges = input.edges
@@ -199,16 +243,19 @@ export function g3tLayoutStructural(
           const size = p.size ?? 12;
           const frac = (i + 1) / (list.length + 1);
           const horizontal = side === "EAST" || side === "WEST";
+          // LR-19 (owner review 2026-07-22): ports MOUNT on the
+          // border and sit FULLY OUTSIDE the container (the old
+          // center-on-border placement straddled it half-in).
           const px = horizontal
             ? side === "EAST"
-              ? ox + w - size / 2
-              : ox - size / 2
+              ? ox + w
+              : ox - size
             : ox + frac * w - size / 2;
           const py = horizontal
             ? oy + frac * h - size / 2
             : side === "SOUTH"
-              ? oy + h - size / 2
-              : oy - size / 2;
+              ? oy + h
+              : oy - size;
           ports[p.id] = {
             node: id,
             side: side as "NORTH" | "SOUTH" | "EAST" | "WEST",
@@ -248,6 +295,11 @@ export function g3tLayoutStructural(
     geometry.edges = routeStructuralEdges(input, geometry, {
       routingBudgetMs: options?.routingBudgetMs,
       direction: options?.direction,
+      // R-6 (upstream register, 2026-08-03): anchor was added for
+      // R-4 but never forwarded here, so the option was unreachable
+      // from the single call most consumers make and they had to
+      // re-route over geometry the layout had just produced.
+      anchor: options?.anchor,
     });
   }
   return geometry;

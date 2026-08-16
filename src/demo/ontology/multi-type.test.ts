@@ -59,7 +59,9 @@ describe("MULTI_TYPE_PIE_RULES", () => {
     expect(MULTI_TYPE_PIE_RULES).toHaveLength(MAX_SLICES);
     MULTI_TYPE_PIE_RULES.forEach((rule, i) => {
       expect(rule.selector).toBe(`node[_pie${i + 1}Color]`);
-      expect(rule.style[`pie-${i + 1}-background-color`]).toBe(
+      const style = (rule as unknown as { style: Record<string, unknown> })
+        .style;
+      expect(style[`pie-${i + 1}-background-color`]).toBe(
         `data(_pie${i + 1}Color)`,
       );
     });

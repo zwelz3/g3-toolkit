@@ -638,3 +638,28 @@ describe("multi-select drag (review 4.8)", () => {
     })) as never);
   });
 });
+
+describe("LR-37: icon overrides travel as _icon data, never a flat bypass", () => {
+  it("splitIconFromOverrideStyle moves the icon out of the style and strips its companions", async () => {
+    const { splitIconFromOverrideStyle } = await import("./CytoscapeCanvas");
+    const { style, iconUri } = splitIconFromOverrideStyle({
+      "background-image": "data:image/svg+xml;utf8,x",
+      "background-fit": "contain",
+      "background-clip": "none",
+      "border-color": "#123456",
+    });
+    expect(iconUri).toBe("data:image/svg+xml;utf8,x");
+    expect(style["background-image"]).toBeUndefined();
+    expect(style["background-fit"]).toBeUndefined();
+    expect(style["background-clip"]).toBeUndefined();
+    // Non-icon props survive untouched.
+    expect(style["border-color"]).toBe("#123456");
+  });
+
+  it("styles without an icon pass through unchanged", async () => {
+    const { splitIconFromOverrideStyle } = await import("./CytoscapeCanvas");
+    const { style, iconUri } = splitIconFromOverrideStyle({ shape: "hexagon" });
+    expect(iconUri).toBeUndefined();
+    expect(style.shape).toBe("hexagon");
+  });
+});

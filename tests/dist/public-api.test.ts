@@ -18,7 +18,7 @@
  * under the default test include (see vitest.dist.config.ts).
  */
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -60,6 +60,40 @@ describe("exports-map targets exist on disk", () => {
         }
       }
       expect(missing).toEqual([]);
+    });
+  }
+});
+
+describe("the published format is ESM only", () => {
+  // Guards the 2026-08-16 ruling. Re-adding a `require` condition or a
+  // cjs build format reinstates the dual-package hazard: the library's
+  // integration channel is exported zustand store SINGLETONS, and a
+  // consumer reaching a package through both `import` and `require`
+  // gets two module instances, so the canvas subscribes to one store
+  // while the table writes to the other and selection stops working
+  // with nothing in a stack trace. That is not fixable from inside the
+  // library while both formats ship, so it is fixed here.
+  for (const pkg of PACKAGES) {
+    it(`@g3t/${pkg}: no require condition, no main, no .cjs on disk`, () => {
+      const { dir, exports } = readManifest(pkg);
+      const manifest = JSON.parse(
+        readFileSync(resolve(dir, "package.json"), "utf8"),
+      ) as { main?: string };
+
+      const withRequire = Object.entries(exports)
+        .filter(
+          ([, entry]) => typeof entry !== "string" && entry.require !== undefined,
+        )
+        .map(([subpath]) => subpath);
+      expect(withRequire).toEqual([]);
+
+      // `main` is the CJS entry field; it pointed at dist/index.cjs.
+      expect(manifest.main).toBeUndefined();
+
+      const cjs = readdirSync(resolve(dir, "dist"), {
+        recursive: true,
+      }).filter((f) => typeof f === "string" && f.endsWith(".cjs"));
+      expect(cjs).toEqual([]);
     });
   }
 });

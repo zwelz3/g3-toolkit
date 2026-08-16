@@ -34,7 +34,14 @@ export interface LinkedChartProps<TData, TSelection> {
   ugm: UGM;
   pipeline: DataPipeline<TData, TSelection>;
   type: ChartType;
-  height?: number;
+  /** Pixel height, or a CSS length ("100%" fills the host: G3
+   *  owner 2026-07-28, the charts were fixed 320 inside
+   *  flex-sized panes). */
+  height?: number | string;
+  /** LR-33 (owner review 2026-07-22): axis names for both chart
+   *  kinds; omitted axes render unnamed as before. */
+  xLabel?: string;
+  yLabel?: string;
   className?: string;
 }
 
@@ -43,6 +50,8 @@ export function LinkedChart<TData, TSelection>({
   pipeline,
   type,
   height = 300,
+  xLabel,
+  yLabel,
   className,
 }: LinkedChartProps<TData, TSelection>) {
   const { selectNodes } = useSelectionStore();
@@ -54,7 +63,7 @@ export function LinkedChart<TData, TSelection>({
 
   // Generate ECharts options based on chart type
   const options = useMemo(() => {
-    const built = buildOptions(type, data, theme);
+    const built = buildOptions(type, data, theme, xLabel, yLabel);
     // 12.18: echarts animates by default; the graph views honor the
     // OS reduced-motion preference and the charts must too. Checked
     // per build (cheap) so a live preference change takes effect on
@@ -64,7 +73,7 @@ export function LinkedChart<TData, TSelection>({
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     return reduced ? { ...built, animation: false } : built;
-  }, [type, data, theme]);
+  }, [type, data, theme, xLabel, yLabel]);
 
   // Handle chart click events
   const handleClick = useCallback(
@@ -158,6 +167,7 @@ export function LinkedChart<TData, TSelection>({
 // default, which is why the axes did not follow dark mode).
 interface ChartTheme {
   typePalette: string[];
+  textPrimary: string;
   textSecondary: string;
   border: string;
 }
@@ -166,14 +176,16 @@ function buildOptions(
   type: ChartType,
   data: unknown,
   theme: ChartTheme,
+  xLabel?: string,
+  yLabel?: string,
 ): EChartsOption {
   switch (type) {
     case "bar":
-      return buildBarOptions(data as CategoricalData, theme);
+      return buildBarOptions(data as CategoricalData, theme, xLabel, yLabel);
     case "scatter":
-      return buildScatterOptions(data as ScatterData, theme);
+      return buildScatterOptions(data as ScatterData, theme, xLabel, yLabel);
     case "line":
-      return buildLineOptions(data as TimeSeriesData, theme);
+      return buildLineOptions(data as TimeSeriesData, theme, yLabel);
     case "pie":
       return buildPieOptions(data as CategoricalData, theme);
     case "parallel":
@@ -188,19 +200,41 @@ function buildOptions(
 function buildBarOptions(
   data: CategoricalData,
   theme: ChartTheme,
+  xLabel?: string,
+  yLabel?: string,
 ): EChartsOption {
   return {
     tooltip: { trigger: "axis" },
     xAxis: {
       type: "category",
+      name: xLabel,
+      nameLocation: "middle",
+      nameGap: 22,
+      // VR-17 (owner re-verify 2026-07-28): echarts default axis-name
+      // style is muted and illegible; name in PRIMARY ink, heavier.
+      nameTextStyle: {
+        color: theme.textPrimary,
+        fontSize: 12,
+        fontWeight: 600,
+      },
       data: data.categories.map((c) => c.label),
-      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLabel: { fontSize: 11, color: theme.textPrimary },
       axisLine: { lineStyle: { color: theme.border } },
       axisTick: { lineStyle: { color: theme.border } },
     },
     yAxis: {
       type: "value",
-      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      name: yLabel,
+      nameLocation: "middle",
+      nameGap: 30,
+      // VR-17 (owner re-verify 2026-07-28): echarts default axis-name
+      // style is muted and illegible; name in PRIMARY ink, heavier.
+      nameTextStyle: {
+        color: theme.textPrimary,
+        fontSize: 12,
+        fontWeight: 600,
+      },
+      axisLabel: { fontSize: 11, color: theme.textPrimary },
       axisLine: { lineStyle: { color: theme.border } },
       splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
     },
@@ -223,6 +257,8 @@ function buildBarOptions(
 function buildScatterOptions(
   data: ScatterData,
   theme: ChartTheme,
+  xLabel?: string,
+  yLabel?: string,
 ): EChartsOption {
   const palette = theme.typePalette;
   const series: EChartsOption["series"] = [
@@ -257,15 +293,35 @@ function buildScatterOptions(
     tooltip: { trigger: "item" },
     xAxis: {
       type: "value",
+      name: xLabel,
+      nameLocation: "middle",
+      nameGap: 22,
+      // VR-17 (owner re-verify 2026-07-28): echarts default axis-name
+      // style is muted and illegible; name in PRIMARY ink, heavier.
+      nameTextStyle: {
+        color: theme.textPrimary,
+        fontSize: 12,
+        fontWeight: 600,
+      },
       scale: true,
-      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLabel: { fontSize: 11, color: theme.textPrimary },
       axisLine: { lineStyle: { color: theme.border } },
       splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
     },
     yAxis: {
       type: "value",
+      name: yLabel,
+      nameLocation: "middle",
+      nameGap: 30,
+      // VR-17 (owner re-verify 2026-07-28): echarts default axis-name
+      // style is muted and illegible; name in PRIMARY ink, heavier.
+      nameTextStyle: {
+        color: theme.textPrimary,
+        fontSize: 12,
+        fontWeight: 600,
+      },
       scale: true,
-      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLabel: { fontSize: 11, color: theme.textPrimary },
       axisLine: { lineStyle: { color: theme.border } },
       splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
     },
@@ -283,18 +339,29 @@ function buildScatterOptions(
 function buildLineOptions(
   data: TimeSeriesData,
   theme: ChartTheme,
+  yLabel?: string,
 ): EChartsOption {
   const palette = theme.typePalette;
   return {
     tooltip: { trigger: "axis" },
     xAxis: {
       type: "time",
-      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      axisLabel: { fontSize: 11, color: theme.textPrimary },
       axisLine: { lineStyle: { color: theme.border } },
     },
     yAxis: {
       type: "value",
-      axisLabel: { fontSize: 11, color: theme.textSecondary },
+      name: yLabel,
+      nameLocation: "middle",
+      nameGap: 30,
+      // VR-17 (owner re-verify 2026-07-28): echarts default axis-name
+      // style is muted and illegible; name in PRIMARY ink, heavier.
+      nameTextStyle: {
+        color: theme.textPrimary,
+        fontSize: 12,
+        fontWeight: 600,
+      },
+      axisLabel: { fontSize: 11, color: theme.textPrimary },
       axisLine: { lineStyle: { color: theme.border } },
       splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
     },

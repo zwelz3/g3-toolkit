@@ -37,8 +37,7 @@ export function registerToolkitActions(
   config: ToolkitActionConfig,
 ): void {
   const hops = config.defaultHops ?? 2;
-  const { selectNodes, selectEdges, addNodesToSelection } =
-    useSelectionStore.getState();
+  const { selectNodes, selectEdges } = useSelectionStore.getState();
 
   // ── Single-Node Actions ─────────────────────────────────────────
 
@@ -98,17 +97,8 @@ export function registerToolkitActions(
         config.onViewNeighbors?.(t.id, hops);
       },
     },
-    {
-      id: "expand-neighbors",
-      label: "Expand Neighbors",
-      icon: "⊕",
-      filter: (t) => t.type === "node",
-      action: (t) => {
-        if (!t.id) return;
-        const neighbors = config.ugm.getNeighbors(t.id);
-        addNodesToSelection(neighbors);
-      },
-    },
+    // LR-38 (owner review 2026-07-22): "Expand Neighbors" removed
+    // from the default menu; "View Neighbors" covers the intent.
     {
       id: "collapse-neighbors",
       label: "Collapse Neighbors",

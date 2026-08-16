@@ -66,7 +66,7 @@ function countTestFiles() {
   const out = {};
   for (const pkg of ["core", "react", "charts"]) {
     const pkgDir = join(ROOT, "packages", pkg, "src");
-    let count = 0;
+    let count;
     try {
       count = walk(
         pkgDir,

@@ -77,12 +77,13 @@ describe("conformance (derived signal)", () => {
 });
 
 describe("supply data layer + impact", () => {
-  it("builds a realistically-scaled network across four tiers", () => {
+  it("builds a realistically-scaled network across five tiers (LR-35)", () => {
     const g = buildSupplyNetwork();
     expect(g.getNodeIds().length).toBeGreaterThanOrEqual(25);
     const tiers = new Set(fetchSupplyNodes().map((n) => n.tier));
     expect([...tiers].sort()).toEqual([
       "Assembly",
+      "Channel",
       "Part",
       "Product",
       "Supplier",
@@ -106,9 +107,12 @@ describe("supply data layer + impact", () => {
     expect(impact).not.toContain("acme");
   });
 
-  it("reports an empty blast radius for an end product (leaf)", () => {
+  it("reports an empty blast radius for a channel (the true leaf after LR-35)", () => {
     const g = buildSupplyNetwork();
-    expect(downstreamImpact(g, "actuator")).toEqual([]);
+    // Products now feed channels, so a PRODUCT has downstream
+    // impact; the channel tier is the leaf.
+    expect(downstreamImpact(g, "prime")).toEqual([]);
+    expect(downstreamImpact(g, "actuator").length).toBeGreaterThan(0);
   });
 });
 

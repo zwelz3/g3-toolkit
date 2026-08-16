@@ -15,6 +15,8 @@ import { expect, test, type Page } from "@playwright/test";
 const EXAMPLES: { title: string; toolbar: boolean }[] = [
   { title: "Analytics Dashboard", toolbar: false },
   { title: "Scale", toolbar: true },
+  // Style Lab is DEV-ONLY for users (LR-8) but the e2e flag
+  // exposes it, so the smoke still checks its chunk in prod.
   { title: "Style Lab", toolbar: false },
   { title: "Ontology Workbench", toolbar: true },
   { title: "Provenance Auditor", toolbar: false },

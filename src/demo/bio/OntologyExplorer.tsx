@@ -1,3 +1,4 @@
+import { localName } from "./rdf";
 /**
  * A compact ontology explorer over the biomedical TBox: a class tree with
  * instance counts (clicking a class selects its instances in the graph), and
@@ -59,7 +60,9 @@ export function OntologyExplorer({
               <div className="bio-class-row" style={{ cursor: "default" }}>
                 <span
                   className="bio-class-dot"
-                  style={{ background: "#3a3352" }}
+                  /* VR-3: root classes take their encoding color too
+                     (they were hardcoded gray). */
+                  style={{ background: classColor(localName(root.iri)) }}
                 />
                 <span className="bio-class-name">{root.label}</span>
               </div>
@@ -73,7 +76,13 @@ export function OntologyExplorer({
                 >
                   <span
                     className="bio-class-dot"
-                    style={{ background: classColor(c.label) }}
+                    style={{
+                      /* LR-29: key by localName(iri): the color map is
+                         keyed on UGM type strings (local names), and a
+                         diverging rdfs:label sent every lookup to the
+                         gray fallback. */
+                      background: classColor(localName(c.iri)),
+                    }}
                   />
                   <span className="bio-class-name">{c.label}</span>
                   <span className="bio-class-count">{c.instances}</span>

@@ -57,6 +57,14 @@ describe("LayoutSwitcher (M2.E3.T1)", () => {
 
     const activeBtn = screen.getByTestId("layout-btn-hierarchy");
     expect(activeBtn.style.background).toMatch(/2563eb|37.*99.*235/);
+    // State must also be carried non-visually: color alone is
+    // invisible to assistive technology and to any assertion that
+    // does not pin the palette.
+    expect(activeBtn).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("layout-btn-force")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("calls onSwitch when a different engine is clicked", () => {

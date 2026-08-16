@@ -25,6 +25,7 @@
 
 import { UGM } from "../ugm";
 import type { PropertyMap } from "../ugm";
+import { AdapterArgumentError, coerceDepth } from "./query-safety";
 import type { GraphAdapter, SchemaModel } from "./types";
 
 /** A portal connecting two holons. */
@@ -88,8 +89,33 @@ export class HolonicAdapter implements GraphAdapter {
     return this.projectToLPG();
   }
 
-  async expandNeighborhood(holonId: string, _depth: number): Promise<UGM> {
-    // Expand by projecting the holon's interior
+  /**
+   * Project the holon's interior. DEPTH IS REJECTED ABOVE 1 rather
+   * than ignored.
+   *
+   * This adapter's expansion is a drill-down into one holon, so there
+   * is no hop count to honor. A multi-hop holarchy neighborhood would
+   * have to traverse portals and then link the interiors it collected,
+   * and the linkage lives in the boundary and projection graphs that
+   * the simplified `HolonicDataset` above deliberately does not carry
+   * (see the SCOPE note in this file's header, and R5.1). Unioning
+   * interiors without it would return disconnected components and call
+   * them a neighborhood.
+   *
+   * Silently discarding the argument was the prior behavior: a host
+   * wiring a "expand 2 hops" action got one hop and no signal. A throw
+   * puts the failure at the call site that supplied the value.
+   *
+   * @throws AdapterArgumentError when `depth` resolves above 1.
+   */
+  async expandNeighborhood(holonId: string, depth = 1): Promise<UGM> {
+    if (coerceDepth(depth) > 1) {
+      throw new AdapterArgumentError(
+        "depth",
+        `HolonicAdapter expands one holon's interior and cannot honor depth ${depth}; ` +
+          `pass 1, or traverse the holarchy with projectToLPG() and expand each holon`,
+      );
+    }
     const holon = this.dataset.holons.find((h) => h.id === holonId);
     if (!holon) return new UGM();
     return this.projectHolonInterior(holon);

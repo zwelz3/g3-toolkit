@@ -121,8 +121,17 @@ export function shaclShapesToStructural(
       target: targetShapeId,
       // The reference edge is the sh:node on this property; label it
       // with the path so the shape graph reads as "Person.worksFor
-      // -> OrgShape" rather than an unlabeled line.
-      label: path,
+      // -> OrgShape" rather than an unlabeled line. Owner 2026-07-28:
+      // the path is a full URI; show the LOCAL NAME (cut at the last
+      // of #, /, or dot, matching the port-label rule).
+      label: ((): string => {
+        const cut = Math.max(
+          path.lastIndexOf("#"),
+          path.lastIndexOf("/"),
+          path.lastIndexOf("."),
+        );
+        return cut >= 0 ? path.slice(cut + 1) : path;
+      })(),
     });
   }
 

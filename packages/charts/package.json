@@ -1,16 +1,14 @@
 {
   "name": "@g3t/charts",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0",
   "description": "Linked statistical charts (bar, scatter, line, pie) backed by ECharts. Consumes @g3t/core data pipelines and integrates with @g3t/react components.",
   "type": "module",
-  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -39,16 +37,17 @@
   "homepage": "https://github.com/zwelz3/g3-toolkit/tree/main/packages/charts#readme",
   "scripts": {
     "build": "vite build",
+    "prepack": "node ../../scripts/check-dist-fresh.mjs",
     "test": "pnpm -w exec vitest run packages/charts/src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "tsc --build --clean && rm -rf dist"
   },
   "dependencies": {
-    "@g3t/core": "workspace:*",
-    "@g3t/react": "workspace:*",
     "echarts-for-react": "^3.0.0"
   },
   "peerDependencies": {
+    "@g3t/core": "workspace:*",
+    "@g3t/react": "workspace:*",
     "react": ">=18.0.0",
     "echarts": ">=5.0.0"
   },

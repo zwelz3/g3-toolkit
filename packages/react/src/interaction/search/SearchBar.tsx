@@ -139,6 +139,7 @@ export function SearchBar({
           selectNodes([item.id]);
           onPick?.(item.id);
           setShowDropdown(false);
+          setQuery(""); // LR-36: a made selection clears the query
         }
       } else if (e.key === "Escape") {
         setShowDropdown(false);
@@ -153,6 +154,7 @@ export function SearchBar({
       selectNodes([id]);
       onPick?.(id);
       setShowDropdown(false);
+      setQuery(""); // LR-36: a made selection clears the query
     },
     [selectNodes, onPick],
   );

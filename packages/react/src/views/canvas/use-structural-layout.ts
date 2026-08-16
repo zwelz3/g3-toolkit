@@ -19,7 +19,8 @@
  * Pass `input: null` to idle (nothing laid out).
  *
  * ```tsx
- * const { structural } = useStructuralLayout(input, { direction: "DOWN" });
+ * const { structural, error } = useStructuralLayout(input, { direction: "DOWN" });
+ * if (error) return <p>Layout failed: {error.message}</p>;
  * <CytoscapeCanvas structural={structural ?? undefined} />
  * ```
  */
@@ -41,6 +42,15 @@ export interface StructuralLayoutResult {
     input: StructuralGraphInput;
     geometry: StructuralGeometry;
   } | null;
+  /** Why the layout of the CURRENT input failed, or null.
+   *
+   *  Without this a host cannot tell "still laying out" from
+   *  "permanently failed": both read as `structural === null`, so a
+   *  rejected layout spun a loading state forever and reported nothing
+   *  but a global unhandledrejection. Render the message instead. An
+   *  error from a PREVIOUS input is never returned, and a later
+   *  successful layout of the same input clears it. */
+  error: Error | null;
 }
 
 export function useStructuralLayout(
@@ -50,6 +60,12 @@ export function useStructuralLayout(
   const [laidOut, setLaidOut] = useState<{
     input: StructuralGraphInput;
     geometry: StructuralGeometry;
+  } | null>(null);
+  // Keyed by input for the same reason `laidOut` is: a failure belongs
+  // to the input that produced it, not to whatever is current now.
+  const [failure, setFailure] = useState<{
+    input: StructuralGraphInput;
+    error: Error;
   } | null>(null);
 
   // Content-keyed options so hosts can pass inline literals without
@@ -89,12 +105,25 @@ export function useStructuralLayout(
       ...(optionsRef.current ?? {}),
       ...(Object.keys(sketch).length > 0 ? { sketch } : {}),
     };
-    void layoutStructural(input, opts).then((geometry) => {
-      if (!cancelled) {
-        lastSceneRef.current = { input, geometry };
-        setLaidOut({ input, geometry });
-      }
-    });
+    // Two-argument `then`, not `.catch()`: a `.catch()` here would also
+    // swallow anything the success path throws, which belongs to React.
+    void layoutStructural(input, opts).then(
+      (geometry) => {
+        if (!cancelled) {
+          lastSceneRef.current = { input, geometry };
+          setLaidOut({ input, geometry });
+          setFailure(null);
+        }
+      },
+      (reason: unknown) => {
+        if (!cancelled) {
+          setFailure({
+            input,
+            error: reason instanceof Error ? reason : new Error(String(reason)),
+          });
+        }
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -111,5 +140,10 @@ export function useStructuralLayout(
     [laidOut, input],
   );
 
-  return { structural };
+  const error = useMemo(
+    () => (failure !== null && failure.input === input ? failure.error : null),
+    [failure, input],
+  );
+
+  return { structural, error };
 }

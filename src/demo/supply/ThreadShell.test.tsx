@@ -306,8 +306,10 @@ describe("supply redesign (reviews 5.6-5.9)", () => {
 
   it("default state is full strength; dimming is an explicit labeled control (5.7)", () => {
     render(<SupplyThreadShell onBack={() => {}} />);
+    // LR-27: the checkbox became a three-mode select (Off/Dim/Color);
+    // the 5.7 contract is unchanged: OFF by default, explicitly labeled.
     const box = screen.getByTestId("sc-dim-confidence");
-    expect((box as HTMLInputElement).checked).toBe(false);
+    expect((box as HTMLSelectElement).value).toBe("off");
     expect(screen.getByText(/merged procurement records/i)).toBeDefined();
   });
 

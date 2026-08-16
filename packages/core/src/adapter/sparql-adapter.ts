@@ -14,19 +14,71 @@ import type { PropertyMap } from "../ugm";
 import type { GraphAdapter, SchemaModel } from "./types";
 import {
   composeMiddleware,
-  defaultFetch,
+  createDefaultFetch,
   type Middleware,
   type AdapterRequest,
 } from "../middleware/middleware";
+import { assertSafeIri, coerceDepth } from "./query-safety";
+import { assertOk } from "./adapter-error";
+
+/**
+ * A single RDF term as it appears in a SPARQL 1.2 JSON results binding.
+ *
+ * `uri | literal | bnode` are the classic RDF 1.1 shapes with a string
+ * `value`. `triple` is an RDF 1.2 triple term (quoted triple): `value` is a
+ * nested subject/predicate/object triple whose components are themselves
+ * `RdfTerm`s (a triple may recursively contain further triples).
+ */
+export type RdfTerm =
+  | { type: "uri"; value: string }
+  | {
+      type: "literal";
+      value: string;
+      datatype?: string;
+      "xml:lang"?: string;
+    }
+  | { type: "bnode"; value: string }
+  | { type: "triple"; value: TripleTerm };
+
+/** RDF 1.2 triple term (quoted triple), nested SPARQL-JSON shape. */
+export interface TripleTerm {
+  subject: RdfTerm;
+  predicate: RdfTerm;
+  object: RdfTerm;
+}
 
 /** A single binding row from a SPARQL SELECT result. */
 interface SparqlBinding {
-  [variable: string]: {
-    type: "uri" | "literal" | "bnode";
-    value: string;
-    datatype?: string;
-    "xml:lang"?: string;
+  [variable: string]: RdfTerm;
+}
+
+/**
+ * Convert a triple term to a plain, JSON-serializable value suitable for
+ * storage as a UGM property. Nested triple terms recurse without loss —
+ * subject/predicate/object are preserved with their `type` tag.
+ */
+export function tripleTermToValue(t: TripleTerm): {
+  subject: unknown;
+  predicate: unknown;
+  object: unknown;
+} {
+  return {
+    subject: termToValue(t.subject),
+    predicate: termToValue(t.predicate),
+    object: termToValue(t.object),
   };
+}
+
+function termToValue(term: RdfTerm): unknown {
+  if (term.type === "triple") {
+    return { type: "triple", value: tripleTermToValue(term.value) };
+  }
+  const out: Record<string, unknown> = { type: term.type, value: term.value };
+  if (term.type === "literal") {
+    if (term.datatype !== undefined) out.datatype = term.datatype;
+    if (term["xml:lang"] !== undefined) out["xml:lang"] = term["xml:lang"];
+  }
+  return out;
 }
 
 /** SPARQL JSON result format. */
@@ -50,18 +102,24 @@ export class SparqlAdapter implements GraphAdapter {
   constructor(
     endpointUrl: string,
     fetchFn?: typeof fetch,
-    options?: { middleware?: Middleware[] },
+    options?: { middleware?: Middleware[]; timeoutMs?: number },
   ) {
     this.endpointUrl = endpointUrl;
+    const base = createDefaultFetch({ timeoutMs: options?.timeoutMs });
     if (options?.middleware) {
-      this.fetchImpl = composeMiddleware(options.middleware, defaultFetch);
+      this.fetchImpl = composeMiddleware(options.middleware, base);
     } else if (fetchFn) {
-      // Legacy: wrap the custom fetchFn in our AdapterRequest interface
+      // Legacy: wrap the custom fetchFn in our AdapterRequest
+      // interface. `timeoutMs` does NOT apply on this path: the caller
+      // supplied the transport, so the timeout is theirs to impose.
+      // The request's `signal` is forwarded so cancellation still
+      // works if their fetch honors it.
       this.fetchImpl = async (req) => {
         const res = await fetchFn(req.url, {
           method: req.method,
           headers: req.headers,
           body: req.body,
+          signal: req.signal,
         });
         let body = "";
         if (typeof res.text === "function") {
@@ -77,7 +135,7 @@ export class SparqlAdapter implements GraphAdapter {
         };
       };
     } else {
-      this.fetchImpl = defaultFetch;
+      this.fetchImpl = base;
     }
   }
 
@@ -91,18 +149,27 @@ export class SparqlAdapter implements GraphAdapter {
     depth: number,
     edgeTypes?: string[],
   ): Promise<UGM> {
-    const typeFilter = edgeTypes
-      ? `FILTER(?p IN (${edgeTypes.map((t) => `<${t}>`).join(", ")}))`
-      : "";
+    // SPARQL has no binding mechanism for a query sent as
+    // application/sparql-query, and these positions are syntax in any
+    // case: an IRI inside angle brackets and a property-path
+    // quantifier. Both are validated instead.
+    const safeId = assertSafeIri(nodeId, "nodeId");
+    const typeFilter =
+      edgeTypes && edgeTypes.length > 0
+        ? `FILTER(?p IN (${edgeTypes
+            .map((t) => `<${assertSafeIri(t, "edgeTypes")}>`)
+            .join(", ")}))`
+        : "";
 
     // Build a property path for N-hop traversal
-    const pathExpr = depth === 1 ? "?p" : `?p{1,${depth}}`;
+    const safeDepth = coerceDepth(depth);
+    const pathExpr = safeDepth === 1 ? "?p" : `?p{1,${safeDepth}}`;
     const sparql = `
       SELECT ?s ?p ?o WHERE {
-        <${nodeId}> (${pathExpr}) ?neighbor .
+        <${safeId}> (${pathExpr}) ?neighbor .
         ?s ?p ?o .
-        FILTER(?s = <${nodeId}> || ?s = ?neighbor)
-        FILTER(?o = <${nodeId}> || ?o = ?neighbor)
+        FILTER(?s = <${safeId}> || ?s = ?neighbor)
+        FILTER(?o = <${safeId}> || ?o = ?neighbor)
         ${typeFilter}
       }
     `;
@@ -117,7 +184,10 @@ export class SparqlAdapter implements GraphAdapter {
       } LIMIT 1000
     `;
     const result = await this.executeSparql(sparql);
-    const nodeTypes = result.results.bindings.map((b) => b.type?.value ?? "");
+    const nodeTypes = result.results.bindings.map((b) => {
+      const v = b.type?.value;
+      return typeof v === "string" ? v : "";
+    });
 
     return {
       nodeTypes,
@@ -130,17 +200,22 @@ export class SparqlAdapter implements GraphAdapter {
   async getNodeProperties(nodeId: string): Promise<PropertyMap> {
     const sparql = `
       SELECT ?p ?o WHERE {
-        <${nodeId}> ?p ?o .
+        <${assertSafeIri(nodeId, "nodeId")}> ?p ?o .
       }
     `;
     const result = await this.executeSparql(sparql);
     const props: PropertyMap = {};
     for (const binding of result.results.bindings) {
-      const key = binding.p?.value ?? "";
-      const val = binding.o?.value ?? "";
-      // Use the local name as the property key
+      const pTerm = binding.p;
+      const oTerm = binding.o;
+      if (!pTerm || pTerm.type === "triple") continue;
+      const key = pTerm.value;
       const localName = key.split(/[#/]/).pop() ?? key;
-      props[localName] = val;
+      if (oTerm?.type === "triple") {
+        props[localName] = tripleTermToValue(oTerm.value);
+      } else {
+        props[localName] = oTerm?.value ?? "";
+      }
     }
     return props;
   }
@@ -156,9 +231,7 @@ export class SparqlAdapter implements GraphAdapter {
       body: sparql,
     });
 
-    if (!response.ok) {
-      throw new Error(`SPARQL query failed: ${response.status}`);
-    }
+    assertOk("SPARQL", this.endpointUrl, response);
 
     return JSON.parse(response.body) as SparqlResult;
   }
@@ -168,10 +241,16 @@ export class SparqlAdapter implements GraphAdapter {
     const addedNodes = new Set<string>();
 
     for (const binding of bindings) {
-      const s = binding.s?.value;
-      const p = binding.p?.value;
-      const o = binding.o?.value;
-      if (!s || !p || !o) continue;
+      const sTerm = binding.s;
+      const pTerm = binding.p;
+      const oTerm = binding.o;
+      if (!sTerm || !pTerm || !oTerm) continue;
+      // Subject and predicate must be atomic (uri/bnode); a triple-typed
+      // subject would need its own reification handling — out of scope here.
+      if (sTerm.type === "triple" || pTerm.type === "triple") continue;
+      const s = sTerm.value;
+      const p = pTerm.value;
+      if (!s || !p) continue;
 
       // Add subject as node if not already added
       if (!addedNodes.has(s)) {
@@ -179,17 +258,27 @@ export class SparqlAdapter implements GraphAdapter {
         addedNodes.add(s);
       }
 
-      // If object is a URI, add as node + edge
-      if (binding.o?.type === "uri") {
+      const predLocal = p.split(/[#/]/).pop() ?? p;
+
+      if (oTerm.type === "uri") {
+        const o = oTerm.value;
+        if (!o) continue;
         if (!addedNodes.has(o)) {
           ugm.addNode(o, { types: ["Resource"], properties: {} });
           addedNodes.add(o);
         }
-        const predLocal = p.split(/[#/]/).pop() ?? p;
         ugm.addEdge(s, o, { type: predLocal });
+      } else if (oTerm.type === "triple") {
+        // RDF 1.2 triple term (PROV-O fold on rdf:type, quoted triples in
+        // general). Preserve subject/predicate/object structure recursively
+        // rather than flattening to "[object Object]".
+        ugm.updateNodeProperties(s, {
+          [predLocal]: tripleTermToValue(oTerm.value),
+        });
       } else {
-        // Literal: add as property on subject
-        const predLocal = p.split(/[#/]/).pop() ?? p;
+        // Literal or bnode: add as property on subject
+        const o = oTerm.value;
+        if (!o) continue;
         ugm.updateNodeProperties(s, { [predLocal]: o });
       }
     }

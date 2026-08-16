@@ -15,9 +15,17 @@ export interface Position {
 export interface IncrementalLayoutOptions {
   /** Animation duration in ms. Default 400. */
   animationDuration?: number;
-  /** Lock nodes beyond this distance from changed nodes. Default: Infinity (lock all). */
-  lockRadius?: number;
 }
+
+/* REMOVED 2026-08-15 (swept out with the other inert options):
+ * `lockRadius`, documented as "lock nodes beyond this distance from
+ * changed nodes,
+ * default Infinity". Nothing read it. `computeIncrementalUpdate` takes
+ * no options argument at all and derives lockedIds from set
+ * membership, so no distance was ever computed and no caller could
+ * change what got locked. Reinstating the capability means adding the
+ * parameter and the distance test together; the option alone was a
+ * description of a feature. */
 
 /**
  * Compute an incremental layout update.

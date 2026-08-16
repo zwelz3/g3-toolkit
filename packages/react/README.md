@@ -13,14 +13,26 @@ Live: [playground](https://zwelz3.github.io/g3-toolkit/playground/) ·
 
 ```bash
 npm install @g3t/core @g3t/react react react-dom \
-  cytoscape cytoscape-fcose zustand \
-  echarts vis-timeline vis-data
+  cytoscape cytoscape-fcose zustand echarts
 ```
 
 The peer dependency list is broad because each view brings its own
 runtime. Tree-shake by importing only the components you need.
 `@g3t/react` itself pulls in `@tanstack/react-table` and `fuse.js`
 transitively (they're regular dependencies of the package, not peers).
+
+`vis-timeline` and `vis-data` are OPTIONAL peers. Install them only
+for `TimelineView`, which is their only consumer and which lives on
+its own subpath so that every other entry point resolves without
+them:
+
+```bash
+npm install vis-timeline vis-data
+```
+
+```ts
+import { TimelineView } from "@g3t/react/timeline";
+```
 
 ## Quick start
 
@@ -82,12 +94,15 @@ import { FilterBuilder } from "@g3t/react/controls";
 import { useSelectionStore } from "@g3t/react/state";
 import { useThemeStore } from "@g3t/react/theme";
 import { AriaCompanion } from "@g3t/react/a11y";
+import { registerIcon } from "@g3t/react/icons";
+// Requires the optional peers vis-timeline and vis-data.
+import { TimelineView } from "@g3t/react/timeline";
 ```
 
 ## Documentation
 
 Full documentation, architecture overview, and integration examples:
-[g3-toolkit repository](https://github.com/anthropic-experiments/g3-toolkit).
+[g3-toolkit repository](https://github.com/zwelz3/g3-toolkit).
 
 ## License
 

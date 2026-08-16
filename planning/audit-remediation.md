@@ -119,9 +119,12 @@ audit inventory:
    would be ignored, which is the same failure as a gate that cannot
    fail.
 
-Remaining queued work (not defects): typed CJS consumption via
-declaration bundling; M9/M10 milestones; demo overhaul Phase 4;
-templatizing planning/status.md from milestone YAML.
+Remaining queued work (not defects): M9/M10 milestones; demo overhaul
+Phase 4; templatizing planning/status.md from milestone YAML.
+
+Typed CJS consumption left this list on 2026-08-16 without declaration
+bundling: the packages publish ESM only now, so there is no CJS
+declaration to pair. See audit item 19.
 
 Final gate evidence: frozen-lockfile install, typecheck, ESLint +
 Prettier, 580 unit/component tests with no dist present, full verify

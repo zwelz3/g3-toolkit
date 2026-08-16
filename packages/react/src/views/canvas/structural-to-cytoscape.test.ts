@@ -1327,7 +1327,13 @@ describe("taxiDirectionClass", () => {
 // expand/collapse feature was removed by ruling (2026-07-10). See
 // planning/expand-collapse-postmortem.md.
 
-describe("structuralToCytoscapeElements body-edge attachment ports", () => {});
+// An empty `describe("structuralToCytoscapeElements body-edge
+// attachment ports")` sat here. It asserted nothing and vitest only
+// tolerated it because passWithNoTests was set; removing that option
+// (2026-08-15) surfaced it as "No test found in suite". Body-edge
+// attachment is covered by the synth-port assertions above and by the
+// drag-attachment suite below, so the shell is deleted rather than
+// filled.
 
 describe("drag attachment refinements (owner findings, 2026-07-11)", () => {
   it("distributeFaceAnchors spreads bundle anchors along the face, ordered by cross coordinate", () => {

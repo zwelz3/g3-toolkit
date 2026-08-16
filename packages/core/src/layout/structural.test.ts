@@ -272,11 +272,13 @@ describe("layout readability knobs", () => {
 });
 
 describe("edge-edge spacing control", () => {
-  // RETIRED WITH ELK (D3b part 1): the spy that captured the graph
-  // handed to the engine left with the seam. The BUILDER still emits
-  // the spacing vocabulary (the pre-pass graph is engine input), so
-  // the wiring asserts on buildStructuralElkGraph's output directly;
-  // the cache-key contract asserts via result identity.
+  // The three tests here asserted that edgeEdgeSpacing reached
+  // `elk.spacing.edgeEdge` and varied the memo key. Both were true and
+  // neither meant anything: no engine on the shipped path reads the
+  // string, so the option changed the cache key and not the geometry.
+  // The option was removed 2026-08-15 and these went with it. What
+  // survives is the assertion that the builder no longer emits a
+  // routing or edge-spacing default nobody asked for.
   const fixture = (id: string): StructuralGraphInput => ({
     nodes: [
       { id: `${id}-a`, width: 60, height: 40 },
@@ -285,27 +287,37 @@ describe("edge-edge spacing control", () => {
     edges: [{ id: `${id}-e`, source: `${id}-a`, target: `${id}-b` }],
   });
 
-  it("defaults parallel edge-edge spacing to a sane 24", () => {
+  it("emits no routing or edge-spacing keys", () => {
     const { graph } = buildStructuralElkGraph(fixture("def"), {});
     const opts = graph.layoutOptions ?? {};
-    expect(opts["elk.spacing.edgeEdge"]).toBe("24");
-    expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("24");
+    for (const key of [
+      "elk.edgeRouting",
+      "elk.layered.nodePlacement.strategy",
+      "elk.layered.crossingMinimization.strategy",
+      "elk.spacing.edgeNode",
+      "elk.layered.spacing.edgeNodeBetweenLayers",
+      "elk.spacing.edgeEdge",
+      "elk.layered.spacing.edgeEdgeBetweenLayers",
+    ]) {
+      expect(opts[key]).toBeUndefined();
+    }
   });
 
-  it("forwards a custom edgeEdgeSpacing to the builder's spacing options", () => {
-    const { graph } = buildStructuralElkGraph(fixture("custom"), {
-      edgeEdgeSpacing: 40,
+  it("still emits the node-spacing keys the live options feed", () => {
+    const { graph } = buildStructuralElkGraph(fixture("live"), {
+      spacing: 70,
+      layerSpacing: 130,
     });
     const opts = graph.layoutOptions ?? {};
-    expect(opts["elk.spacing.edgeEdge"]).toBe("40");
-    expect(opts["elk.layered.spacing.edgeEdgeBetweenLayers"]).toBe("40");
+    expect(opts["elk.spacing.nodeNode"]).toBe("70");
+    expect(opts["elk.layered.spacing.nodeNodeBetweenLayers"]).toBe("130");
   });
 
-  it("keys the cache on edgeEdgeSpacing so the default does not alias an explicit 12", async () => {
+  it("keys the cache on layerSpacing, which does change the geometry", async () => {
     const input = fixture("cache");
     const def = await layoutStructural(input);
-    const twelve = await layoutStructural(input, { edgeEdgeSpacing: 12 });
-    expect(twelve).not.toBe(def);
+    const wide = await layoutStructural(input, { layerSpacing: 200 });
+    expect(wide).not.toBe(def);
     expect(await layoutStructural(input)).toBe(def);
   });
 });
@@ -366,5 +378,19 @@ describe("edge routing (ELK sections)", () => {
     const bare = await layoutStructural(input, { routeEdges: false });
     expect(routed.edges).toBeDefined();
     expect(bare.edges).toBeUndefined();
+  });
+});
+
+describe("VR-11: row width estimate tapers on long strings", () => {
+  it("a sentence-length row estimates near proportional-font reality, not 7px/char", () => {
+    const short = estimateTextSize("mass: kg", "row");
+    // Short strings keep the safe-high rate.
+    expect(short.width).toBe(Math.ceil(8 * 7) + 4);
+    const sentence = "The system shall maintain attitude within 0.1 deg";
+    const long = estimateTextSize(sentence, "row");
+    // 24 chars at 7 + remainder at 5.8, not 50 chars at 7.
+    const expected = Math.ceil(24 * 7 + (sentence.length - 24) * 5.8) + 4;
+    expect(long.width).toBe(expected);
+    expect(long.width).toBeLessThan(sentence.length * 7);
   });
 });

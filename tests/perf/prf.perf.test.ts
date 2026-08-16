@@ -55,8 +55,64 @@ interface BudgetsFile {
   >;
 }
 
+/**
+ * Read and VALIDATE the budgets file.
+ *
+ * Two failure modes, both of which were reachable before this guard and
+ * neither of which announced itself:
+ *
+ * 1. The file is absent. A bare `readFileSync` throws ENOENT with a
+ *    path and no explanation, which reads like a broken test rather
+ *    than a missing tracked input. The file HAS gone missing once, in a
+ *    bulk move of planning records, and the perf job failed this way on
+ *    a branch for as long as nobody read the log carefully.
+ * 2. The file parses but is not this shape. That one is worse, because
+ *    it is SILENT: `status` reads back `undefined`, the
+ *    `status === "frozen"` test is false for every key, and the job
+ *    passes while asserting nothing at all. A perf gate that enforces
+ *    no budget is more dangerous than one that is red, so shape counts
+ *    as a failure here, not as a default.
+ */
 function loadBudgets(): BudgetsFile {
-  return JSON.parse(readFileSync(BUDGETS_PATH, "utf8")) as BudgetsFile;
+  let raw: string;
+  try {
+    raw = readFileSync(BUDGETS_PATH, "utf8");
+  } catch (cause) {
+    throw new Error(
+      `PRF budgets file not readable at ${BUDGETS_PATH}. It is a TRACKED ` +
+        `input to this suite, not a generated artifact: restore it from ` +
+        `git rather than recreating it, because the numbers in it are ` +
+        `frozen CI measurements.`,
+      { cause },
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (cause) {
+    throw new Error(`PRF budgets file at ${BUDGETS_PATH} is not valid JSON.`, {
+      cause,
+    });
+  }
+
+  const file = parsed as Partial<BudgetsFile>;
+  if (file.status !== "provisional" && file.status !== "frozen") {
+    throw new Error(
+      `PRF budgets file at ${BUDGETS_PATH} has status ${JSON.stringify(
+        file.status,
+      )}; expected "provisional" or "frozen". Failing rather than ` +
+        `defaulting: an unrecognized status would silently disable every ` +
+        `budget assertion.`,
+    );
+  }
+  if (typeof file.budgets !== "object" || file.budgets === null) {
+    throw new Error(
+      `PRF budgets file at ${BUDGETS_PATH} has no \`budgets\` object, so ` +
+        `every benchmark would report against an unknown budget.`,
+    );
+  }
+  return file as BudgetsFile;
 }
 
 /** Median wall time over `runs` timed executions after `warmup`. */

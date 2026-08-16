@@ -13,6 +13,10 @@
 
 import type { ShaclValidationResult } from "./shacl-validator";
 import type { StructuralOverlay } from "../algorithm-adapter/algorithm-results";
+import {
+  MalformedDocumentError,
+  requireVersion,
+} from "../model/document-errors";
 
 export type ShaclSeverity = "violation" | "warning" | "info";
 
@@ -40,15 +44,32 @@ export interface ShaclReportDocument {
   results: ShaclReportResult[];
 }
 
-/** Parse/validate an unknown value as a report document. */
+/**
+ * Parse/validate an unknown value as a report document.
+ *
+ * Throws rather than degrading (see `model/document-errors.ts`). The
+ * three rejections used to collapse into one message, so a caller could
+ * not tell a non-object from a version mismatch from a missing
+ * `results` array; they are separate errors now.
+ */
 export function parseShaclReport(raw: unknown): ShaclReportDocument {
-  if (
-    typeof raw !== "object" ||
-    raw === null ||
-    (raw as { version?: unknown }).version !== 1 ||
-    !Array.isArray((raw as { results?: unknown }).results)
-  ) {
-    throw new Error("not a version-1 SHACL report document");
+  const KIND = "shacl-report" as const;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new MalformedDocumentError({
+      documentKind: KIND,
+      code: "NOT_OBJECT",
+      message: `root is ${Array.isArray(raw) ? "an array" : String(raw)}, expected an object`,
+    });
+  }
+  const rec = raw as Record<string, unknown>;
+  requireVersion(KIND, rec);
+  if (!Array.isArray(rec["results"])) {
+    throw new MalformedDocumentError({
+      documentKind: KIND,
+      code: rec["results"] === undefined ? "MISSING_FIELD" : "BAD_SHAPE",
+      message: "results must be an array",
+      path: "/results",
+    });
   }
   return raw as ShaclReportDocument;
 }

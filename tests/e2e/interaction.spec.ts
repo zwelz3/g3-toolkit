@@ -20,31 +20,35 @@ test.describe("Table interactions (M1)", () => {
 
   test("clicking a table row selects the node", async ({ page }) => {
     const row = page.locator("[data-testid^='table-row-']").first();
-    if (await row.isVisible()) {
-      await row.click();
-      await expect(row).toHaveAttribute("data-selected", "true");
-    }
+    await row.click();
+    await expect(row).toHaveAttribute("data-selected", "true");
   });
 
   test("clicking a different row replaces the selection", async ({ page }) => {
     const rows = page.locator("[data-testid^='table-row-']");
-    const count = await rows.count();
-    if (count >= 2) {
-      await rows.nth(0).click();
-      await rows.nth(1).click();
-      await expect(rows.nth(0)).not.toHaveAttribute("data-selected", "true");
-      await expect(rows.nth(1)).toHaveAttribute("data-selected", "true");
-    }
+    // The harness fixture is 20 nodes at pageSize 10, so a count below
+    // 2 is a broken fixture and must fail rather than skip the body.
+    expect(await rows.count()).toBeGreaterThanOrEqual(2);
+    await rows.nth(0).click();
+    await rows.nth(1).click();
+    await expect(rows.nth(0)).not.toHaveAttribute("data-selected", "true");
+    await expect(rows.nth(1)).toHaveAttribute("data-selected", "true");
   });
 
   test("table columns are sortable", async ({ page }) => {
-    const header = page.locator("th").first();
-    if (await header.isVisible()) {
-      await header.click();
-      // Should show sort indicator
-      const text = await header.textContent();
-      expect(text).toBeTruthy();
-    }
+    // Was: click a header, then assert its text is non-empty, which is
+    // true of any header whether or not sorting works.
+    //
+    // The first rewrite clicked the `th` and failed (2026-08-16): the
+    // sort handler is on a div inside the th, and the th also holds the
+    // inline filter input, so the click landed on the input. Click the
+    // affordance by its own testid. Sort state is on the th as
+    // aria-sort; the mechanism is unit-tested in TableView.test.tsx.
+    const header = page.locator("th").filter({ hasText: "Types" });
+    await expect(header).toHaveAttribute("aria-sort", "none");
+    await page.locator("[data-testid='column-sort-types']").click();
+    await page.waitForTimeout(300);
+    await expect(header).toHaveAttribute("aria-sort", "ascending");
   });
 });
 
@@ -59,31 +63,35 @@ test.describe("Filter and search (M1)", () => {
 
   test("facet filter shows node types with checkboxes", async ({ page }) => {
     const filter = page.locator("[data-testid='facet-filter']");
-    if (await filter.isVisible()) {
-      const checkboxes = filter.locator("input[type='checkbox']");
-      const count = await checkboxes.count();
-      expect(count).toBeGreaterThan(0);
-    }
+    await expect(filter).toBeVisible();
+    const checkboxes = filter.locator("input[type='checkbox']");
+    expect(await checkboxes.count()).toBeGreaterThan(0);
   });
 
-  test("unchecking a type hides those nodes", async ({ page }) => {
-    const checkbox = page
-      .locator("[data-testid='facet-filter'] input[type='checkbox']")
-      .first();
-    if (await checkbox.isVisible()) {
-      await checkbox.uncheck();
-      // Table row count should decrease
-    }
+  test("unchecking a type reports it as hidden", async ({ page }) => {
+    // The old body unchecked a box and asserted nothing, under a guard,
+    // with a comment describing the assertion it never made. The
+    // harness renders the hidden-type set as text, which is the
+    // observable effect of the filter change.
+    const checkbox = page.locator(
+      "[data-testid='facet-Location'] input[type='checkbox']",
+    );
+    await checkbox.uncheck();
+    await page.waitForTimeout(200);
+    await expect(page.locator("[data-testid='hidden-types']")).toContainText(
+      "Location",
+    );
   });
 
-  test("search input accepts text and shows results", async ({ page }) => {
+  test("search input reports a match count", async ({ page }) => {
+    // Was: type "alice" into a fixture that contains no such node, then
+    // assert nothing. The harness fixture is "Node N", so a query that
+    // matches is the only way to observe the search working.
     const searchInput = page.locator("[data-testid='search-input']");
-    if (await searchInput.isVisible()) {
-      await searchInput.fill("alice");
-      await page.waitForTimeout(300);
-      // Dropdown should appear if matches found
-      // const dropdown = page.locator("[data-testid='search-dropdown']");
-      // May or may not find "alice" depending on fixture data
-    }
+    await searchInput.fill("Node 1");
+    await page.waitForTimeout(300);
+    await expect(page.locator("[data-testid='search-info']")).toContainText(
+      "matches",
+    );
   });
 });

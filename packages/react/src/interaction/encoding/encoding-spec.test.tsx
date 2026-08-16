@@ -20,7 +20,7 @@ import {
   warnOnCustomPalette,
   type EncodingSpec,
 } from "./encoding-spec";
-import { OKABE_ITO } from "./palette-bridge";
+import { CANVAS_CATEGORICAL } from "./palette-bridge";
 import { DEFAULT_ENCODING } from "./VisualEncoding";
 
 function graph(): UGM {
@@ -57,7 +57,9 @@ describe("encoding spec resolvers", () => {
     );
     expect(resolve({ types: ["Person"], properties: {} })).toBe("#7a0bc0");
     // Org takes its palette slot in first-seen order, unaffected.
-    expect(resolve({ types: ["Org"], properties: {} })).toBe(OKABE_ITO[1]);
+    expect(resolve({ types: ["Org"], properties: {} })).toBe(
+      CANVAS_CATEGORICAL[1],
+    );
   });
 
   it("UC2: sequential size with a manual domain clamp", () => {
@@ -109,8 +111,12 @@ describe("encoding spec resolvers", () => {
       { ugm: graph() },
       "edge",
     );
-    expect(color({ type: "worksAt", properties: {} })).toBe(OKABE_ITO[0]);
-    expect(color({ type: "knows", properties: {} })).toBe(OKABE_ITO[1]);
+    expect(color({ type: "worksAt", properties: {} })).toBe(
+      CANVAS_CATEGORICAL[0],
+    );
+    expect(color({ type: "knows", properties: {} })).toBe(
+      CANVAS_CATEGORICAL[1],
+    );
     const width = makeSizeResolver(
       {
         driver: "weight",
@@ -231,8 +237,8 @@ describe("categoricalColorMap (FacetFilter swatch consistency)", () => {
     );
     expect(map.get("Org")).toBe(resolve({ types: ["Org"], properties: {} }));
     // And those are the first two Okabe-Ito slots, in order.
-    expect(map.get("Person")).toBe(OKABE_ITO[0]);
-    expect(map.get("Org")).toBe(OKABE_ITO[1]);
+    expect(map.get("Person")).toBe(CANVAS_CATEGORICAL[0]);
+    expect(map.get("Org")).toBe(CANVAS_CATEGORICAL[1]);
   });
 
   it("returns an empty map for a non-categorical color channel", () => {

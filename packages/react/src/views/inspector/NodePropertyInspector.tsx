@@ -45,11 +45,18 @@ export interface NodePropertyInspectorProps {
   onPropertyChange?: (key: string, value: unknown) => void;
   /** Optional close handler; when provided a close button is shown. */
   onClose?: () => void;
+  /** Upstream round-6 P3 (2026-07-28): a control rendered inline
+   *  with the inspector's title (e.g. copy-identifier). */
+  titleAccessory?: ReactNode;
   /** 12.11: surfaces that apply a custom EncodingSpec pass their own
    *  type -> color resolver (e.g. categoricalColorMap keyed by VALUE)
    *  so the panel's type chips match the graph exactly; the internal
    *  theme-palette map only matches the DEFAULT encoding. */
   typeColorOf?: (type: string) => string | undefined;
+  /** LR-40 (owner review 2026-07-22): the node dot shows the node's
+   *  ACTUAL applied color when the graph colors by a non-type
+   *  property; type-derived color is only the fallback. */
+  nodeColorOf?: (id: string) => string | undefined;
   /** CSS class for the container. */
   className?: string;
 }
@@ -111,6 +118,7 @@ export function NodePropertyInspector({
   onPropertyChange,
   onClose,
   typeColorOf,
+  nodeColorOf,
   className,
 }: NodePropertyInspectorProps): ReactNode {
   const theme = useThemeStore((s) => s.theme);
@@ -245,7 +253,7 @@ export function NodePropertyInspector({
           </div>
         </CollapsibleSection>
       </div>,
-      colorOfType(primaryType),
+      nodeColorOf?.(selection.id) ?? colorOfType(primaryType),
     );
   }
 
@@ -358,6 +366,10 @@ function Header({
    *  so the panel's type chips match the graph exactly; the internal
    *  theme-palette map only matches the DEFAULT encoding. */
   typeColorOf?: (type: string) => string | undefined;
+  /** LR-40 (owner review 2026-07-22): the node dot shows the node's
+   *  ACTUAL applied color when the graph colors by a non-type
+   *  property; type-derived color is only the fallback. */
+  nodeColorOf?: (id: string) => string | undefined;
   dotColor?: string;
 }): ReactNode {
   return (

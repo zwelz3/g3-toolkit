@@ -11,7 +11,7 @@
 
 import { create } from "zustand";
 
-interface PositionPinState {
+export interface PositionPinState {
   /** Per-node pins (nodeIds). */
   pinnedIds: string[];
   /** Whole-graph pin (the toolbar's "Pin all"). */

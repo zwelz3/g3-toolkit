@@ -5,9 +5,12 @@ support or process application, who need their OWN buttons, panels,
 and workflows to control toolkit behavior, and toolkit state to flow
 back out into their components.
 
-Every snippet in this guide runs in CI: `examples/wiring/src/`
-contains each one as an executable test, so this document cannot rot
-silently.
+Every snippet here is typechecked in CI against the real package types
+(`pnpm run verify:snippets`), so a recipe naming a removed or renamed
+export fails the build rather than sitting here misleading you. The
+integration paths they describe additionally run as executable tests in
+`examples/wiring/src/`. Snippets show their imports and assume the
+values you own (`ugm`, `cy`, your settings) are in scope.
 
 ## The integration surface
 
@@ -130,13 +133,24 @@ useThemeStore.getState().setTheme(orgSettings.darkMode ? "dark" : "light");
 The spec is plain serializable state YOU own:
 
 ```tsx
+import { useState } from "react";
+import {
+  CytoscapeCanvas,
+  EncodingSpecPanel,
+  SpecLegend,
+  type EncodingSpec,
+} from "@g3t/react";
+
 const [spec, setSpec] = useState<EncodingSpec>(initialSpec);
-// Your button:
-<button onClick={() => setSpec(riskViewSpec)}>Risk view</button>
-// Our components:
-<EncodingSpecPanel ugm={ugm} spec={spec} onChange={setSpec} />
-<CytoscapeCanvas ugm={ugm} encodingSpec={spec} />
-<SpecLegend ugm={ugm} spec={spec} />
+
+<>
+  {/* Your button: */}
+  <button onClick={() => setSpec(riskViewSpec)}>Risk view</button>
+  {/* Our components: */}
+  <EncodingSpecPanel ugm={ugm} spec={spec} onChange={setSpec} />
+  <CytoscapeCanvas ugm={ugm} encodingSpec={spec} />
+  <SpecLegend ugm={ugm} spec={spec} />
+</>;
 ```
 
 `parseEncodingSpec` / `serializeEncodingSpec` round-trip it through
@@ -152,6 +166,9 @@ Cytoscape instance survive. Do NOT feed a pre-filtered UGM as `ugm`: a new
 toggle.
 
 ```tsx
+import { useMemo, useState } from "react";
+import { CytoscapeCanvas, FacetFilter } from "@g3t/react";
+
 const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
 // A node is hidden only when ALL of its types are hidden; it stays
@@ -166,8 +183,10 @@ const hidden = useMemo(() => {
   return ids;
 }, [ugm, hiddenTypes]);
 
-<FacetFilter ugm={ugm} onFilterChange={setHiddenTypes} />
-<CytoscapeCanvas ugm={ugm} hidden={hidden} />
+<>
+  <FacetFilter ugm={ugm} onFilterChange={setHiddenTypes} />
+  <CytoscapeCanvas ugm={ugm} hidden={hidden} />
+</>;
 ```
 
 ### Register an algorithm result from your backend
@@ -177,6 +196,7 @@ import {
   parseAlgorithmResult,
   applyAlgorithmResult,
   ingestAlgorithmResults,
+  type UGM,
 } from "@g3t/core";
 import { useOverlayStore } from "@g3t/react";
 
@@ -200,7 +220,7 @@ case; "Copy ID" otherwise). "Inspect properties" appears only when
 you wire it, because only the host app knows its detail surface:
 
 ```tsx
-import { createDefaultMenuManager } from "@g3t/react";
+import { createDefaultMenuManager, useSelectionStore } from "@g3t/react";
 
 const manager = createDefaultMenuManager({
   // Selection IS the inspect surface in most g3t apps: the inspector,
@@ -242,6 +262,7 @@ wire every event you expose. The Analytics Dashboard in the playground
 consumes all seven (CI-tested there); the pattern:
 
 ```tsx
+import { useEffect } from "react";
 import { ContextMenuManager, registerToolkitActions } from "@g3t/react";
 import { G3tEventBus } from "@g3t/core";
 
@@ -310,47 +331,14 @@ const geometry = await layoutStructural({
 // open arrow), or "association" (plain arrow, the default).
 ```
 
-Collapse compartments by feeding their keys to the layout (collapse
-is a layout-time input, so the container actually shrinks; re-run on
-toggle). Build keys with `compartmentKey(nodeId, compartmentId)`:
-
-```tsx
-import { layoutStructural, compartmentKey } from "@g3t/core";
-
-const collapsed = new Set([compartmentKey("sensor", "operations")]);
-const geometry = await layoutStructural(input, {
-  collapsedCompartments: collapsed,
-});
-// "operations" now shows only a divider noting the hidden count; the
-// sensor container is shorter by the omitted rows. Toggle by adding
-// or removing keys and re-running. Hold the set in your own state
-// (or a store) and drive it from a button or a context-menu action.
-```
-
-For the per-container right-click toggle, register the built-in
-action and let the toolkit's collapse store hold the state; subscribe
-and re-run layout:
-
-```tsx
-import {
-  ContextMenuManager,
-  registerCompartmentCollapseActions,
-  useCompartmentCollapseStore,
-  collapsedCompartmentSet,
-} from "@g3t/react";
-
-const manager = new ContextMenuManager();
-registerCompartmentCollapseActions(manager); // right-click a container
-
-// Re-run layout whenever the collapse set changes:
-useCompartmentCollapseStore.subscribe((s) => {
-  void layoutStructural(input, {
-    collapsedCompartments: collapsedCompartmentSet(s.collapsedKeys),
-  }).then(setGeometry);
-});
-// The component-config surface is just seeding the store up front:
-// useCompartmentCollapseStore.getState().setCollapsed([...]).
-```
+Compartment collapse is NOT part of the surface. A layout-time
+collapse input (`compartmentKey`, `collapsedCompartments`) and its
+context-menu store shipped once and were removed by maintainer
+ruling on 2026-07-10; see `planning/expand-collapse-postmortem.md`
+for why, and read it before proposing anything equivalent. To hide
+detail today, build the `StructuralGraphInput` with the rows you
+want and re-run `layoutStructural`: the input IS the projection, so
+a host that owns which rows it emits already owns collapse.
 
 ### Render a SHACL shape graph (same compartment API)
 
@@ -366,6 +354,7 @@ import {
   closedShapeIds,
   layoutStructural,
 } from "@g3t/core";
+import { CytoscapeCanvas } from "@g3t/react";
 
 const input = shaclShapesToStructural(shapes, {
   references: { "PersonShape::worksFor": "OrgShape" }, // sh:node edges
@@ -494,6 +483,8 @@ The "Patterns/Coordinated Selection" story demonstrates it live.
 Subscribe to stores from anything:
 
 ```tsx
+import { useSelectionStore } from "@g3t/react";
+
 // React: your detail pane follows the toolkit selection
 function MyDossierPane() {
   const selected = useSelectionStore((s) => [...s.selectedNodeIds]);
@@ -514,6 +505,7 @@ import {
   captureWorkspace,
   applyWorkspace,
   serializeWorkspace,
+  parseWorkspace,
 } from "@g3t/react";
 const snapshot = captureWorkspace({ cy, spec });
 await saveToCase(caseId, serializeWorkspace(snapshot)); // your storage
@@ -586,6 +578,63 @@ edges aggregate into weighted `cluster-link` edges. This is Approach 1
 of planning/large-graph-design.md; Approach 4 (worker layout with
 viewport culling, for drilled sets past ~5k) is designed but not yet
 implemented.
+
+## When a view fails to render
+
+A render-phase throw unmounts every React ancestor, so without a
+boundary somewhere above the canvas the user gets a blank page: no
+message, no reload, nothing to act on. There is no hook form of an
+error boundary, so the toolkit ships the component.
+
+```tsx
+import { ViewErrorBoundary, CytoscapeCanvas } from "@g3t/react";
+
+export function Panel() {
+  return (
+    <ViewErrorBoundary
+      // Your reporting. `info.componentStack` locates the throw in a
+      // production build, where the message alone will not.
+      onError={(error, info) => logError(error, info.componentStack)}
+      fallback={({ error, retry }) => (
+        <div>
+          <p>The graph could not render: {error.message}</p>
+          <button onClick={retry}>Try again</button>
+        </div>
+      )}
+    >
+      <CytoscapeCanvas ugm={ugm} />
+    </ViewErrorBoundary>
+  );
+}
+```
+
+Omit `fallback` for a built-in message and retry button. `retry`
+remounts the subtree, which is enough for a transient failure; it is
+NOT enough for a `React.lazy` whose import rejected, because lazy
+caches its rejection permanently. If you code-split a view, build a
+new lazy from the loader when `retry` fires.
+
+An ASYNC failure never reaches a boundary, so the hooks report it
+themselves. `useStructuralLayout` returns an error channel alongside
+the scene, because a rejected layout and a layout still in flight both
+leave `structural` null and a host that only checks for null spins a
+loading state forever:
+
+```tsx
+import type { StructuralGraphInput } from "@g3t/core";
+import { useStructuralLayout } from "@g3t/react";
+
+export function StructuralPanel({ input }: { input: StructuralGraphInput }) {
+  const { structural, error } = useStructuralLayout(input);
+  if (error) return <p>Layout failed: {error.message}</p>;
+  if (!structural) return <p>Laying out…</p>;
+  return <pre>{JSON.stringify(structural.geometry.nodes, null, 2)}</pre>;
+}
+```
+
+The error belongs to the input that produced it: switching inputs
+clears it, and a later successful layout of the same input clears it
+too.
 
 ## Programmatic APIs
 

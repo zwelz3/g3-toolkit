@@ -359,7 +359,7 @@ const galleryCss = `
 `;
 
 export function Gallery(): ReactNode {
-  const entries = useMemo(buildEntries, []);
+  const entries = useMemo(() => buildEntries(), []);
   const [selected, setSelected] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [theme, setThemeId] = useState<ThemeId>("light");
@@ -383,12 +383,12 @@ export function Gallery(): ReactNode {
       if (arr) arr.push(entry);
       else cat.set(entry.group, [entry]);
     }
-    const cats = [...byCat.keys()].sort((a, b) => {
+    const cats = [...byCat.entries()].sort(([a], [b]) => {
       const ia = CATEGORY_ORDER.indexOf(a);
       const ib = CATEGORY_ORDER.indexOf(b);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
     });
-    return cats.map((cat) => ({ cat, groups: [...byCat.get(cat)!.entries()] }));
+    return cats.map(([cat, groups]) => ({ cat, groups: [...groups.entries()] }));
   }, [entries]);
 
   const current = entries.find((entry) => entry.id === selected) ?? null;

@@ -22,7 +22,7 @@
  * automatic re-layout was ruled out.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import type { Core } from "cytoscape";
 import type { UGM } from "@g3t/core";
 import { prefersReducedMotion } from "@g3t/core";
@@ -38,7 +38,7 @@ import { usePositionPinStore } from "../../state/position-pin-store";
 import {
   LAYOUTS,
   DEFAULT_LAYOUT_OPTIONS,
-  type LayoutOptions,
+  type LayoutPanelOptions,
 } from "../layout-manager/LayoutManager";
 
 /** Map layout ids and options onto a Cytoscape layout config.
@@ -89,7 +89,7 @@ function triggerDownload(filename: string, href: string): void {
 
 export function layoutConfig(
   layoutId: string,
-  options: LayoutOptions,
+  options: LayoutPanelOptions,
   randomize = false,
 ): Record<string, unknown> {
   const animate = options.animate && !prefersReducedMotion();
@@ -107,6 +107,11 @@ export function layoutConfig(
         quality: "default",
         nodeRepulsion: options.nodeRepulsion,
         idealEdgeLength: options.edgeLength,
+        // LR-31 (owner review 2026-07-22): the generic Spacing
+        // slider previously reached only circle/grid/concentric;
+        // for force it now drives fcose's node separation, so
+        // "increase spacing" visibly spreads the default layout.
+        nodeSeparation: options.spacing,
         gravity: options.gravity,
         // Incremental by default (preserves the mental map); shuffle
         // is the deliberate escape hatch when incremental convergence
@@ -121,7 +126,15 @@ export function layoutConfig(
         ...base,
         name: "breadthfirst",
         directed: true,
-        spacingFactor: Math.max(0.5, options.rankSeparation / 80),
+        // VR-4 (owner verification 2026-07-26): the generic Spacing
+        // slider reached hierarchy not at all ("hierarchy node
+        // spacing is not correct"). breadthfirst has one spread
+        // knob, so BOTH sliders drive it, normalized to their
+        // defaults (rankSeparation 80, spacing 60 -> factor 1).
+        spacingFactor: Math.max(
+          0.5,
+          (options.rankSeparation / 80) * (options.spacing / 60),
+        ),
       };
     case "circle":
       return { ...base, name: "circle", spacingFactor: options.spacing / 60 };
@@ -139,7 +152,7 @@ export function layoutConfig(
 export function runGraphLayout(
   cy: Core | null,
   layoutId: string,
-  options: LayoutOptions,
+  options: LayoutPanelOptions,
   randomize = false,
 ): void {
   if (!cy) return;
@@ -156,12 +169,19 @@ export interface GraphToolbarProps {
   ugm: UGM;
   /** From CytoscapeCanvas onReady; null until the canvas mounts. */
   cy: Core | null;
+  /** VR-5 (owner verification 2026-07-26): the layout the SHELL
+   *  mounted the canvas with, so the dropdown reflects reality
+   *  (the Hierarchy tab laid out hierarchic while the dropdown
+   *  said force directed). Toolbar layout ids: force, hierarchy,
+   *  circle, grid, concentric. */
+  initialLayout?: string;
   className?: string;
 }
 
 export function GraphToolbar({
   ugm,
   cy: cyProp,
+  initialLayout,
   className,
 }: GraphToolbarProps) {
   // 9.9: shells hand the toolbar a live-instance handle that can go
@@ -176,17 +196,62 @@ export function GraphToolbar({
     (typeof cyProp.destroyed !== "function" || !cyProp.destroyed())
       ? cyProp
       : null;
-  const [layoutId, setLayoutId] = useState("force");
-  const [options, setOptions] = useState<LayoutOptions>(DEFAULT_LAYOUT_OPTIONS);
+  const [layoutId, setLayoutId] = useState(initialLayout ?? "force");
+  const [options, setOptionsRaw] = useState<LayoutPanelOptions>(
+    DEFAULT_LAYOUT_OPTIONS,
+  );
+  const setOptions = useCallback((next: LayoutPanelOptions) => {
+    optionsEverEdited.current = true;
+    setOptionsRaw(next);
+  }, []);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  // LR-32 (owner review 2026-07-22): both dropdowns close on
+  // outside click. One document listener, active only while a menu
+  // is open.
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  useEffect(() => {
+    if (!optionsOpen && !exportOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target instanceof Node)) return;
+      if (rootRef.current?.contains(e.target) === true) return;
+      setOptionsOpen(false);
+      setExportOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [optionsOpen, exportOpen]);
   const pinned = usePositionPinStore((s) => s.allPinned);
   const setAllPinned = usePositionPinStore((s) => s.setAllPinned);
 
   const run = useCallback(
-    (id: string, opts: LayoutOptions) => runGraphLayout(cy, id, opts),
+    (id: string, opts: LayoutPanelOptions) => runGraphLayout(cy, id, opts),
     [cy],
   );
+
+  // VR-4 (owner verification 2026-07-26): option edits APPLY LIVE.
+  // Sliders previously only wrote state, and nothing re-ran until
+  // an explicit Run or a layout switch: every option control felt
+  // dead ("state propagation broken"). Debounced (300ms) and
+  // incremental (randomize false), so the mental map holds while
+  // the slider drags.
+  const liveApplyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const optionsEverEdited = useRef(false);
+  useEffect(() => {
+    if (!optionsEverEdited.current) return;
+    if (liveApplyTimer.current !== null) clearTimeout(liveApplyTimer.current);
+    liveApplyTimer.current = setTimeout(() => {
+      run(layoutId, options);
+    }, 300);
+    return () => {
+      if (liveApplyTimer.current !== null) {
+        clearTimeout(liveApplyTimer.current);
+      }
+    };
+    // layoutId changes run immediately via the dropdown handler;
+    // this effect is only the options channel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options]);
 
   // 12.9: typing only filters; the camera moves on an EXPLICIT pick,
   // centering the picked node (not the first match).
@@ -221,6 +286,7 @@ export function GraphToolbar({
   return (
     <div
       className={`g3t-graph-toolbar ${className ?? ""}`}
+      ref={rootRef}
       data-testid="g3t-graph-toolbar"
     >
       <SearchBar
@@ -307,13 +373,9 @@ export function GraphToolbar({
                   onChange={(spacing) => setOptions({ ...options, spacing })}
                 />
               )}
-              <button
-                className="g3t-btn"
-                data-testid="toolbar-run-layout"
-                onClick={() => run(layoutId, options)}
-              >
-                Run layout
-              </button>
+              {/* Owner 2026-07-28: the popover's Run button is
+                  redundant now that option edits apply live; the
+                  toolbar Re-run remains the explicit control. */}
             </div>
           ) : null}
         </div>

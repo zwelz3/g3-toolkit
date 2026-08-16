@@ -40,10 +40,11 @@ describe("provenance model + timeline", () => {
     expect(hidden.has("ent:analysis")).toBe(true);
     expect(hidden.has("act:review")).toBe(true);
     expect(hidden.has("agent:carol")).toBe(true);
-    // January artifacts stay; a timeless node (release) is never hidden
+    // January artifacts stay; a timeless node (hazard log, LR-12) is
+    // never hidden
     expect(hidden.has("ent:reqs")).toBe(false);
     expect(hidden.has("act:draft")).toBe(false);
-    expect(hidden.has("ent:release")).toBe(false);
+    expect(hidden.has("ent:hazards")).toBe(false);
   });
 
   it("keeps an agent visible only while one of its activities is in range", () => {
@@ -62,7 +63,7 @@ describe("provenanceReport", () => {
 
   it("reports the missing generation time as a violation", () => {
     expect(report.violations.length).toBe(1);
-    expect(report.violations[0]?.nodeId).toBe("ent:release");
+    expect(report.violations[0]?.nodeId).toBe("ent:hazards"); // LR-12
     expect(report.violations[0]?.path).toBe("generatedAtTime");
   });
 

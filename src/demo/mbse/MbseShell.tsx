@@ -87,8 +87,10 @@ const NOTATION: Record<
  * renderer does, via a ResizeObserver on the wrapper. */
 function SizedStructuralSvg({
   scene,
+  direction,
 }: {
   scene: { input: StructuralGraphInput; geometry: StructuralGeometry };
+  direction: "RIGHT" | "LEFT" | "DOWN" | "UP";
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<{ w: number; h: number }>({
@@ -98,6 +100,8 @@ function SizedStructuralSvg({
   useEffect(() => {
     const el = hostRef.current;
     if (!el) return;
+    // jsdom has no ResizeObserver; the default size carries tests.
+    if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const r = entries[0]?.contentRect;
       if (r && r.width > 0 && r.height > 0) {
@@ -110,6 +114,7 @@ function SizedStructuralSvg({
   return (
     <div ref={hostRef} style={{ width: "100%", height: "100%" }}>
       <StructuralSvgView
+        direction={direction}
         input={scene.input}
         geometry={scene.geometry}
         width={size.w}
@@ -142,7 +147,10 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
   // F1 structural slice: an owner-visible renderer toggle. Default
   // stays Cytoscape (all existing e2e hooks and specs bind to it);
   // the SVG preview renders the SAME geometry document verbatim.
-  const [renderer, setRenderer] = useState<"cytoscape" | "svg">("cytoscape");
+  // Owner directive 2026-07-28: the SVG structural view is the
+  // DEFAULT; the cytoscape structural path is deprecated (kept as
+  // a labeled escape hatch until removal is ruled).
+  const [renderer, setRenderer] = useState<"cytoscape" | "svg">("svg");
   const { structural: scene } = useStructuralLayout(input, {
     direction: DIRECTION[type],
   });
@@ -204,13 +212,13 @@ export function MbseShell({ onBack }: { onBack: () => void }) {
                 setRenderer(e.target.value as "cytoscape" | "svg")
               }
             >
-              <option value="cytoscape">Cytoscape (default)</option>
-              <option value="svg">SVG preview (F1)</option>
+              <option value="svg">SVG (default)</option>
+              <option value="cytoscape">Cytoscape (deprecated)</option>
             </select>
           </div>
           <div className="mbse-canvas-host">
             {scene && renderer === "svg" ? (
-              <SizedStructuralSvg scene={scene} />
+              <SizedStructuralSvg scene={scene} direction={DIRECTION[type]} />
             ) : scene ? (
               <CytoscapeCanvas
                 ugm={ugm}

@@ -18,7 +18,7 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 
-const CANVAS = "[data-testid='cytoscape-canvas']";
+const SVG = "[data-testid='mbse-structural-svg']";
 /** Drawn-vs-geometry tolerance: border widths + the 1px extent pin
  *  + antialias slack. A REAL divergence (the collapse-era defect was
  *  a full row-stack of drift) is an order of magnitude larger. */
@@ -34,15 +34,18 @@ interface Box {
 async function openMbse(page: Page): Promise<void> {
   await page.goto("/?e2e=1");
   await page.getByText("MBSE Satellite Workbench", { exact: true }).click();
-  await page.waitForSelector(CANVAS, { timeout: 15000 });
+  // RETARGETED TO SVG 2026-08-16 (owner ruling): no renderer selection,
+  // because SVG is the default and the default is what should be gated.
+  // The readiness predicate can no longer ask a cy instance for a node
+  // count, so it asks the DOM for drawn containers instead.
+  await page.waitForSelector(SVG, { timeout: 15000 });
   await page.waitForFunction(
     () => {
       const g = window.__g3t;
       return (
         g !== undefined &&
-        g.canvases.has("mbse") &&
         g.scenes.has("mbse") &&
-        g.canvases.get("mbse")!.nodes().length > 0
+        document.querySelectorAll("[data-ssv-node]").length > 0
       );
     },
     { timeout: 15000 },
@@ -56,7 +59,6 @@ async function containerBoxes(
 ): Promise<{ id: string; drawn: Box; geo: Box }[]> {
   return page.evaluate(() => {
     const g = window.__g3t!;
-    const cy = g.canvases.get("mbse")!;
     const scene = g.scenes.get("mbse")!;
     const out: { id: string; drawn: Box; geo: Box }[] = [];
     interface Box {
@@ -79,15 +81,21 @@ async function containerBoxes(
         height: number;
       };
       if (!topLevel.has(id)) continue;
-      const ele = cy.$id(id);
-      if (ele.length === 0) continue;
-      const bb = ele.boundingBox({
-        includeLabels: false,
-        includeOverlays: false,
-      });
+      // The drawn box comes out of the DOM, not out of the geometry
+      // object: the group's own rect, in scene coordinates, which is
+      // what the scene transform is then applied to.
+      const group = document.querySelector(`[data-ssv-node="${id}"]`);
+      const rect = group?.querySelector("rect");
+      if (!rect) continue;
+      const num = (a: string): number => Number(rect.getAttribute(a) ?? "NaN");
+      const x = num("x");
+      const y = num("y");
+      const w = num("width");
+      const h = num("height");
+      if ([x, y, w, h].some((v) => Number.isNaN(v))) continue;
       out.push({
         id,
-        drawn: { x1: bb.x1, y1: bb.y1, x2: bb.x2, y2: bb.y2 },
+        drawn: { x1: x, y1: y, x2: x + w, y2: y + h },
         geo: { x1: n.x, y1: n.y, x2: n.x + n.width, y2: n.y + n.height },
       });
     }
@@ -160,12 +168,8 @@ test.describe("structural projection: overlay routes terminate on drawn boxes", 
     page,
   }) => {
     await openMbse(page);
-    await page.waitForSelector("[data-testid='structural-edge-overlay']", {
-      timeout: 15000,
-    });
     const failures = await page.evaluate((tol) => {
       const g = window.__g3t!;
-      const cy = g.canvases.get("mbse")!;
       const scene = g.scenes.get("mbse")!;
       const bySourceTarget = new Map<
         string,
@@ -175,12 +179,16 @@ test.describe("structural projection: overlay routes terminate on drawn boxes", 
         bySourceTarget.set(e.id, { source: e.source, target: e.target });
       }
       const near = (p: { x: number; y: number }, id: string): boolean => {
-        const ele = cy.$id(id);
-        if (ele.length === 0) return true; // ports/rows resolved elsewhere
-        const bb = ele.boundingBox({
-          includeLabels: false,
-          includeOverlays: false,
-        });
+        const group = document.querySelector(`[data-ssv-node="${id}"]`);
+        const rect = group?.querySelector("rect");
+        if (!rect) return true; // ports/rows resolved elsewhere
+        const num = (a: string): number => Number(rect.getAttribute(a) ?? "0");
+        const bb = {
+          x1: num("x"),
+          y1: num("y"),
+          x2: num("x") + num("width"),
+          y2: num("y") + num("height"),
+        };
         // Within the box inflated by tol AND not deep inside beyond
         // tol of a border: "touches the border band".
         const inside =
@@ -198,18 +206,22 @@ test.describe("structural projection: overlay routes terminate on drawn boxes", 
         return borderDist <= tol * 2;
       };
       const out: string[] = [];
-      document.querySelectorAll("[data-overlay-edge]").forEach((pathEl) => {
-        const id = pathEl.getAttribute("data-overlay-edge")!;
-        // TRUE route anchors from the overlay's data attributes: the
-        // drawn d is the ARROW-TRIMMED shaft, so its terminal
-        // coordinates sit an arrow-length short of the border (the
-        // first CI run failed on exactly that gap).
-        const parsePt = (v: string | null) => {
-          const ns = v?.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-          return ns.length === 2 ? { x: ns[0]!, y: ns[1]! } : null;
-        };
-        const first = parsePt(pathEl.getAttribute("data-route-start"));
-        const last = parsePt(pathEl.getAttribute("data-route-end"));
+      const routes = (scene.geometry.edges ?? {}) as Record<
+        string,
+        { points?: { x: number; y: number }[] }
+      >;
+      document.querySelectorAll("[data-ssv-edge-path]").forEach((pathEl) => {
+        const id = pathEl.getAttribute("data-ssv-edge-path")!;
+        // UNTRIMMED route anchors from the geometry document. The
+        // drawn `d` is the ARROW-TRIMMED shaft (shortenPolyline runs
+        // per arrow shape), so its terminal coordinates sit an
+        // arrow-length short of the border; the Cytoscape overlay
+        // exposed data-route-start/end for exactly this reason and the
+        // SVG view has no equivalent. The DRAWN side of the comparison
+        // is still the DOM: `near` measures against the rendered rects.
+        const pts = routes[id]?.points ?? [];
+        const first = pts[0];
+        const last = pts[pts.length - 1];
         if (!first || !last) return;
         const st = bySourceTarget.get(id);
         if (!st) return; // synthetic/chain edges judged elsewhere

@@ -8,13 +8,24 @@
 import type { ChartDatum } from "./derive";
 
 interface BioChartProps {
+  /** LR-28: axis names for the scatter (the query hint's
+   *  labelVar/valueVar); omitted axes render no label. */
+  xLabel?: string;
+  yLabel?: string;
   data: ChartDatum[];
   type: "bar" | "scatter";
   selectedId?: string | null;
   onSelect: (id: string) => void;
 }
 
-export function BioChart({ data, type, selectedId, onSelect }: BioChartProps) {
+export function BioChart({
+  data,
+  type,
+  selectedId,
+  onSelect,
+  xLabel,
+  yLabel,
+}: BioChartProps) {
   if (data.length === 0) {
     return (
       <div className="bio-empty">
@@ -47,6 +58,30 @@ export function BioChart({ data, type, selectedId, onSelect }: BioChartProps) {
           stroke="#2c2740"
         />
         <line x1={pad} y1={pad} x2={pad} y2={h - pad} stroke="#2c2740" />
+        {/* LR-28: axis labels in the pad gutters. */}
+        {xLabel ? (
+          <text
+            x={w / 2}
+            y={h - 6}
+            textAnchor="middle"
+            fontSize={9}
+            fill="#8b83a3"
+          >
+            {xLabel}
+          </text>
+        ) : null}
+        {yLabel ? (
+          <text
+            x={9}
+            y={h / 2}
+            textAnchor="middle"
+            fontSize={9}
+            fill="#8b83a3"
+            transform={`rotate(-90 9 ${h / 2})`}
+          >
+            {yLabel}
+          </text>
+        ) : null}
         {data.map((d, i) => {
           const sel = d.id === selectedId;
           return (

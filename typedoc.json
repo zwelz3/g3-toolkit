@@ -18,11 +18,7 @@
     "includeCategories": true,
     "includeGroups": true
   },
-  "sort": [
-    "alphabetical"
-  ],
+  "sort": ["alphabetical"],
   "tsconfig": "tsconfig.json",
-  "projectDocuments": [
-    "docs/wiring-guide.md"
-  ]
+  "projectDocuments": ["docs/wiring-guide.md"]
 }

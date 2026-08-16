@@ -7,13 +7,7 @@
  * closed/severity decorations to the canvas.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  cleanup,
-} from "@testing-library/react";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import type { UGM, StructuralGraphInput, StructuralGeometry } from "@g3t/core";
 
 const captured = vi.hoisted(() => ({
@@ -139,36 +133,29 @@ describe("OntologyShell", () => {
     expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
   });
 
-  it("hands the laid-out SHACL structural graph and decorations to the canvas", async () => {
+  it("renders the shapes tab through the SVG view with severity tints and closed borders (LR-46)", async () => {
     render(<OntologyShell onBack={() => undefined} />);
     fireEvent.click(screen.getByTestId("ow-view-shapes"));
-    await waitFor(
-      () => {
-        expect(captured.structurals.length).toBeGreaterThan(0);
-      },
+    const svg = await screen.findByTestId(
+      "ow-shapes-svg",
+      {},
       { timeout: 10000 },
     );
-    const s = captured.structurals[0];
-    expect(s?.input.nodes.map((n) => n.id)).toContain(
-      "http://example.org/sat#SatelliteShape",
-    );
-    expect(s?.geometry).toBeTruthy();
-    const d = captured.decorations.find(
-      (x) => x.closedContainers !== undefined,
-    );
+    // A shape container is present...
     expect(
-      d?.closedContainers?.has("http://example.org/sat#GroundStationShape"),
-    ).toBe(true);
-    expect(screen.getByTestId("ow-shacl-note")).toBeTruthy();
-
-    // The delta panel (4.5) explains the toggle regardless of its
-    // position: aquila2's hasSubsystem violation resolves under
-    // inference; gsAlpha's callSign violation is introduced by it.
-    const delta = screen.getByTestId("ow-validation-delta").textContent ?? "";
-    expect(delta).toContain("Aquila-2");
-    expect(delta).toContain("RESOLVED");
-    expect(delta).toContain("GS Alpha");
-    expect(delta).toContain("INTRODUCED");
+      svg.querySelector(
+        "[data-ssv-node='http://example.org/sat#SatelliteShape']",
+      ),
+    ).not.toBeNull();
+    // ...validation severities tint their rows...
+    expect(svg.querySelector("[data-ssv-row-severity]")).not.toBeNull();
+    // ...and closed shapes carry the heavier solid border while
+    // OPEN shapes draw dashed (VR-27 v2: no keyword).
+    expect(svg.querySelector("[data-ssv-closed]")).not.toBeNull();
+    expect(svg.textContent).not.toContain("«closed»");
+    const open = svg.querySelector("[data-ssv-open]");
+    expect(open).not.toBeNull();
+    expect(open?.getAttribute("stroke-dasharray")).toBe("6 3");
   });
 
   it("gives instance views one stable color domain plus a shortened-label legend (4.4/4.3)", () => {

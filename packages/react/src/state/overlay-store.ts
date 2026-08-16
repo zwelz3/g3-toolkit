@@ -14,7 +14,7 @@
 import { create } from "zustand";
 import type { StructuralOverlay } from "@g3t/core";
 
-interface OverlayState {
+export interface OverlayState {
   overlays: StructuralOverlay[];
   activeIds: string[];
   register: (overlay: StructuralOverlay, activate?: boolean) => void;

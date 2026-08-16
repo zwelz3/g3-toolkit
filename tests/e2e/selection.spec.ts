@@ -19,8 +19,13 @@ test.describe("Table view", () => {
   });
 
   test("table renders with node rows and pagination", async ({ page }) => {
-    const table = page.locator("[data-testid='table-container']");
-    await expect(table).toHaveScreenshot("table-initial.png");
+    // Was a bare screenshot against no baseline. The row count and the
+    // pagination readout are the two things that render claim means.
+    const rows = page.locator("[data-testid^='table-row-']");
+    expect(await rows.count()).toBeGreaterThan(0);
+    await expect(
+      page.locator("[data-testid='table-pagination']"),
+    ).toContainText("Page 1");
   });
 
   test("clicking table row selects node", async ({ page }) => {
@@ -43,19 +48,36 @@ test.describe("Table view", () => {
     await firstRow.click();
     await page.waitForTimeout(300);
 
-    // Screenshot captures the highlighted row
-    const table = page.locator("[data-testid='table-container']");
-    await expect(table).toHaveScreenshot("table-row-selected.png");
+    // The highlight is driven by data-selected, which the multi-select
+    // tests below already assert against. A screenshot was the only
+    // check here and it compared nothing.
+    await expect(firstRow).toHaveAttribute("data-selected", "true");
   });
 
   test("sorting by column header", async ({ page }) => {
     // Click the "Types" header to sort
+    // ASCENDING, deliberately. The harness fixture cycles
+    // Person/Organization/Location and n0 is a Person, so a DESCENDING
+    // sort legitimately leaves n0 on top and a row-order assertion
+    // against it fails while the feature works. That was the second
+    // wrong assertion here (2026-08-16); the first clicked the `th`,
+    // whose center lands on the inline filter input rather than the
+    // sort affordance inside it. Ascending puts a Location row first,
+    // which is an order change n0 cannot satisfy.
     const typesHeader = page.locator("th").filter({ hasText: "Types" });
-    await typesHeader.click();
+    const before = await page
+      .locator("[data-testid^='table-row-']")
+      .first()
+      .getAttribute("data-testid");
+    await page.locator("[data-testid='column-sort-types']").click();
     await page.waitForTimeout(300);
 
-    const table = page.locator("[data-testid='table-container']");
-    await expect(table).toHaveScreenshot("table-sorted-types.png");
+    await expect(typesHeader).toHaveAttribute("aria-sort", "ascending");
+    const after = await page
+      .locator("[data-testid^='table-row-']")
+      .first()
+      .getAttribute("data-testid");
+    expect(after).not.toBe(before);
   });
 
   test("pagination navigates pages", async ({ page }) => {
@@ -76,7 +98,6 @@ test.describe("Table view", () => {
 
     const menu = page.locator("[data-testid='context-menu']");
     await expect(menu).toBeVisible();
-    await expect(menu).toHaveScreenshot("table-context-menu.png");
   });
 });
 
@@ -108,8 +129,12 @@ test.describe("Cross-view selection (M1 exit criterion)", () => {
     await firstRow.click();
     await page.waitForTimeout(300);
 
-    const inspector = page.locator("[data-testid='sidebar-right']");
-    await expect(inspector).toHaveScreenshot("inspector-after-selection.png");
+    // DetailInspector renders into sidebar-right; a selected node must
+    // put its properties there. The screenshot this replaces would have
+    // passed against an empty panel.
+    await expect(
+      page.locator("[data-testid='detail-inspector']"),
+    ).toContainText(/name|type|id/i);
   });
 });
 

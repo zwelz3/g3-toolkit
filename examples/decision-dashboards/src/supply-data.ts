@@ -17,7 +17,7 @@
 
 import { UGM } from "@g3t/core";
 
-export type Tier = "Supplier" | "Part" | "Assembly" | "Product";
+export type Tier = "Supplier" | "Part" | "Assembly" | "Product" | "Channel";
 
 export interface SupplyNode {
   id: string;
@@ -45,6 +45,12 @@ export function fetchSupplyNodes(): SupplyNode[] {
     nodes.push({ id, name, tier: "Assembly" });
   const prod = (id: string, name: string) =>
     nodes.push({ id, name, tier: "Product" });
+  // LR-35 (owner review 2026-07-22): a downstream Channel tier so
+  // the type-flow sankey tells a five-stage story (Supplier -> Part
+  // -> Assembly -> Product -> Channel) with a branch: direct sales
+  // vs an integrator vs a defense prime.
+  const chan = (id: string, name: string) =>
+    nodes.push({ id, name, tier: "Channel" });
 
   // Suppliers (some single-source many parts: concentration risk).
   sup("acme", "Acme Components", "US");
@@ -88,6 +94,9 @@ export function fetchSupplyNodes(): SupplyNode[] {
   prod("actuator", "Actuator Unit");
   prod("sensor-pod", "Sensor Pod");
   prod("camera", "Camera System");
+  chan("direct", "Direct Sales");
+  chan("integrator", "Systems Integrator");
+  chan("prime", "Defense Prime");
   prod("controller", "Flight Controller");
   return nodes;
 }
@@ -165,6 +174,13 @@ export function fetchSupplyEdges(): SupplyEdge[] {
     p("control-unit", "controller"),
     p("power-module", "controller"),
     p("housing", "controller"),
+    // LR-35: product -> channel flows (the sankey's fifth stage,
+    // branched so the ribbon widths differ).
+    p("camera", "direct"),
+    p("camera", "integrator"),
+    p("sensor-pod", "integrator"),
+    p("sensor-pod", "prime"),
+    p("actuator", "prime"),
   ];
 }
 

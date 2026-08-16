@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { UGM } from "@g3t/core";
 import { applyEncodingSpec, glyphStrokeFor } from "./spec-apply";
 import type { EncodingSpec } from "./encoding-spec";
-import { OKABE_ITO } from "./palette-bridge";
+import { CANVAS_CATEGORICAL } from "./palette-bridge";
 
 function graph(): UGM {
   const ugm = new UGM();
@@ -39,7 +39,7 @@ describe("applyEncodingSpec", () => {
     };
     const patch = applyEncodingSpec(spec, graph());
     expect(patch.nodes.get("p1")).toEqual({ _color: "#7a0bc0" });
-    expect(patch.nodes.get("o1")).toEqual({ _color: OKABE_ITO[1] });
+    expect(patch.nodes.get("o1")).toEqual({ _color: CANVAS_CATEGORICAL[1] });
     // No size/label fields: the legacy defaults keep owning them.
     expect(patch.nodes.get("p1")).not.toHaveProperty("_size");
     expect(patch.edges.size).toBe(0);

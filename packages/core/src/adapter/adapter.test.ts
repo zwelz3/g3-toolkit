@@ -16,6 +16,8 @@ import { SparqlAdapter } from "./sparql-adapter";
 import { CypherAdapter } from "./cypher-adapter";
 import { HolonicAdapter } from "./holonic-adapter";
 import { GremlinAdapter } from "./gremlin-adapter";
+import { RestAdapter } from "./rest-adapter";
+import { AdapterArgumentError } from "./query-safety";
 import type { HolonicDataset } from "./holonic-adapter";
 import { ingestAlgorithmResults } from "../algorithm-adapter";
 import { bearerAuth } from "../middleware";
@@ -108,6 +110,158 @@ describe("SparqlAdapter (M3.E2.T1)", () => {
     await expect(adapter.query("BAD QUERY")).rejects.toThrow(
       "SPARQL query failed",
     );
+  });
+
+  // RDF 1.2 triple-term ingestion — PROV-O fold from kb graphs surfaces
+  // as `{ type: "triple", value: { subject, predicate, object } }` per
+  // the SPARQL 1.2 JSON results format. Regression: the pre-fix branch
+  // stringified the triple-term object to "[object Object]".
+  it("ingests an RDF 1.2 triple-term object without corruption", async () => {
+    const mockResponse = {
+      results: {
+        bindings: [
+          {
+            s: {
+              type: "uri" as const,
+              value: "https://forge.example/kb/Plan/orch-scaffold-abc",
+            },
+            p: {
+              type: "uri" as const,
+              value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#typeAssertion",
+            },
+            o: {
+              type: "triple" as const,
+              value: {
+                subject: {
+                  type: "uri" as const,
+                  value: "https://forge.example/kb/Plan/orch-scaffold-abc",
+                },
+                predicate: {
+                  type: "uri" as const,
+                  value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                },
+                object: {
+                  type: "uri" as const,
+                  value: "https://forge.example/kb/Plan",
+                },
+              },
+            },
+          },
+        ],
+      },
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+
+    const adapter = new SparqlAdapter(
+      "http://test/sparql",
+      mockFetch as unknown as typeof fetch,
+    );
+    const ugm = await adapter.query(
+      "SELECT ?s ?p ?o WHERE { ?s ?p ?o . << ?s rdf:type ?o >> ?p ?o }",
+    );
+
+    const subject = "https://forge.example/kb/Plan/orch-scaffold-abc";
+    const node = ugm.getNode(subject);
+    expect(node).toBeDefined();
+
+    const stored = node?.properties.typeAssertion as
+      | { subject: unknown; predicate: unknown; object: unknown }
+      | undefined;
+    expect(stored).toBeDefined();
+    // Never store the object as the "[object Object]" stringification.
+    // Serialize before scanning: String() on any structured object is itself
+    // "[object Object]", so it can only pass the intended check for a value the
+    // code has already flattened. JSON.stringify inspects the stored shape.
+    expect(JSON.stringify(stored)).not.toContain("[object Object]");
+    expect(stored?.subject).toEqual({ type: "uri", value: subject });
+    expect(stored?.predicate).toEqual({
+      type: "uri",
+      value: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+    });
+    expect(stored?.object).toEqual({
+      type: "uri",
+      value: "https://forge.example/kb/Plan",
+    });
+  });
+
+  it("preserves nested triple terms recursively", async () => {
+    const inner = {
+      subject: {
+        type: "uri" as const,
+        value: "https://forge.example/kb/inner-s",
+      },
+      predicate: {
+        type: "uri" as const,
+        value: "https://forge.example/kb/inner-p",
+      },
+      object: { type: "literal" as const, value: "inner-o" },
+    };
+    const mockResponse = {
+      results: {
+        bindings: [
+          {
+            s: {
+              type: "uri" as const,
+              value: "https://forge.example/kb/outer-s",
+            },
+            p: {
+              type: "uri" as const,
+              value: "https://forge.example/kb/wraps",
+            },
+            o: {
+              type: "triple" as const,
+              value: {
+                subject: {
+                  type: "uri" as const,
+                  value: "https://forge.example/kb/mid-s",
+                },
+                predicate: {
+                  type: "uri" as const,
+                  value: "https://forge.example/kb/mid-p",
+                },
+                object: { type: "triple" as const, value: inner },
+              },
+            },
+          },
+        ],
+      },
+    };
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+
+    const adapter = new SparqlAdapter(
+      "http://test/sparql",
+      mockFetch as unknown as typeof fetch,
+    );
+    const ugm = await adapter.query("SELECT ?s ?p ?o WHERE { ?s ?p ?o }");
+
+    const outer = ugm.getNode("https://forge.example/kb/outer-s");
+    const wraps = outer?.properties.wraps as
+      | { subject: unknown; predicate: unknown; object: unknown }
+      | undefined;
+    expect(wraps).toBeDefined();
+    const nestedObject = wraps?.object as {
+      type: string;
+      value: { subject: unknown; predicate: unknown; object: unknown };
+    };
+    expect(nestedObject.type).toBe("triple");
+    expect(nestedObject.value.subject).toEqual({
+      type: "uri",
+      value: "https://forge.example/kb/inner-s",
+    });
+    expect(nestedObject.value.object).toEqual({
+      type: "literal",
+      value: "inner-o",
+    });
   });
 });
 
@@ -266,6 +420,65 @@ describe("HolonicAdapter (M3.E2.T3)", () => {
   });
 });
 
+// ── The depth contract: honored or rejected, never ignored ─────────
+
+describe("expandNeighborhood depth contract", () => {
+  const holonicDataset: HolonicDataset = {
+    holons: [
+      {
+        id: "holon-1",
+        label: "One",
+        types: ["Holon"],
+        properties: {},
+        interiorNodes: [{ id: "i-1", types: ["X"], properties: {} }],
+        interiorEdges: [],
+        portals: [],
+      },
+    ],
+  };
+
+  // A depth an adapter cannot express must not reach the wire. Each
+  // rejecting adapter is given a fetch that fails the test if called,
+  // so "rejected before the request" is asserted rather than assumed.
+  const failIfCalled = async (): Promise<never> => {
+    throw new Error("no request should be issued for a rejected depth");
+  };
+
+  it("HolonicAdapter honors depth 1", async () => {
+    const adapter = new HolonicAdapter(holonicDataset);
+    const result = await adapter.expandNeighborhood("holon-1", 1);
+    expect(result.nodeCount).toBe(1);
+  });
+
+  it("HolonicAdapter rejects a depth above 1 with AdapterArgumentError", async () => {
+    const adapter = new HolonicAdapter(holonicDataset);
+    await expect(adapter.expandNeighborhood("holon-1", 2)).rejects.toThrow(
+      AdapterArgumentError,
+    );
+    await expect(
+      adapter.expandNeighborhood("holon-1", 2),
+    ).rejects.toMatchObject({ argument: "depth", code: "UNSAFE_ARGUMENT" });
+  });
+
+  it("RestAdapter rejects a depth above 1 without issuing a request", async () => {
+    const adapter = new RestAdapter({
+      url: "https://example.org/graph",
+      mapResponse: () => ({ nodes: [], edges: [] }),
+      middleware: [() => failIfCalled()],
+    });
+    await expect(adapter.expandNeighborhood("n1", 3)).rejects.toMatchObject({
+      argument: "depth",
+    });
+  });
+
+  it("rejects a non-finite depth everywhere it is accepted", async () => {
+    const holonic = new HolonicAdapter(holonicDataset);
+    await expect(
+      holonic.expandNeighborhood("holon-1", Number.NaN),
+    ).rejects.toThrow(AdapterArgumentError);
+  });
+});
+
 // ── E3.T1: AlgorithmResultAdapter ──────────────────────────────────
 
 describe("ingestAlgorithmResults (M3.E3.T1)", () => {
@@ -296,6 +509,38 @@ describe("ingestAlgorithmResults (M3.E3.T1)", () => {
     ingestAlgorithmResults(ugm, results);
 
     expect(ugm.getNode("a")?.properties.score).toBeUndefined();
+  });
+
+  it("reports matched versus supplied counts", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+
+    const report = ingestAlgorithmResults(
+      ugm,
+      new Map([
+        ["a", { score: 1 }],
+        ["b", { score: 2 }],
+        ["missing", { score: 3 }],
+      ]),
+    );
+
+    expect(report).toEqual({ supplied: 3, matched: 2, unmatched: 1 });
+  });
+
+  it("reports zero matches for a wholesale id-convention mismatch", () => {
+    // The failure the report exists for: results computed against
+    // full IRIs, a UGM keyed by local names. Every merge is a no-op
+    // and nothing else in the call says so.
+    const ugm = new UGM();
+    ugm.addNode("Sensor", { types: ["X"] });
+
+    const report = ingestAlgorithmResults(
+      ugm,
+      new Map([["http://example.org/Sensor", { pagerank: 0.9 }]]),
+    );
+
+    expect(report).toEqual({ supplied: 1, matched: 0, unmatched: 1 });
   });
 });
 

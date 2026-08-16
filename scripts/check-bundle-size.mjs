@@ -1,18 +1,37 @@
 #!/usr/bin/env node
 /**
- * Bundle-size budget (P6).
+ * PUBLISH-WEIGHT budget (P6). Read the next paragraph before citing a
+ * number from this file.
  *
  * For each published package, compute the total ESM dist size and
  * compare against a budget. Fails if any package exceeds its budget.
+ *
+ * **This is publish weight, NOT what an adopter downloads.** Every
+ * package here declares `sideEffects: false` (asserted by
+ * verify:treeshake), so a bundler drops what the consumer does not
+ * reference. Measured 2026-08-15: importing only `UGM` costs 4.8 KB of
+ * first-party code, against the 164 KB this file reports for the whole
+ * package. The two numbers differ by a factor of thirty and answer
+ * different questions.
+ *
+ * `scripts/check-consumer-cost.mjs` budgets what an adopter actually
+ * pays, per import. This file stays because publish weight catches
+ * things that one cannot and catches them cheaply: an accidental
+ * node_modules inclusion, a dependency swap, a build that stopped
+ * splitting chunks. Keep both, and do not read a raise here as a
+ * regression somebody's page load will feel; check the other gate for
+ * that.
  *
  * The "total ESM" is the sum of every `.mjs` and `.js` file in the
  * package's `dist/` directory, EXCLUDING `.cjs` (CommonJS) and `.map`
  * (source maps). Shared chunks Rollup extracts during the multi-entry
  * build count.
  *
- * Budgets are unminified bytes; this is intentional because the
- * unminified surface is what consumers actually pull through their own
- * bundlers. Consumers minify in production.
+ * Budgets are unminified bytes. Consumers minify in production. The
+ * previous wording here said unminified dist "is what consumers
+ * actually pull through their own bundlers", which was the assumption
+ * that made this file look like a consumer-cost gate for a year. It is
+ * not: consumers pull what they reference.
  *
  * Headroom: each budget is set ~25% above the current measured size.
  * If a legitimate change pushes any package over its budget, raise the
@@ -49,8 +68,124 @@ const BUDGETS = {
   // layout engine) lands, extract @g3t/layout (ARC-009), move the
   // router with it, and bring core back under its original envelope
   // rather than raising a third time.
-  core: 192 * 1024, // 184 KB
+  // Owner batch + directives 2026-07-28: +1.0 KB across the VR-9
+  // detour helper, the port-pair within-body snap, and the
+  // congestion-demand sizing. Register 2026-08-03: +0.3 KB for the
+  // R-4 alignment spread (the option was a measured no-op before
+  // it; the two-pass spread is what makes it real). All
+  // oracle-pinned.
+  // Round 21 (2026-08-05): +1 KB for the structural style applier
+  // (R-12a), the renderer-neutral counterpart of the cytoscape one.
+  core: 169.0 * 1024,
   // Core ledger:
+  // - NO RAISE, 2026-08-15 (the @g3t/layout recommendation is RETIRED,
+  //   and 15 subpath exports were withdrawn). Measured 164.0 KB against
+  //   the unchanged 169.0 cap, so headroom went 1.4 -> 5.0 KB. Two
+  //   things happened and neither was a raise.
+  //
+  //   FIRST: the standing recommendation carried by the four entries
+  //   below, "extract @g3t/layout (ARC-009) and bring core back under
+  //   its original envelope", IS WITHDRAWN. It was chasing THIS number,
+  //   and this number is publish weight. Every package declares
+  //   `sideEffects: false`, so a consumer downloads what it references.
+  //   Measured by bundling real imports: `UGM` alone costs 4.8 KB of
+  //   first-party code with ZERO layout in it (no dagre, no elk, no
+  //   quadtree, no force simulation); importing the layout engines adds
+  //   roughly 35 KB of first-party code, or 106 KB with their own
+  //   dependencies. Layout already costs nothing to anyone who does not
+  //   use it, so the extraction would have moved this number without
+  //   changing one adopter's page load, while adding a fourth tarball
+  //   and a fourth publish to a release sequence that already has two
+  //   unrecoverable failure windows. Do not reinstate it on the
+  //   strength of a number from this file. If layout ever becomes
+  //   unconditionally reachable, the core-ugm scenario in
+  //   check-consumer-cost.mjs is what will say so.
+  //
+  //   SECOND: the withdrawal (maintainer ruling) removed 15 symbols
+  //   that no adopter document named and nothing here used, across the
+  //   middleware, SHACL-report, pipeline, algorithms and projection
+  //   subpaths. That is where the 3.6 KB came from. The cap stays at
+  //   169.0 rather than being tightened to the new measurement: the
+  //   headroom was earned by removing surface, and spending it
+  //   immediately on a tighter cap would just force the next raise.
+  // - 166 -> 169 KB, 2026-08-15 (versioned-JSON failure convention):
+  //   measured 167.6 KB, +3.0 KB for model/document-errors.ts and the
+  //   parser call sites that now use it. Sourcemap audit run first:
+  //   ZERO node_modules source bytes, and the new module is CODE-SPLIT
+  //   into its own chunk (document-errors-*.js) rather than duplicated
+  //   into each of the entries that import it, which was the specific
+  //   risk worth checking for a module three subpaths depend on.
+  //   Most of the weight is the module docblock, which states the
+  //   three-arm rule for when a parser throws, returns diagnostics, or
+  //   returns an error list. That reasoning is the deliverable: the
+  //   defect being fixed was seven parsers failing four different ways
+  //   with nothing written down, so deleting the explanation to save
+  //   bytes would reintroduce half the problem. Headroom is 1.4 KB,
+  //   held tight on purpose. FOURTH raise this session, all four
+  //   hardening rather than feature work. The standing recommendation
+  //   is unchanged and is now overdue: extract @g3t/layout (ARC-009)
+  //   and bring core back under its original envelope instead of
+  //   raising a fifth time.
+  // - 162 -> 166 KB, 2026-08-15 (adapter request hygiene): measured
+  //   164.6 KB, +4.2 KB. Four things, all first-party:
+  //   adapter/adapter-error.ts (new; AdapterHttpError plus the shared
+  //   assertOk the four adapters now call instead of hand-rolling a
+  //   throw), the timeout/cancellation machinery in
+  //   middleware/middleware.ts (createDefaultFetch, AdapterTimeoutError,
+  //   RetryExhaustedError), and RestAdapter becoming reachable from the
+  //   root barrel, which it never was: its config TYPES were exported
+  //   and the class was not, so a documented adapter had no import
+  //   path. That last one is the only byte-visible part of the fix and
+  //   it is not optional; an unreachable class is not a saving.
+  //   Sourcemap audit run first as the 2026-07-03 entry requires:
+  //   ZERO node_modules source bytes in core's dist, so every byte
+  //   here is ours. A large share is jsdoc on adapter-error.ts and on
+  //   the timeout default, which stays: budgets are unminified by
+  //   deliberate policy, and "why 30 seconds" and "why aborts are
+  //   never retried" are exactly what a future reader needs. New
+  //   headroom is 1.4 KB, deliberately tight, because the standing
+  //   recommendation is still to extract @g3t/layout (ARC-009) and
+  //   bring core back under its original envelope rather than keep
+  //   raising. This is the third raise this session and the third
+  //   that is hardening rather than feature work.
+  // - 160 -> 162 KB, 2026-08-14 (parse-boundary hardening):
+  //   element-shape checking in
+  //   model/graph-document.ts so parseGraphDocument honors its
+  //   declared `{ error } | { document, diagnostics }` union instead
+  //   of throwing a raw TypeError out of library internals, and so a
+  //   numeric id stops passing as a well-typed document. Measured
+  //   160.4 KB, +0.4 KB. Sourcemap audit still clean (zero
+  //   node_modules bytes). The checkers are hand-written rather than
+  //   a JSON Schema engine precisely because of this budget: an
+  //   engine would cost more than the whole document module. Second
+  //   raise this session, both of them hardening work; ordinary
+  //   feature work should still expect to argue for its bytes.
+  // - 155.5 -> 160 KB, 2026-08-14 (adapter query-argument safety):
+  //   adapter/query-safety.ts plus the
+  //   call sites in the Gremlin, Cypher and SPARQL adapters,
+  //   measured 157.1 KB. This is the raise the previous entry warned
+  //   was coming; it is a security fix, not the style/route program,
+  //   so it does not renegotiate that program's standing
+  //   recommendation (extract @g3t/layout, ARC-009, and bring core
+  //   back under its original envelope). Sourcemap audit run first,
+  //   as that entry requires: ZERO node_modules source bytes in
+  //   core's dist, so all 1.9 KB is first-party. Most of it is the
+  //   module's jsdoc, which stays: budgets are unminified by
+  //   deliberate policy and the reasoning about what is bound versus
+  //   validated is the part a future reader needs. New headroom is
+  //   2.9 KB, set modestly on purpose so ordinary creep still trips
+  //   the gate.
+  // - NO raise, 2026-08-14 (nine-helper ruling): the
+  //   new ./internal subpath adds dist/internal.mjs at 193 B. Rollup
+  //   code-split it, so the four SHACL row-label formatters are NOT
+  //   duplicated out of shacl.mjs; the entry is a re-export shim.
+  //   Measured 155.2 KB against the unchanged 155.5 cap.
+  //   WARNING TO THE NEXT ROUND: that is 0.3 KB of headroom, ~100%.
+  //   The next first-party addition of any size trips this gate. Do
+  //   not treat the pass as slack. If a raise is needed, run the
+  //   sourcemap audit described in the 2026-07-03 entry first, because
+  //   at this margin an accidental node_modules inclusion and a real
+  //   feature look identical from the total alone.
   // - 140 -> 160 KB, 2026-07-07 (review remediation round 2): measured
   //   139.1 KB (99% of cap) after khopNeighborhood (BFS composed with
   //   buildSubgraph for the neighborhood popout) and the
@@ -153,6 +288,14 @@ const BUDGETS = {
   //   node id in block view), the FacetFilter colorForType swatch
   //   hook, and the categoricalColorMap encoding helper. +0.3 KB over
   //   the 300 cap.
+  // Ledger, 2026-07-20 (G3L Round 49, MEASUREMENT-BASIS rebase,
+  // authority granted): removing the vite-8-ignored esbuild
+  // whitespace-only trio switched lib dist to FULL minification
+  // (sourcemaps ship, so strictly better). New basis measured:
+  // core 146.0, react 357.1, charts 6.4. Budgets rebased to the
+  // new basis with ~4-9% headroom: core 192 -> 152, react
+  // 440 -> 372, charts 10 -> 7. Historical numbers in older ledger
+  // entries are in the OLD (whitespace-only) basis.
   // Core ledger, 2026-07-19 (D3b part 1 rebase, authority granted
   // "rebase authority granted"): 196 -> 192. elkjs left the tree;
   // measured 187.3 KB post-removal. The removed code was OUR
@@ -189,7 +332,49 @@ const BUDGETS = {
   //   GraphToolbar/UxSurface/VisualEncoding). All deliberate,
   //   CHANGELOG-documented rounds. Modest headroom, same rationale
   //   as core.
-  react: 440 * 1024, // 420 KB
+  // Upstream round-6 + round-17 adoptions 2026-07-28: the round-6
+  // set (multi-type helper, TreeView onSelect, inspector
+  // titleAccessory, containment content-key) plus round-17 R-1
+  // drag-suppressed clicks, R-2 glyph slots with their hit zone,
+  // and R-3 two-line headers. Register 2026-08-03: +3 KB for R-5
+  // (glyphs and two-line headers on plain nodes: a second render
+  // branch), R-7 relayoutAroundFixed, and the R-8 suppression
+  // path. All oracle-pinned.
+  // Register 2026-08-05: +4.5 KB for R-9 (pinch zoom + controlled
+  // view transform), R-10 (affordance zones exempt from panning,
+  // screen-space slop resolved per pointer type), R-11 (row
+  // glyphs), and R-13 (override selectors + legend disclosure).
+  // All oracle-pinned.
+  // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
+  // styles, controlled drag offsets, the renderer-neutral editor
+  // target) and R-13.3 (one legend serving both renderers).
+  react: 390 * 1024,
+  // React ledger:
+  // - NO RAISE, 2026-08-14 (timeline moved to its own subpath):
+  //   387.2 -> 387.7 KB, +0.5 KB, headroom 2.8 -> 2.3 KB. TimelineView
+  //   statically imports the two OPTIONAL peers, and rollup had hoisted
+  //   it into a chunk the root barrel imported, so the documented
+  //   install produced an unresolvable `import { CytoscapeCanvas } from
+  //   "@g3t/react"`. Splitting it to its own entry costs one 2.5 KB
+  //   entry file and returns most of that from the chunk it left; it
+  //   still shares EmptyState and selection-store. Recorded here rather
+  //   than passed over because the previous entry set this headroom
+  //   deliberately, and a fix that eats a fifth of it should say so.
+  // - 386 -> 390 KB, 2026-08-14 (render-failure containment):
+  //   views/error/ViewErrorBoundary.tsx, measured 387.2 KB, +1.4 KB.
+  //   The package shipped no error boundary at all, and there is no
+  //   hook form of one, so a render-phase throw under any view (a
+  //   code-split chunk that fails to fetch, a malformed document
+  //   reaching a renderer) unmounted the whole tree to a blank page
+  //   with nothing in the UI to act on. This is the one component a
+  //   host cannot write around the library's own views without
+  //   wrapping every one of them itself. Sourcemap audit run first as
+  //   the 2026-07-03 core entry requires: ZERO node_modules source
+  //   bytes in react's dist, so all 1.4 KB is first-party, most of it
+  //   the docblock explaining why a class component is here (budgets
+  //   are unminified by deliberate policy). It is a tree-shakeable
+  //   named export, so hosts that never reference it pay nothing.
+  //   New headroom is 2.8 KB, set modestly on purpose.
   // - 384 -> 420 KB, 2026-07-07 (review remediation round 2): measured
   //   379.9 KB (99% of cap) after the emphasis/effects layer
   //   (emphasis store + class application), useStructuralCollapse,
@@ -197,7 +382,9 @@ const BUDGETS = {
   //   labelFor/ordering, and removeNodesFromSelection. All
   //   tree-shakeable exports; sourcemap audit at the core raise found
   //   zero node_modules bytes in dist. Ratified by review direction.
-  charts: 10 * 1024, // 10 KB
+  // VR-17 (2026-07-28): +0.3 KB for explicit legible nameTextStyle
+  // on five chart axes (owner-verified illegibility fix).
+  charts: 7.5 * 1024,
 };
 
 function dirSize(dir, includeExt) {
@@ -237,7 +424,7 @@ for (const [pkg, budget] of Object.entries(BUDGETS)) {
   let total;
   try {
     total = dirSize(dist, [".mjs", ".js"]);
-  } catch (err) {
+  } catch {
     console.error(
       `  @g3t/${pkg}: dist/ missing; run pnpm run build:packages first`,
     );

@@ -7,8 +7,13 @@
  *   2. It uses named exports (treeshakable form).
  *   3. The package.json `sideEffects` field is set explicitly:
  *      - `false` for pure-code packages (@g3t/core, @g3t/charts)
- *      - `["*.css"]` for packages that ship CSS as a side-effect
- *        (@g3t/react)
+ *      - the doubled-star css glob for packages that ship CSS as a
+ *        side-effect (@g3t/react). The bare `*.css` glob matched
+ *        only ROOT-level files and licensed the round-50 prod
+ *        tree-shake of g3t-base.css: subdirectory css needs the
+ *        recursive form (spelled in EXPECTED below; not spelled
+ *        here because the slash-star sequence would close this
+ *        comment).
  *   4. The bundle has no top-level bare side-effect imports of
  *      external packages other than CSS (would break treeshaking
  *      under most bundlers).
@@ -31,7 +36,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const PACKAGE_RULES = {
   core: { sideEffects: false },
-  react: { sideEffects: ["*.css"] },
+  react: { sideEffects: ["**/*.css"] },
   charts: { sideEffects: false },
 };
 

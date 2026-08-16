@@ -1,13 +1,26 @@
 name: CI
 
 on:
+  # Every branch, not just main. A long-lived branch (fable-updates)
+  # accumulated gate regressions precisely because push was filtered to
+  # main and no PR was open: an unformatted file failed `lint` for
+  # multiple commits with nothing to catch it. workflow_dispatch below
+  # was the manual workaround for this same gap; it stays, but coverage
+  # should not depend on remembering to click it.
   push:
-    branches: [main]
   pull_request:
     branches: [main]
   # Manual runs on ANY branch (owner request: CI without a
   # main-based branch or an open PR).
   workflow_dispatch:
+
+# A same-repo PR branch now matches both `push` and `pull_request`, so it
+# gets two runs. This cancels runs superseded by a newer push on the same
+# ref, which bounds the cost; drop the `push` trigger back to a branch
+# list if the duplicate runs outweigh the coverage.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -65,10 +78,11 @@ jobs:
 
   perf:
     # PRF benchmarks (MR-5 execution). Owner ruling 2026-07-12: this
-    # runner class IS the baseline machine profile. Budgets are
-    # report-only while planning/g3l/prf-budgets.json is
-    # "provisional"; after the one permitted revision they freeze and
-    # a miss fails this job.
+    # runner class IS the baseline machine profile. Budgets in
+    # planning/g3l/prf-budgets.json FROZE on 2026-07-18, so the keys
+    # marked `asserts: "now"` fail this job on a miss; only this runner
+    # can validate them (a dev container on a non-native filesystem
+    # reads orders of magnitude slow and proves nothing).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -5,11 +5,11 @@
 
 ## Layers
 
-| Layer | Framework | Purpose | Frequency | Location |
-|-------|-----------|---------|-----------|----------|
-| Unit | Vitest | Pure logic (D6 modules), store mutations | Every commit | `src/**/*.test.ts` |
-| Component | RTL (@testing-library/react) | React component rendering, props, events | Every commit | `src/**/*.test.tsx` |
-| E2E | Playwright | Full browser interactions, visual regression | Pre-release | `tests/e2e/*.spec.ts` |
+| Layer     | Framework                    | Purpose                                      | Frequency    | Location              |
+| --------- | ---------------------------- | -------------------------------------------- | ------------ | --------------------- |
+| Unit      | Vitest                       | Pure logic (D6 modules), store mutations     | Every commit | `src/**/*.test.ts`    |
+| Component | RTL (@testing-library/react) | React component rendering, props, events     | Every commit | `src/**/*.test.tsx`   |
+| E2E       | Playwright                   | Full browser interactions, visual regression | Pre-release  | `tests/e2e/*.spec.ts` |
 
 ## Why two test frameworks (not three)
 

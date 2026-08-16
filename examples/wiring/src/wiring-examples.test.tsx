@@ -62,6 +62,7 @@ import {
   Minimap,
   createDefaultMenuManager,
   registerToolkitActions,
+  ViewErrorBoundary,
   type ProvenanceChain,
 } from "@g3t/react";
 
@@ -190,6 +191,42 @@ describe("wiring guide: custom buttons", () => {
     expect(item).toBeTruthy();
     item!.action(target);
     expect(navigate).toHaveBeenCalledWith("/dossier/asset-1");
+  });
+});
+
+describe("wiring guide: when a view fails to render", () => {
+  /** Stands in for any view that throws during render. */
+  function Exploding({ live }: { live: () => boolean }): React.ReactNode {
+    if (live()) throw new Error("could not build the scene");
+    return <p>rendered</p>;
+  }
+
+  it("the boundary replaces a blank page with a message, a report and a retry", () => {
+    const logError = vi.fn();
+    let broken = true;
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <ViewErrorBoundary
+        onError={(error, info) => logError(error, info.componentStack)}
+        fallback={({ error, retry }) => (
+          <div>
+            <p>The graph could not render: {error.message}</p>
+            <button onClick={retry}>Try again</button>
+          </div>
+        )}
+      >
+        <Exploding live={() => broken} />
+      </ViewErrorBoundary>,
+    );
+    expect(
+      screen.getByText("The graph could not render: could not build the scene"),
+    ).toBeTruthy();
+    expect(logError).toHaveBeenCalledTimes(1);
+
+    broken = false;
+    fireEvent.click(screen.getByText("Try again"));
+    expect(screen.getByText("rendered")).toBeTruthy();
+    spy.mockRestore();
   });
 });
 

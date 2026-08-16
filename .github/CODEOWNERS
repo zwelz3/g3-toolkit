@@ -1,0 +1,32 @@
+# Review ownership. GitHub requests a review from the matching owner on
+# every PR touching these paths; the LAST matching pattern wins, so the
+# specific blocks below override the catch-all.
+#
+# One maintainer today, so every line names the same handle. The value
+# is not routing, it is that the specific blocks mark which paths carry
+# a decision that outlived the round it was made in. Splitting these
+# across people later is a one-column edit.
+
+*                                   @zwelz3
+
+# The published surface. A change here is a change to what adopters can
+# import; `api-surface.json` is a golden file and its diff IS the record.
+/api-surface.json                   @zwelz3
+/packages/*/src/index.ts            @zwelz3
+/packages/*/package.json            @zwelz3
+
+# Gates. These decide what "done" means, so weakening one is a bigger
+# decision than most feature work.
+/scripts/                           @zwelz3
+/.github/workflows/                 @zwelz3
+/vitest.config.ts                   @zwelz3
+
+# Specs and the roadmap coverage contract they are checked against.
+/specs/                             @zwelz3
+/roadmap/                           @zwelz3
+
+# Standing decisions. Editing these is editing the rules, not the code.
+/ARCHITECTURE.md                    @zwelz3
+/CLAUDE.md                          @zwelz3
+/SECURITY.md                        @zwelz3
+/RELEASE.md                         @zwelz3

@@ -289,13 +289,13 @@ describe("selection gasket halo", () => {
 
 // ── createTheme (customization layer 1) ─────────────────────────────
 
-import { createTheme, contrastRatio } from "./ThemeManager";
+import { createTheme, contrastRatioOrNull } from "./ThemeManager";
 
 describe("createTheme", () => {
   it("computes WCAG ratios correctly", () => {
-    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 0);
-    expect(contrastRatio("#777777", "#777777")).toBeCloseTo(1, 1);
-    expect(contrastRatio("rgba(0,0,0,0.5)", "#fff")).toBeNull();
+    expect(contrastRatioOrNull("#000000", "#ffffff")).toBeCloseTo(21, 0);
+    expect(contrastRatioOrNull("#777777", "#777777")).toBeCloseTo(1, 1);
+    expect(contrastRatioOrNull("rgba(0,0,0,0.5)", "#fff")).toBeNull();
   });
 
   it("merges over the light base and stays silent for sound themes", () => {

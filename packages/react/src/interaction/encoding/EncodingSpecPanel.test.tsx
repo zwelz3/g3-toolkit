@@ -7,7 +7,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { UGM } from "@g3t/core";
 import { EncodingSpecPanel, EncodingPreview } from "./EncodingSpecPanel";
 import { DEFAULT_SPEC, type EncodingSpec } from "./encoding-spec";
-import { OKABE_ITO } from "./palette-bridge";
+import { CANVAS_CATEGORICAL } from "./palette-bridge";
 
 function graph(): UGM {
   const ugm = new UGM();
@@ -176,7 +176,7 @@ describe("EncodingPreview (resolver-driven proof)", () => {
     // Color: override for Person; palette slot for Org (stability).
     expect(person.style.background).toBe("rgb(122, 11, 192)");
     expect(org.style.background.toLowerCase()).toBe(
-      hexToRgb(OKABE_ITO[1] ?? ""),
+      hexToRgb(CANVAS_CATEGORICAL[1] ?? ""),
     );
     // Size: domain endpoints map to range endpoints.
     expect(person.getAttribute("data-size")).toBe("10");

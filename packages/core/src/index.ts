@@ -44,6 +44,7 @@ export { SparqlAdapter } from "./adapter";
 export { CypherAdapter } from "./adapter";
 export { HolonicAdapter } from "./adapter";
 export type { GremlinAdapterConfig } from "./adapter";
+export { RestAdapter } from "./adapter/rest-adapter";
 export type {
   RestAdapterConfig,
   RestResponseMapping,
@@ -119,6 +120,13 @@ export type {
 
 // ── Style override (models only; React store is in @g3t/react/state) ──
 export {
+  overridesToStructuralStyles,
+  STRUCTURAL_STYLE_CHANNELS,
+  CANVAS_STYLE_CHANNELS,
+  type StructuralNodeStyle,
+  type StyleChannel,
+} from "./style-override/structural-style";
+export {
   overridesToCytoscapeStyles,
   ICONS,
   ICON_NAMES,
@@ -166,6 +174,7 @@ export {
 } from "./algorithm-adapter";
 export type {
   AlgorithmResultDocument,
+  AlgorithmIngestReport,
   StructuralOverlay,
 } from "./algorithm-adapter";
 export { virtualizeRelationalData, parseCSV } from "./relational-virtualizer";
@@ -177,6 +186,7 @@ export {
   HierarchyLayout,
   DagreLayout,
   G3tLayeredLayout,
+  routeStructuralEdges,
 } from "./layout";
 export type {
   LayoutEngine,
@@ -343,6 +353,19 @@ export type {
 } from "./model/graph-document";
 export { importElkJson } from "./model/elk-import";
 export type { ElkJsonNode, ElkJsonEdge } from "./model/elk-import";
+// One failure convention for the versioned-JSON channel. The module
+// docblock states the rule: documents that can degrade return partial
+// results plus diagnostics, documents that cannot degrade throw, and
+// both halves use the same error codes.
+export {
+  DocumentParseError,
+  InvalidJsonError,
+  UnsupportedVersionError,
+  MalformedDocumentError,
+  parseJsonObject,
+  requireVersion,
+} from "./model/document-errors";
+export type { DocumentKind, DocumentErrorCode } from "./model/document-errors";
 export { layoutStructuralWithChangeSet } from "./layout/change-driven-layout";
 export type {
   ChangeDrivenLayoutResult,
@@ -352,6 +375,7 @@ export { hitTestScene, hitTestStructural, distToSegment } from "./hit/hit-test";
 export type {
   SceneHit,
   StructuralHit,
+  GlyphSlot,
   HitPoint,
   HitSceneNode,
   HitSceneEdge,

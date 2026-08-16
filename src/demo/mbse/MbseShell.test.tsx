@@ -38,6 +38,15 @@ vi.mock("@g3t/react", async (importOriginal) => {
       if (props.structural) captured.scenes.push(props.structural);
       return <div data-testid="canvas-stub" />;
     },
+    // Owner ruling 2026-07-28: SVG is the default structural
+    // renderer; the scene contract is observed through it now.
+    StructuralSvgView: (props: {
+      input: StructuralGraphInput;
+      geometry: StructuralGeometry;
+    }) => {
+      captured.scenes.push({ input: props.input, geometry: props.geometry });
+      return <div data-testid="canvas-stub" />;
+    },
   };
 });
 

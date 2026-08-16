@@ -74,22 +74,23 @@ export function BioShell({ onBack }: { onBack: () => void }) {
   const summary = useMemo(() => ontologySummary(bioGraph), []);
   const nodeColors = useMemo(() => categoricalColorMap(SPEC, ugm), [ugm]);
 
-  const { classColorMap, classInstances } = useMemo(() => {
-    const colors = new Map<string, string>();
+  // VR-3 (owner verification 2026-07-26) ROOT CAUSE: the old map
+  // filled itself via nodeColors.get(NODE id), but categoricalColorMap
+  // keys by TYPE value, so every lookup missed and the map stayed
+  // EMPTY: all dots gray regardless of the round-53 key fix. The
+  // type-keyed nodeColors map already IS the class color map.
+  const classColorMap = nodeColors;
+  const classInstances = useMemo(() => {
     const instances = new Map<string, string[]>();
     ugm.forEachNode((id, attrs) => {
       for (const t of attrs.types) {
-        if (!colors.has(t)) {
-          const c = nodeColors.get(id);
-          if (c) colors.set(t, c);
-        }
         const list = instances.get(t) ?? [];
         list.push(id);
         instances.set(t, list);
       }
     });
-    return { classColorMap: colors, classInstances: instances };
-  }, [ugm, nodeColors]);
+    return instances;
+  }, [ugm]);
 
   const first = defaultQueries[0];
   const [queryId, setQueryId] = useState(first?.id ?? "");
@@ -292,6 +293,8 @@ export function BioShell({ onBack }: { onBack: () => void }) {
             <BioChart
               data={chartData}
               type={chartType}
+              xLabel={chartHint?.labelVar}
+              yLabel={chartHint?.valueVar}
               selectedId={selectedId}
               onSelect={(id) => select([id])}
             />

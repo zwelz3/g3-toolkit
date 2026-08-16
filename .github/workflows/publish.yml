@@ -2,7 +2,18 @@ name: Publish Packages
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
+  # Rehearsal. This release path has never been executed: zero tags
+  # exist, so a first publish of three packages at 1.0.0 would be the
+  # debut run of every step below. A dispatch with dry_run left on runs
+  # the whole thing, publishes included, against `--dry-run`. Do the
+  # rehearsal before the tag, not after.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run every step but do not actually publish"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -11,7 +22,27 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      # A dispatch cannot mint provenance (that needs the tag context),
+      # and must never publish for real by accident, so the two modes
+      # get different flag sets rather than one set with a conditional
+      # bolted on. `--no-git-checks` is deliberate and is NOT a bypass:
+      # a tag build is a detached HEAD, where pnpm's branch check cannot
+      # pass on any input. scripts/check-release-preflight.mjs replaces
+      # it with a stricter set that also covers version agreement across
+      # the four manifests and the registry state, neither of which pnpm
+      # ever looked at.
+      PUBLISH_FLAGS: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run --access public --no-git-checks' || '--provenance --access public --no-git-checks' }}
     steps:
+      - name: Refuse a real publish from a manual dispatch
+        # workflow_dispatch exists for the rehearsal. Turning off
+        # dry_run there would publish from an arbitrary branch with no
+        # tag, which is the one thing this workflow must never do.
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        run: |
+          echo "A real publish must be triggered by a v* tag, not by hand."
+          exit 1
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -21,22 +52,42 @@ jobs:
       # pnpm version from the packageManager field; do NOT set `version:`
       - uses: pnpm/action-setup@v4
 
+      # `pnpm run gates` ends in three Python scripts. They are part of
+      # the release bar, so the interpreter is part of the release job.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
-      - run: pnpm run verify
-      - run: pnpm run test
+
+      # The FULL gate, in the same order CI runs it: typecheck, lint,
+      # verify, test, spec gates. This job previously ran typecheck,
+      # verify and test only, so lint and all three spec gates could be
+      # red at the moment of a publish that can never be taken back.
+      - run: pnpm run gates
+
+      # Everything that can fail, before the first publish can fail.
+      # npm has no transactions and no republish: a failure between the
+      # three publishes below leaves a partial version triple that only
+      # a version bump can repair.
+      - run: node scripts/check-release-preflight.mjs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Publish order: core → react → charts (peer-dep topology).
       # Per-package publish via pnpm --filter so workspace:* ranges get
-      # rewritten to actual versions automatically.
-      - run: pnpm --filter @g3t/core publish --provenance --access public --no-git-checks
+      # rewritten to actual versions automatically. Each package's
+      # `prepack` runs scripts/check-dist-fresh.mjs, so a missing or
+      # stale dist fails at the tarball rather than shipping hollow.
+      - run: pnpm --filter @g3t/core publish $PUBLISH_FLAGS
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - run: pnpm --filter @g3t/react publish --provenance --access public --no-git-checks
+      - run: pnpm --filter @g3t/react publish $PUBLISH_FLAGS
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - run: pnpm --filter @g3t/charts publish --provenance --access public --no-git-checks
+      - run: pnpm --filter @g3t/charts publish $PUBLISH_FLAGS
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

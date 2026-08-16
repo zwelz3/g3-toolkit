@@ -13,7 +13,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 // ── Types ───────────────────────────────────────────────────────
 
-export interface LayoutOptions {
+export interface LayoutPanelOptions {
   // Global
   animate: boolean;
   animationDuration: number;
@@ -35,7 +35,7 @@ export interface LayoutOptions {
 
 export interface LayoutManagerProps {
   activeLayout?: string;
-  onLayoutChange: (layoutName: string, options: LayoutOptions) => void;
+  onLayoutChange: (layoutName: string, options: LayoutPanelOptions) => void;
   onResetLayout: () => void;
   onFreezeLayout?: (frozen: boolean) => void;
   className?: string;
@@ -62,7 +62,7 @@ export const LAYOUTS: LayoutDef[] = [
   { id: "concentric", label: "Concentric", group: "simple" },
 ];
 
-export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
+export const DEFAULT_LAYOUT_OPTIONS: LayoutPanelOptions = {
   animate: true,
   animationDuration: 400,
   edgeStyle: "bezier",
@@ -85,7 +85,9 @@ export function LayoutManager({
   className,
 }: LayoutManagerProps) {
   const [layout, setLayout] = useState(initialLayout);
-  const [options, setOptions] = useState<LayoutOptions>(DEFAULT_LAYOUT_OPTIONS);
+  const [options, setOptions] = useState<LayoutPanelOptions>(
+    DEFAULT_LAYOUT_OPTIONS,
+  );
   const [frozen, setFrozen] = useState(false);
   const [showControls, setShowControls] = useState(false);
 
@@ -105,7 +107,7 @@ export function LayoutManager({
   // the engine re-run commits after the drag settles.
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const update = useCallback(
-    (key: keyof LayoutOptions, value: number | boolean | string) => {
+    (key: keyof LayoutPanelOptions, value: number | boolean | string) => {
       const updated = { ...options, [key]: value };
       setOptions(updated);
       if (commitTimer.current) clearTimeout(commitTimer.current);

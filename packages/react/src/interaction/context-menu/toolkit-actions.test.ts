@@ -90,22 +90,18 @@ describe("registerToolkitActions: single-node", () => {
     expect(handler).toHaveBeenCalledWith({ nodeId: "a", hops: 2 });
   });
 
-  it("expand-neighbors adds neighbors to selection", () => {
+  it("expand-neighbors is ABSENT from the default menu (LR-38 removal oracle)", () => {
     const manager = new ContextMenuManager();
     const bus = new G3tEventBus();
     registerToolkitActions(manager, { ugm: makeUGM(), eventBus: bus });
-
     const items = manager.resolve({
       type: "node",
       id: "a",
       position: { x: 0, y: 0 },
     });
-    items
-      .find((i) => i.id === "expand-neighbors")
-      ?.action({ type: "node", id: "a", position: { x: 0, y: 0 } });
-
-    // "a" neighbors: "b"
-    expect(useSelectionStore.getState().selectedNodeIds.has("b")).toBe(true);
+    expect(items.find((i) => i.id === "expand-neighbors")).toBeUndefined();
+    // The covering intent survives:
+    expect(items.find((i) => i.id === "view-neighbors")).toBeDefined();
   });
 
   it("edit-appearance emits event and calls callback", () => {
