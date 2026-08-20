@@ -109,7 +109,9 @@ Current ownership index (30 items: 10 in-progress, 20 proposed):
 | R5.8 Multi-interior rendering | proposed | architecture/holonic-backend.md |
 | R6.2 Multi-source federation | proposed | architecture/data-layer.md |
 | R6.3 Document previews | proposed | engineering/document-linkage.md |
+| R7.3 Matrix aggregation or pagination | in-progress | engineering/pagination.md |
 | R7.6 Streaming working-set window | proposed | engineering/streaming.md |
+| R7.7 Configurable working-set limits | in-progress | architecture/deployment-configuration.md |
 | R7.11 Table as accessible fallback | proposed | verification/accessibility.md |
 | R8.1 Classification-aware redaction | proposed | architecture/security-model.md |
 | R8.2 Role-based graph subsetting | proposed | architecture/security-model.md |
@@ -120,7 +122,7 @@ Current ownership index (30 items: 10 in-progress, 20 proposed):
 Open questions and `considering` decisions are owned by design/ and
 architecture/ files; their index lives in each file's header. The
 register of record for open questions remains
-specs/10-open-questions.md.
+specs/g3t/spec.md#open-questions.
 
 ## Conventions
 

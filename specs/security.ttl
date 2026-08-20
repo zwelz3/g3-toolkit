@@ -1,0 +1,113 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix spec: <https://w3id.org/g3t/spec/security#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<https://w3id.org/g3t/spec/security> a specl:Specification ;
+    specl:declares spec:reference-g3t ;
+    specl:refines <https://w3id.org/g3t/spec/g3t> ;
+    dct:conformsTo <https://w3id.org/specl/contract/2> ;
+    dct:title "g3-toolkit: Security and Deployment" ;
+    dct:hasVersion "0.1.0" ;
+    specl:status "draft" ;
+    dct:identifier "g3-security" ;
+    specl:prefix "g3tsec" ;
+    dct:created "2026-05-17"^^xsd:date ;
+    specl:intent """This specification defines requirements for classification-aware visualization, role-based access, multi-tenancy, and deployment constraints relevant to defense, intelligence, and enterprise contexts.""" ;
+    specl:purpose """""" .
+
+spec:source-63747aed a specl:SourceDocument ;
+    dct:identifier "08-security-deployment.md" .
+
+spec:reference-g3t a specl:SpecificationReference ;
+    specl:prefix "g3t" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/g3t#" ;
+    specl:referencePath "g3t/spec.ttl" .
+
+spec:R8.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/security> ;
+    dct:title "The toolkit MUST support classification-aware redaction with two configurable…" ;
+    dct:description "The toolkit MUST support classification-aware redaction with two configurable modes: (a) structural redaction (remove the node and re-layout the affected subgraph) and (b) \"fog\" redaction (node visible as an opaque placeholder but properties and label hidden). Deployment configuration MUST dictate which mode is active; the user MUST NOT be able to override it." ;
+    prov:wasDerivedFrom spec:source-63747aed ;
+    specl:sourceLine "30"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains <https://w3id.org/g3t/components#RedactionEngine> ;
+    specl:constrains <https://w3id.org/g3t/components#LayoutEngine> ;
+    specl:acceptanceCriterion "Given a node marked TS/SCI and a user with SECRET clearance, when structural redaction is active, then the node is absent and the surrounding layout adjusts." ;
+    specl:acceptanceCriterion "Given the same scenario with fog redaction, then the node renders as a grey placeholder with no label or properties." .
+
+spec:R8.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/security> ;
+    dct:title "The toolkit MUST support role-based graph subsetting such that users only see…" ;
+    dct:description "The toolkit MUST support role-based graph subsetting such that users only see nodes and edges they are authorized to view. Authorization MUST be enforced at the data-adapter layer, not solely at the view layer." ;
+    prov:wasDerivedFrom spec:source-63747aed ;
+    specl:sourceLine "39"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains spec:component-AuthorizationManager ;
+    specl:constrains <https://w3id.org/g3t/components#GraphAdapter> ;
+    specl:acceptanceCriterion "Given two users with different role-based access, when both view the same graph, then each sees only the nodes and edges their role permits." .
+
+spec:R8.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/security> ;
+    dct:title "The toolkit MUST support multi-tenancy with visual context indicators (border…" ;
+    dct:description "The toolkit MUST support multi-tenancy with visual context indicators (border color, watermark, or banner) when the user switches between graphs, ontologies, or organizational boundaries. Workspace serialization MUST include graph-source metadata." ;
+    prov:wasDerivedFrom spec:source-63747aed ;
+    specl:sourceLine "47"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains spec:component-TenancyManager ;
+    specl:constrains <https://w3id.org/g3t/components#WorkspaceManager> ;
+    specl:acceptanceCriterion "Given a user switching from \"NATO\" graph context to \"National\" graph context, then a visible indicator (watermark or banner) changes to reflect the new context." .
+
+spec:R8.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/security> ;
+    dct:title "The export pipeline (R2.11) MUST enforce source-level access controls" ;
+    dct:description "The export pipeline (R2.11) MUST enforce source-level access controls. Exporting a subgraph MUST NOT include nodes or edges the user is not authorized to view, even if those elements are structurally adjacent to authorized elements." ;
+    prov:wasDerivedFrom spec:source-63747aed ;
+    specl:sourceLine "55"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains <https://w3id.org/g3t/components#ExportManager> ;
+    specl:constrains spec:component-AuthorizationManager ;
+    specl:acceptanceCriterion "Given a subgraph export containing 50 nodes, when 5 nodes are above the user's clearance, then the export contains 45 nodes with no trace of the 5 redacted nodes." .
+
+spec:R8.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/security> ;
+    dct:title "The toolkit MUST log all user actions (queries, expansions, exports, property…" ;
+    dct:description "The toolkit MUST log all user actions (queries, expansions, exports, property edits, portal traversals) to an audit trail. The audit trail format MUST be configurable (syslog, JSON, database)." ;
+    prov:wasDerivedFrom spec:source-63747aed ;
+    specl:sourceLine "63"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains spec:component-AuditLogger ;
+    specl:acceptanceCriterion "Given an analyst who expands a node, edits a property, and exports a subgraph, then 3 audit events are recorded with timestamp, user ID, action type, and affected element IDs." .
+
+spec:US8.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/security> ;
+    dct:title "As a platform administrator deploying to a multi-classification environment, I…" ;
+    dct:description "As a platform administrator deploying to a multi-classification environment, I want to configure structural redaction so that TOP SECRET nodes are completely invisible (not even placeholder shapes) to SECRET-cleared analysts." ;
+    prov:wasDerivedFrom spec:source-63747aed ;
+    specl:sourceLine "72"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:benefit "I can ensure no classification leakage through layout inference" ;
+    specl:implementationStatus "not-started" .
+
+spec:component-AuditLogger a specl:Component ;
+    dct:identifier "AuditLogger" .
+
+spec:component-AuthorizationManager a specl:Component ;
+    dct:identifier "AuthorizationManager" .
+
+spec:component-TenancyManager a specl:Component ;
+    dct:identifier "TenancyManager" .
+

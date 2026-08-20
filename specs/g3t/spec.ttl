@@ -1,0 +1,580 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix spec: <https://w3id.org/g3t/spec/g3t#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<https://w3id.org/g3t/spec/g3t> a specl:Specification ;
+    specl:declares spec:reference-g3tfunc ;
+    specl:declares spec:reference-g3tint ;
+    specl:declares spec:reference-g3trouting ;
+    specl:declares spec:reference-g3tsec ;
+    specl:declares spec:reference-g3ttech ;
+    specl:declares spec:reference-g3tux ;
+    specl:upstreamOf <https://w3id.org/g3t/spec/functional> ;
+    specl:upstreamOf <https://w3id.org/g3t/spec/technical> ;
+    specl:upstreamOf <https://w3id.org/g3t/spec/integration> ;
+    specl:upstreamOf <https://w3id.org/g3t/spec/ux> ;
+    specl:upstreamOf <https://w3id.org/g3t/spec/security> ;
+    specl:upstreamOf <https://w3id.org/g3t/spec/routing> ;
+    dct:conformsTo <https://w3id.org/specl/contract/2> ;
+    dct:title "g3-toolkit" ;
+    dct:hasVersion "0.1.0" ;
+    specl:status "draft" ;
+    dct:identifier "g3t-001" ;
+    specl:prefix "g3t" ;
+    dct:created "2026-08-19"^^xsd:date ;
+    specl:intent """The g3-toolkit is a composable, paradigm-neutral graph visualization toolkit. It renders graph data (nodes, edges, properties) and graph algorithm results (centrality scores, community membership, embeddings, paths) across 12 archetype views that compose into domain-specific workspaces.  The toolkit is visualization-first. Graph computation engines (reasoning, algorithms, validation) are optional installs; the toolkit consumes their output but does not mandate a particular backend. The core contract is: the toolkit accepts graph data and algorithm results as input, and produces interactive, accessible, composable visual representations as output.  The toolkit is paradigm-neutral at the rendering layer. It consumes a unified node/edge/property model regardless of whether the source is RDF, a labeled property graph (LPG), or a Holonic projection. Paradigm-specific behavior (named-graph membership, holon-layer attribution, raw-triple inspection) is available as opt-in overlays.""" ;
+    specl:purpose """The long-term goal is a comprehensive graph visualization toolkit that supports 90%+ of the 132 surveyed graph-visualization use cases (research/use-case-survey.md, sections A and B, which also define the capability clusters C1 through C8 referenced throughout these specs), including:  - Graph algorithm result visualization (centrality, clustering, paths, flows) - Relational database virtualization layers and tabular views - Statistical reports on graph analytics - Provenance and confidence overlays - Ontology and schema inspection - Temporal and geospatial graph exploration - Operational write-back and action invocation - Classification-aware redaction for defense and intelligence contexts  The toolkit must serve three distinct user populations: investigation analysts (link analysis, case management), ontology/data engineers (schema curation, validation), and operations analysts (monitoring, digital twin, streaming). These populations have fundamentally different interaction models; collapsing them into a single UI is an anti-pattern identified in the foundational research (research/use-case-survey.md, cluster observation following section B.8).""" .
+
+spec:source-e9e453bf a specl:SourceDocument ;
+    dct:identifier "spec.md" .
+
+spec:reference-g3tfunc a specl:SpecificationReference ;
+    specl:prefix "g3tfunc" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/functional#" ;
+    specl:referencePath "functional.ttl" .
+spec:reference-g3tint a specl:SpecificationReference ;
+    specl:prefix "g3tint" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/integration#" ;
+    specl:referencePath "integration.ttl" .
+spec:reference-g3trouting a specl:SpecificationReference ;
+    specl:prefix "g3trouting" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/routing#" ;
+    specl:referencePath "routing/spec.ttl" .
+spec:reference-g3tsec a specl:SpecificationReference ;
+    specl:prefix "g3tsec" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/security#" ;
+    specl:referencePath "security.ttl" .
+spec:reference-g3ttech a specl:SpecificationReference ;
+    specl:prefix "g3ttech" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/technical#" ;
+    specl:referencePath "technical.ttl" .
+spec:reference-g3tux a specl:SpecificationReference ;
+    specl:prefix "g3tux" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/ux#" ;
+    specl:referencePath "ux.ttl" .
+
+spec:OQ1 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Layout-mixing UX for hybrid hierarchical/network graphs" ;
+    dct:description "Layout-mixing UX for hybrid hierarchical/network graphs. When a single graph contains both containment hierarchies and free-form network edges, how does the user define \"system boundary\" regions within a single canvas (hierarchical layout inside, force-directed outside)?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "237"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG5 ;
+    specl:recommendation "Defer until user testing with MBSE engineers reveals the dominant interaction pattern. Candidate approaches: (a) user draws a boundary box and assigns a layout mode, (b) layout mode is inferred from edge types (containment = hierarchical, association = force-directed), (c) the user selects a \"hybrid\" layout that automatically nests hierarchical clusters." .
+
+spec:OQ2 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "User-configurable ProjectionPipelines" ;
+    dct:description "User-configurable ProjectionPipelines. Should end-users be able to create or modify ProjectionPipeline configurations from within the toolkit UI, or is this an admin/developer concern? (Register of record; supersedes the duplicate formerly embedded in the Holonic integration spec.)" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "242"^^xsd:integer ;
+    specl:resolutionStatus "deferred" ;
+    specl:owner spec:AG2 ;
+    specl:recommendation "Initial release treats pipelines as pre-configured (admin-managed). User-configurable pipelines require a pipeline editor UI that is out of scope for v0.1. Revisit after initial adoption data is available." .
+
+spec:OQ3 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "NL-to-query engine selection" ;
+    dct:description "NL-to-query engine selection. Which LLM backend, prompt architecture, and query-validation strategy should the toolkit use for natural-language-to-graph-query translation?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "247"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG3 ;
+    specl:recommendation "Define the NLQueryEngine interface contract first (input: NL string + schema context; output: query string + confidence score). Defer the implementation to a plugin. The interface must support showing the generated query to the user (D10)." .
+
+spec:OQ4 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Streaming layout algorithm choice" ;
+    dct:description "Streaming layout algorithm choice. Which incremental layout algorithm should be used for the \"live\" streaming mode (D7)?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "252"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG3 ;
+    specl:recommendation "Evaluate D3-force with alpha-decay damping, Ogdf's incremental Sugiyama, and custom WebGL-accelerated force simulation. Selection depends on target node count (500 streaming default per P2) and target frame rate (30fps minimum)." .
+
+spec:OQ5 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Portal grouping UX" ;
+    dct:description "Portal grouping UX. How should the right-click \"Traverse portal to...\" submenu present many (>10) outbound portals without overwhelming the analyst?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "257"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG5 ;
+    specl:recommendation "Flat list for <=10 portals; grouped by target holon type for >10. A \"Browse all portals...\" item opens a dedicated portal browser panel. Exact threshold subject to user testing." .
+
+spec:OQ6 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Default projection per holon type" ;
+    dct:description "Default projection per holon type. Which of the canonical projections (P4) should be on vs. off by default for different holon types or ontology domains? The safe default is \"all collapses on\" (D2), but ontology-curation workflows may need Type Collapse off." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "262"^^xsd:integer ;
+    specl:resolutionStatus "deferred" ;
+    specl:owner spec:AG4 ;
+    specl:recommendation "Ship with \"all collapses on\" as the universal default. Allow per-holon-type overrides via Holonic Projection-layer declarations (R5.6). Gather feedback before introducing a settings UI." .
+
+spec:OQ7 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Working-set limit numeric values" ;
+    dct:description "Working-set limit numeric values. The specific defaults (500 nodes, 200x200 matrix, 10,000 table rows, 100 Sankey flows, 500-node streaming window) are initial recommendations. What are the right numbers?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "267"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG5 ;
+    specl:recommendation "Conduct performance profiling across target browsers and hardware (thin-client terminals, standard workstations, high-end analyst desktops). Set defaults to the threshold where interaction latency exceeds 100ms on the minimum supported hardware. Publish a hardware-compatibility matrix." .
+
+spec:OQ8 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Graph algorithm plugin API surface" ;
+    dct:description "Graph algorithm plugin API surface. What is the interface contract between optional-install algorithms (P1) and the toolkit's visual encoding layer?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "272"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG3 ;
+    specl:recommendation "Define a minimal `AlgorithmResult` protocol: `node_id -> dict[str, Any]` for node-level results (centrality, community ID, embedding vector) and `edge_id -> dict[str, Any]` for edge-level results (predicted probability, flow value). The view layer maps property keys to visual channels (size, color, opacity) via a configurable `VisualEncoding` declaration. Exact protocol definition is a prerequisite for the first plugin release." .
+
+spec:OQ9 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Write-back conflict resolution" ;
+    dct:description "Write-back conflict resolution. R2.12 specifies inline editing with SHACL validation on commit, and the M9 milestone plan (planning/m9-evaluation.md) proposes an optimistic UI with rollback for write-back. What merge or conflict strategy applies when concurrent editors modify the same node/edge?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "277"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG3 ;
+    specl:recommendation "Last-write-wins is the simplest strategy and acceptable for initial release. Operational merge (CRDT or OT) is complex and should be deferred unless multi-user concurrent editing is a launch requirement. If so, evaluate Yjs or Automerge for the conflict-resolution layer." .
+
+spec:OQ10 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "holonic-console integration boundary" ;
+    dct:description "holonic-console integration boundary. Which modules does holonic-console import from this toolkit, and which does it wrap or replace?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "282"^^xsd:integer ;
+    specl:resolutionStatus "deferred" ;
+    specl:owner spec:AG3 ;
+    specl:recommendation "Defer until holonic-console's architecture stabilizes. The current design constraint is that `g3_toolkit.holonic` (the adapter and projection module) must be importable without pulling in the rendering layer. This is enforced by D6." .
+
+spec:OQ11 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Handling of very large holarchies" ;
+    dct:description "Handling of very large holarchies. What is the performance ceiling for `project_holarchy()` rendering when a holarchy contains hundreds or thousands of holons? Should the holarchy topology view have its own working-set limit distinct from the canvas default?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "287"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG4 ;
+    specl:recommendation "Apply the same 500-node canvas default (P2) to holarchy rendering. For larger holarchies, implement a \"top-level holons only\" aggregation with expand-on-click for sub-holarchies." .
+
+spec:OQ12 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Edge-type-specific right-click actions" ;
+    dct:description "Edge-type-specific right-click actions. Beyond the universal right-click menu (R2.1), should the toolkit support edge-type-specific actions (e.g., \"Show all transactions\" when right-clicking a \"transacts_with\" edge, \"Show all requirements\" when right-clicking a \"traces_to\" edge)?" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "292"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG5 ;
+    specl:recommendation "Yes, via the plugin extension mechanism (R2.3). Edge-type-specific actions register against a type filter. The question is whether to ship built-in actions for common edge types or leave this entirely to plugins. Recommend: leave to plugins initially; promote frequently-registered patterns to built-in in later releases." .
+
+spec:OQ13 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Export behavior under fog redaction" ;
+    dct:description "Export behavior under fog redaction. R8.1 fog mode renders redacted nodes as opaque placeholders in views, while R8.4's acceptance criterion specifies exports contain \"no trace\" of redacted elements. These are consistent for structural redaction but unspecified for fog mode: should an export include placeholder stubs (leaking existence, consistent with the rendered view) or omit them entirely (no leakage, inconsistent with what the analyst saw)? The inference-leakage concern in US8.1 suggests omission, but the discrepancy between view and export must then be communicated to the user." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "297"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG6 ;
+    specl:recommendation "Default to omission (export contains no trace regardless of redaction mode) and annotate the export manifest with a count of withheld elements, so the analyst knows the export is intentionally incomplete without learning what was withheld." .
+
+spec:OQ14 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Cross-holarchy navigation transition" ;
+    dct:description "Cross-holarchy navigation transition. What visual transition should indicate cross-holarchy navigation (traversing a portal from one holarchy into another)? Candidate approaches: watermark change, border-color change, breadcrumb trail, or animated zoom-through transition. (Moved from the Holonic integration spec; this register is the record of open questions.)" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "302"^^xsd:integer ;
+    specl:resolutionStatus "open" ;
+    specl:owner spec:AG5 ;
+    specl:recommendation "Breadcrumb trail with watermark change is the minimum viable design." .
+
+spec:D1 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The Unified Graph Model (UGM) SHALL use a Qualified Edge abstraction that…" ;
+    dct:description "The Unified Graph Model (UGM) SHALL use a Qualified Edge abstraction that unifies RDF named-graph/RDF* provenance and LPG edge-properties into a single metadata bag on every edge. The view layer consumes only the Qualified Edge; it does not distinguish between RDF and LPG provenance mechanisms." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "126"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Paradigm neutrality (P5) requires the view layer to be agnostic to the provenance mechanism. The adapter layer performs the mapping. Holonic `project_to_lpg()` already collapses RDF* to edge properties, validating this pattern." ;
+    specl:affects <https://w3id.org/g3t/components#UnifiedGraphModel> ;
+    specl:affects <https://w3id.org/g3t/components#QualifiedEdge> ;
+    specl:affects <https://w3id.org/g3t/components#SPARQLAdapter> ;
+    specl:affects <https://w3id.org/g3t/components#CypherAdapter> ;
+    specl:affects <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:owner spec:AG4 .
+
+spec:D2 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "RDF data entering any visualization view (except Schema and raw-triples…" ;
+    dct:description "RDF data entering any visualization view (except Schema and raw-triples Inspector) SHALL pass through the ProjectionPipeline with all five collapse operations enabled by default. Raw RDF rendering is never the default." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "136"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Raw RDF visualization produces unreadable hairballs for non-ontologist users. The Holonic library's `project_to_lpg()` validates that type/literal/blank-node/list/reification collapse produces analyst-friendly graphs. The \"Standard\" preset (R4.5) implements this. Collective targets, recorded here because specl has no way to name a set of components: all renderers. See N2b; restore as affects when a collection mechanism exists." ;
+    specl:affects <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:affects <https://w3id.org/g3t/components#ViewRouter> ;
+    specl:owner spec:AG4 .
+
+spec:D3 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The right-click context menu SHALL be the primary interaction surface for…" ;
+    dct:description "The right-click context menu SHALL be the primary interaction surface for contextual actions across all views. \"Show N-degree neighbors\" (default 1) SHALL be the first item in the menu. The menu SHALL be extensible by plugins and Holonic portals." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "143"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Context menus reduce interaction cost for frequent actions by keeping the action adjacent to its target (see the interaction-pattern comparison in research/technology-survey.md). N-degree expansion is the single most common graph exploration action across all 8 capability clusters (C1 through C8; research/use-case-survey.md, section B). Making it the first menu item and defaulting to 1 degree minimizes clicks for the dominant workflow." ;
+    specl:affects <https://w3id.org/g3t/components#ContextMenuManager> ;
+    specl:affects <https://w3id.org/g3t/components#PluginRegistry> ;
+    specl:affects <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:owner spec:AG5 .
+
+spec:D4 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Graph algorithms (centrality, community detection, shortest path, embeddings…" ;
+    dct:description "Graph algorithms (centrality, community detection, shortest path, embeddings, etc.) SHALL be optional installs, not hard dependencies. The toolkit SHALL consume algorithm results as node/edge properties; it SHALL NOT mandate a computation engine." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "151"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "The toolkit is visualization-first (P1). Bundling Neo4j GDS or igraph as a hard dependency would bloat the install, create licensing constraints, and couple the toolkit to a specific analytics stack. The test harness exercises algorithm-result rendering against mock data. Collective targets, recorded here because specl has no way to name a set of components: all renderers that support size/color encoding. See N2b; restore as affects when a collection mechanism exists." ;
+    specl:affects <https://w3id.org/g3t/components#AlgorithmResultAdapter> ;
+    specl:owner spec:AG3 .
+
+spec:D5 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Working-set limits SHALL be soft defaults, not hard caps" ;
+    dct:description "Working-set limits SHALL be soft defaults, not hard caps. The user CAN override them with an explicit acknowledgment. Platform administrators CAN set deployment-level overrides that users cannot exceed." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "157"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Hard caps frustrate power users; no caps produce performance disasters on thin clients. Soft defaults with admin overrides balance usability and safety." ;
+    specl:affects <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:owner spec:AG5 .
+
+spec:D6 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Holonic format support SHALL be implemented as a clean, importable module…" ;
+    dct:description "Holonic format support SHALL be implemented as a clean, importable module (`g3_toolkit.holonic`), not as tightly coupled UI code. This module SHALL be importable by holonic-console without pulling in the full g3-toolkit UI stack." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "163"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "holonic-console will import this toolkit in the future. A clean module boundary avoids circular dependencies and allows holonic-console to use the adapter and projection layers without the rendering layer." ;
+    specl:affects <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:affects <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:affects <https://w3id.org/g3t/components#ModulePackaging> ;
+    specl:owner spec:AG3 .
+
+spec:D7 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The toolkit SHALL support two streaming layout modes: \"stable\" (layout frozen" ;
+    dct:description "The toolkit SHALL support two streaming layout modes: \"stable\" (layout frozen; new nodes animate into position without disturbing existing layout) and \"live\" (continuous incremental re-layout). The user SHALL toggle between modes." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "171"^^xsd:integer ;
+    specl:decisionStatus "proposed" ;
+    specl:rationale "Both modes have valid use cases. Stable mode suits investigation (analyst pins nodes); live mode suits monitoring (layout should reflect current topology). The specific incremental layout algorithm for \"live\" mode is deferred (P5)." ;
+    specl:affects <https://w3id.org/g3t/components#LayoutEngine> ;
+    specl:affects <https://w3id.org/g3t/components#StreamAdapter> ;
+    specl:owner spec:AG3 .
+
+spec:D8 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Classification-aware redaction SHALL be a deployment-configuration concern, not…" ;
+    dct:description "Classification-aware redaction SHALL be a deployment-configuration concern, not a user-facing toggle. Two modes (structural and fog) SHALL be available; the deployment administrator selects one." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "178"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Allowing users to toggle redaction modes would defeat the security purpose. The choice between structural and fog redaction has intelligence-tradecraft implications that must be decided at the deployment level." ;
+    specl:affects <https://w3id.org/g3t/components#RedactionEngine> ;
+    specl:affects <https://w3id.org/g3t/components#LayoutEngine> ;
+    specl:owner spec:AG6 .
+
+spec:D9 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Reasoner-derived edges SHALL be visually distinguished from asserted edges via…" ;
+    dct:description "Reasoner-derived edges SHALL be visually distinguished from asserted edges via a dedicated visual encoding (dashed line, distinct color, icon badge). A \"show only asserted\" toggle SHALL be available." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "185"^^xsd:integer ;
+    specl:decisionStatus "proposed" ;
+    specl:rationale "Users must know which edges are data and which are inferred. The specific visual encoding (dashed vs. colored vs. badged) is subject to user testing. The toggle is uncontroversial." ;
+    specl:affects <https://w3id.org/g3t/components#EdgeRenderer> ;
+    specl:affects <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:owner spec:AG5 .
+
+spec:D10 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "Natural-language-to-query input (GenAI) SHALL always display the generated…" ;
+    dct:description "Natural-language-to-query input (GenAI) SHALL always display the generated SPARQL/Cypher/GQL to the user with a single-click edit option. The query SHALL never be invisible. Results from AI-generated queries SHALL carry a visual \"AI-generated query\" indicator until the user validates the query." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "192"^^xsd:integer ;
+    specl:decisionStatus "proposed" ;
+    specl:rationale "Hallucinated queries presented as truthful results are a trust and safety concern. Transparency is non-negotiable. The specific LLM backend, prompt architecture, and validation strategy are deferred (P5)." ;
+    specl:affects <https://w3id.org/g3t/components#NLQueryEngine> ;
+    specl:affects <https://w3id.org/g3t/components#QueryEditor> ;
+    specl:affects <https://w3id.org/g3t/components#ResultRenderer> ;
+    specl:owner spec:AG2 .
+
+spec:D11 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The view layer SHALL be paradigm-neutral" ;
+    dct:description "The view layer SHALL be paradigm-neutral. All 12 archetype views consume a unified node/edge/property model. Paradigm-specific visual encodings (named-graph badges, holon-layer color coding, raw-triple inspection) are opt-in overlays, not structural assumptions. Where a design decision would restrict paradigm neutrality, it SHALL be deferred and documented rather than resolved." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "200"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "The foundational research (research/use-case-survey.md; research/technology-survey.md) identified that the RDF/LPG divide is a data-layer concern, not a visualization concern. Baking paradigm assumptions into the view layer would limit the toolkit to one paradigm and prevent the 90%+ use-case coverage target. Collective targets, recorded here because specl has no way to name a set of components: All renderers. See N2b; restore as affects when a collection mechanism exists." ;
+    specl:affects <https://w3id.org/g3t/components#UnifiedGraphModel> ;
+    specl:owner spec:AG3 .
+
+spec:D12 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The toolkit SHALL track workspace/perspective dependencies on ontology versions" ;
+    dct:description "The toolkit SHALL track workspace/perspective dependencies on ontology versions. When the ontology changes (renamed class, deprecated property), saved perspectives that depend on the old version SHALL display a warning. The specific warning UX and migration-assistance features are deferred." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "206"^^xsd:integer ;
+    specl:decisionStatus "proposed" ;
+    specl:rationale "Every ontology migration currently breaks saved perspectives silently. This is a known pain point in Stardog Studio and metaphactory deployments. The cost of not addressing it is ongoing support load." ;
+    specl:affects <https://w3id.org/g3t/components#WorkspaceManager> ;
+    specl:affects <https://w3id.org/g3t/components#PerspectiveStore> ;
+    specl:affects <https://w3id.org/g3t/components#SchemaRenderer> ;
+    specl:owner spec:AG2 .
+
+spec:D13 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The toolkit's rendering layer SHALL be implemented in React (TypeScript)" ;
+    dct:description "The toolkit's rendering layer SHALL be implemented in React (TypeScript). Non-rendering modules (UGM, adapters, projection pipeline, algorithm result adapter) SHALL be framework-agnostic TypeScript with no React dependency, ensuring they are importable by non-React consumers (including holonic-console per D6)." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "214"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "The technology survey identified React as the ecosystem with the strongest FOSS library coverage for the g3t stack (FlexLayout, TanStack Table, React Flow as accessibility reference, ECharts React wrapper). Framework-agnostic alternatives (Lumino, vanilla Cytoscape.js) exist but fragment the integration surface. The D6 module boundary ensures the React choice does not infect the data layer. Collective targets, recorded here because specl has no way to name a set of components: All view components. See N2b; restore as affects when a collection mechanism exists." ;
+    specl:affects <https://w3id.org/g3t/components#ModulePackaging> ;
+    specl:affects <https://w3id.org/g3t/components#BuildConfiguration> ;
+    specl:owner spec:AG3 .
+
+spec:D14 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The toolkit SHALL use a four-layer testing strategy: (1) Vitest unit tests for…" ;
+    dct:description "The toolkit SHALL use a four-layer testing strategy: (1) Vitest unit tests for logic and data models, (2) React Testing Library component tests for rendering, (3) Playwright e2e tests for visual regression with screenshot baselines, and (4) Robot Framework acceptance tests for stakeholder-facing requirement verification with HTML reports. The shared test harness (`/?test-harness`) provides a deterministic rendering environment for layers 3 and 4." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "221"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "M0 acceptance testing revealed 4 bugs (invalid Cytoscape selector, zoom sensitivity, context menu wiring, layout density) that 90 passing unit tests did not catch. All were visual/interaction failures. M5-M10 are view-heavy milestones; automated visual regression is essential to avoid repeating the manual-only pattern. Robot Framework adds keyword-driven executable specifications tagged by requirement ID (R1.1, R2.5, etc.) for non-developer review. Collective targets, recorded here because specl has no way to name a set of components: all view components. See N2b; restore as affects when a collection mechanism exists." ;
+    specl:affects <https://w3id.org/g3t/components#CIPipeline> ;
+    specl:affects <https://w3id.org/g3t/components#TestInfrastructure> ;
+    specl:owner spec:AG3 .
+
+spec:D15 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The canvas SHALL preserve the camera (pan/zoom) and node positions whenever the…" ;
+    dct:description "The canvas SHALL preserve the camera (pan/zoom) and node positions whenever the INPUT GRAPH is unchanged. A same-graph change (theme, spec, decorations, selection, hover) SHALL NOT re-initialize the instance, refit, or recenter. The view SHALL re-initialize or refit ONLY when the input graph genuinely differs (its node-id set changes) or in response to an EXPLICIT user operation: a fit/zoom control, focus/zoom-to, layout reheat, or layout-algorithm selection." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "228"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Recreating the Cytoscape instance on every parent render reset the viewport and discarded manual node positions. Two triggers: (a) decoration props are passed as fresh object literals each render (e.g. structuralDecorations={{ collapsedContainers }}), so a selection or hover re-render changed the rebuild dependency by identity even when nothing relevant changed; (b) the recreated instance's preset layout fits by default. Reported by Zach (2026-06-20): collapsing a container, repositioning it, then selecting another container reverted the drag and the camera. Enforcers: theme/spec are restyle-only (style().fromJson, never re-init); decoration rebuilds key on decoration CONTENT, not object identity, and read the live decorations through a ref; structural rebuilds capture pan/zoom in the effect cleanup (cyRef is nulled before the next init runs, so the live camera cannot be read at init time) and restore it on a same-graph rebuild, fitting only on first mount or a different graph. Graph identity is the sorted top-level node-id set; it is stable across collapse/expand and re-layout and survives the asynchronous two-render geometry update (decorations land first, geometry second). Collective targets, recorded here because specl has no way to name a set of components: all canvas-hosting views, consumers passing decoration props. See N2b; restore as affects when a collection mechanism exists." ;
+    specl:rationale "Known gap. A genuine structural geometry change (collapse, re-layout direction) still recreates the instance from layout geometry, so manual drags are not preserved across it; preserving them needs in-place position updates rather than a recreate. The force-directed (non-structural) path does not yet capture/restore the camera across a same-graph re-init; today its re-init triggers are real graph or layout changes, so no spurious reset occurs, but the explicit guarantee is implemented only for the structural (preset) path." ;
+    specl:affects <https://w3id.org/g3t/components#CytoscapeCanvas> ;
+    specl:owner spec:AG3 .
+
+spec:DN1 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "P1" ;
+    dct:description "P1. **Visualization-first; graph operations as optional installs.** The" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "92"^^xsd:integer .
+
+spec:DN2 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "P2" ;
+    dct:description "P2. **Default working-set limits.** Every view that renders nodes or edges" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "97"^^xsd:integer .
+
+spec:DN3 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "P3" ;
+    dct:description "P3. **Contextual view triggers (right-click universality).** Certain" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "101"^^xsd:integer .
+
+spec:DN4 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "P4" ;
+    dct:description "P4. **RDF projection, not raw RDF rendering.** Raw RDF triple visualization" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "106"^^xsd:integer .
+
+spec:DN5 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "P5" ;
+    dct:description "P5. **Universal graph imperatives; defer limiting decisions.** The core" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "112"^^xsd:integer .
+
+spec:DN6 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "P6" ;
+    dct:description "P6. **Holonic format as a first-class citizen.** The Holonic four-graph" ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "118"^^xsd:integer .
+
+spec:PER1 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The investigation analyst who explores a graph to answer a question about it" ;
+    dct:description "The investigation analyst who explores a graph to answer a question about it." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "309"^^xsd:integer ;
+    skos:prefLabel "Analyst" ;
+    skos:altLabel "investigator" ;
+    skos:altLabel "data scientist" ;
+    skos:altLabel "intelligence analyst" ;
+    skos:altLabel "fraud analyst" .
+
+spec:PER2 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The engineer who reads a structural diagram to understand a system's composition" ;
+    dct:description "The engineer who reads a structural diagram to understand a system's composition." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "315"^^xsd:integer ;
+    skos:prefLabel "Systems Engineer" ;
+    skos:altLabel "MBSE engineer" .
+
+spec:PER3 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The engineer who models and validates the ontology a graph conforms to" ;
+    dct:description "The engineer who models and validates the ontology a graph conforms to. Works on the schema: class hierarchies, property domains and ranges, SHACL shapes and the reports they produce." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "318"^^xsd:integer ;
+    skos:prefLabel "Ontology Engineer" ;
+    skos:altLabel "ontologist" .
+
+spec:PER4 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The engineer who curates knowledge-base content and reviews changes to it" ;
+    dct:description "The engineer who curates knowledge-base content and reviews changes to it. Works on the instance data rather than the schema: entity pages, query libraries, revision history and write-back review. Kept distinct from PER3 by AG2 ruling 2026-08-20, because the two do different work and that difference drives which analytics and which views each needs." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "321"^^xsd:integer ;
+    skos:prefLabel "Knowledge Engineer" ;
+    skos:altLabel "curator" .
+
+spec:PER5 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The engineer who connects a data source to the toolkit and shapes what it emits" ;
+    dct:description "The engineer who connects a data source to the toolkit and shapes what it emits." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "324"^^xsd:integer ;
+    skos:prefLabel "Data Engineer" .
+
+spec:PER6 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The developer who embeds the toolkit in a host application" ;
+    dct:description "The developer who embeds the toolkit in a host application." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "326"^^xsd:integer ;
+    skos:prefLabel "Frontend Developer" .
+
+spec:PER7 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The developer who extends the toolkit through its plugin surface" ;
+    dct:description "The developer who extends the toolkit through its plugin surface." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "328"^^xsd:integer ;
+    skos:prefLabel "Plugin Developer" .
+
+spec:PER8 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The administrator who deploys the toolkit and governs access to it" ;
+    dct:description "The administrator who deploys the toolkit and governs access to it." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "330"^^xsd:integer ;
+    skos:prefLabel "Platform Administrator" .
+
+spec:PER9 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The engineer who checks a diagram against the model it claims to depict" ;
+    dct:description "The engineer who checks a diagram against the model it claims to depict." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "332"^^xsd:integer ;
+    skos:prefLabel "Reviewer" ;
+    skos:altLabel "design reviewer" .
+
+spec:PER10 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The engineer who arranges a diagram for legibility before publishing it" ;
+    dct:description "The engineer who arranges a diagram for legibility before publishing it." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "335"^^xsd:integer ;
+    skos:prefLabel "Diagram Author" .
+
+spec:PER11 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The engineer who maintains the toolkit and diagnoses its output" ;
+    dct:description "The engineer who maintains the toolkit and diagnoses its output." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "337"^^xsd:integer ;
+    skos:prefLabel "Maintainer" .
+
+spec:PER12 a specl:Persona ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The analyst who works the graph through assistive technology rather than the…" ;
+    dct:description "The analyst who works the graph through assistive technology rather than the visual canvas." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "339"^^xsd:integer ;
+    skos:prefLabel "Assistive Technology User" ;
+    skos:altLabel "visually impaired analyst" .
+
+spec:AG1 a specl:Agent ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The routing track, accountable for router behaviour, separation, and the…" ;
+    dct:description "The routing track, accountable for router behaviour, separation, and the measurement harness." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "346"^^xsd:integer ;
+    skos:prefLabel "Routing track" .
+
+spec:AG2 a specl:Agent ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The product owner, accountable for requirement changes including performance…" ;
+    dct:description "The product owner, accountable for requirement changes including performance budgets and milestone scope." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "348"^^xsd:integer ;
+    skos:prefLabel "Product owner" ;
+    skos:altLabel "Product Lead" .
+
+spec:AG3 a specl:Agent ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The repository architecture track, accountable for surface retirement, hit…" ;
+    dct:description "The repository architecture track, accountable for surface retirement, hit testing, and shared core modules." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "351"^^xsd:integer ;
+    skos:prefLabel "Architecture track" ;
+    skos:altLabel "Architecture Lead" .
+
+spec:AG4 a specl:Agent ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The data layer track, accountable for the unified graph model, adapters, and…" ;
+    dct:description "The data layer track, accountable for the unified graph model, adapters, and the projection pipeline." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "354"^^xsd:integer ;
+    skos:prefLabel "Data layer lead" .
+
+spec:AG5 a specl:Agent ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The interaction and accessibility track, accountable for interaction defaults…" ;
+    dct:description "The interaction and accessibility track, accountable for interaction defaults and accessibility conformance." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "356"^^xsd:integer ;
+    skos:prefLabel "UX lead" .
+
+spec:AG6 a specl:Agent ;
+    specl:partOf <https://w3id.org/g3t/spec/g3t> ;
+    dct:title "The security track, accountable for redaction, authorization, and deployment…" ;
+    dct:description "The security track, accountable for redaction, authorization, and deployment posture." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "358"^^xsd:integer ;
+    skos:prefLabel "Security lead" .
+

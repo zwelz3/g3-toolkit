@@ -70,7 +70,8 @@ jobs:
       # Both scripts exit non-zero on findings (the original linter
       # returned 0 unconditionally; two audits flagged the gate as
       # decorative before it was fixed).
-      - run: python scripts/lint_specs.py specs/
+      - run: pip install specl==1.0.0
+      - run: python scripts/check_specs.py
       - run: python scripts/sync_spec_status.py
       # Every in-progress/proposed requirement must be owned by exactly
       # one roadmap file (contract in roadmap/CLAUDE.md).

@@ -1,0 +1,728 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix spec: <https://w3id.org/g3t/spec/routing#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<https://w3id.org/g3t/spec/routing> a specl:Specification ;
+    specl:declares spec:reference-g3t ;
+    specl:refines <https://w3id.org/g3t/spec/g3t> ;
+    dct:conformsTo <https://w3id.org/specl/contract/2> ;
+    dct:title "Obstacle-correct scene routing with parallel-segment separation" ;
+    dct:hasVersion "0.1.0" ;
+    specl:status "prototype" ;
+    dct:identifier "g3t-routing-001" ;
+    specl:prefix "g3trouting" ;
+    specl:itemPrefix "RT" ;
+    dct:created "2026-08-14"^^xsd:date ;
+    specl:intent """Define the scene routing capability for g3-toolkit structural diagrams across the 10 to 200 node operating range: every edge routed clear of every box, and segments that would otherwise run coincident separated into ordered lanes, with interaction served by a preview path so correctness at settle does not cost responsiveness during a drag.""" ;
+    specl:purpose """Two measured defects motivate this work. Above 64 obstacles the scene router does not attempt obstacle-aware routing at all, and 8 to 22 percent of edges are drawn through boxes. From roughly 32 nodes upward, segments from different edges run coincident in numbers that grow superlinearly, reaching 272 runs within 24px in a 64-node scene, which makes a drawing that is geometrically correct still unreadable.  Both are addressed by a single change of posture: route everything through the grid router, then order and separate what coincides. The published ordering-and-nudging algorithm supplies the mechanism, and its precondition is that every route come from one visibility graph, which the first defect's fix also delivers.  This specification governs scene routing and nothing else. Layout and node placement, hit testing, the graph exploration views, data loading, the SysML and SHACL adapters, and the toolkit's public API surface are all outside it. A requirement here constrains a routing component or a routing artifact, and any requirement that appears to constrain something else is either a cross-track commitment, marked with an owner other than the routing track, or a defect in this specification.  Three requirements are cross-track and are recorded here because routing depends on them, not because routing delivers them. RT1.1 asserts an architectural decision the architecture track owns. RT8.1 through RT8.3 change a frozen requirements artifact that the product owner owns. Neither is implementation work for the routing track, and the routing track must not mark them built.""" .
+
+spec:source-e9e453bf a specl:SourceDocument ;
+    dct:identifier "spec.md" .
+
+spec:reference-g3t a specl:SpecificationReference ;
+    specl:prefix "g3t" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/g3t#" ;
+    specl:referencePath "g3t/spec.ttl" .
+
+spec:RT1.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The capability MUST apply to the standalone SVG structural view, which is the…" ;
+    dct:description "The capability MUST apply to the standalone SVG structural view, which is the sole structural rendering surface." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "59"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralView> ;
+    specl:acceptanceCriterion "Given a structural scene, when it is rendered, then routed geometry is consumed only by the SVG structural view and no Cytoscape routed-edge path is exercised." ;
+    specl:verifiedBy spec:test-a3b09268 ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG3> .
+
+spec:RT1.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The capability MUST apply uniformly to port-attached and body-attached edges" ;
+    dct:description "The capability MUST apply uniformly to port-attached and body-attached edges." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "65"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:acceptanceCriterion "Given an IBD in which every edge is port-attached, when the scene is routed, then every edge receives routed geometry anchored at its declared port." ;
+    specl:verifiedBy spec:test-9a8285db .
+
+spec:RT1.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The capability MUST NOT introduce any representation in which two or more edges…" ;
+    dct:description "The capability MUST NOT introduce any representation in which two or more edges share a drawn stroke." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "70"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralView> ;
+    specl:acceptanceCriterion "Given any routed scene, when the drawn paths are counted, then the count equals the number of edges carrying routed geometry." ;
+    specl:verifiedBy spec:test-2121a6eb .
+
+spec:RT2.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The scene router MUST NOT refuse escalation on the basis of an obstacle count…" ;
+    dct:description "The scene router MUST NOT refuse escalation on the basis of an obstacle count threshold." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "78"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:acceptanceCriterion "Given a scene of 200 obstacles, when it is routed, then the grid router is invoked for every edge whose cheap route intersects a box." ;
+    specl:verifiedBy spec:test-e82baa65 .
+
+spec:RT2.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Scale MUST be handled by the grid router's existing obstacle-pruning path…" ;
+    dct:description "Scale MUST be handled by the grid router's existing obstacle-pruning path, which verifies its pruned result against the full obstacle set before accepting it." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "83"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#OrthogonalRouter> ;
+    specl:acceptanceCriterion "Given a scene above the pruning threshold, when a pruned result would intersect a box in the full obstacle set, then the unpruned computation is used instead." ;
+    specl:verifiedBy spec:test-ffc4a316 .
+
+spec:RT2.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Scene routing MUST produce zero surrenders across the operating range, where a…" ;
+    dct:description "Scene routing MUST produce zero surrenders across the operating range, where a surrender is an emitted route that intersects a non-endpoint box." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "88"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:acceptanceCriterion "Given any scene from 10 to 200 nodes under either generator, when it is routed for initial layout or drag settle, then no emitted route segment intersects a non-endpoint box interior." ;
+    specl:verifiedBy spec:test-c9c8b9f0 ;
+    specl:verifiedBy spec:test-f2ac095d .
+
+spec:RT2.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The geometry document MUST expose the surrender count for the scene" ;
+    dct:description "The geometry document MUST expose the surrender count for the scene." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "94"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralLayoutEngine> ;
+    specl:acceptanceCriterion "Given a routed scene, when the geometry document is inspected, then it carries a surrender count, and that count is zero for any scene inside the operating range." ;
+    specl:verifiedBy spec:test-fb4ac475 .
+
+spec:RT2.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The detour fallback and the surrender fallback SHOULD be retained as guards but…" ;
+    dct:description "The detour fallback and the surrender fallback SHOULD be retained as guards but MUST NOT be reachable inside the operating range." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "99"^^xsd:integer ;
+    specl:priority "SHOULD" ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:acceptanceCriterion "Given any scene inside the operating range, when it is routed, then detourAround is not invoked." ;
+    specl:verifiedBy spec:test-17baeeb4 .
+
+spec:RT3.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Initial layout and drag settle MUST be budgeted for correctness under RT2.3" ;
+    dct:description "Initial layout and drag settle MUST be budgeted for correctness under RT2.3." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "106"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralView> ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:acceptanceCriterion "Given a drag that ends, when the scene settles, then the settled routes satisfy RT2.3." ;
+    specl:verifiedBy spec:test-a3b09268 .
+
+spec:RT3.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The in-drag frame MUST be bounded so that frame cost does not scale with…" ;
+    dct:description "The in-drag frame MUST be bounded so that frame cost does not scale with clean-route cost; it is permitted to route degraded in order to meet that bound." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "112"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralView> ;
+    specl:acceptanceCriterion "Given a 200-node scene under active drag, when offsets change, then the preview frame completes within the interactive frame budget even though a clean route of the same scene exceeds one second." ;
+    specl:verifiedBy spec:test-c4d20976 .
+
+spec:RT3.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The transition from preview to settled geometry MUST be a single visible…" ;
+    dct:description "The transition from preview to settled geometry MUST be a single visible correction at drag end rather than a progressive convergence." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "117"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralView> ;
+    specl:acceptanceCriterion "Given a drag, when it ends, then routed geometry is recomputed once and the rendered result is stable thereafter." ;
+    specl:verifiedBy spec:test-a3b09268 .
+
+spec:RT3.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The preview path MUST NOT write degraded geometry into any persisted or…" ;
+    dct:description "The preview path MUST NOT write degraded geometry into any persisted or exported document." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "122"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralView> ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralLayoutEngine> ;
+    specl:acceptanceCriterion "Given a drag in progress, when the geometry document is read by a consumer other than the drawing surface, then it carries settled geometry rather than preview geometry." ;
+    specl:verifiedBy spec:test-fb4ac475 .
+
+spec:RT4.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The grid router MUST return, alongside the point list, the set of…" ;
+    dct:description "The grid router MUST return, alongside the point list, the set of visibility-graph edges each route traversed." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "130"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#OrthogonalRouter> ;
+    specl:acceptanceCriterion "Given a routed connector, when its result is inspected, then the traversed grid edges are enumerable and their concatenation reproduces the emitted polyline." ;
+    specl:verifiedBy spec:test-ffc4a316 .
+
+spec:RT4.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Coincidence MUST be determined structurally, by shared visibility-graph edge…" ;
+    dct:description "Coincidence MUST be determined structurally, by shared visibility-graph edge, rather than by a pixel proximity threshold." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "135"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#OrthogonalRouter> ;
+    specl:acceptanceCriterion "Given two routes traversing a common grid edge, when coincidence is computed, then that edge is reported as shared regardless of the distance between the drawn segments." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT4.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "A coincidence metric SHOULD be added to the existing layout metrics module…" ;
+    dct:description "A coincidence metric SHOULD be added to the existing layout metrics module alongside the crossing metric." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "140"^^xsd:integer ;
+    specl:priority "SHOULD" ;
+    specl:constrains <https://w3id.org/g3t/components#LayoutMetrics> ;
+    specl:acceptanceCriterion "Given a routed scene, when metricsFromStructural is called, then it reports the count of shared segments in addition to crossings and bends." ;
+    specl:verifiedBy spec:test-2121a6eb .
+
+spec:RT5.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The shared-edge graph MUST be constructed from visibility-graph edges carrying…" ;
+    dct:description "The shared-edge graph MUST be constructed from visibility-graph edges carrying two or more routes, and each connected component processed as an independent subproblem." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "147"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given a scene with two disjoint groups of coincident routes, when ordering runs, then the two groups are ordered independently and neither influences the other." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT5.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "A route entering and leaving one component more than once MUST have each…" ;
+    dct:description "A route entering and leaving one component more than once MUST have each sub-route treated separately." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "152"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given a route that rejoins a shared component after leaving it, when ordering runs, then each sub-route receives its own position in the order." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT5.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Each sub-route MUST receive a pseudo-direction, propagated across shared edges…" ;
+    dct:description "Each sub-route MUST receive a pseudo-direction, propagated across shared edges, with split points marked where propagation conflicts." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "157"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given a component whose pseudo-direction assignment conflicts, when propagation reaches the conflict, then a split point is recorded and propagation continues with the reversed direction." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT5.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Ordering MUST introduce no crossing inside a shared segment" ;
+    dct:description "Ordering MUST introduce no crossing inside a shared segment; crossings MUST occur only at the exit of the last shared edge in pseudo-direction." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "162"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given a path-consistent component, when the ordering is applied, then no two routes exchange relative position within any shared edge." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT5.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Ordering MUST be stable across interaction, so lanes do not exchange position…" ;
+    dct:description "Ordering MUST be stable across interaction, so lanes do not exchange position between successive settled states of a drag." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "167"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given a drag that returns a node to its starting position, when the scene settles, then the lane order is identical to the pre-drag order." ;
+    specl:verifiedBy spec:test-a3b09268 .
+
+spec:RT6.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Collinear segments MUST be collapsed into maximal horizontal and vertical…" ;
+    dct:description "Collinear segments MUST be collapsed into maximal horizontal and vertical segments before placement, and horizontal and vertical positions computed in separate passes." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "174"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given a route with three collinear sub-segments, when placement runs, then they are treated as one segment." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT6.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Desired position for a middle segment of an S or Z bend MUST be the centre of…" ;
+    dct:description "Desired position for a middle segment of an S or Z bend MUST be the centre of the free space it occupies; for a segment bending around a corner it MUST be the position of the object vertex." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "179"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given an S bend in an otherwise empty corridor, when placement runs, then the middle segment is centred in the corridor." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT6.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Separation constraints MUST simultaneously impose the R5 ordering, preserve…" ;
+    dct:description "Separation constraints MUST simultaneously impose the R5 ordering, preserve relative order against other segments and against objects, enforce non-overlap, and prevent segments passing through each other." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "184"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given a scene where separating two segments would push one into a box, when placement runs, then the constraint set prevents the intrusion rather than requiring a separate obstacle guard." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT6.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Placement MUST NOT introduce a box intersection, so RT2.3 holds after…" ;
+    dct:description "Placement MUST NOT introduce a box intersection, so RT2.3 holds after separation as well as before." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "189"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given any scene, when separation has run, then the surrender count remains zero." ;
+    specl:verifiedBy spec:test-c9c8b9f0 .
+
+spec:RT6.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Centring routes in free space SHOULD be implementable and testable…" ;
+    dct:description "Centring routes in free space SHOULD be implementable and testable independently of lane separation." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "194"^^xsd:integer ;
+    specl:priority "SHOULD" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given centring enabled and separation disabled, when a scene is routed, then routes are centred and no lane offsets are applied." ;
+    specl:verifiedBy spec:test-226b3fae .
+
+spec:RT6.6 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The separation distance MUST be a configured parameter whose value is derived…" ;
+    dct:description "The separation distance MUST be a configured parameter whose value is derived from measurement against the g3t corpus rather than adopted from another implementation." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "199"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SeparationSolver> ;
+    specl:acceptanceCriterion "Given the parameter, when its provenance is checked, then it traces to a measurement record in this knowledge base." ;
+    specl:verifiedBy spec:test-7a07dc32 .
+
+spec:RT7.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Scene routing output MUST be a function of scene input alone on the paths…" ;
+    dct:description "Scene routing output MUST be a function of scene input alone on the paths governed by RT3.1." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "206"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:acceptanceCriterion "Given an identical scene routed four times, when the results are compared, then they are byte-identical." ;
+    specl:verifiedBy spec:test-9a8285db .
+
+spec:RT7.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Any remaining work budget MUST be expressed as a deterministic counter rather…" ;
+    dct:description "Any remaining work budget MUST be expressed as a deterministic counter rather than wall-clock time." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "211"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#SceneRouter> ;
+    specl:constrains <https://w3id.org/g3t/components#OrthogonalRouter> ;
+    specl:acceptanceCriterion "Given a budget that binds, when the same scene is routed on machines of differing speed, then the same edges are curtailed." ;
+    specl:verifiedBy spec:test-ffc4a316 .
+
+spec:RT7.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The preview path budget MUST use the same deterministic counter" ;
+    dct:description "The preview path budget MUST use the same deterministic counter." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "217"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralView> ;
+    specl:acceptanceCriterion "Given a preview frame under load, when the budget binds, then the curtailed set is reproducible." ;
+    specl:verifiedBy spec:test-a3b09268 .
+
+spec:RT8.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "A scene-routing performance budget MUST assert at 100 nodes, measuring routing…" ;
+    dct:description "A scene-routing performance budget MUST assert at 100 nodes, measuring routing time rather than total layout time." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "224"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#PerformanceBudgets> ;
+    specl:acceptanceCriterion "Given the budget file, when the routing keys are read, then a 100-node scene routing key asserts unconditionally." ;
+    specl:verifiedBy spec:test-c4d20976 ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG2> .
+
+spec:RT8.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "A scene-routing performance budget MUST assert at 200 nodes, set for…" ;
+    dct:description "A scene-routing performance budget MUST assert at 200 nodes, set for correctness rather than interactivity." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "230"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#PerformanceBudgets> ;
+    specl:acceptanceCriterion "Given a 200-node clustered scene, when it is routed cleanly, then the measured time is within the asserted budget." ;
+    specl:verifiedBy spec:test-c4d20976 ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG2> .
+
+spec:RT8.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Performance budgets MUST assert against the clustered generator" ;
+    dct:description "Performance budgets MUST assert against the clustered generator; uniform random figures MUST be recorded as informational only." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "236"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:acceptanceCriterion "Given the perf suite, when a budget assertion runs, then its fixture is clustered, and any uniform measurement is reported without asserting." ;
+    specl:verifiedBy spec:test-c4d20976 ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG2> .
+
+spec:RT8.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Budget targets MUST be revisited when real structural scenes in the 50 to 200…" ;
+    dct:description "Budget targets MUST be revisited when real structural scenes in the 50 to 200 node range become available." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "242"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#PerformanceBudgets> ;
+    specl:acceptanceCriterion "Given a real scene corpus, when it is measured, then the budget targets are re-derived or explicitly reaffirmed in the same change." ;
+    specl:verifiedBy spec:test-62d22428 .
+
+spec:RT9.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The capability MUST NOT add a trunk representation, a membership concept on…" ;
+    dct:description "The capability MUST NOT add a trunk representation, a membership concept on input edges, or junction markers." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "249"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#EdgeModel> ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralLayoutEngine> ;
+    specl:acceptanceCriterion "Given the input edge type, when it is inspected, then it carries no grouping or bus identifier." ;
+    specl:verifiedBy spec:test-fb4ac475 .
+
+spec:RT9.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Any future merging capability MUST preserve determinability of connector count…" ;
+    dct:description "Any future merging capability MUST preserve determinability of connector count from the drawing." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "255"^^xsd:integer ;
+    specl:priority "MUST" ;
+    specl:constrains <https://w3id.org/g3t/components#StructuralLayoutEngine> ;
+    specl:acceptanceCriterion "Given a merged drawing, when a reader counts connectors, then the count is recoverable from junction markers, distinct anchors, or an explicit multiplicity report." ;
+    specl:verifiedBy spec:test-67c0a5dd .
+
+spec:RTUS1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "As a systems engineer reviewing an IBD, I read a 70-block diagram and no…" ;
+    dct:description "As a systems engineer reviewing an IBD, I read a 70-block diagram and no connector passes through a block, so I do not have to ask whether a line that crosses a box is a routing artifact or a real relationship." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "263"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER2> ;
+    specl:benefit "I can trust what the diagram asserts" ;
+    specl:acceptanceCriterion "Given a 70-block structural scene, when it is rendered, then no connector intersects a block." .
+
+spec:RTUS2 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "As a reviewer counting interfaces, I can count connectors at a glance because…" ;
+    dct:description "As a reviewer counting interfaces, I can count connectors at a glance because separated lanes are visibly distinct rather than superimposed." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "267"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER9> ;
+    specl:benefit "the drawing does not under-report the model" ;
+    specl:acceptanceCriterion "Given four connectors that would otherwise run coincident, when the scene is rendered, then four distinct strokes are visible." .
+
+spec:RTUS3 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "As an engineer arranging a diagram, I drag a block in a 200-block scene and the…" ;
+    dct:description "As an engineer arranging a diagram, I drag a block in a 200-block scene and the drawing keeps up, then settles into a clean routing when I let go." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "271"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER10> ;
+    specl:benefit "correctness at the top of the range does not cost interactivity" ;
+    specl:acceptanceCriterion "Given a 200-node scene, when a block is dragged, then frames remain responsive and the settled scene satisfies the zero-surrender invariant." .
+
+spec:RTUS4 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "As a reviewer comparing two versions of a diagram, identical inputs produce…" ;
+    dct:description "As a reviewer comparing two versions of a diagram, identical inputs produce identical drawings, so a visual difference always means a model difference." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "275"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER9> ;
+    specl:benefit "diagram diffs are meaningful" ;
+    specl:acceptanceCriterion "Given one scene routed on two machines, when the outputs are compared, then they are identical." .
+
+spec:RTUS5 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "As a maintainer, I can tell from the geometry document whether a scene received…" ;
+    dct:description "As a maintainer, I can tell from the geometry document whether a scene received degraded routing rather than inferring it from the picture." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "279"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER11> ;
+    specl:benefit "a limit is distinguishable from a defect" ;
+    specl:acceptanceCriterion "Given any routed scene, when the geometry document is read, then it reports its surrender count." .
+
+spec:RTOQ1 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The separation distance and any grouping radius are unmeasured" ;
+    dct:description "The separation distance and any grouping radius are unmeasured. Adopting a value from another implementation would be both weaker evidence and an unnecessary contact with a source the project keeps at arm's length." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "337"^^xsd:integer ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG1> ;
+    specl:recommendation "Sweep the parameter with the audit harness against both generators and pick from the crossing and coincidence metrics, then record the result as a measurement." ;
+    specl:resolutionStatus "open" .
+
+spec:RTOQ2 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Whether the visible correction at drag end is acceptable, or whether…" ;
+    dct:description "Whether the visible correction at drag end is acceptable, or whether interaction must converge without a jump." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "341"^^xsd:integer ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG2> ;
+    specl:recommendation "Ship the preview split and evaluate on real scenes. Wiring the existing invalidation seam is the path to removing the correction, and it should be justified by observed annoyance rather than assumed." ;
+    specl:resolutionStatus "open" .
+
+spec:RTOQ3 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Whether centring should ship ahead of separation as an independent improvement" ;
+    dct:description "Whether centring should ship ahead of separation as an independent improvement." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "345"^^xsd:integer ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG1> ;
+    specl:recommendation "Yes. It is described in the literature as negligible in cost and as making routes more predictable, and RT6.5 already requires the two to be separable." ;
+    specl:resolutionStatus "open" .
+
+spec:RTOQ4 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Whether the preview path should reuse the current cheap gap-template route or a…" ;
+    dct:description "Whether the preview path should reuse the current cheap gap-template route or a bounded grid route." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "349"^^xsd:integer ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG1> ;
+    specl:recommendation "Prefer a bounded grid route, so preview and settled geometry come from the same producer and the correction at settle is a refinement rather than a change of kind." ;
+    specl:resolutionStatus "open" .
+
+spec:RTOQ5 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Budget targets rest on synthetic scenes" ;
+    dct:description "Budget targets rest on synthetic scenes. Neither generator models hub nodes, depth, or non-uniform box sizes." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "353"^^xsd:integer ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG2> ;
+    specl:recommendation "Treat RT8.2's target as provisional and re-derive when a real corpus exists, per RT8.4." ;
+    specl:resolutionStatus "open" .
+
+spec:RTOQ6 a specl:OpenIssue ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Whether a crossing term should be added to the search cost model, and when" ;
+    dct:description "Whether a crossing term should be added to the search cost model, and when." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "357"^^xsd:integer ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG1> ;
+    specl:recommendation "After R5. The literature notes that shared-path ordering makes crossings cheap to identify, which suggests the ordering stage should precede the cost-model work rather than follow it." ;
+    specl:resolutionStatus "deferred" .
+
+spec:RTD1 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Cytoscape retired as a structural rendering target" ;
+    dct:description "The Cytoscape canvas is retired as a rendering target for structural diagrams; the SVG structural view is the sole structural surface." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "286"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Neither routed-edge consumer was Cytoscape, the two surfaces had diverged on entry point, transport, fallback and hit testing, and the coordinate-string transport could not carry richer routing output." ;
+    specl:affects spec:RT1.1 .
+
+spec:RTD2 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Coincidence treated by separation rather than merging" ;
+    dct:description "Coincidence is treated by separation rather than by merging; merging is deferred." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "291"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Grouping serves clutter reduction with no semantic claim attached, connector count must remain determinable from the drawing, and separation satisfies both without a trunk representation, membership concept, junction markers or a merged labelling policy." ;
+    specl:affects spec:RT1.3 ;
+    specl:affects spec:RT9.1 ;
+    specl:affects spec:RT9.2 .
+
+spec:RTD3 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Scene routing budgeted for correctness" ;
+    dct:description "Scene routing is budgeted for correctness; a 200-node scene may exceed one second." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "296"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Measured, a clean 200-node clustered scene costs roughly 1241ms, and the alternative is a silent correctness cliff inside the intended operating range." ;
+    specl:affects spec:RT2.3 ;
+    specl:affects spec:RT8.2 .
+
+spec:RTD4 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Interactive frame split out as a preview path" ;
+    dct:description "The interactive frame is split out as a preview path, with a clean re-route on settle." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "301"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "Whole-scene re-routing at correctness cost makes dragging unusable at the top of the range; the split keeps the settled state correct and the transient state fast, and mirrors the pattern the retired surface already used." ;
+    specl:affects spec:RT3.1 ;
+    specl:affects spec:RT3.2 ;
+    specl:affects spec:RT3.3 .
+
+spec:RTD5 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Escalation threshold removed in favour of the pruning path" ;
+    dct:description "The escalation threshold is removed rather than re-derived, and scale is handled by the grid router's existing pruning path." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "306"^^xsd:integer ;
+    specl:decisionStatus "accepted" ;
+    specl:rationale "The scene router's threshold and the router's own pruning threshold are the same number with the gate firing first, so the mechanism built for scale is unreachable; pruning already verifies against the full obstacle set and is accepted on 54 to 75 percent of calls." ;
+    specl:affects spec:RT2.1 ;
+    specl:affects spec:RT2.2 .
+
+spec:RTDN1 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The ordering and placement mechanism follows the published three-stage approach…" ;
+    dct:description "The ordering and placement mechanism follows the published three-stage approach to orthogonal connector routing, in which computing the visual representation is a distinct stage after search rather than a post-process. The stage is not cheap: on the authors' own measurements final placement cost roughly as much as the search itself at 100 nodes and dominated by 300. Absolute figures are from 2009 hardware; the ratio is the planning input." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "327"^^xsd:integer .
+
+spec:RTDN2 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The implementation is independent work from the published papers" ;
+    dct:description "The implementation is independent work from the published papers. No code is taken from any existing router, and parameter values are not adopted from another implementation's source. This preserves the independence posture already asserted in the router." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "328"^^xsd:integer .
+
+spec:RTDN3 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Placement needs a separation-constraint projection solver, which does not exist…" ;
+    dct:description "Placement needs a separation-constraint projection solver, which does not exist in the codebase. It is the largest single new component and is independently implementable from the literature." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "329"^^xsd:integer .
+
+spec:RTDN4 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "RT2.1 is a precondition for R5 rather than merely preceding it" ;
+    dct:description "RT2.1 is a precondition for R5 rather than merely preceding it. The ordering algorithm assumes every route came from one visibility graph, and the cheap gap-template route never touches the grid, so template-routed edges cannot participate in shared-edge ordering at all." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "330"^^xsd:integer .
+
+spec:RTDN5 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Coincidence attribution showed the phenomenon is not concentrated at anchors" ;
+    dct:description "Coincidence attribution showed the phenomenon is not concentrated at anchors. Most terminal-stub coincidence at 64 nodes is between stubs of different nodes, aligned because layered placement aligns their host boxes, and search-produced coincidence overtakes stubs by 200 nodes. Anchor-side fan distribution solves the minority case and is not the model for R5." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "331"^^xsd:integer .
+
+spec:RTDN6 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Quality gates should build on the existing metrics module, which already…" ;
+    dct:description "Quality gates should build on the existing metrics module, which already exports segment crossing, crossing count, bend count and polyline length." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "332"^^xsd:integer .
+
+spec:RTDN7 a specl:DesignNote ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Existing render-side constraints survive unchanged: arrow shapes carry a trim…" ;
+    dct:description "Existing render-side constraints survive unchanged: arrow shapes carry a trim length and the shaft is walked back from the tip, so terminal segments must retain a minimum length, and edge labels anchor at the target end in the quadrant opposite port labels." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "333"^^xsd:integer .
+
+spec:RTQ1 a specl:AcceptanceQuery ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "No emitted route segment intersects a non-endpoint box interior, in any scene…" ;
+    dct:description "No emitted route segment intersects a non-endpoint box interior, in any scene inside the operating range." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "314"^^xsd:integer ;
+    specl:gates spec:RT2.3 ;
+    specl:gates spec:RT2.5 ;
+    specl:gates spec:RT6.4 .
+
+spec:RTQ2 a specl:AcceptanceQuery ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "The number of drawn strokes equals the number of edges carrying routed geometry" ;
+    dct:description "The number of drawn strokes equals the number of edges carrying routed geometry." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "316"^^xsd:integer ;
+    specl:gates spec:RT1.3 ;
+    specl:gates spec:RT9.1 .
+
+spec:RTQ3 a specl:AcceptanceQuery ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "An identical scene routed repeatedly, on machines of differing speed, produces…" ;
+    dct:description "An identical scene routed repeatedly, on machines of differing speed, produces identical geometry." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "318"^^xsd:integer ;
+    specl:gates spec:RT7.1 ;
+    specl:gates spec:RT7.2 ;
+    specl:gates spec:RT7.3 .
+
+spec:RTQ4 a specl:AcceptanceQuery ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Scene routing time is within an asserted budget measured against a clustered…" ;
+    dct:description "Scene routing time is within an asserted budget measured against a clustered fixture at both 100 and 200 nodes." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "320"^^xsd:integer ;
+    specl:gates spec:RT8.1 ;
+    specl:gates spec:RT8.2 ;
+    specl:gates spec:RT8.3 .
+
+spec:RTQ5 a specl:AcceptanceQuery ;
+    specl:partOf <https://w3id.org/g3t/spec/routing> ;
+    dct:title "Every parameter governing separation traces to a measurement record rather than…" ;
+    dct:description "Every parameter governing separation traces to a measurement record rather than to another implementation." ;
+    prov:wasDerivedFrom spec:source-e9e453bf ;
+    specl:sourceLine "322"^^xsd:integer ;
+    specl:gates spec:RT6.6 .
+
+spec:test-17baeeb4 a specl:Test ;
+    dct:identifier "route-audit provenance counter" .
+
+spec:test-2121a6eb a specl:Test ;
+    dct:identifier "packages/core/src/metrics/layout-metrics.test.ts" .
+
+spec:test-226b3fae a specl:Test ;
+    dct:identifier "packages/core/src/route/separation.test.ts" .
+
+spec:test-62d22428 a specl:Test ;
+    dct:identifier "route-audit real-scene run" .
+
+spec:test-67c0a5dd a specl:Test ;
+    dct:identifier "deferred with the merging capability" .
+
+spec:test-7a07dc32 a specl:Test ;
+    dct:identifier "route-audit separation parameter sweep" .
+
+spec:test-9a8285db a specl:Test ;
+    dct:identifier "packages/core/src/layout/g3t-engine/g3t-routing.test.ts" .
+
+spec:test-a3b09268 a specl:Test ;
+    dct:identifier "packages/react/src/views/svg/structural-svg-view.test.tsx" .
+
+spec:test-c4d20976 a specl:Test ;
+    dct:identifier "tests/perf/prf.perf.test.ts" .
+
+spec:test-c9c8b9f0 a specl:Test ;
+    dct:identifier "packages/core/src/layout/g3t-engine/structural-patterns.test.ts" .
+
+spec:test-e82baa65 a specl:Test ;
+    dct:identifier "route-audit A3 configuration comparison" .
+
+spec:test-f2ac095d a specl:Test ;
+    dct:identifier "route-audit surrender counter" .
+
+spec:test-fb4ac475 a specl:Test ;
+    dct:identifier "packages/core/src/layout/structural.test.ts" .
+
+spec:test-ffc4a316 a specl:Test ;
+    dct:identifier "packages/core/src/route/orthogonal-router.test.ts" .
+

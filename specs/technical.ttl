@@ -1,0 +1,303 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix spec: <https://w3id.org/g3t/spec/technical#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<https://w3id.org/g3t/spec/technical> a specl:Specification ;
+    specl:declares spec:reference-g3t ;
+    specl:refines <https://w3id.org/g3t/spec/g3t> ;
+    dct:conformsTo <https://w3id.org/specl/contract/2> ;
+    dct:title "g3-toolkit: Data Layer and Adapters" ;
+    dct:hasVersion "0.1.0" ;
+    specl:status "draft" ;
+    dct:identifier "g3-tech-data" ;
+    specl:prefix "g3ttech" ;
+    dct:created "2026-05-17"^^xsd:date ;
+    specl:intent """This specification defines the data layer architecture: the unified node/edge/property model that all views consume, the adapter interfaces for connecting to graph databases and other data sources, and the algorithm-result ingestion contract.   This specification defines the RDF-to-visual projection pipeline (P4). Raw RDF triple visualization is almost never the right rendering strategy. The projection pipeline transforms RDF data into the Unified Graph Model (UGM) using a configurable sequence of collapse operations. The pipeline is the mandatory path for RDF data entering any view except the Schema view and the raw-triples toggle in the Detail Inspector.""" ;
+    specl:purpose """""" .
+
+spec:source-66d792ba a specl:SourceDocument ;
+    dct:identifier "03-technical-data-layer.md" .
+
+spec:source-53f5966b a specl:SourceDocument ;
+    dct:identifier "04-technical-projection.md" .
+
+spec:reference-g3t a specl:SpecificationReference ;
+    specl:prefix "g3t" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/g3t#" ;
+    specl:referencePath "g3t/spec.ttl" .
+
+spec:R3.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit MUST define a Unified Graph Model (UGM) consisting of typed nodes…" ;
+    dct:description "The toolkit MUST define a Unified Graph Model (UGM) consisting of typed nodes (with an IRI or ID, a set of type labels, and a property map), typed edges (with source, target, type label, and a property map including optional provenance/confidence metadata), and a global property-key registry. The property-key registry tracks all observed node types, edge types, and property keys across the graph; it is used by the faceted filter (R2.7), the schema discovery method of GraphAdapter (R3.3 `get_schema()`), and the visual encoding system to auto-derive available encoding channels." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "33"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#UnifiedGraphModel> ;
+    specl:acceptanceCriterion "Given an LPG node and an RDF-projected node with identical properties, when both are loaded into the UGM, then they are indistinguishable to the view layer." .
+
+spec:R3.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The UGM MUST support a Qualified Edge model: every edge has an optional…" ;
+    dct:description "The UGM MUST support a Qualified Edge model: every edge has an optional metadata bag containing at minimum `confidence` (float 0..1), `provenance_iri` (string), `temporal_start` (datetime), `temporal_end` (datetime), and `asserted` (boolean). These fields are populated by the adapter layer from RDF named-graph/RDF* structures or LPG edge properties as appropriate." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "40"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#UnifiedGraphModel> ;
+    specl:constrains <https://w3id.org/g3t/components#QualifiedEdge> ;
+    specl:acceptanceCriterion "Given an RDF triple with assertion-level provenance via a named graph, when loaded through the RDF adapter, then the UGM edge has `provenance_iri` and `asserted=true`." ;
+    specl:acceptanceCriterion "Given a Neo4j relationship with a `confidence` property, when loaded through the LPG adapter, then the UGM edge has `confidence` populated." .
+
+spec:R3.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit MUST define a GraphAdapter interface with at minimum…" ;
+    dct:description "The toolkit MUST define a GraphAdapter interface with at minimum: `query(query_string) -> UGM`, `expand_neighborhood(node_id, depth, edge_types?) -> UGM`, `get_schema() -> SchemaModel`, and `get_node_properties(node_id) -> PropertyMap`." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "50"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER7> ;
+    specl:constrains <https://w3id.org/g3t/components#GraphAdapter> ;
+    specl:acceptanceCriterion "Given a new backend (e.g., TigerGraph), when a developer implements GraphAdapter, then all 12 archetype views render correctly against that backend." .
+
+spec:R3.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit MUST ship adapter implementations for at least: (a) a SPARQL…" ;
+    dct:description "The toolkit MUST ship adapter implementations for at least: (a) a SPARQL endpoint (RDF), (b) a Bolt/Cypher endpoint (Neo4j/LPG), and (c) a Holonic `HolonicDataset` (P6). Additional adapters (Gremlin, GQL, REST/JSON) SHOULD be available as optional installs." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "58"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#SPARQLAdapter> ;
+    specl:constrains <https://w3id.org/g3t/components#CypherAdapter> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:acceptanceCriterion "Given a Stardog SPARQL endpoint, when the SPARQL adapter is configured, then the canvas renders query results." ;
+    specl:acceptanceCriterion "Given a Neo4j Bolt endpoint, when the Cypher adapter is configured, then the canvas renders query results." ;
+    specl:acceptanceCriterion "Given a HolonicDataset with three holons, when the Holonic adapter is configured, then the holarchy topology renders in the canvas." .
+
+spec:R3.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit MUST define an AlgorithmResultAdapter interface that ingests…" ;
+    dct:description "The toolkit MUST define an AlgorithmResultAdapter interface that ingests algorithm outputs (centrality scores, community IDs, embeddings, predicted links, anomaly scores) as node or edge properties in the UGM. The toolkit MUST NOT require a specific algorithm engine; it consumes results, not computation (P1)." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "69"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER7> ;
+    specl:constrains <https://w3id.org/g3t/components#AlgorithmResultAdapter> ;
+    specl:acceptanceCriterion "Given a CSV of PageRank scores keyed by node ID, when loaded through the AlgorithmResultAdapter, then nodes in the UGM have a `pagerank` property and the stats panel renders a histogram." .
+
+spec:R3.6 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit SHOULD define a StreamAdapter interface for incremental graph…" ;
+    dct:description "The toolkit SHOULD define a StreamAdapter interface for incremental graph updates from streaming sources (Kafka, WebSocket, SSE). The StreamAdapter emits add/remove/update events that the UGM applies without full reload." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "77"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#StreamAdapter> ;
+    specl:constrains spec:component-UGMEventBus ;
+    specl:acceptanceCriterion "Given a Kafka topic emitting edge-creation events, when the StreamAdapter is connected, then new edges appear in the canvas within the configured refresh interval." .
+
+spec:R3.7 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit SHOULD provide visualization affordances for virtualized data…" ;
+    dct:description "The toolkit SHOULD provide visualization affordances for virtualized data (rescoped 2026-06-12 from data-layer virtualization to visualization-only, per review direction): when nodes or properties carry virtualization provenance (source system, table/view, query identity), the canvas and inspectors MUST make the virtualized origin visible: a source-system indication on the node (badge or styling channel), and provenance details (system, table, key, retrieval identity) in the Detail Inspector and tooltip. The Stardog-style pattern: the user can always tell which concepts are virtualized from a particular RDBMS and where they came from. Data-layer join machinery is OUT of roadmap scope; the existing relational-virtualizer module remains as host-side utility code." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "86"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#CytoscapeCanvas> ;
+    specl:constrains <https://w3id.org/g3t/components#DetailInspector> ;
+    specl:constrains spec:component-HoverTooltip ;
+    specl:acceptanceCriterion "Given nodes carrying virtualization provenance properties (source system and table), when rendered, then those nodes show a visible source indication and the Detail Inspector lists the originating system, table, and key." .
+
+spec:R3.8 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit MUST support document and unstructured data linkage by allowing…" ;
+    dct:description "The toolkit MUST support document and unstructured data linkage by allowing graph nodes to carry a `source_document_url` or `source_span` property that the Detail Inspector (R1.11) renders as a clickable link or an inline preview." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "96"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains <https://w3id.org/g3t/components#DocumentLinker> ;
+    specl:acceptanceCriterion "Given an NLP-extracted entity with a source_span pointing to a PDF page and character range, when \"Show source\" is clicked in the inspector, then the PDF viewer opens at the relevant span." .
+
+spec:R3.9 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The AlgorithmResultAdapter (R3.5) SHOULD additionally accept structure-shaped…" ;
+    dct:description "The AlgorithmResultAdapter (R3.5) SHOULD additionally accept structure-shaped results: edge sets and subgraphs (spanning trees, shortest-path trees, ego networks, k-cores) identified by node and edge IDs, registered as named overlays. The canvas SHOULD render an active overlay as a highlighted substructure (emphasized member edges/nodes, de-emphasized non-members) without mutating the underlying UGM, and multiple overlays MAY be toggled independently." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "104"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:rationale "Capability landscape (research/capability-landscape.md, sections D and E.4). The property-shaped protocol cannot express structural results; spanning-graph and path-tree visualization is standard in Gephi, Neo4j Bloom GDS integration, and GraphXR. Protocol shape resolves together with OQ8 so the algorithm contract is designed once." ;
+    specl:constrains <https://w3id.org/g3t/components#AlgorithmResultAdapter> ;
+    specl:constrains spec:component-OverlayRegistry ;
+    specl:constrains <https://w3id.org/g3t/components#CanvasRenderer> ;
+    specl:acceptanceCriterion "Given a minimum-spanning-tree result as an edge-ID set, when its overlay is activated, then member edges render emphasized and non-member edges de-emphasized, and deactivating the overlay restores the prior styling." ;
+    specl:acceptanceCriterion "Given two registered overlays (an MST and an ego network), when both are toggled in sequence, then each activation reflects only its own membership and the UGM's node and edge counts are unchanged throughout." .
+
+spec:R4.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit MUST implement a ProjectionPipeline that accepts an RDF graph (or…" ;
+    dct:description "The toolkit MUST implement a ProjectionPipeline that accepts an RDF graph (or SPARQL CONSTRUCT result) and produces a UGM instance. The pipeline MUST be configurable as an ordered sequence of transform steps." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "17"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:constrains <https://w3id.org/g3t/components#UnifiedGraphModel> ;
+    specl:acceptanceCriterion "Given an RDF graph with 1,000 triples, when the default ProjectionPipeline is applied, then the resulting UGM contains only named-resource nodes (no literal nodes, no blank nodes as top-level nodes, no rdf:type edges)." .
+
+spec:R4.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The default ProjectionPipeline MUST include the following collapse operations…" ;
+    dct:description "The default ProjectionPipeline MUST include the following collapse operations, applied in order: (1) Type Collapse (rdf:type triples become a `types` list on the node), (2) Literal Collapse (datatype and annotation property triples become key-value attributes on the node), (3) Blank-Node Resolution (blank nodes inline as nested property structures on the nearest named resource), (4) List Resolution (rdf:first/rdf:rest chains become ordered arrays), (5) Reification/RDF* Collapse (reified statements and RDF* quoted triples become Qualified Edge metadata)." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "26"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:acceptanceCriterion "Given an RDF graph containing `ex:Alice rdf:type foaf:Person`, when Type Collapse runs, then the UGM node for ex:Alice has `types: [\"foaf:Person\"]` and no rdf:type edge exists." ;
+    specl:acceptanceCriterion "Given an RDF graph containing `ex:Alice foaf:name \"Alice\"^^xsd:string`, when Literal Collapse runs, then the UGM node for ex:Alice has property `foaf:name: \"Alice\"` and no literal node exists." ;
+    specl:acceptanceCriterion "Given an RDF* triple `<<ex:Alice ex:knows ex:Bob>> ex:confidence 0.9`, when Reification Collapse runs, then the UGM edge from Alice to Bob has `confidence: 0.9` in its Qualified Edge metadata." .
+
+spec:R4.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "Each collapse operation MUST be individually toggleable" ;
+    dct:description "Each collapse operation MUST be individually toggleable. The Schema view (R1.5) SHOULD run with Type Collapse disabled so that class hierarchy edges remain visible. The Detail Inspector's \"Show raw RDF\" mode (R1.11) MUST bypass the pipeline entirely." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "35"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:acceptanceCriterion "Given a ProjectionPipeline with Type Collapse disabled, when applied to an ontology graph, then rdf:type edges render in the Schema view as class membership arcs." .
+
+spec:R4.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The ProjectionPipeline MUST accept Holonic `ProjectionPipeline` instances (from…" ;
+    dct:description "The ProjectionPipeline MUST accept Holonic `ProjectionPipeline` instances (from the `holonic` library) as a compatible input. When a Holonic ProjectionPipeline is provided, the toolkit MUST use it in place of the default pipeline, including any CONSTRUCT steps and Python transforms defined in the Holonic pipeline." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "43"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:acceptanceCriterion "Given a Holonic ProjectionPipeline with a custom CONSTRUCT step that strips administrative triples, when applied through the toolkit, then the resulting UGM excludes those triples." .
+
+spec:R4.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit SHOULD ship at least three named projection presets: (a) \"Standard\"…" ;
+    dct:description "The toolkit SHOULD ship at least three named projection presets: (a) \"Standard\" (all five collapses on; suitable for investigation and analytics), (b) \"Ontology\" (Type Collapse off, Reification Collapse off; suitable for schema browsing), and (c) \"Provenance-Preserving\" (Reification Collapse off; suitable for provenance inspection where RDF*/named-graph structure should remain visible as edges)." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "52"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:constrains <https://w3id.org/g3t/components#PresetRegistry> ;
+    specl:acceptanceCriterion "Given the \"Standard\" preset, when applied to an RDF graph, then the resulting UGM has no literal nodes, no blank nodes, no rdf:type edges, and no reification structure." ;
+    specl:acceptanceCriterion "Given the \"Provenance-Preserving\" preset, when applied to an RDF graph with named-graph provenance, then provenance named-graph nodes remain visible as connected elements." .
+
+spec:R4.6 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The toolkit MUST NOT pass raw RDF triples directly to any canvas, timeline…" ;
+    dct:description "The toolkit MUST NOT pass raw RDF triples directly to any canvas, timeline, map, Sankey, matrix, or statistical renderer. The ProjectionPipeline is the mandatory data path for RDF sources into these views. The only exceptions are the Schema view (R1.5) and the raw-triples toggle in the Detail Inspector (R1.11)." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "61"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ViewRouter> ;
+    specl:constrains <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:acceptanceCriterion "Given an RDF data source, when any view other than Schema or raw-triples Inspector is opened, then the data passes through the ProjectionPipeline before reaching the renderer." .
+
+spec:US3.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "As a data engineer, I want to point the toolkit at a SPARQL endpoint and a…" ;
+    dct:description "As a data engineer, I want to point the toolkit at a SPARQL endpoint and a Cypher endpoint simultaneously so that I can visualize a federated graph combining ontology-managed RDF and analytics-optimized LPG data." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "118"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:benefit "I can avoid data duplication across paradigms" ;
+    specl:implementationStatus "not-started" .
+
+spec:US3.2 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "As a plugin developer, I want to implement GraphAdapter for my custom graph…" ;
+    dct:description "As a plugin developer, I want to implement GraphAdapter for my custom graph store so that my users get all 12 archetype views without writing rendering code." ;
+    prov:wasDerivedFrom spec:source-66d792ba ;
+    specl:sourceLine "123"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER7> ;
+    specl:benefit "I can integrate the g3-toolkit with proprietary backends" ;
+    specl:implementationStatus "not-started" .
+
+spec:US4.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "As an analyst viewing RDF-sourced intelligence data, I want to see people…" ;
+    dct:description "As an analyst viewing RDF-sourced intelligence data, I want to see people, organizations, and locations as nodes with properties, not as a hairball of triples, so that I can focus on entity relationships rather than data-model plumbing." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "80"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:benefit "I can investigate networks without understanding RDF syntax" ;
+    specl:implementationStatus "not-started" .
+
+spec:US4.2 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "As an ontology engineer, I want to switch the projection to \"Ontology\" mode so…" ;
+    dct:description "As an ontology engineer, I want to switch the projection to \"Ontology\" mode so that I can see rdf:type edges and class hierarchy structure in the schema view while still getting collapsed literals." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "85"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:benefit "I can inspect both the instance data and the schema in the same toolkit" ;
+    specl:implementationStatus "not-started" .
+
+spec:D4.1 a specl:DecisionRecord ;
+    specl:partOf <https://w3id.org/g3t/spec/technical> ;
+    dct:title "The default projection configuration SHALL be \"all collapses on\" (the…" ;
+    dct:description "The default projection configuration SHALL be \"all collapses on\" (the \"Standard\" preset) for all holon types and ontology domains. Specific holon types or domains MAY override this via Holonic Projection-layer declarations (P6). This default is subject to revision based on user testing (deferred per P5)." ;
+    prov:wasDerivedFrom spec:source-53f5966b ;
+    specl:sourceLine "71"^^xsd:integer ;
+    specl:decisionStatus "proposed" ;
+    specl:rationale "Maximizes readability for the majority of users; ontology engineers can switch to the \"Ontology\" preset manually. The risk is that some ontology-curation workflows require Type Collapse off by default." ;
+    specl:affects <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:affects <https://w3id.org/g3t/components#PresetRegistry> ;
+    specl:owner <https://w3id.org/g3t/spec/g3t#AG4> .
+
+spec:component-HoverTooltip a specl:Component ;
+    dct:identifier "HoverTooltip" .
+
+spec:component-OverlayRegistry a specl:Component ;
+    dct:identifier "OverlayRegistry" .
+
+spec:component-UGMEventBus a specl:Component ;
+    dct:identifier "UGMEventBus" .
+

@@ -2,8 +2,8 @@
 """Enforce the roadmap coverage contract (roadmap/CLAUDE.md).
 
 Rules:
-  1. Every spec requirement whose status is `in-progress` or
-     `proposed` is OWNED by exactly one roadmap file. Ownership is
+  1. Every spec requirement whose implementation is `in-progress`
+     or `not-started` is OWNED by exactly one roadmap file. Ownership is
      declared in a file's "**Owns:**" header line; mentions elsewhere
      are cross-references and do not count.
   2. No roadmap file owns an `implemented` (or `verified`)
@@ -24,6 +24,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RID = re.compile(r"\bR\d+\.\d+\b")
+# specl 1.0.0 removes retired items from the measured population: a
+# withdrawn or superseded requirement is struck, not unbuilt, and asking
+# what its implementation status should be is a category error.
+RETIRED = re.compile(r"(?m)^\s+- itemStatus:\s*(withdrawn|superseded)\s*$")
+
 DONE = {"implemented", "verified"}
 
 
@@ -34,7 +39,9 @@ def spec_statuses() -> dict[str, str]:
             m = re.match(r"- (R\d+\.\d+) ", block)
             if not m:
                 continue
-            s = re.search(r"status:\s*([\w-]+)", block)
+            if RETIRED.search(block):
+                continue
+            s = re.search(r"(?m)^\s+- implementation:\s*([\w-]+)$", block)
             statuses[m.group(1)] = s.group(1) if s else "(missing)"
     return statuses
 
