@@ -7,7 +7,7 @@
  * This module is framework-agnostic (D6): no React, no Cytoscape.
  *
  * @see specs/03-technical-data-layer.md R3.1, R3.2
- * @see specs/09-design-decisions.md D1 (Qualified Edge), D6 (module boundary)
+ * @see specs/g3t/spec.md#decisions D1 (Qualified Edge), D6 (module boundary)
  */
 
 import { MultiGraph } from "graphology";

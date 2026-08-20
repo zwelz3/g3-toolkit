@@ -9,7 +9,7 @@
  * and code review. This test verifies the module graph resolves
  * and exports are functional.
  *
- * @see specs/09-design-decisions.md D6, D11, D13
+ * @see specs/g3t/spec.md#decisions D6, D11, D13
  */
 
 import { describe, it, expect } from "vitest";

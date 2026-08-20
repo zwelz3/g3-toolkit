@@ -21,7 +21,7 @@
  * Use cases:
  *   - CI can grep for hardcoded numbers (e.g. "556 unit tests") and fail
  *     if they don't match the derived counts.
- *   - Pre-commit hook can run this and update STATUS.md "current
+ *   - Pre-commit hook can run this and update CLAUDE.md "current
  *     state" lines.
  *
  * The script is intentionally read-only and dependency-free (just Node

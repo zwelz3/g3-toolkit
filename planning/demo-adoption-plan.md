@@ -102,7 +102,8 @@ e2e passes with snapshots enforced; a deliberate style change fails it.
 Constraint: authored headlessly here, validated in CI (browser downloads
 are blocked in this sandbox); flagged per the working agreement.
 
-P0.5 Doc truth pass. STATUS.md (currently asserts gates green and 1011
+P0.5 Doc truth pass. CLAUDE.md's CURRENT FOCUS block, which replaced
+STATUS.md 2026-08-20 (STATUS.md asserted gates green and 1011
 tests as of 06-22), CLAUDE.md (still quarantines flagship as in-flight),
 AGENT-ONBOARDING.md, README (flagship line, standalone mentions, counts),
 docs/landing.html. Accept: no doc asserts a state the gates or the file

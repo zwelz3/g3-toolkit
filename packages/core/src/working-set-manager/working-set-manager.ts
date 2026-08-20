@@ -8,7 +8,7 @@
  * Framework-agnostic (D6).
  *
  * @see specs/07-ux-defaults-accessibility.md R7.1-R7.7
- * @see specs/09-design-decisions.md D5, P2
+ * @see specs/g3t/spec.md#decisions D5, P2
  */
 
 // Implements: R7.1 (canvas 500 node limit), R7.2 (tree 1000 node limit),

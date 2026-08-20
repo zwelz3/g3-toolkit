@@ -283,7 +283,8 @@ src/                ← Interactive demo + test harness for `pnpm dev`
                       (four scenario shells; the dev demo, not a
                       published artifact)
 docs/               ← Adopter guides
-specs/              ← specl-format requirements
+specs/              ← specl specification family (parent specs/g3t/,
+                      six peers, translated .ttl beside each)
 roadmap/            ← Spec-gap work plan by area and capability
                       (see roadmap/CLAUDE.md; coverage enforced in CI)
 planning/           ← Milestones, audits, evaluations; retired-effort

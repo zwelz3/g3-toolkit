@@ -7,7 +7,7 @@
  * Framework-agnostic (D6).
  *
  * @see specs/03-technical-data-layer.md R3.5
- * @see specs/09-design-decisions.md D4
+ * @see specs/g3t/spec.md#decisions D4
  */
 
 import type { UGM } from "../ugm";

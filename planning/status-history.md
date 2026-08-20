@@ -1,31 +1,21 @@
-# g3-toolkit Status
+# Status snapshot history
 
-**As of:** 2026-08-16 (active: **audit remediation CLOSED except 23.**
-Item 19 ruled branch A: the packages publish ESM ONLY. The `require`
-condition is gone from all 23 exports entries, `main` is gone from all
-three manifests, the vite builds emit `formats: ["es"]`, and zero .cjs
-files ship (44% less runtime JS). Rationale: typed CJS never worked
-(TS1479 from one ESM-flavored .d.ts per entry), nothing in the repo
-required a @g3t package, and TS1479 was the only thing preventing a
-consumer from mixing formats and duplicating the exported store
-singletons. Paired .d.cts was REJECTED as fixing the compile error
-while worsening the hazard. Guarded in tests/dist/public-api.test.ts.
-E2E: the 12 failures are fixed and the suite is RETARGETED off the
-deprecated Cytoscape renderer onto SVG; verified by running it against
-the production bundle (49 passed; the rest fail only on this
-container's blocked font CDN). **E2E CONFIRMED GREEN locally and in CI
-2026-08-16 (PR #2)**, which closes that verification. v1.0.0 still
-UNTAGGED and deliberately held until the latent MRs land (owner,
-2026-08-16). REMAINING: item 23 (phase 2), never run and covering
-typing, performance, memory, bundle delivery, accessibility and
-concurrency. **The audit artifacts were RESTORED from backup 2026-08-16
-and the audit is RESUMABLE**: state.json is v2, 4/10 stages complete,
-123 confirmed phase-1 findings, next stage `structure-p2`, 21 pass
-instances left. Two corrections that restoration forced: the 23 roadmap
-items are a prioritized synthesis of 25 deduped top findings, NOT the
-123 findings themselves; and phase-1 coverage was never exhaustive,
-since 7 of 11 passes hit the findings cap with roughly 27 findings seen
-and unwritten, putting the true phase-1 total nearer 154.)
+Retired from `/STATUS.md`, which was deleted 2026-08-20 by owner ruling. The
+file was 1,370 lines of which 97% were these superseded snapshots, and the
+repository already designated `planning/` for history. Two current-state
+artifacts had drifted six weeks apart; there is now one, `CLAUDE.md`'s
+CURRENT FOCUS block.
+
+> **Do not update this file.** It is an append-only record of what was
+> believed at each point, kept because the reasoning in a superseded snapshot
+> is sometimes the only surviving account of why something was done. Numbers
+> in it were hand-maintained and were already second-class to the gates:
+> per-member maturity and progress now come from `specl-validate score`, with
+> the trend recorded in each member's `history.ttl`.
+
+The most recent snapshot is first.
+
+---
 
 ## PRIOR SNAPSHOT (2026-08-15 remediation round)
 
@@ -1020,7 +1010,7 @@ Two active threads layered on the feature-stable library.
 **Structural-view rendering (ELK/Cytoscape).** Full design narrative and
 decisions in `roadmap/design/structural-rendering.md` (section "Layout
 stability, edge routing, and ports"). Landed and gate-green:
-- Camera/position stability (decision D15 in specs/09-design-decisions.md):
+- Camera/position stability (decision D15 in specs/g3t/spec.md#decisions):
   the same input graph holds pan/zoom and node positions; refit only on a
   genuinely different graph or an explicit user op.
 - Port-based body-edge attachment: synthetic boundary ports distribute
@@ -1238,7 +1228,7 @@ typecheck, and pnpm verify (build, export/treeshake/smoke/type
 checks, README-snippet compilation, typedoc validation, bundle
 budget with a written ledger in scripts/check-bundle-size.mjs;
 @g3t/react currently 278.7 of 280 KB). Spec gates:
-scripts/lint_specs.py, scripts/sync_spec_status.py (status vs
+scripts/check_specs.py, scripts/sync_spec_status.py (implementation vs
 citation drift; exits nonzero on drift), and
 scripts/check_roadmap_coverage.py (every open requirement singly
 owned; closed requirements must leave Owns headers and the

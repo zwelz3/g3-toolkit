@@ -80,4 +80,4 @@ contradicts.
 R5.1 implemented with both backend acceptance tests green against a
 containerized Fuseki fixture; R5.6/R5.8 implemented per their spec
 acceptance criteria; OQ10 and OQ11 resolved in
-specs/10-open-questions.md with the decisions recorded in specs/09.
+specs/g3t/spec.md#open-questions with the decisions recorded in specs/g3t/spec.md#decisions.

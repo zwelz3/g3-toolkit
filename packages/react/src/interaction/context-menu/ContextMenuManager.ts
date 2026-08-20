@@ -6,7 +6,7 @@
  * the resolved item list from this manager.
  *
  * @see specs/02-functional-interaction.md R2.1, R2.3
- * @see specs/09-design-decisions.md D3
+ * @see specs/g3t/spec.md#decisions D3
  */
 
 import type { MenuItem, MenuTarget } from "./types";

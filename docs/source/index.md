@@ -4,7 +4,11 @@ The **g3-toolkit** is a composable graph visualization toolkit designed to cover
 90%+ of real-world graph data interrogation needs across RDF, labeled property
 graph, and hybrid architectures.
 
-This documentation is generated from specl-format markdown files in `specs/`.
+This documentation is generated from the specl specification family in
+`specs/`. `specs/g3t/spec.md` is the parent, carrying the product-level
+intent, the design principles, the decisions, the open questions, and the
+personas and agents the peers reference. The numbered files and
+`specs/routing/spec.md` are its peers.
 
 ```{toctree}
 :maxdepth: 2
@@ -17,7 +21,7 @@ planning/status
 :maxdepth: 3
 :caption: Specification
 
-specs/00-overview
+specs/g3t/spec
 specs/01-functional-views
 specs/02-functional-interaction
 specs/03-technical-data-layer
@@ -26,8 +30,7 @@ specs/05-integration-holonic
 specs/06-integration-connectors
 specs/07-ux-defaults-accessibility
 specs/08-security-deployment
-specs/09-design-decisions
-specs/10-open-questions
+specs/routing/spec
 ```
 
 ```{toctree}

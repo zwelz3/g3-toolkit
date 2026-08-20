@@ -27,9 +27,9 @@ queued work)
    instructions (--update-snapshots on ubuntu, commit
    tests/e2e/__screenshots__/, remove the flag). Until then, visual
    regression is unguarded.
-3. **P1: Templatize STATUS.md numbers.** (Retargeted round 31:
+3. **P1: Templatize the hand-maintained numbers.** (Retargeted round 31:
    planning/status.md was archived to planning/milestone-history.md;
-   the live numbers now sit in STATUS.md and the roadmap/CLAUDE.md
+   the live numbers now come from the gates and the roadmap/CLAUDE.md
    index header.) Test counts, the requirement rollup, and the
    ownership-index header are hand-maintained snapshots; audits and
    the round-31 consolidation have now caught them drifting FOUR

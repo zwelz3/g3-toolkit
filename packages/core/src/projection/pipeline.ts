@@ -9,7 +9,7 @@
  * Framework-agnostic (D6).
  *
  * @see specs/04-technical-projection.md R4.1
- * @see specs/09-design-decisions.md D2
+ * @see specs/g3t/spec.md#decisions D2
  */
 
 // @see specs/04-technical-projection.md R4.4: Holonic
