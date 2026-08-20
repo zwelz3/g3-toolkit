@@ -1,0 +1,23 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "kb:Decision/routing-nudging",
+    "kb:Discovery/corridor-demand-contract",
+    "kb:Plan/nudging-default-flip-followup"
+  ],
+  "commit_shas": ["b09257c318fd14b193ca6bb5d0afbdb0b77a5007"],
+  "files_changed": [
+    "packages/core/src/layout/g3t-engine/g3t-nudging.ts",
+    "packages/core/src/layout/g3t-engine/g3t-nudging.test.ts",
+    "packages/core/src/layout/g3t-engine/g3t-polyline-utils.ts",
+    "packages/core/src/layout/g3t-engine/g3t-routing.ts",
+    "packages/core/src/layout/g3t-engine/g3t-structural.ts",
+    "packages/core/src/layout/structural.ts",
+    "src/demo/routing/quality.ts"
+  ],
+  "summary": "Route nudging post-pass shipped opt-in with CorridorDemand contract; 11 new unit tests + typecheck + lint + prettier green; brief-mandated default-ON flip staged as followup plan atom to bound baseline re-pin scope.",
+  "duration_min": 45,
+  "blockers": [
+    "Default-ON flip deferred to a follow-up PR (kb:Plan/nudging-default-flip-followup): the brief mandates default true with same-PR baseline re-pin, but re-pin scope is unmeasured and could cascade to dozens of snapshot/geometry tests. Shipped opt-in so brief 04 has the CorridorDemand contract to consume immediately; flip is a mechanical measure-then-repin cycle."
+  ]
+}

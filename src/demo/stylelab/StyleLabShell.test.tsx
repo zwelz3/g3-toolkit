@@ -26,6 +26,9 @@ const captured = vi.hoisted(() => ({
     stylesheet?: unknown;
     onReady?: (cy: unknown) => void;
   }>,
+  routeRefreshSignal: [] as Array<number | undefined>,
+  relayoutSignal: [] as Array<number | undefined>,
+  edgeClickIsolate: [] as Array<boolean | undefined>,
 }));
 
 vi.mock("@g3t/react", async (importOriginal) => {
@@ -35,11 +38,17 @@ vi.mock("@g3t/react", async (importOriginal) => {
     CytoscapeCanvas: (props: {
       stylesheet?: unknown;
       onReady?: (cy: unknown) => void;
+      routeRefreshSignal?: number;
+      relayoutSignal?: number;
+      edgeClickIsolate?: boolean;
     }) => {
       captured.panes.push({
         stylesheet: props.stylesheet,
         onReady: props.onReady,
       });
+      captured.routeRefreshSignal.push(props.routeRefreshSignal);
+      captured.relayoutSignal.push(props.relayoutSignal);
+      captured.edgeClickIsolate.push(props.edgeClickIsolate);
       return <div data-testid="canvas-stub" />;
     },
   };
@@ -88,6 +97,9 @@ async function mountPanes(): Promise<void> {
 
 beforeEach(() => {
   captured.panes.length = 0;
+  captured.routeRefreshSignal.length = 0;
+  captured.relayoutSignal.length = 0;
+  captured.edgeClickIsolate.length = 0;
 });
 afterEach(() => {
   cleanup();
@@ -165,5 +177,16 @@ describe("StyleLabShell", () => {
     expect(screen.getByTestId("style-lab-lod-result").textContent).toContain(
       "Tier 3",
     );
+  });
+
+  it("refresh-routes / re-layout buttons bump their signal props; edge isolate is on", () => {
+    render(<StyleLabShell />);
+    const startRoute = captured.routeRefreshSignal.at(-1) ?? 0;
+    const startRelayout = captured.relayoutSignal.at(-1) ?? 0;
+    expect(captured.edgeClickIsolate.at(-1)).toBe(true);
+    fireEvent.click(screen.getByTestId("style-lab-refresh-routes"));
+    expect(captured.routeRefreshSignal.at(-1)).toBe(startRoute + 1);
+    fireEvent.click(screen.getByTestId("style-lab-relayout"));
+    expect(captured.relayoutSignal.at(-1)).toBe(startRelayout + 1);
   });
 });

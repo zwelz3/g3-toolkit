@@ -1,0 +1,53 @@
+# Classic RDF 1.1 reification twin of constellation.trig.
+#
+# The same annotation rows expressed via rdf:Statement (the standard
+# reification vocabulary predates RDF-star). This is the migration
+# comparison: what the RDF-star `<< s p o >>` shorthand collapses.
+# Every annotation predicate hangs off an rdf:Statement resource
+# whose rdf:subject / rdf:predicate / rdf:object triple names the
+# fact being annotated.
+
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sat:  <http://example.org/sat#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+sat:stmt-mass a rdf:Statement ;
+    rdf:subject   sat:aquila1 ;
+    rdf:predicate sat:hasMass ;
+    rdf:object    "950"^^xsd:decimal ;
+    sat:statedBy   sat:engineering ;
+    sat:confidence "0.9"^^xsd:decimal ;
+    sat:recordedAt "2026-02-01"^^xsd:date .
+
+sat:stmt-orbit a rdf:Statement ;
+    rdf:subject   sat:aquila1 ;
+    rdf:predicate sat:orbits ;
+    rdf:object    sat:earth ;
+    sat:statedBy   sat:flightDynamics ;
+    sat:confidence "1.0"^^xsd:decimal .
+
+sat:stmt-band a rdf:Statement ;
+    rdf:subject   sat:commsBus ;
+    rdf:predicate sat:band ;
+    rdf:object    sat:kaBand ;
+    sat:statedBy   sat:rfTeam ;
+    sat:confidence "0.8"^^xsd:decimal .
+
+sat:stmt-portal a rdf:Statement ;
+    rdf:subject   sat:aquila1 ;
+    rdf:predicate sat:relaysTo ;
+    rdf:object    sat:groundOps ;
+    sat:statedBy   sat:missionOps ;
+    sat:confidence "0.7"^^xsd:decimal .
+
+# Nested: the outer statement's rdf:subject is itself a Statement.
+sat:stmt-mass-confidence a rdf:Statement ;
+    rdf:subject   sat:stmt-mass ;
+    rdf:predicate sat:confidence ;
+    rdf:object    "0.9"^^xsd:decimal .
+
+sat:stmt-mass-confidence-review a rdf:Statement ;
+    rdf:subject   sat:stmt-mass-confidence ;
+    rdf:predicate sat:reviewedBy ;
+    rdf:object    sat:qa ;
+    sat:statedBy  sat:qa .

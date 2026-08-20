@@ -1,0 +1,19 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/brief15-image-export-helper-906232a1",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/cytoscape-png-blob-output-6573f25c"
+  ],
+  "commit_shas": ["193e3ead2c1a216289070f90b09c7fabce557ade"],
+  "files_changed": [
+    "packages/react/src/interaction/toolbar/GraphToolbar.tsx",
+    "packages/react/src/interaction/toolbar/GraphToolbar.test.tsx",
+    "packages/react/src/interaction/toolbar/index.ts",
+    "examples/wiring/src/wiring-examples.test.tsx",
+    "docs/wiring-guide.md"
+  ],
+  "summary": "brief 15 shipped: buildImageExport(cy, opts) helper + toolbar Image (PNG) entry via blob/URL revoke; wiring twin + guide subsection; no new deps",
+  "duration_min": 12,
+  "blockers": [],
+  "notes": "Full pnpm-driven verify chain (build:packages, verify:exports on dist, verify:treeshake/smoke/types/bundle) could not run: corepack unable to open its database in this sandbox. Locally verified: tsc --noEmit clean, eslint clean, prettier clean, all 1657 vitest tests green, check-readme-snippets clean, check-package-exports clean, check-type-reachability clean, all three python spec gates green."
+}

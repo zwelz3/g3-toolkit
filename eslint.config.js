@@ -23,6 +23,8 @@ export default tseslint.config(
       "docs-out/",
       "storybook-static/",
       "coverage/",
+      ".verify-snippets/",
+      ".bio-route-probe*.mjs",
     ],
   },
   js.configs.recommended,

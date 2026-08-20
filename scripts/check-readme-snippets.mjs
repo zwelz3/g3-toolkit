@@ -46,7 +46,22 @@ const READMES = [
   "docs/wiring-guide.md",
 ];
 
-const FENCE = /```(tsx?)([^\n`]*)\n([\s\S]*?)```/g;
+// Long tags count. `/```(tsx?)/` matched only "ts" and "tsx", so a
+// ```typescript block was not a fence this gate could see and simply
+// went unchecked: that is how README's Theming snippet kept importing
+// useThemeStore from a subpath that does not export it. The \b stops
+// "tsx" from matching the "ts" prefix of "typescript" and losing the x.
+const FENCE =
+  /```(tsx|ts|typescript|javascript|jsx|js)\b([^\n`]*)\n([\s\S]*?)```/g;
+/** Fence tag to the extension the snippet file needs. */
+const LANG_EXT = {
+  ts: "ts",
+  typescript: "ts",
+  js: "ts",
+  javascript: "ts",
+  tsx: "tsx",
+  jsx: "tsx",
+};
 
 /**
  * The Pages landing page is HTML, not markdown, and its Quick Start is
@@ -116,7 +131,7 @@ for (const readme of READMES) {
     const [, lang, info, body] = match;
     i++;
     if (/\bno-check\b/.test(info)) continue;
-    const name = `${readme.replace(/[/.]/g, "_")}_${i}.${lang}`;
+    const name = `${readme.replace(/[/.]/g, "_")}_${i}.${LANG_EXT[lang]}`;
     // Wrap in a module scope; allow snippets that are component bodies.
     writeFileSync(resolve(dir, name), body);
     files.push(name);

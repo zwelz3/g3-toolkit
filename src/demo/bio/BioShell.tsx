@@ -13,6 +13,7 @@
 import { useMemo, useState } from "react";
 import {
   CytoscapeCanvas,
+  labelWrapRule,
   useSelectionStore,
   categoricalColorMap,
 } from "@g3t/react";
@@ -32,6 +33,39 @@ import { OntologyExplorer } from "./OntologyExplorer";
 import { BIO_STYLES } from "./bio-styles";
 import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
+import {
+  useRoutingControls,
+  RoutingControlStrip,
+} from "../components/routing-controls";
+
+/** Wrap width for node labels (px). The long protein/disease names
+ *  ("Epidermal growth factor receptor") overlap neighbors unwrapped;
+ *  tune here, toggle live via the "Wrap labels" switch. */
+const LABEL_WRAP_WIDTH = 90;
+/** Post-layout obstacle-aware routing on this shell's canvas. Kill-switch
+ *  per D8: flip to false and re-push to revert the shell if the routed
+ *  look regresses under visual review. */
+const ROUTE_EDGES = true;
+
+/** fcose spacing for this shell. The projected KG is small (16 nodes)
+ *  but the generic canvas fcose defaults (idealEdgeLength 100,
+ *  nodeRepulsion 10000, label-size ignored) pack the gene/protein/
+ *  disease/drug clusters tight enough that the long protein names
+ *  overlap neighbors and edges thread between nodes. Widen the ideal
+ *  edge length and repulsion, add explicit node separation, and set
+ *  nodeDimensionsIncludeLabels so the layout reserves room for the
+ *  wrapped labels instead of colliding them. Module-const (stable
+ *  reference) so it never churns the relayout contract. */
+const BIO_LAYOUT = {
+  idealEdgeLength: 145,
+  nodeRepulsion: 22000,
+  nodeSeparation: 140,
+  gravity: 0.12,
+  gravityRange: 2.0,
+  numIter: 3000,
+  nodeDimensionsIncludeLabels: true,
+  packComponents: true,
+};
 
 const SPEC: EncodingSpec = {
   version: 1,
@@ -99,6 +133,26 @@ export function BioShell({ onBack }: { onBack: () => void }) {
     executeSparql(bioGraph, first?.sparql ?? ""),
   );
   const [chartType, setChartType] = useState<"bar" | "scatter">("bar");
+  const {
+    routeMode,
+    setRouteMode,
+    routeEdgesConfig,
+    routeRefreshSignal,
+    refreshRoutes,
+    relayoutSignal,
+    relayout,
+  } = useRoutingControls();
+
+  // Label word-wrap switch. The canvas base rule wraps at 110px by
+  // default; ON tightens to LABEL_WRAP_WIDTH, OFF disables wrap
+  // entirely (labelWrapRule(false)). Rides the `stylesheet` prop,
+  // which the relayout contract defines as a style refresh: toggling
+  // never re-runs layout or moves the camera.
+  const [wrapLabels, setWrapLabels] = useState(true);
+  const wrapStylesheet = useMemo(
+    () => [labelWrapRule(wrapLabels ? LABEL_WRAP_WIDTH : false)],
+    [wrapLabels],
+  );
 
   const chartHint = useMemo(
     () => defaultQueries.find((q) => q.id === queryId)?.chart,
@@ -167,6 +221,22 @@ export function BioShell({ onBack }: { onBack: () => void }) {
                 {v === "projected" ? "Projected" : "Raw triples"}
               </button>
             ))}
+            <button
+              type="button"
+              className={wrapLabels ? "bio-view-btn active" : "bio-view-btn"}
+              aria-pressed={wrapLabels}
+              data-testid="bio-wrap-toggle"
+              onClick={() => setWrapLabels((w) => !w)}
+            >
+              Wrap labels
+            </button>
+            <RoutingControlStrip
+              idPrefix="bio"
+              routeMode={routeMode}
+              setRouteMode={setRouteMode}
+              refreshRoutes={refreshRoutes}
+              relayout={relayout}
+            />
             <span className="bio-view-caption" data-testid="bio-view-caption">
               {canvasUgm.getNodeIds().length} nodes ·{" "}
               {canvasView === "raw"
@@ -177,7 +247,13 @@ export function BioShell({ onBack }: { onBack: () => void }) {
           <CytoscapeCanvas
             ugm={canvasUgm}
             encodingSpec={SPEC}
+            stylesheet={wrapStylesheet}
             animate={!reducedMotion}
+            layoutOptions={BIO_LAYOUT}
+            routeEdges={ROUTE_EDGES ? routeEdgesConfig : false}
+            routeRefreshSignal={routeRefreshSignal}
+            relayoutSignal={relayoutSignal}
+            edgeClickIsolate
           />
         </main>
 

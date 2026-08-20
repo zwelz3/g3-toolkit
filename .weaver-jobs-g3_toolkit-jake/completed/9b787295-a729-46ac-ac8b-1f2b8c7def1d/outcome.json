@@ -1,0 +1,18 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/brief-24-demo-shells-wired-to-a54-ops-refresh-routes-re-layo-68caacd4"
+  ],
+  "commit_shas": ["1c19687"],
+  "files_changed": [
+    "src/demo/scale/ScaleSurface.tsx",
+    "src/demo/scale/ScaleSurface.test.tsx",
+    "src/demo/rdf12/Rdf12Shell.tsx",
+    "src/demo/rdf12/Rdf12Shell.test.tsx",
+    "src/demo/legibility/LegibilityShell.tsx",
+    "src/demo/legibility/LegibilityShell.test.tsx",
+    "src/demo/routing/RoutingShell.tsx",
+    "src/demo/routing/RoutingShell.test.tsx"
+  ],
+  "summary": "Wired refresh-routes + re-layout + edge-isolate on Scale/RDF/Legibility Cytoscape shells and re-layout nonce on Routing Lab structural shell; 4 new tests pass; docs-out rebuilt; preview up on :4173."
+}

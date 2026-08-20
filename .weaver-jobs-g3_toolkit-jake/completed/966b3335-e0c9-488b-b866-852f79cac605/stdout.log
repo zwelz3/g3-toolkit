@@ -1,0 +1,13 @@
+done: 1 atoms emitted; commit=9620b2e; brief-11 auto-collapse counts + badge helper shipped
+
+Brief 11 delivered on commit 9620b2e:
+
+**Core** — `collapseByCluster` supernodes now carry `interiorEdgeCount` (edges wholly inside) and `boundaryEdgeCount` (edges crossing the boundary — the "# paths in/out" number). Both fall out of the existing edge-aggregation pass; reconcile against total edges via two invariants pinned in tests (`sum(interior) + sum(link weights) = total`, `sum(boundary) = 2 * sum(link weights)`).
+
+**Helper** — new `clusterBadgeText(attrs)` pure export composes `"N nodes · M links"` for use as a Cytoscape data-mapped label. Kept out of `name` to avoid the standing double-render regression.
+
+**Demo** — scale surface precomputes `_badge` per supernode and renders it via a `node[_badge]`-scoped stylesheet rule + shows the badge in the side rail.
+
+**Wiring** — guide's "Scaling: collapse large graphs to clusters" section documents the new counts + badge template with an executable twin in `examples/wiring/src/wiring-examples.test.tsx`.
+
+**Gates** — full vitest suite 1651/1651 green; typecheck 0; prettier + eslint clean on touched paths.

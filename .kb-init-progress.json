@@ -1,0 +1,12 @@
+{
+  "phase": "distill",
+  "cycle": 1,
+  "total_cycles": 1,
+  "file_index": 264,
+  "file_total": 264,
+  "current_file": "interaction.spec.ts",
+  "spent_usd": 7.89,
+  "budget_usd": 75.0,
+  "atoms_so_far": 900,
+  "updated_at": "2026-08-13T19:28:21.726838+00:00"
+}

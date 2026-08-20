@@ -121,6 +121,35 @@ describe("StructuralSvgView", () => {
     expect(divider.getAttribute("font-style")).toBe("italic");
   });
 
+  it("every edge carries a wide transparent hit path beneath the visible stroke", () => {
+    const c = renderView();
+    const hit = c.querySelector<SVGPathElement>("[data-ssv-edge-hit='e1']")!;
+    const visible = c.querySelector<SVGPathElement>(
+      "[data-ssv-edge-path='e1']",
+    )!;
+    expect(hit).not.toBeNull();
+    // Same geometry, so the target follows every bend of the route.
+    expect(hit.getAttribute("d")).toBe(visible.getAttribute("d"));
+    // Invisible, but wide enough to hover without pixel accuracy: the
+    // 1.5px visible stroke is not a pointer target, and `fill="none"`
+    // means SVG only hit-tests inside the stroke itself.
+    expect(hit.getAttribute("stroke")).toBe("transparent");
+    expect(Number(hit.getAttribute("stroke-width"))).toBeGreaterThan(
+      Number(visible.getAttribute("stroke-width")),
+    );
+    // BENEATH the visible stroke, so in a dense fan the nearest edge's
+    // own line wins over a neighbour's hit band rather than the other
+    // way round.
+    const group = c.querySelector<SVGGElement>("[data-ssv-edge='e1']")!;
+    const paths = Array.from(group.querySelectorAll("path"));
+    expect(paths.indexOf(hit)).toBeLessThan(paths.indexOf(visible));
+    // The pointer cursor lives on the GROUP so it is inherited by both
+    // paths. On the hit band alone, the visible stroke sits on top of
+    // it still carrying the root's `grab`, and the cursor flips to a
+    // hand beside the line but back to the pan hand directly over it.
+    expect(group.style.cursor).toBe("pointer");
+  });
+
   it("edge path follows the routed points with the shaft trimmed for the composition diamond", () => {
     const c = renderView();
     const path = c.querySelector("[data-ssv-edge-path='e1']")!;
@@ -247,7 +276,10 @@ describe("MR-11 round-3 regressions", () => {
     // RTE-011 (LR-15): the dragged node's edge is RE-ROUTED against
     // the offset geometry, not collapsed to a marked straight line.
     expect(container.querySelector("[data-ssv-edge-fallback='e1']")).toBeNull();
-    const routed = container.querySelector("[data-ssv-edge='e1'] path");
+    // Target the VISIBLE stroke by attribute: every edge group also
+    // carries a transparent hit path with identical `d`, so a bare
+    // `... path` selector no longer says which one it means.
+    const routed = container.querySelector("[data-ssv-edge-path='e1']");
     expect(routed).not.toBeNull();
     // A routed path exists and is non-degenerate (has at least one
     // line segment).

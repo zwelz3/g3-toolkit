@@ -333,6 +333,8 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
           menuManager={menuManager}
           hidden={hiddenIds}
           onReady={setCore}
+          routeEdges={{ mode: "direct" }}
+          edgeClickIsolate
         />
         {(menuStatus !== null || hiddenIds.size > 0 || emphasisActive) && (
           <div

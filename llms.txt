@@ -1,0 +1,224 @@
+# g3-toolkit
+
+> Composable graph-visualization component LIBRARY (not a framework) for
+> RDF, labeled-property-graph (LPG), and holonic data: @g3t/core (zero
+> React), @g3t/react (views + controls), @g3t/charts (linked ECharts).
+> Hosts integrate through exactly three channels: exported zustand
+> stores, props/callbacks, and versioned JSON documents. TypeScript,
+> React 19, pnpm (enforced), Cytoscape + Graphology, Zustand.
+
+The native data model is the UGM, a labeled property graph (typed nodes
+and edges with arbitrary properties) over Graphology. Everything else
+(RDF triples, relational rows, holonic datasets) projects into it.
+Reasoning and heavy algorithms run UPSTREAM (triplestore, networkx,
+GraphBLAS) and arrive as validated result documents: "results, not
+computation".
+
+## Packages and entry points
+
+- @g3t/core (no React): subpath exports `.` (UGM, algorithms, export,
+  SHACL, structural layout), `./adapters` , `./middleware`, `./events`,
+  `./projection`, `./pipeline`, `./shacl`, `./diff`, `./layout`,
+  `./algorithms`, `./undo-redo`, `./theme`, `./path-analysis`.
+- @g3t/react: subpath exports `.`, `./views`, `./controls`, `./state`,
+  `./theme`, `./a11y`, `./icons`, `./timeline`, and `./style.css`
+  (REQUIRED import, see rules below). Peer deps are NOT auto-installed:
+  react, react-dom, cytoscape, cytoscape-fcose, zustand, echarts.
+  vis-timeline and vis-data are OPTIONAL peers, needed only for
+  `@g3t/react/timeline`; every other entry point resolves without them.
+- @g3t/charts: `LinkedChart` (bar, scatter, line, pie), auto-links to
+  the shared selection store. Peers: @g3t/core, @g3t/react, react,
+  echarts.
+
+## Core API surface (the names an agent should reach for)
+
+- Data model: `UGM`, `SerializedUGM`, node/edge input and attribute types.
+- Backends: `SparqlAdapter` (SELECT bindings only), `CypherAdapter`,
+  `GremlinAdapter`, `RestAdapter`, `HolonicAdapter`; `Middleware` on all.
+- RDF to LPG: `createPresetPipeline("standard" | "ontology" |
+  "provenance-preserving").project(rdfGraph)` or compose a
+  `ProjectionPipeline` with steps like `typeCollapse`.
+- SHACL: `validateShacl`, `reportFromValidationResults`,
+  `parseShaclReport`, `severityOverlays`, `shaclResultDrivers`,
+  `shaclShapesToStructural`, `shaclRowSeverities`, `closedShapeIds`.
+- Structural (UML/SysML-style) layout: `layoutStructural`,
+  `isChainEdgeId`, `routeStructuralEdges` (pure edge router, for live
+  re-route during drags; opt-in `nudge` option separates parallel
+  runs into distinct tracks, but by ruling it will KEEP runs bundled
+  rather than spread them when spreading would raise the counted
+  crossing number (lane overlap reads better than added crossings), so
+  `nudge` is not a guarantee of separated tracks in dense storms);
+  rendered by `StructuralSvgView`.
+- Algorithms and scale: `parseAlgorithmResult`, `applyAlgorithmResult`,
+  `ingestAlgorithmResults`, `findShortestPath`, `allShortestPaths`,
+  `collapseByCluster`, `buildSubgraph`, `computeIncrementalUpdate`,
+  `applyIncrementalLayout`; dense-scene edge bundling (FDEB, pure
+  geometry): `bundleEdges` + `bundledPolylineToSegments` (projects
+  onto the `curve-style: segments` polyline path; deterministic, no
+  RNG; straight-line bypass past a `maxEdges` cap).
+- Export: `exportSubgraphJson`, `exportSubgraphCsv`, `exportSubgraphTurtle`;
+  raster snapshot of the live canvas via `buildImageExport` (@g3t/react
+  toolbar, wraps native `cy.png`; the GraphToolbar export menu exposes PNG).
+- Events: `G3tEventBus` (context-menu actions emit on it).
+
+React: `CytoscapeCanvas` (props: ugm, encodingSpec, stylesheet, hidden,
+containment, layout, layoutOptions, interactionOptions, edgeStyle,
+animate, routeEdges (post-layout obstacle-aware A* routing on
+non-structural scenes; runs at layoutstop, holds camera/positions;
+`boolean | { maxEdges?, clearance?, bendPenalty?, minStub?, mode? }`
+where `mode` defaults to "direct" = straight bezier unless the straight
+line actually crosses a node body, exact segment test; "orthogonal"
+routes every edge axis-aligned), routeRefreshSignal (counter bump:
+re-route on current positions, no node move), relayoutSignal (counter
+bump: crossing-aware re-place then re-route; explicit op, camera-hold
+does not apply), edgeClickIsolate (edge tap isolates via emphasis
+layer instead of selecting),
+menuManager, structural + structuralDecorations +
+structuralEdgeLayer (the structural path is DEPRECATED, see rules
+below), onReady which hands you the Cytoscape Core),
+`StructuralSvgView` + `useStructuralLayout`, `relayoutAroundFixed`,
+`useElementPointerEvents`, `GraphToolbar`,
+`EncodingSpecPanel`, `SpecLegend`, `FloatingLegend`, `AlgorithmPanel`,
+`LayoutManager`, `Minimap`, `ProvenanceTrace`, `NodeStyleEditor`,
+`SearchBar`, `FacetFilter`, `FilterBuilder`, `ContextMenuManager`,
+`createDefaultMenuManager`, `registerToolkitActions`, `runGraphLayout`,
+`createCameraController`, `createTheme`, `applyEncodingSpec`,
+`labelWrapRule` (labels wrap by default at 110px; this is the override
+knob: a number re-widths, `false` disables; pass via the `stylesheet`
+prop, a position-preserving restyle),
+`captureWorkspace` / `applyWorkspace` / `serializeWorkspace`, plus view
+components: TableView, TreeView, MapView, MatrixView,
+SankeyView, SchemaView, StatsPanel, QueryEditor, ShaclShapeBrowser,
+DiffRenderer. TimelineView is on `@g3t/react/timeline` ONLY, and that
+subpath is the only one needing the optional peers vis-timeline and
+vis-data; importing it from `.` or `./views` does not resolve. Stores: `useSelectionStore`, `usePositionPinStore`,
+`useOverlayStore`, `useThemeStore`, `useStyleOverrideStore`
+(usable from React via selector or anywhere via `.getState()` /
+`.subscribe()`).
+
+## Correctness rules (types cannot express these; violating them is the
+## most common AI-generated-code failure)
+
+- Import `"@g3t/react/style.css"` FIRST. Without it every view renders
+  unstyled with no error.
+- `ugm` is compared by IDENTITY. Memoize it in the host; a new instance
+  means "different graph" and re-runs layout. Content changes to
+  `containment`, `layout`, `layoutOptions`, `interactionOptions`,
+  `edgeStyle`, `animate` also re-initialize. `stylesheet` and
+  `encodingSpec` changes are style refreshes and preserve positions.
+- Filter by HIDING: pass node ids as `hidden` (a batched restyle).
+  Never feed a pre-filtered UGM as `ugm`.
+- For a genuinely different scene, use a keyed remount:
+  `<CytoscapeCanvas key={sceneId} ugm={ugm} />`.
+- Structural scenes: render with `StructuralSvgView` (the ruled
+  path). Passing `layoutStructural` geometry to `CytoscapeCanvas` via
+  the `structural` prop is DEPRECATED (owner ruling 2026-07-28; a
+  dev-only warning fires) and will be removed once remaining
+  consumers migrate.
+- Deterministic styling escape hatch: the `_color` / `_shape` data
+  channels. Reserved encoding channels reject by owner name.
+- Graphs past ~5k nodes: collapse with `collapseByCluster`, drill in
+  with `buildSubgraph`. There is no canvas virtualization.
+
+## Cytoscape internals (paid-for lessons)
+
+Only reach for the raw `cytoscape.Core` (from `onReady`) when the prop
+surface cannot express what you need. When you do:
+
+- **Field-scope every `data()` mapping.** `node[_size] { width: data(_size) }`,
+  not `node { width: data(_size) }`. An unscoped rule fires one console
+  warning per element per frame for every element missing the field —
+  hundreds/second during animation, confirmed to stall the canvas.
+- **`style().fromJson(…).update()` for style changes, never re-init.**
+  Theme and spec changes must be restyles only; creating a new `cy` instance
+  to change styles resets positions and the camera.
+- **`cy.batch(() => { … })` for bulk writes.** Groups data stamps and class
+  changes into one restyle pass. Used by every routing write in this repo.
+- **`curve-style: segments` needs `edge-distances: node-position`.**
+  The default `edge-distances: intersection` makes the chord run border-to-border.
+  When terminals are placed at box centers (as `routeSceneEdges` does), omitting
+  `node-position` shifts every bend by the node half-extent — the root cause of
+  the v1.0.6 routing regression. Both props must be in the same rule block.
+- **`segment-distances` sign convention.**
+  Cytoscape draws a bend as `midpt(w) + (−dy/l, dx/l) * d`. For a bend at
+  offset `(px, py)` from the midpoint, `d = (py*dx − px*dy)/len`. The opposite
+  sign mirrors all detours across the chord. This is the specific error that
+  shipped in `polylineToCytoscapeSegments` (wrong) vs `routeToSegments` in the
+  structural path (correct); wrong-sign detours look fine until a node sits
+  between source and target.
+- **`boundingBox({ includeLabels: false, includeOverlays: false })`** for node
+  geometry. Labels hang below the body and shift the center off the actual
+  position, shearing routed bend points.
+- **Exclude `isParent()` nodes from obstacle sets.** Compound parents have no
+  drawn body; their children's boxes already cover the interior.
+- **Multi-background needs bypass arrays, not data() arrays.** Use
+  `n.style({ "background-image": [uri1, uri2], … })` per-element bypass for
+  icon + badge stacks. Data() mappings with array values do not work reliably.
+- **Negative `outline-offset` is silently rejected.** Use a positive value
+  (gap outside the border, not inset). One warning fires at parse time.
+- **`layoutstop` for post-layout work, not `layoutready`.** `layoutstop` fires
+  after the animation ends; positions are final. Routing on `layoutstop` is
+  why the brief bezier-to-route snap exists.
+- **`cy.png({ output: 'blob' })`** returns a Blob; default is a data-URI string.
+- **`cytoscape.use(fcose)`** must run at module level before any instance is
+  created. Layout name in options: `"fcose"`.
+- **Parallel edges / self-loops / bidirectional pairs** need `curve-style: bezier`.
+  Detect in the element builder, stamp `_curveStyle = "bezier"`, gate via
+  `edge[_curveStyle = "bezier"]` selector so other edges are untouched.
+- **`:active` overlay** is a large gray blob by default. Slim it:
+  `{ selector: ":active", style: { "overlay-opacity": 0.08, "overlay-padding": 4 } }`.
+
+## Honest limits
+
+SPARQL adapter parses SELECT bindings only (no CONSTRUCT/DESCRIBE, no
+full RDF-term typing). No SHACL-over-arbitrary-RDF shapes parser (the
+validator uses the toolkit's internal shape form). No OWL/RDFS
+reasoning, no named graphs/quads. Adapters are unit-tested against
+mocked responses, not live backends. Structural compartment
+expand/collapse was REMOVED by ruling (2026-07-10):
+`useCompartmentCollapseStore`, `registerCompartmentCollapseActions`,
+`compartmentKey`, and the `collapsedCompartments` layout input no
+longer exist, even where older wiring-guide sections still show them.
+Details:
+[capabilities-and-limits](https://github.com/zwelz3/g3-toolkit/blob/main/docs/capabilities-and-limits.md).
+
+## Docs
+
+- [Wiring guide](https://github.com/zwelz3/g3-toolkit/blob/main/docs/wiring-guide.md):
+  every integration recipe; each snippet runs in CI (examples/wiring/src/).
+- [README](https://github.com/zwelz3/g3-toolkit/blob/main/README.md):
+  install, packages, minimal 15-line integration, honest scope,
+  theming.
+- [Capability index](https://github.com/zwelz3/g3-toolkit/blob/main/docs/capability-index.md):
+  intent to demo/recipe/story lookup table.
+- [Consuming g3t](https://github.com/zwelz3/g3-toolkit/blob/main/docs/consuming-g3t.md):
+  adopter-side integration guide.
+- [Structural patterns](https://github.com/zwelz3/g3-toolkit/blob/main/docs/structural-patterns.md):
+  UML/SysML structural-scene recipes.
+- [API reference (typedoc)](https://zwelz3.github.io/g3-toolkit/api/)
+- [Playground](https://zwelz3.github.io/g3-toolkit/playground/): TEN
+  deployed surfaces, live in the browser. Four domain shells (Auditor,
+  MBSE, Supply Chain, Biomedical) and six capability surfaces:
+  Analytics, Scale, Routing Lab, RDF 1.2 Hyperarcs, Legibility Lab,
+  Ontology Workbench. Style Lab is dev-server only and so is NOT on the
+  deployed page; Scale is the reverse, deployment-only. Legibility Lab
+  is didactic pseudo-node spreading (hub burst and bus collapse) plus a
+  holon boundary ring with a single exposed boundary node, with
+  raw-to-spread toggles that hold the camera so the regrouping is
+  followable. Routing Lab grades hard edge-routing scenarios live, with
+  an Engine toolbar row exposing the live routing switches: nudge
+  separation, long-edge perimeter threshold, anchor, placement and
+  layering strategy, and effort budgets. RDF 1.2 Hyperarcs toggles the
+  hyperarc and edge renders of the same triple-term rows over a nested
+  fixture. The landing footer links this file, AGENTS.md, and the
+  wiring guide.
+- [Storybook](https://zwelz3.github.io/g3-toolkit/storybook/)
+
+## Optional
+
+- [ARCHITECTURE.md](https://github.com/zwelz3/g3-toolkit/blob/main/ARCHITECTURE.md):
+  boundaries, adapter integration (Gremlin and Holonic backends).
+- [DEVELOPER.md](https://github.com/zwelz3/g3-toolkit/blob/main/DEVELOPER.md):
+  contributing to the toolkit itself.
+- [AGENTS.md](https://github.com/zwelz3/g3-toolkit/blob/main/AGENTS.md):
+  task-oriented instructions for coding agents (Claude, Codex, Cursor).

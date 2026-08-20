@@ -42,6 +42,9 @@ const captured = vi.hoisted(() => ({
   autoCore: false,
   menus: [] as CapturedMenu[],
   hidden: [] as Array<ReadonlySet<string>>,
+  routeRefreshSignal: [] as Array<number | undefined>,
+  relayoutSignal: [] as Array<number | undefined>,
+  edgeClickIsolate: [] as Array<boolean | undefined>,
   calls: [] as Array<{
     driver: string | undefined;
     iconOverrides: Record<string, string> | undefined;
@@ -65,8 +68,14 @@ vi.mock("@g3t/react", async (importOriginal) => {
       onReady?: (cy: unknown) => void;
       animate?: boolean;
       menuManager?: CapturedMenu;
+      routeRefreshSignal?: number;
+      relayoutSignal?: number;
+      edgeClickIsolate?: boolean;
     }) => {
       captured.hidden.push(props.hidden ?? new Set());
+      captured.routeRefreshSignal.push(props.routeRefreshSignal);
+      captured.relayoutSignal.push(props.relayoutSignal);
+      captured.edgeClickIsolate.push(props.edgeClickIsolate);
       let nodes = 0;
       let allClustered = true;
       props.ugm.forEachNode((_id, attrs) => {
@@ -171,6 +180,9 @@ import {
 beforeEach(() => {
   captured.calls.length = 0;
   captured.menus.length = 0;
+  captured.routeRefreshSignal.length = 0;
+  captured.relayoutSignal.length = 0;
+  captured.edgeClickIsolate.length = 0;
 });
 afterEach(() => {
   useSelectionStore.getState().selectNodes([]);
@@ -360,5 +372,16 @@ describe("supply redesign (reviews 5.6-5.9)", () => {
     fireEvent.change(select, { target: { value: "cytoscape" } });
     expect(screen.queryByTestId("thread-adapter-canvas")).toBeNull();
     captured.autoCore = false;
+  });
+
+  it("refresh-routes / re-layout buttons bump their signal props; edge isolate is on", () => {
+    render(<SupplyThreadShell onBack={() => {}} />);
+    const startRoute = captured.routeRefreshSignal.at(-1) ?? 0;
+    const startRelayout = captured.relayoutSignal.at(-1) ?? 0;
+    expect(captured.edgeClickIsolate.at(-1)).toBe(true);
+    fireEvent.click(screen.getByTestId("sc-refresh-routes"));
+    expect(captured.routeRefreshSignal.at(-1)).toBe(startRoute + 1);
+    fireEvent.click(screen.getByTestId("sc-relayout"));
+    expect(captured.relayoutSignal.at(-1)).toBe(startRelayout + 1);
   });
 });

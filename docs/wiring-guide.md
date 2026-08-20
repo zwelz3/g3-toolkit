@@ -189,6 +189,93 @@ const hidden = useMemo(() => {
 </>;
 ```
 
+### Route edges around nodes on any layout
+
+`CytoscapeCanvas` can post-process every non-structural layout to route edges
+around intervening nodes, using an A\* obstacle-aware router. Pass `routeEdges`
+(default off in the library; the shipped demo shells enable it). Structural
+scenes are detected automatically and the pass is skipped there.
+
+**Routing modes** (set via `routeEdges={{ mode: "..." }}`):
+
+| Mode                 | Behaviour                                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `"direct"` (default) | Only routes edges whose straight line crosses a node box. Clear edges stay as bezier curves — the common case keeps its natural look. |
+| `"orthogonal"`       | Routes every edge orthogonally regardless of crossing, matching the look of the structural block router.                              |
+
+`routeEdges={true}` or `routeEdges` (bare) uses `"direct"` mode.
+
+```tsx
+import { CytoscapeCanvas } from "@g3t/react";
+
+// Direct mode (default): only edges that would cross a node get routed.
+export const Simple = () => <CytoscapeCanvas ugm={ugm} routeEdges />;
+
+// Orthogonal mode: always route every edge as an L-/Z-shape.
+export const AlwaysOrthogonal = () => (
+  <CytoscapeCanvas ugm={ugm} routeEdges={{ mode: "orthogonal" }} />
+);
+
+// Off: bezier (Cytoscape default), no obstacle-aware pass.
+export const Off = () => <CytoscapeCanvas ugm={ugm} routeEdges={false} />;
+
+// Tuning options compose with mode:
+export const Tuned = () => (
+  <CytoscapeCanvas
+    ugm={ugm}
+    routeEdges={{
+      mode: "direct",
+      maxEdges: 400,
+      clearance: 16, // more breathing room around obstacles
+      bendPenalty: 60, // straighter routes, fewer corners
+      minStub: 24, // shorter perpendicular exits before a bend
+    }}
+  />
+);
+```
+
+The pass runs on every `layoutstop` (subject to the `maxEdges` cap) and on
+`drag-free` for the dragged node's incident edges. It is a restyle, never a
+re-init: camera and positions hold. Edges that fail to route (or whose
+polyline is straight) revert to bezier without phantom polylines.
+
+### Refresh routes / re-layout / isolate an edge
+
+Three developer ops that live on `CytoscapeCanvas` as counter-based signal
+props (host bumps the number, canvas fires on real change) plus an opt-in edge
+tap mode. Signals are per-instance — no global command bus — so several
+canvases on a page respond only to their own bumps.
+
+| Prop                          | What it does                                                                                                                                                                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `routeRefreshSignal?: number` | Re-runs the routing pass on the **current** node positions without moving any node. Use after a manual drag to clean up incident and neighbor edges. No-op when `routeEdges` is off/undefined or the scene is structural.                |
+| `relayoutSignal?: number`     | Runs the crossing-aware placement optimizer over the visible scene, applies the returned positions, then re-runs routing. An explicit user op — this MOVES nodes; camera hold does not apply (same class as reheat). Non-structural.     |
+| `edgeClickIsolate?: boolean`  | When true, tapping an edge isolates it via the emphasis layer (dims everything else, highlights the tapped line). Tapping the same edge or the background clears the isolate. Off by default so existing canvases keep click-to-select.  |
+
+```tsx no-check
+import { useState } from "react";
+import { CytoscapeCanvas } from "@g3t/react";
+
+export function CanvasWithOps({ ugm }) {
+  const [refresh, setRefresh] = useState(0);
+  const [relayout, setRelayout] = useState(0);
+  return (
+    <>
+      <button onClick={() => setRefresh((n) => n + 1)}>Refresh routes</button>
+      <button onClick={() => setRelayout((n) => n + 1)}>Untangle</button>
+      <CytoscapeCanvas
+        ugm={ugm}
+        routeEdges
+        edgeClickIsolate
+        routeRefreshSignal={refresh}
+        relayoutSignal={relayout}
+      />
+    </>
+  );
+}
+```
+
+
 ### Register an algorithm result from your backend
 
 ```tsx
@@ -544,6 +631,119 @@ The biomedical playground shell renders this live: its canvas toggle
 shows the raw triple view beside the projected one, and its caption
 lists the preset's step names straight from `getSteps()`.
 
+## RDF 1.2 hyperarcs (triple terms)
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`
+("rdf 1.2 hyperarcs" describe). RDF 1.2 lets a statement be a term
+(`« s p o »`), so you can annotate a fact with who stated it,
+confidence, time. `SparqlAdapter` parses the SPARQL-1.2-JSON `triple`
+binding shape; `tripleTermToValue` folds it losslessly to a JSON
+value; two projections shape it for a canvas:
+`projectTripleTermsAsEdges` (haunt g-xplore style, one dashed `star`
+edge per annotation) and `projectTripleTermsAsHyperarcs` (reification
+onto a diamond `_Statement` pseudo-node). The hyperarc render is the
+one that survives NESTING (`« « s p o » p2 o2 »`): a UGM edge cannot
+have an edge as an endpoint; a node can.
+
+```ts
+import {
+  projectTripleTermsAsHyperarcs,
+  projectTripleTermsAsEdges,
+  type TripleTermAnnotation,
+} from "@g3t/core";
+
+const rows: TripleTermAnnotation[] = [
+  /* from your SPARQL results */
+];
+const hyperarcUgm = projectTripleTermsAsHyperarcs(rows);
+// _Statement nodes carry `_rdfStatement: true`; a `confidence`
+// annotation folds onto the node as `_confidence`. Scope the opacity
+// rule to `[_confidence]` so nodes without the field don't flood
+// Cytoscape with per-frame warnings.
+const stylesheet = [
+  { selector: "node[?_rdfStatement]", style: { shape: "diamond" } },
+  { selector: "node[_confidence]", style: { opacity: "data(_confidence)" } },
+];
+
+// Same rows, edge render: one dashed star edge per annotation.
+const edgeUgm = projectTripleTermsAsEdges(rows);
+```
+
+Five smaller exports come with the pair, for hosts that write their own
+labels or select the projected elements themselves:
+
+```ts
+import {
+  tripleLabel,
+  termLabel,
+  localName,
+  STAR_EDGE_TYPE,
+  RDF_STATEMENT_FLAG,
+  type TripleTerm,
+} from "@g3t/core";
+
+declare const term: TripleTerm;
+
+// Display labels. `termLabel` renders one RDF term, `tripleLabel` the
+// whole `s p o` as one string, and `localName` shortens an IRI to its
+// last path or fragment segment. All three are what the two
+// projections use internally, exported so a host relabeling nodes
+// gets the same text the default render shows.
+const label = tripleLabel(term); // "alice knows bob"
+const short = localName("http://ex.org/ns#Person"); // "Person"
+const one = termLabel(term.subject);
+
+// The two markers the projections stamp, so a selector or a filter
+// can name them instead of hardcoding the string.
+const isStatementNode = (attrs: { properties: Record<string, unknown> }) =>
+  attrs.properties[RDF_STATEMENT_FLAG] === true;
+const starEdges = `edge[type = "${STAR_EDGE_TYPE}"]`;
+```
+
+`localName` overlaps what most RDF-shaped hosts already have. It ships
+because the two projections need one shortening rule and a host
+relabeling their output needs the SAME rule; reach for your own if you
+have one.
+
+The RDF 1.2 shell in `src/demo/rdf12/` toggles between the two live
+over a small constellation fixture with a nested review, where the
+statement-to-statement link is the shape the edge render cannot
+express.
+
+## Holon boundary views (holarchy → boundary → interior)
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx` ("holon
+boundary" describe). The `HolonicAdapter` projects three drill levels
+of the four-graph holon model: `projectToLPG()` (opaque holons,
+portals as edges), `projectHolonBoundary(holon)` (what the holon
+PUBLISHES: exposed nodes inside a boundary ring, portal edges crossing
+out to stubbed neighbors), and `projectHolonInterior(holon)` (the
+fully open flat LPG). Boundary exposure is additive data: list
+interior node ids in `boundaryNodeIds` and optionally pin a portal to
+its transit node via `boundaryNodeId`.
+
+```ts
+import { HolonicAdapter, type HolonicDataset } from "@g3t/core";
+
+// Your holarchy, however you load it.
+declare const dataset: HolonicDataset;
+
+const adapter = new HolonicAdapter(dataset);
+const boundary = adapter.projectHolonBoundary(dataset.holons[0]);
+// Holon node carries _boundaryRing (double-ring styling in the
+// canvas defaults); exposed nodes link from the holon via
+// HolonicAdapter.BOUNDARY_CONTAINMENT_EDGE; hand that type to the
+// canvas containment prop to render them inside the ring compound.
+// Portal edges carry _portalTransit (mid-edge glyph; diamond when
+// CONSTRUCT-backed).
+```
+
+Drill via the context menu with `registerHolonDrillItems(adapter,
+menuManager, onOpen)` from `@g3t/react`: it adds "Open boundary" on
+every holon node and "Open interior" where an interior exists; your
+`onOpen(level, holon, ugm)` swaps the canvas UGM. The ontology
+workbench shell's Holons tab shows all three levels live.
+
 ## Scaling: collapse large graphs to clusters
 
 CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. When a
@@ -573,11 +773,106 @@ const { ugm: sub, truncated } = buildSubgraph(big, memberIds, 1500);
 ```
 
 Supernodes carry `memberCount` (drive the size channel with it),
-`typeBreakdown`, and a label like "Person cluster (847)"; inter-cluster
-edges aggregate into weighted `cluster-link` edges. This is Approach 1
-of planning/large-graph-design.md; Approach 4 (worker layout with
+`interiorEdgeCount` (edges wholly inside the cluster, the "how many
+paths in it" number an analyst asks for first), `boundaryEdgeCount`
+(edges crossing the cluster boundary), `typeBreakdown`, and a
+disambiguated name like "Person cluster around alice"; inter-cluster
+edges aggregate into weighted `cluster-link` edges.
+
+Compose the count badge into the canvas label with the pure helper
+`clusterBadgeText(attrs)`, renderer-neutral so it survives brief
+08's per-view renderer independence. The typical wiring precomputes
+`_badge` onto each supernode and points the Cytoscape label at it:
+
+```ts
+import { clusterBadgeText, type UGM } from "@g3t/core";
+
+// The collapsed graph from the previous snippet.
+declare const clustered: UGM;
+
+clustered.forEachNode((id, attrs) => {
+  attrs.properties._badge = clusterBadgeText(attrs.properties);
+});
+
+// Then in the stylesheet you pass to CytoscapeCanvas:
+const stylesheet = [
+  {
+    selector: "node",
+    style: {
+      label: "data(_badge)",
+      "text-valign": "bottom",
+      "text-margin-y": 6,
+      "font-size": 10,
+    },
+  },
+];
+```
+
+Never bake counts into `name`: the label is a NAME and doubling the
+count wherever a consumer also shows `memberCount` (side panels,
+rails) was a real regression. This is Approach 1 of
+planning/large-graph-design.md; Approach 4 (worker layout with
 viewport culling, for drilled sets past ~5k) is designed but not yet
 implemented.
+
+## Edge bundling (dense-scene legibility)
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. The
+"hairball" middle ground, hundreds to low-thousands of visible edges
+that obscure structure, is what force-directed edge bundling (FDEB,
+Holten & van Wijk 2009) is for. Pairs naturally with
+`collapseByCluster`: bundle the aggregated cluster links, not the
+raw 8,000-edge graph.
+
+```ts
+import { bundleEdges, bundledPolylineToSegments } from "@g3t/core";
+
+// positions: whatever your layout settled on (cy.nodes() -> position,
+// ELK output, cached preset positions: anything id -> {x,y}).
+// Minimal shape of the Cytoscape elements this touches; `cy` is your
+// Cytoscape core instance.
+type CyNode = { id(): string; position(): { x: number; y: number } };
+type CyEdge = { id(): string; source(): CyNode; target(): CyNode };
+
+const positions: Record<string, { x: number; y: number }> = {};
+cy.nodes().forEach((n: CyNode) => (positions[n.id()] = n.position()));
+
+const edges = cy.edges().map((e: CyEdge) => ({
+  id: e.id(),
+  source: e.source().id(),
+  target: e.target().id(),
+}));
+
+const { routes, skipped } = bundleEdges(positions, edges);
+// skipped === true when input exceeds opts.maxEdges (default 2000):
+// bundling is O(E^2) in compatibility, so it bypasses cleanly.
+if (!skipped) {
+  for (const [edgeId, poly] of routes) {
+    const seg = bundledPolylineToSegments(poly);
+    if (!seg) continue; // straight polyline, no interior bend
+    cy.$id(edgeId).style({
+      "curve-style": "segments",
+      "segment-distances": seg.distances.join(" "),
+      "segment-weights": seg.weights.join(" "),
+    });
+  }
+}
+```
+
+Deterministic by construction (no RNG, fixed subdivision + iteration
+schedule): same input yields byte-identical polylines. Endpoints are
+never moved: `route[0]` and `route[last]` are the source and target
+positions verbatim, so bundling never detaches an edge from its node.
+Recompute on toggle or on a genuine layout change; a bundling pass
+is a restyle plus per-edge bypass, so pan/zoom and node positions
+hold (same-input-graph camera doctrine).
+
+Options: `maxEdges` (default 2000), `cycles` (6), `iterations` (50,
+halved per cycle), `stepSize` (0.4, halved per cycle), `stiffness`
+(0.1), `compatibilityThreshold` (0.6). The defaults match Holten's
+paper. Increase `compatibilityThreshold` to bundle only near-parallel
+edges; lower it to bundle more aggressively at the cost of longer
+routes.
 
 ## When a view fails to render
 
@@ -668,6 +963,57 @@ const csv = exportSubgraphCsv(ugm, selection); // or a selection
 Turtle export (`exportSubgraphTurtle`) is demonstrated in
 `examples/decision-dashboards`.
 
+### Image export (PNG snapshot)
+
+The toolbar's Export menu ships a PNG entry ("Image (PNG)"). The same
+helper is exported for programmatic use, so a host can bind snapshot
+export to a keyboard shortcut, a Save-to-case action, or a headless
+capture path:
+
+```ts
+import { buildImageExport } from "@g3t/react";
+// cy comes from CytoscapeCanvas onReady.
+const { filename, mime, blob } = buildImageExport(cy, { scale: 2 });
+const url = URL.createObjectURL(blob);
+// download it, upload it, or hand it to your image pipeline
+URL.revokeObjectURL(url);
+```
+
+Options: `full` (default `true`) exports the whole graph regardless
+of the current viewport; `full: false` snapshots what the user sees.
+`scale` (default `2`) multiplies pixel density. `bg` sets a solid
+background colour (Cytoscape defaults to transparent).
+
+SVG export is not bundled: it needs the `cytoscape-svg` extension
+(new dependency plus a bundle-ledger entry). Add it in your host if
+you need vector snapshots.
+
+`buildExport` is the data-side counterpart, and the function the
+toolbar's other Export entries call. Note the two differ where the
+payloads differ: `buildExport` returns text as `content`, while
+`buildImageExport` returns binary as a `blob`. It also takes the
+selection explicitly, so the same call serves both the whole-graph and
+the selection-scoped menu entries (a non-empty id list switches the
+filename from `g3t-graph.*` to `g3t-selection.*`):
+
+```ts
+import { buildExport } from "@g3t/react";
+
+declare const format: "json" | "turtle" | "csv";
+declare const selectedNodeIds: string[];
+
+// Whole graph.
+const all = buildExport(format, ugm, []);
+// Just the selection.
+const some = buildExport(format, ugm, selectedNodeIds);
+
+const blob = new Blob([some.content], { type: some.mime });
+const url = URL.createObjectURL(blob);
+// hand `url` to an <a download={some.filename}> or your upload path
+URL.revokeObjectURL(url);
+void all;
+```
+
 ### Applying an encoding spec without the panel
 
 ```ts
@@ -685,6 +1031,31 @@ const theme = createTheme({ id: "acme", name: "Acme", accentPrimary: "#0af" });
 // Derives from LIGHT_THEME and warns when a chosen color fails WCAG
 // contrast against its background.
 ```
+
+### Word-wrapping long node labels
+
+Node labels word-wrap by DEFAULT (110px: long RDF entity names,
+protein or disease terms would otherwise render single-line and
+overlap neighbors). `labelWrapRule` is the single knob over that
+default: a number re-widths the wrap, `false` disables it. Pass it
+through the `stylesheet` prop, which is a style refresh by the
+relayout contract, so toggling never re-runs layout or moves the
+camera:
+
+```tsx no-check
+import { CytoscapeCanvas, labelWrapRule } from "@g3t/react";
+
+const wrapSheet = useMemo(
+  () => [labelWrapRule(wrap ? 90 : false)], // px (default 120) or false = off
+  [wrap],
+);
+<CytoscapeCanvas ugm={ugm} stylesheet={wrapSheet} />;
+```
+
+The rule is scoped to `node[label]` (only nodes carrying a data-driven
+label match), so it composes with encoding specs and never triggers
+per-frame mapping warnings. The Biomedical shell's "Wrap labels"
+switch is the live demonstration.
 
 ### Camera control
 

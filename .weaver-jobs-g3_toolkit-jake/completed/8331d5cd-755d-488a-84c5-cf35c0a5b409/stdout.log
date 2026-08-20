@@ -1,0 +1,1 @@
+done: 1 atoms emitted; commit=1409721; folded 3 blockers (gap formula cap, nudgeRoutes call sites, E/W calibration) + 4 warnings (area threshold, cap-path oracle, tolerance assumption, production escalation path)

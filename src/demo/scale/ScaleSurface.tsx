@@ -27,11 +27,23 @@ import {
   type EncodingSpec,
 } from "@g3t/react";
 import type { Core } from "cytoscape";
-import { collapseByCluster, buildSubgraph, UGM } from "@g3t/core";
+import {
+  bundleEdges,
+  bundledPolylineToSegments,
+  collapseByCluster,
+  buildSubgraph,
+  clusterBadgeText,
+  UGM,
+} from "@g3t/core";
 import { SurfaceFrame } from "../surfaces/DashboardSurfaces";
 import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
+import { publishCanvas } from "../testing/e2e-hooks";
 import { generateScaleGraph, SCALE_SEED } from "./generate";
+import {
+  useRoutingControls,
+  RoutingControlStrip,
+} from "../components/routing-controls";
 
 /** Color driver switches between the type channel (uniform in the
  *  clusters view: every supernode is a Cluster) and the dominant
@@ -90,6 +102,14 @@ function buildModel(): Model {
     rng: mulberry32(SCALE_SEED),
   });
   const collapseMs = performance.now() - t1;
+  // Precompute the "N nodes · M links" badge onto each supernode so
+  // the Cytoscape stylesheet can point at data(_badge). Kept out of
+  // `name` on purpose (baking counts into the name double-renders
+  // wherever a consumer also shows memberCount, per the
+  // clusterLabel note in collapse-by-cluster.ts).
+  clustered.forEachNode((_id, attrs) => {
+    attrs.properties._badge = clusterBadgeText(attrs.properties);
+  });
   return { full, clustered, members, genMs, collapseMs, edgeCount };
 }
 
@@ -266,6 +286,19 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
   // 12.5: cluster-link labels are visual clutter at 40 supernodes;
   // OFF by default, a chip re-enables.
   const [edgeLabels, setEdgeLabels] = useState(false);
+  // Brief 16: force-directed edge bundling on the aggregated cluster-links.
+  // Well below the maxEdges=2000 cap in every layout; scoped to the
+  // clusters view (the raw drill graph exceeds it and would bypass).
+  const [bundleOn, setBundleOn] = useState(false);
+  const {
+    routeMode,
+    setRouteMode,
+    routeEdgesConfig,
+    routeRefreshSignal,
+    refreshRoutes,
+    relayoutSignal,
+    relayout,
+  } = useRoutingControls();
   const spec = useMemo(
     () =>
       makeSpec(
@@ -332,6 +365,53 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
   }, [view, model]);
 
   const canvasUgm = drill ? drill.ugm : model.clustered;
+
+  // Recompute bundling on toggle / view change (never per frame):
+  // grabs the settled node positions from the cached layout output
+  // and rewrites each cluster-link edge's segments bypass through
+  // the live cy instance. Camera and node positions are untouched
+  // (this is a per-edge style bypass — a restyle, not a re-init or
+  // re-layout), matching the camera/position stability doctrine.
+  useEffect(() => {
+    if (!core) return;
+    const cy = core;
+    const active = bundleOn && view.kind === "clusters";
+    if (!active) {
+      cy.edges().forEach((e) => {
+        e.removeClass("g3t-bundled-edge");
+        e.removeStyle("curve-style");
+        e.removeStyle("segment-distances");
+        e.removeStyle("segment-weights");
+      });
+      return;
+    }
+    const positions = POS_CACHE.get(viewKey);
+    if (!positions) {
+      return;
+    }
+    const edgeInputs: Array<{ id: string; source: string; target: string }> =
+      [];
+    cy.edges().forEach((e) => {
+      edgeInputs.push({
+        id: e.id(),
+        source: e.source().id(),
+        target: e.target().id(),
+      });
+    });
+    const { routes, skipped } = bundleEdges(positions, edgeInputs);
+    if (skipped) return;
+    for (const [edgeId, poly] of routes) {
+      const seg = bundledPolylineToSegments(poly);
+      const ele = cy.$id(edgeId);
+      if (ele.length === 0 || !seg) continue;
+      ele.addClass("g3t-bundled-edge");
+      ele.style({
+        "curve-style": "segments",
+        "segment-distances": seg.distances.join(" "),
+        "segment-weights": seg.weights.join(" "),
+      });
+    }
+  }, [core, bundleOn, view.kind, viewKey]);
 
   // Selecting a supernode on the canvas drills in, same as the rail.
   // A store change is an EVENT: react to it inside the subscription
@@ -402,6 +482,15 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
             Clusters are Louvain communities detected in-browser; each is named
             by its dominant member type and its most-connected member.
           </div>
+          <div style={{ padding: "6px 12px 0" }}>
+            <RoutingControlStrip
+              idPrefix="scale"
+              routeMode={routeMode}
+              setRouteMode={setRouteMode}
+              refreshRoutes={refreshRoutes}
+              relayout={relayout}
+            />
+          </div>
           {view.kind === "clusters" && (
             <div style={{ padding: "6px 12px 0" }}>
               <button
@@ -430,6 +519,34 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
               </div>
               <button
                 type="button"
+                data-testid="scale-bundle-toggle"
+                onClick={() => setBundleOn((v) => !v)}
+                style={{
+                  font: "inherit",
+                  fontSize: 11,
+                  marginTop: 6,
+                  padding: "3px 10px",
+                  border: "1px solid #7ee081",
+                  borderRadius: 4,
+                  background: bundleOn
+                    ? "rgba(126,224,129,0.18)"
+                    : "transparent",
+                  color: "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                {bundleOn ? "Bundling edges (FDEB)" : "Bundle edges"}
+              </button>
+              <div
+                style={{ fontSize: 10, opacity: 0.55, marginTop: 3 }}
+                data-testid="scale-bundle-status"
+              >
+                {bundleOn
+                  ? "Cluster-links bundled (force-directed, deterministic)."
+                  : "Force-directed edge bundling on the aggregated cluster links."}
+              </div>
+              <button
+                type="button"
                 data-testid="scale-edge-labels"
                 onClick={() => setEdgeLabels((v) => !v)}
                 style={{
@@ -451,7 +568,7 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
             </div>
           )}
           <div style={{ marginTop: 10 }}>
-            {supernodes.map(([superId, ids]) => (
+            {supernodes.map(([superId, _ids]) => (
               <button
                 key={superId}
                 type="button"
@@ -473,7 +590,11 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
                 }}
               >
                 {labelFor(model, superId)}{" "}
-                <span style={{ opacity: 0.6 }}>({ids.length})</span>
+                <span style={{ opacity: 0.6 }}>
+                  {clusterBadgeText(
+                    model.clustered.getNode(superId)?.properties,
+                  )}
+                </span>
               </button>
             ))}
           </div>
@@ -518,16 +639,41 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
           <CytoscapeCanvas
             ugm={canvasUgm}
             encodingSpec={spec}
-            stylesheet={
-              edgeLabels
-                ? undefined
-                : [{ selector: "edge", style: { label: "" } }]
-            }
+            stylesheet={[
+              // Brief 11: render the auto-collapse count badge
+              // ("N nodes · M links") under every supernode. Scoped
+              // to node[_badge] so the data-mapper only sees
+              // elements that have the field (avoids Cytoscape's
+              // per-frame missing-field warning storm — see the
+              // canvas doctrine in CLAUDE.md). Only clusters view
+              // carries _badge; the drill view has none, so nothing
+              // matches and the rule is inert.
+              {
+                selector: "node[_badge]",
+                style: {
+                  label: "data(_badge)",
+                  "text-valign": "bottom",
+                  "text-margin-y": 6,
+                  "font-size": 10,
+                  color: "#cbd5e1",
+                  "text-outline-width": 2,
+                  "text-outline-color": "#0f172a",
+                },
+              },
+              ...(edgeLabels
+                ? []
+                : [{ selector: "edge", style: { label: "" } }]),
+            ]}
             layoutOptions={layoutOptions}
             layout={cachedPositions ? "preset" : undefined}
+            routeEdges={routeEdgesConfig}
+            routeRefreshSignal={routeRefreshSignal}
+            relayoutSignal={relayoutSignal}
+            edgeClickIsolate
             onReady={(c) => {
               markReady(view.kind);
               setCore(c);
+              publishCanvas("scale")?.(c);
               const label = view.kind;
               const key = viewKey;
               // Name EVERY layout that runs on this instance: the

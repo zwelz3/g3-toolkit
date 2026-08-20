@@ -1,0 +1,19 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/brief-04-corridor-supply-contract-shipped",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/prune-wall-wide-span-classifier-fragile-under-wider-corridors"
+  ],
+  "commit_shas": ["725299eac05372b8d4e3b5879136b2cf963ec0cf"],
+  "files_changed": [
+    "packages/core/src/layout/g3t-engine/g3t-dummy-chain.ts",
+    "packages/core/src/layout/g3t-engine/g3t-layered.ts",
+    "packages/core/src/layout/g3t-engine/g3t-structural.ts",
+    "packages/core/src/layout/g3t-engine/g3t-corridor-supply.test.ts",
+    "src/demo/routing/scenarios.test.ts",
+    "scripts/check-bundle-size.mjs"
+  ],
+  "summary": "brief 04 corridor supply contract landed: per-boundary chain-segment demand estimate drives layer-gap widening (capped at 3x baseGap); dev-mode drift assertion compares nudge-measured corridorDemand against estimate; core bundle 173->176 KB; all 1551 tests pass",
+  "duration_min": 12,
+  "blockers": []
+}

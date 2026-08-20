@@ -36,6 +36,9 @@ const captured = vi.hoisted(() => ({
   colorDrivers: [] as Array<string | undefined>,
   animate: [] as Array<boolean | undefined>,
   layoutOptions: [] as Array<Record<string, unknown> | undefined>,
+  routeRefreshSignal: [] as Array<number | undefined>,
+  relayoutSignal: [] as Array<number | undefined>,
+  edgeClickIsolate: [] as Array<boolean | undefined>,
 }));
 
 vi.mock("@g3t/react", async (importOriginal) => {
@@ -48,11 +51,17 @@ vi.mock("@g3t/react", async (importOriginal) => {
       encodingSpec?: { node?: { color?: { driver?: string } } };
       layoutOptions?: Record<string, unknown>;
       animate?: boolean;
+      routeRefreshSignal?: number;
+      relayoutSignal?: number;
+      edgeClickIsolate?: boolean;
     }) => {
       captured.counts.push(props.ugm.getNodeIds().length);
       captured.animate.push(props.animate);
       captured.colorDrivers.push(props.encodingSpec?.node?.color?.driver);
       captured.layoutOptions.push(props.layoutOptions);
+      captured.routeRefreshSignal.push(props.routeRefreshSignal);
+      captured.relayoutSignal.push(props.relayoutSignal);
+      captured.edgeClickIsolate.push(props.edgeClickIsolate);
       if (props.menuManager) captured.menus.push(props.menuManager);
       return <div data-testid="canvas-stub" />;
     },
@@ -85,9 +94,11 @@ describe("ScaleSurface", () => {
 
   it("drills into a cluster from the rail and returns", () => {
     render(<ScaleSurface onBack={() => {}} />);
+    // Rail entries end with the count badge from clusterBadgeText:
+    // "<name> <N> nodes · <M> links". Match that shape.
     const clusterButtons = screen
       .getAllByRole("button")
-      .filter((b) => /\(\d+\)/.test(b.textContent ?? ""));
+      .filter((b) => /\d+ nodes? · \d+ links?/.test(b.textContent ?? ""));
     expect(clusterButtons.length).toBeGreaterThan(1);
     const target = clusterButtons[0] as HTMLElement;
     // Louvain approximately recovers the planted partition (bridge
@@ -95,7 +106,7 @@ describe("ScaleSurface", () => {
     // planted size: the drilled canvas count equals the clicked rail
     // entry's own member count.
     const declared = Number(
-      /\((\d+)\)\s*$/.exec(target.textContent ?? "")?.[1],
+      /(\d+) nodes? · \d+ links?/.exec(target.textContent ?? "")?.[1],
     );
     fireEvent.click(target);
 
@@ -198,5 +209,39 @@ describe("ScaleSurface", () => {
     // reduced-motion preference, so it is true here). The canvas
     // honors it per-layout; reduced motion flips it via the hook.
     expect(captured.animate.at(-1)).toBe(true);
+  });
+
+  it("brief 16: bundle-edges toggle is scoped to the clusters view and flips state", () => {
+    render(<ScaleSurface onBack={() => {}} />);
+    const toggle = screen.getByTestId("scale-bundle-toggle");
+    expect(toggle.textContent).toMatch(/Bundle edges/);
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("scale-bundle-toggle").textContent).toMatch(
+      /Bundling edges/,
+    );
+    // The status affordance updates on toggle. Under the mocked canvas
+    // no cy instance exists, so the bundled-count is 0 — the pixel-level
+    // route application is browser-verified; here we pin the wiring.
+    expect(screen.getByTestId("scale-bundle-status").textContent).toMatch(
+      /bundled/,
+    );
+    // Drilling into a cluster hides the cluster-scoped toggle: bundling
+    // only applies to the aggregated cluster links.
+    const drillRow = screen
+      .getAllByRole("button")
+      .find((b) => (b.textContent ?? "").includes("cluster around"));
+    fireEvent.click(drillRow as HTMLElement);
+    expect(screen.queryByTestId("scale-bundle-toggle")).toBeNull();
+  });
+
+  it("refresh-routes / re-layout buttons bump their signal props; edge isolate is on", () => {
+    render(<ScaleSurface onBack={() => {}} />);
+    const startRoute = captured.routeRefreshSignal.at(-1) ?? 0;
+    const startRelayout = captured.relayoutSignal.at(-1) ?? 0;
+    expect(captured.edgeClickIsolate.at(-1)).toBe(true);
+    fireEvent.click(screen.getByTestId("scale-refresh-routes"));
+    expect(captured.routeRefreshSignal.at(-1)).toBe(startRoute + 1);
+    fireEvent.click(screen.getByTestId("scale-relayout"));
+    expect(captured.relayoutSignal.at(-1)).toBe(startRelayout + 1);
   });
 });

@@ -1,0 +1,269 @@
+$ pnpm run typecheck && pnpm run lint && pnpm run verify && pnpm run test && pnpm run gates:spec
+$ tsc --noEmit
+$ eslint src/ packages/core/src/ packages/react/src/ packages/charts/src/ tests/ && prettier --check src/ packages/core/src/ packages/react/src/ packages/charts/src/ tests/
+
+/GSystems/src/g3-toolkit/packages/react/src/interaction/encoding/SpecLegend.tsx
+  220:6  warning  React Hook useMemo has a missing dependency: 'elements'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  233:6  warning  React Hook useMemo has a missing dependency: 'elements'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  248:6  warning  React Hook useMemo has a missing dependency: 'elements'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  261:6  warning  React Hook useMemo has a missing dependency: 'elements'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/GSystems/src/g3-toolkit/packages/react/src/views/canvas/CytoscapeCanvas.tsx
+  681:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+/GSystems/src/g3-toolkit/packages/react/src/views/canvas/use-structural-layout.ts
+  102:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+/GSystems/src/g3-toolkit/packages/react/src/views/svg/structural-svg-view.tsx
+  514:6  warning  React Hook React.useEffect has a missing dependency: 'setView'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/GSystems/src/g3-toolkit/src/demo/stylelab/StyleLabShell.tsx
+  196:6  warning  React Hook useCallback has a missing dependency: 'withLabelText'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/GSystems/src/g3-toolkit/src/demo/supply/ThreadShell.tsx
+  436:5  warning  React Hook useMemo has unnecessary dependencies: 'confMode' and 'hiddenIds'. Either exclude them or remove the dependency array  react-hooks/exhaustive-deps
+
+/GSystems/src/g3-toolkit/tests/perf/prf.perf.test.ts
+   91:3  warning  Unused eslint-disable directive (no problems were reported from 'no-console')
+  129:5  warning  Unused eslint-disable directive (no problems were reported from 'no-console')
+  188:7  warning  Unused eslint-disable directive (no problems were reported from 'no-console')
+
+/GSystems/src/g3-toolkit/tests/perf/prf001-matrix.perf.test.ts
+  51:9  warning  Unused eslint-disable directive (no problems were reported from 'no-console')
+
+✖ 13 problems (0 errors, 13 warnings)
+  0 errors and 6 warnings potentially fixable with the `--fix` option.
+
+Checking formatting...
+All matched files use Prettier code style!
+$ pnpm run build:packages && pnpm run verify:package && pnpm run verify:typeref && pnpm run verify:exports && pnpm run verify:treeshake && pnpm run verify:smoke && pnpm run verify:types && pnpm run verify:snippets && pnpm run docs:check && pnpm run verify:bundle
+$ node scripts/clean-dist.mjs && tsc -b packages/core packages/react packages/charts --force && pnpm --filter "./packages/*" --workspace-concurrency=1 run build && node scripts/fix-dts-extensions.mjs
+cleaned charts/dist
+cleaned core/dist
+cleaned react/dist
+Scope: 3 of 6 workspace projects
+$ vite build
+vite v8.1.5 building client environment for production...
+[2Ktransforming...✓ 76 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/undo-redo.mjs                   0.07 kB │ gzip:  0.09 kB
+dist/events.mjs                      0.10 kB │ gzip:  0.10 kB
+dist/diff.mjs                        0.10 kB │ gzip:  0.11 kB
+dist/path-analysis.mjs               0.12 kB │ gzip:  0.12 kB
+dist/adapters.mjs                    0.16 kB │ gzip:  0.13 kB
+dist/middleware.mjs                  0.23 kB │ gzip:  0.17 kB
+dist/theme.mjs                       0.26 kB │ gzip:  0.21 kB
+dist/algorithms.mjs                  0.35 kB │ gzip:  0.22 kB
+dist/projection.mjs                  0.39 kB │ gzip:  0.23 kB
+dist/pipeline.mjs                    0.40 kB │ gzip:  0.24 kB
+dist/layout.mjs                      0.48 kB │ gzip:  0.28 kB
+dist/shacl.mjs                       0.75 kB │ gzip:  0.39 kB
+dist/event-bus-r_T2FbEM.js           0.86 kB │ gzip:  0.42 kB │ map:   5.18 kB
+dist/undo-redo-DF13Qk77.js           0.92 kB │ gzip:  0.36 kB │ map:   3.14 kB
+dist/middleware-QmrADPXk.js          1.57 kB │ gzip:  0.73 kB │ map:   6.30 kB
+dist/diff-B0U9K624.js                2.36 kB │ gzip:  0.79 kB │ map:   7.76 kB
+dist/algorithm-adapter-B9PGg82_.js   2.45 kB │ gzip:  0.96 kB │ map:  10.69 kB
+dist/path-analysis-CwwYuiVT.js       2.99 kB │ gzip:  0.98 kB │ map:   9.95 kB
+dist/pipeline-Bfo92d6i.js            4.55 kB │ gzip:  1.41 kB │ map:  16.08 kB
+dist/theme-B6PAg1Sp.js               4.73 kB │ gzip:  1.48 kB │ map:  12.72 kB
+dist/ugm-CyC_rJuz.js                 5.20 kB │ gzip:  1.31 kB │ map:  16.18 kB
+dist/projection-CmgQb6sE.js          7.73 kB │ gzip:  2.12 kB │ map:  28.06 kB
+dist/shacl-CrEMg2jh.js               8.17 kB │ gzip:  2.64 kB │ map:  33.81 kB
+dist/adapter-CJph2Bvx.js            11.29 kB │ gzip:  3.18 kB │ map:  36.14 kB
+dist/g3t-structural-CUDN6S4M.js     19.80 kB │ gzip:  6.20 kB │ map:  71.27 kB
+dist/layout-BWWRAqtz.js             42.54 kB │ gzip: 12.94 kB │ map: 163.92 kB
+dist/index.mjs                      54.22 kB │ gzip: 16.16 kB │ map: 181.26 kB
+
+[2Ktransforming...✓ 76 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/undo-redo.cjs                    0.15 kB │ gzip:  0.14 kB
+dist/events.cjs                       0.17 kB │ gzip:  0.15 kB
+dist/diff.cjs                         0.18 kB │ gzip:  0.16 kB
+dist/path-analysis.cjs                0.20 kB │ gzip:  0.16 kB
+dist/adapters.cjs                     0.26 kB │ gzip:  0.17 kB
+dist/middleware.cjs                   0.33 kB │ gzip:  0.21 kB
+dist/theme.cjs                        0.40 kB │ gzip:  0.24 kB
+dist/algorithms.cjs                   0.53 kB │ gzip:  0.24 kB
+dist/projection.cjs                   0.55 kB │ gzip:  0.26 kB
+dist/pipeline.cjs                     0.61 kB │ gzip:  0.26 kB
+dist/layout.cjs                       0.70 kB │ gzip:  0.30 kB
+dist/event-bus-CbotGpSl.cjs           0.74 kB │ gzip:  0.40 kB │ map:   5.05 kB
+dist/undo-redo-C4uznUxf.cjs           0.81 kB │ gzip:  0.37 kB │ map:   3.05 kB
+dist/shacl.cjs                        1.06 kB │ gzip:  0.38 kB
+dist/middleware-madoSpEy.cjs          1.57 kB │ gzip:  0.71 kB │ map:   6.12 kB
+dist/diff-C16EdAkV.cjs                1.79 kB │ gzip:  0.71 kB │ map:   7.37 kB
+dist/path-analysis-BdtKfkVg.cjs       2.15 kB │ gzip:  0.88 kB │ map:   9.62 kB
+dist/algorithm-adapter-ATypLX23.cjs   2.58 kB │ gzip:  0.97 kB │ map:  10.47 kB
+dist/pipeline-TKqbfKV3.cjs            3.84 kB │ gzip:  1.32 kB │ map:  15.48 kB
+dist/ugm-DUP6l0jO.cjs                 3.91 kB │ gzip:  1.20 kB │ map:  15.47 kB
+dist/theme-DTg1DhRI.cjs               4.85 kB │ gzip:  1.53 kB │ map:  12.40 kB
+dist/projection-D9MbZfnu.cjs          6.78 kB │ gzip:  1.97 kB │ map:  27.34 kB
+dist/shacl-DK7hZwiq.cjs               7.42 kB │ gzip:  2.49 kB │ map:  32.87 kB
+dist/adapter-Dp9FdPxX.cjs             8.97 kB │ gzip:  2.93 kB │ map:  34.95 kB
+dist/g3t-structural-CNfoDMc5.cjs     13.47 kB │ gzip:  5.40 kB │ map:  69.37 kB
+dist/layout-BijaVu7J.cjs             30.12 kB │ gzip: 11.59 kB │ map: 159.19 kB
+dist/index.cjs                       40.98 kB │ gzip: 14.54 kB │ map: 175.13 kB
+
+✓ built in 159ms
+$ vite build
+vite v8.1.5 building client environment for production...
+[2Ktransforming...✓ 130 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/style.css                             36.93 kB │ gzip:  6.62 kB
+dist/a11y.mjs                               0.17 kB │ gzip:  0.15 kB
+dist/icons.mjs                              0.24 kB │ gzip:  0.18 kB
+dist/state.mjs                              0.69 kB │ gzip:  0.36 kB
+dist/theme.mjs                              0.70 kB │ gzip:  0.40 kB
+dist/views.mjs                              1.09 kB │ gzip:  0.59 kB
+dist/selection-store-BqlyKM-b.js            1.37 kB │ gzip:  0.43 kB │ map:   4.56 kB
+dist/inspector-section-store-CPrtS-dv.js    1.56 kB │ gzip:  0.62 kB │ map:   7.27 kB
+dist/theme-7_WXIJWN.js                      1.62 kB │ gzip:  0.84 kB │ map:   4.24 kB
+dist/overlay-store-w6rQ_MSD.js              2.61 kB │ gzip:  0.88 kB │ map:  10.50 kB
+dist/a11y-DfPFPdSY.js                       3.18 kB │ gzip:  1.34 kB │ map:   8.97 kB
+dist/controls.mjs                           3.25 kB │ gzip:  1.51 kB │ map:   2.21 kB
+dist/icons-C_oXy8Tg.js                      5.92 kB │ gzip:  2.38 kB │ map:  17.64 kB
+dist/ThemeManager-D5bXZoxw.js               7.13 kB │ gzip:  2.27 kB │ map:  19.39 kB
+dist/EmptyState-BCWEOHQz.js                25.10 kB │ gzip:  7.38 kB │ map:  76.14 kB
+dist/index.mjs                             74.61 kB │ gzip: 19.89 kB │ map: 210.44 kB
+dist/neighbors-B4FUf9Ka.js                131.19 kB │ gzip: 26.61 kB │ map: 321.76 kB
+dist/StatsPanel-DseFnDjp.js               137.96 kB │ gzip: 33.87 kB │ map: 440.31 kB
+
+[2Ktransforming...✓ 130 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/style.css                             36.93 kB │ gzip:  6.62 kB
+dist/a11y.cjs                               0.27 kB │ gzip:  0.19 kB
+dist/icons.cjs                              0.35 kB │ gzip:  0.21 kB
+dist/state.cjs                              0.98 kB │ gzip:  0.42 kB
+dist/selection-store-DupzIo4P.cjs           1.07 kB │ gzip:  0.42 kB │ map:   4.34 kB
+dist/theme-B5AjBJkn.cjs                     1.26 kB │ gzip:  0.69 kB │ map:   4.02 kB
+dist/theme.cjs                              1.42 kB │ gzip:  0.48 kB
+dist/views.cjs                              1.46 kB │ gzip:  0.55 kB
+dist/inspector-section-store-DSQMfyQ6.cjs   1.58 kB │ gzip:  0.61 kB │ map:   7.06 kB
+dist/overlay-store-CGZAr7LA.cjs             2.58 kB │ gzip:  0.87 kB │ map:  10.12 kB
+dist/a11y-DhTAao3V.cjs                      2.67 kB │ gzip:  1.25 kB │ map:   8.60 kB
+dist/controls.cjs                           3.83 kB │ gzip:  1.31 kB │ map:   2.10 kB
+dist/icons-DOrVr9BL.cjs                     5.34 kB │ gzip:  2.26 kB │ map:  16.96 kB
+dist/ThemeManager-DwgmIzu_.cjs              6.30 kB │ gzip:  2.19 kB │ map:  18.34 kB
+dist/EmptyState-DyiFbsD0.cjs               19.97 kB │ gzip:  6.95 kB │ map:  73.11 kB
+dist/index.cjs                             52.83 kB │ gzip: 16.88 kB │ map: 201.62 kB
+dist/neighbors-BjhfdkHG.cjs                88.03 kB │ gzip: 22.43 kB │ map: 302.52 kB
+dist/StatsPanel-T57cpJSO.cjs               94.81 kB │ gzip: 29.05 kB │ map: 420.88 kB
+
+✓ built in 169ms
+$ vite build
+vite v8.1.5 building client environment for production...
+[2Ktransforming...✓ 3 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.mjs  7.43 kB │ gzip: 2.00 kB │ map: 21.64 kB
+
+[2Ktransforming...✓ 3 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.cjs  5.35 kB │ gzip: 1.96 kB │ map: 20.24 kB
+
+✓ built in 40ms
+fix-dts-extensions: rewrote specifiers in 132 declaration file(s)
+$ node scripts/check-package-exports.mjs
+Package exports: 77 entry points verified, all present.
+$ node scripts/check-type-reachability.mjs
+Type reachability: 52 public prop interface(s) checked, every referenced type is nameable.
+$ vitest run --config vitest.dist.config.ts
+
+ RUN  v4.1.7 /GSystems/src/g3-toolkit
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  13:40:20
+   Duration  1.37s (transform 839ms, setup 0ms, import 21ms, tests 1.28s, environment 0ms)
+
+$ node scripts/verify-treeshake.mjs
+Treeshaking Verification (per-package)
+=======================================
+
+@g3t/core:
+  ✓ sideEffects = false
+  ✓ dist/index.mjs exists
+  ✓ uses named exports (treeshakable)
+  ✓ no top-level external side-effect imports
+
+@g3t/react:
+  ✓ sideEffects = ["**/*.css"]
+  ✓ dist/index.mjs exists
+  ✓ uses named exports (treeshakable)
+  ✓ no top-level external side-effect imports
+
+@g3t/charts:
+  ✓ sideEffects = false
+  ✓ dist/index.mjs exists
+  ✓ uses named exports (treeshakable)
+  ✓ no top-level external side-effect imports
+
+All treeshake checks passed.
+$ node scripts/smoke-test.mjs
+  ✓ @g3t/core (108 exports)
+  ✓ @g3t/core/adapters (4 exports)
+  ✓ @g3t/core/middleware (6 exports)
+  ✓ @g3t/core/events (2 exports)
+  ✓ @g3t/core/projection (11 exports)
+  ✓ @g3t/core/pipeline (9 exports)
+  ✓ @g3t/core/shacl (21 exports)
+  ✓ @g3t/core/diff (2 exports)
+  ✓ @g3t/core/layout (13 exports)
+  ✓ @g3t/core/algorithms (8 exports)
+  ✓ @g3t/core/undo-redo (1 exports)
+  ✓ @g3t/core/theme (7 exports)
+  ✓ @g3t/core/path-analysis (2 exports)
+  ✓ @g3t/react (178 exports)
+  ✓ @g3t/react/views (32 exports)
+  ✓ @g3t/react/controls (71 exports)
+  ✓ @g3t/react/state (14 exports)
+  ✓ @g3t/react/theme (19 exports)
+  ✓ @g3t/react/a11y (4 exports)
+  ✓ @g3t/react/icons (7 exports)
+  ✓ @g3t/charts (1 exports)
+
+smoke test: all subpaths resolve cleanly via Node
+$ node scripts/verify-types.mjs
+  ✓ consumer types resolve under node16
+  ✓ consumer types resolve under bundler
+consumer type-resolution check: all packages typed under node16 and bundler
+$ node scripts/check-readme-snippets.mjs
+check-readme-snippets: 9 snippet(s) typecheck cleanly
+$ typedoc --emit none
+$ node scripts/check-bundle-size.mjs
+Bundle-Size Budget
+==================
+
+  ✓ @g3t/core: 168.9 KB / 169.0 KB (100%)
+  ✓ @g3t/react: 389.1 KB / 390.0 KB (100%)
+  ✓ @g3t/charts: 7.3 KB / 7.5 KB (97%)
+
+All packages within budget.
+$ vitest run
+
+ RUN  v4.1.7 /GSystems/src/g3-toolkit
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  169 passed | 2 skipped (171)
+      Tests  1514 passed | 6 skipped (1520)
+   Start at  13:40:31
+   Duration  14.50s (transform 13.07s, setup 9.08s, import 50.86s, tests 23.98s, environment 100.48s)
+
+$ python scripts/lint_specs.py specs/ && python scripts/sync_spec_status.py && python scripts/check_roadmap_coverage.py
+sh: 1: python: not found
+[ELIFECYCLE] Command failed.
+[ELIFECYCLE] Command failed with exit code 1.

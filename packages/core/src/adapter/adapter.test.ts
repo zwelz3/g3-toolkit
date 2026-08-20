@@ -420,6 +420,143 @@ describe("HolonicAdapter (M3.E2.T3)", () => {
   });
 });
 
+// ── Boundary projection (specs/05 boundary view; additive) ─────────
+
+describe("HolonicAdapter.projectHolonBoundary", () => {
+  const dataset: HolonicDataset = {
+    holons: [
+      {
+        id: "holon-1",
+        label: "Intelligence Cell A",
+        types: ["IntelCell"],
+        properties: {},
+        interiorNodes: [
+          { id: "sig-1", types: ["Signal"], properties: {} },
+          { id: "sig-2", types: ["Signal"], properties: {} },
+          { id: "sig-3", types: ["Signal"], properties: {} },
+        ],
+        interiorEdges: [
+          { source: "sig-1", target: "sig-2", type: "corroborates" },
+        ],
+        boundaryNodeIds: ["sig-1", "sig-2"],
+        portals: [
+          {
+            id: "portal-1",
+            label: "shared-entities",
+            sourceHolonId: "holon-1",
+            targetHolonId: "holon-2",
+            boundaryNodeId: "sig-1",
+            constructQuery: "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }",
+          },
+          {
+            id: "portal-2",
+            label: "feeds",
+            sourceHolonId: "holon-1",
+            targetHolonId: "holon-3",
+          },
+        ],
+      },
+      {
+        id: "holon-2",
+        label: "Intelligence Cell B",
+        types: ["IntelCell"],
+        properties: {},
+        portals: [],
+      },
+      {
+        id: "holon-3",
+        label: "Fusion Center",
+        types: ["FusionCenter"],
+        properties: {},
+        portals: [],
+      },
+    ],
+  };
+
+  it("marks the holon with _boundaryRing and exposes only boundary nodes", () => {
+    const adapter = new HolonicAdapter(dataset);
+    const holon = dataset.holons[0]!;
+    const ugm = adapter.projectHolonBoundary(holon);
+
+    expect(ugm.getNode("holon-1")?.properties._boundaryRing).toBe(true);
+    expect(ugm.getNode("sig-1")?.properties._exposed).toBe(true);
+    expect(ugm.getNode("sig-2")?.properties._exposed).toBe(true);
+    // sig-3 is interior-only: hidden in the boundary view.
+    expect(ugm.hasNode("sig-3")).toBe(false);
+  });
+
+  it("links exposed nodes via the containment edge type", () => {
+    const adapter = new HolonicAdapter(dataset);
+    const ugm = adapter.projectHolonBoundary(dataset.holons[0]!);
+
+    let containment = 0;
+    ugm.forEachEdge((_id, attrs) => {
+      if (attrs.type === HolonicAdapter.BOUNDARY_CONTAINMENT_EDGE) {
+        containment++;
+      }
+    });
+    expect(containment).toBe(2);
+  });
+
+  it("emits portal stubs with transit-marked edges from the boundary node", () => {
+    const adapter = new HolonicAdapter(dataset);
+    const ugm = adapter.projectHolonBoundary(dataset.holons[0]!);
+
+    expect(ugm.getNode("_stub:holon-2")?.properties._portalStub).toBe(true);
+    expect(ugm.getNode("_stub:holon-3")?.properties._portalStub).toBe(true);
+
+    const transits: Array<{
+      source: string;
+      target: string;
+      construct: unknown;
+    }> = [];
+    ugm.forEachEdge((_id, attrs, source, target) => {
+      if (attrs.properties._portalTransit === true) {
+        transits.push({
+          source,
+          target,
+          construct: attrs.properties._hasConstruct,
+        });
+      }
+    });
+    expect(transits).toHaveLength(2);
+    // portal-1 declared boundaryNodeId sig-1; portal-2 falls back to
+    // the holon itself.
+    expect(transits).toContainEqual({
+      source: "sig-1",
+      target: "_stub:holon-2",
+      construct: true,
+    });
+    expect(transits).toContainEqual({
+      source: "holon-1",
+      target: "_stub:holon-3",
+      construct: false,
+    });
+  });
+
+  it("is additive: a holon without boundary fields yields ring + stubs only", () => {
+    const legacy: HolonicDataset = {
+      holons: [
+        {
+          id: "h",
+          label: "H",
+          types: ["T"],
+          properties: {},
+          portals: [
+            { id: "p", label: "link", sourceHolonId: "h", targetHolonId: "x" },
+          ],
+        },
+      ],
+    };
+    const adapter = new HolonicAdapter(legacy);
+    const ugm = adapter.projectHolonBoundary(legacy.holons[0]!);
+
+    expect(ugm.getNode("h")?.properties._boundaryRing).toBe(true);
+    expect(ugm.nodeCount).toBe(2); // holon + one stub (target not in dataset)
+    expect(ugm.edgeCount).toBe(1); // the portal transit edge
+  });
+});
+
 // ── The depth contract: honored or rejected, never ignored ─────────
 
 describe("expandNeighborhood depth contract", () => {

@@ -1,0 +1,60 @@
+# RDF-star 1.1 constellation dataset — the wire twin of RDF12_ROWS.
+#
+# Authored in RDF-star **1.1** `<< s p o >>` syntax on purpose: RDF 1.2
+# ships the triple-term form `<<( s p o )>>` and the reifier bnode
+# (`_:b rdf:reifies <<( s p o )>>`), and Fuseki / GraphDB 10.x currently
+# REJECT the 1.2 form on ingest (HTTP 400). The 1.1 quoted-triple form
+# ingests today and is round-trip compatible with pyoxigraph 0.3+, so
+# this file loads into any RDF-star store while carrying the same
+# annotation shape the two projections consume.
+#
+# Verified 2026-08-14 with pyoxigraph 0.5.9:
+#   $ python3 -c "import pyoxigraph as p; \
+#       print(len(list(p.parse(path='constellation.trig', format=p.RdfFormat.TRIG))))"
+#   17
+# (pyoxigraph 0.5 auto-migrates classic `<< s p o >>` to the RDF 1.2
+#  reifier-bnode form `_:b rdf:reifies <<( s p o )>>`, so the on-disk
+#  1.1 form parses as 1.2 triple-terms with a synthetic reifier per
+#  annotated fact — round-trippable in either direction.)
+
+@prefix sat:  <http://example.org/sat#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# -- Base facts as quoted triples, each annotated ----------------------
+
+<< sat:aquila1 sat:hasMass "950"^^xsd:decimal >>
+    sat:statedBy    sat:engineering ;
+    sat:confidence  "0.9"^^xsd:decimal ;
+    sat:recordedAt  "2026-02-01"^^xsd:date .
+
+<< sat:aquila1 sat:orbits sat:earth >>
+    sat:statedBy    sat:flightDynamics ;
+    sat:confidence  "1.0"^^xsd:decimal .
+
+<< sat:commsBus sat:band sat:kaBand >>
+    sat:statedBy    sat:rfTeam ;
+    sat:confidence  "0.8"^^xsd:decimal .
+
+<< sat:aquila1 sat:relaysTo sat:groundOps >>
+    sat:statedBy    sat:missionOps ;
+    sat:confidence  "0.7"^^xsd:decimal .
+
+# -- Nested: a statement ABOUT another statement ----------------------
+# QA reviewed the mass fact's confidence assertion — the outer quoted
+# triple has a QUOTED TRIPLE as its subject. This is the shape the
+# haunt-style edge render cannot express without a synthetic anchor,
+# and the hyperarc render handles as a statement-to-statement link.
+
+<< << sat:aquila1 sat:hasMass "950"^^xsd:decimal >>
+     sat:confidence
+     "0.9"^^xsd:decimal >>
+   sat:reviewedBy sat:qa ;
+   sat:statedBy   sat:qa .
+
+# -- Forward-form (RDF 1.2 triple-term) equivalent, kept as reference
+#    text so the file remains parseable today. Uncomment when your
+#    downstream store advertises RDF-1.2 acceptance.
+#
+# _:b1 rdf:reifies <<( sat:aquila1 sat:hasMass "950"^^xsd:decimal )>> ;
+#      sat:statedBy sat:engineering ;
+#      sat:confidence "0.9"^^xsd:decimal .

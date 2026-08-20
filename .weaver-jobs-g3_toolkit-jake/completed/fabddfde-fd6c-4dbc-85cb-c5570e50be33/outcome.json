@@ -1,0 +1,22 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/edge-bundling-shipped-as-pure-geometry-in-g3t-core-def3627b",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/fdeb-scale-compatibility-formula-reference-00728096",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/core-bundle-budget-raised-196-to-200-kb-for-fdeb-module-39d69512"
+  ],
+  "commit_shas": ["4f92adeb5fa5b713164afd253821b39c76f19f9f"],
+  "files_changed": [
+    "packages/core/src/bundling/edge-bundling.ts",
+    "packages/core/src/bundling/edge-bundling.test.ts",
+    "packages/core/src/index.ts",
+    "src/demo/scale/ScaleSurface.tsx",
+    "src/demo/scale/ScaleSurface.test.tsx",
+    "examples/wiring/src/wiring-examples.test.tsx",
+    "docs/wiring-guide.md",
+    "scripts/check-bundle-size.mjs"
+  ],
+  "summary": "Force-directed edge bundling (FDEB) landed in @g3t/core with scale-demo toggle, wiring-guide snippet, CI-executed twin; core budget 196->200 KB with ledger rationale; 1671 unit tests + typecheck + eslint + prettier + python spec gates all green.",
+  "duration_min": 12,
+  "blockers": []
+}

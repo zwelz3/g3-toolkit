@@ -11,6 +11,7 @@
  */
 
 import type { UGM } from "../ugm";
+import { isPseudoNode } from "../projection/pseudo-nodes";
 
 /**
  * What an ingest call actually did.
@@ -45,6 +46,11 @@ export interface AlgorithmIngestReport {
  * a property-only node would put an element on the canvas that no
  * source vouched for. The count of those skips is the return value.
  *
+ * Pseudo nodes (Brief 06) are skipped for the same reason from the
+ * other direction: external algorithms run on the real graph, never on
+ * projection-time spreading nodes, so an entry naming one counts as
+ * unmatched rather than merging.
+ *
  * @returns counts of supplied, matched and unmatched entries.
  */
 export function ingestAlgorithmResults(
@@ -53,7 +59,8 @@ export function ingestAlgorithmResults(
 ): AlgorithmIngestReport {
   let matched = 0;
   for (const [nodeId, properties] of results) {
-    if (ugm.hasNode(nodeId)) {
+    const attrs = ugm.getNode(nodeId);
+    if (attrs && !isPseudoNode(attrs)) {
       ugm.updateNodeProperties(nodeId, properties);
       matched++;
     }

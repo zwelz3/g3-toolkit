@@ -1,0 +1,11 @@
+done: 1 atoms emitted; commit=245b712; folded 3 blockers
+
+**Summary of changes to `03-dummy-chains-brief.md`:**
+
+- **[blocking] missing-rollback**: Step 5 now explicitly acknowledges the no-legacy doctrine and names git-revert as the documented recovery path, with the verification gate as the primary barrier.
+- **[blocking] bad-code-path**: Step 3 now names `routeStructuralEdges` (g3t-routing.ts:109) modification as an explicit deliverable, with the `intermediate: Pt[]` field defined as the contract between chain collapse and routing.
+- **[blocking] contract-gap**: Step 4 now defines all three "tighter" resolution cases: shared compound ancestor, root-scope endpoint, and cross-sibling compound (nearest common ancestor).
+- **[warning] wrong-assumption**: Step 2 now constrains dummy insertion to append-before-BK order and explains why index-keyed conflict detection requires it.
+- **[warning] perimeter guard**: Step 6 now specifies the guard must default to false when the flag is absent, preventing silent pass-through before brief 10 lands.
+- **[warning] oracle-too-strong**: Oracle clause changed from "strictly decreases" to "no scenario's crossings increase."
+- **[warning] missing-test**: Two new unit test bullets added for the parent-assignment rule (all three compound cases) and the perimeter guard (default false path).

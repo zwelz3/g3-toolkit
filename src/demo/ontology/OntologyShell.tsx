@@ -46,6 +46,7 @@ import {
   type StructuralGraphInput,
   type StructuralGeometry,
   UGM,
+  HolonicAdapter,
   validateShacl,
   shaclShapesToStructural,
   closedShapeIds,
@@ -73,6 +74,11 @@ import {
   local,
 } from "./project";
 import { parseRdfFile } from "./import";
+import { HOLON_FIXTURE } from "./holons";
+import {
+  useRoutingControls,
+  RoutingControlStrip,
+} from "../components/routing-controls";
 
 type LeftTab = "classes" | "properties" | "individuals";
 type CenterTab =
@@ -80,7 +86,13 @@ type CenterTab =
   | "neighborhood"
   | "instances"
   | "shapes"
+  | "holons"
   | "sparql";
+
+/** Drill position in the holon tab (specs/05 four-graph model). */
+type HolonDrill =
+  | { level: "holarchy" }
+  | { level: "boundary" | "interior"; holonId: string };
 
 const DEFAULT_QUERIES: Array<{
   id: string;
@@ -261,10 +273,43 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
   };
   const [search, setSearch] = useState("");
   const [hops, setHops] = useState(2);
+  // Holons tab drill state (specs/05: holarchy → boundary → interior).
+  const [holonDrill, setHolonDrill] = useState<HolonDrill>({
+    level: "holarchy",
+  });
+  // Referential stability contract: the adapter and every projection
+  // are memoized so a same-graph re-render never re-inits the canvas.
+  const holonAdapter = useMemo(() => new HolonicAdapter(HOLON_FIXTURE), []);
+  const holonUgm = useMemo(() => {
+    if (holonDrill.level === "holarchy") return holonAdapter.projectToLPG();
+    const holon = holonAdapter.dataset.holons.find(
+      (h) => h.id === holonDrill.holonId,
+    );
+    if (!holon) return holonAdapter.projectToLPG();
+    return holonDrill.level === "boundary"
+      ? holonAdapter.projectHolonBoundary(holon)
+      : holonAdapter.projectHolonInterior(holon);
+  }, [holonAdapter, holonDrill]);
+  const holonContainment = useMemo(
+    () => ({
+      edgeType: HolonicAdapter.BOUNDARY_CONTAINMENT_EDGE,
+      direction: "parentToChild" as const,
+    }),
+    [],
+  );
   const [scopeClass, setScopeClass] = useState<string | null>(null);
   // 9.28: starts collapsed per Zach's pass; the header row with the
   // live count remains the affordance.
   const [dockOpen, setDockOpen] = useState(false);
+  const {
+    routeMode,
+    setRouteMode,
+    routeEdgesConfig,
+    routeRefreshSignal,
+    refreshRoutes,
+    relayoutSignal,
+    relayout,
+  } = useRoutingControls();
 
   // ── Projections ──────────────────────────────────────────────────
   const hierUgm = useMemo(
@@ -596,6 +641,7 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                 ["neighborhood", "Neighborhood"],
                 ["instances", "Instances"],
                 ["shapes", "SHACL shapes"],
+                ["holons", "Holons"],
                 ["sparql", "SPARQL"],
               ] as Array<[CenterTab, string]>
             ).map(([t, label]) => (
@@ -608,6 +654,13 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
               />
             ))}
             <span style={{ flex: 1 }} />
+            <RoutingControlStrip
+              idPrefix="ow"
+              routeMode={routeMode}
+              setRouteMode={setRouteMode}
+              refreshRoutes={refreshRoutes}
+              relayout={relayout}
+            />
             <label
               style={{
                 fontSize: 11,
@@ -701,6 +754,10 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                     layout={inferenceOn ? "fcose" : "breadthfirst"}
                     onReady={setViewCore}
                     animate={!reducedMotion}
+                    routeEdges={routeEdgesConfig}
+                    routeRefreshSignal={routeRefreshSignal}
+                    relayoutSignal={relayoutSignal}
+                    edgeClickIsolate
                   />
                 </div>
               </>
@@ -773,6 +830,10 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                         }
                         onReady={setViewCore}
                         animate={!reducedMotion}
+                        routeEdges={routeEdgesConfig}
+                        routeRefreshSignal={routeRefreshSignal}
+                        relayoutSignal={relayoutSignal}
+                        edgeClickIsolate
                       />
                       <FloatingLegend
                         ugm={neighborhood}
@@ -842,6 +903,10 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                     stylesheet={MULTI_TYPE_PIE_RULES}
                     onReady={setViewCore}
                     animate={!reducedMotion}
+                    routeEdges={routeEdgesConfig}
+                    routeRefreshSignal={routeRefreshSignal}
+                    relayoutSignal={relayoutSignal}
+                    edgeClickIsolate
                   />
                   <FloatingLegend
                     ugm={instUgm}
@@ -909,6 +974,101 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                       Laying out shapes…
                     </EmptyNote>
                   )}
+                </div>
+              </>
+            )}
+            {centerTab === "holons" && (
+              <>
+                <div
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    className="g3t-btn"
+                    data-testid="ow-holon-holarchy"
+                    style={{ fontSize: 11 }}
+                    disabled={holonDrill.level === "holarchy"}
+                    onClick={() => setHolonDrill({ level: "holarchy" })}
+                  >
+                    Holarchy
+                  </button>
+                  {holonDrill.level !== "holarchy" && (
+                    <span
+                      data-testid="ow-holon-crumb"
+                      style={{ color: "#888" }}
+                    >
+                      {holonAdapter.dataset.holons.find(
+                        (h) => h.id === holonDrill.holonId,
+                      )?.label ?? holonDrill.holonId}{" "}
+                      · {holonDrill.level}
+                    </span>
+                  )}
+                  <span style={{ flex: 1 }} />
+                  {holonAdapter.dataset.holons.map((h) => (
+                    <span
+                      key={h.id}
+                      style={{ display: "flex", gap: 2, alignItems: "center" }}
+                    >
+                      <span style={{ color: "#aaa" }}>{h.label}:</span>
+                      <button
+                        className="g3t-btn"
+                        data-testid={`ow-holon-boundary-${h.id}`}
+                        style={{ fontSize: 11 }}
+                        onClick={() =>
+                          setHolonDrill({ level: "boundary", holonId: h.id })
+                        }
+                      >
+                        boundary
+                      </button>
+                      <button
+                        className="g3t-btn"
+                        data-testid={`ow-holon-interior-${h.id}`}
+                        style={{ fontSize: 11 }}
+                        onClick={() =>
+                          setHolonDrill({ level: "interior", holonId: h.id })
+                        }
+                      >
+                        interior
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <Legend
+                  items={
+                    holonDrill.level === "boundary"
+                      ? [
+                          ["double ring", "holon boundary"],
+                          ["dashed edge + glyph", "portal transit"],
+                          ["diamond glyph", "CONSTRUCT-backed portal"],
+                          ["dashed faint node", "external holon (stub)"],
+                        ]
+                      : [
+                          ["node", "holon (opaque)"],
+                          ["edge", "portal"],
+                        ]
+                  }
+                />
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <CytoscapeCanvas
+                    ugm={holonUgm}
+                    layout="fcose"
+                    containment={
+                      holonDrill.level === "boundary"
+                        ? holonContainment
+                        : undefined
+                    }
+                    animate={!reducedMotion}
+                    routeEdges={routeEdgesConfig}
+                    routeRefreshSignal={routeRefreshSignal}
+                    relayoutSignal={relayoutSignal}
+                    edgeClickIsolate
+                  />
                 </div>
               </>
             )}

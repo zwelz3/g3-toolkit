@@ -22,3 +22,10 @@ tests/perf/last-results.json
 docs/source/specs/
 docs/source/research/
 docs/source/planning/
+
+# Working-directory artifacts (gitignored; not human-authored source).
+.weaver-jobs-*/
+.bio-route-probe*.mjs
+.kb-init-progress.json
+STATE.json
+.verify-snippets/

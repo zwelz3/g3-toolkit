@@ -1,0 +1,1 @@
+done: 1 atoms emitted; commit=7db18d1; folded 4 blockers (W7 Tier-2 removal, W4 preset-API decoupling, W8/W9 ordering, dep ownership table) + 6 warnings (W3 numeric gates, W5 grep refutation, W6 corpus gate, W8 NMI threshold, W1 slip policy, rollback section)

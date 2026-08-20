@@ -103,7 +103,25 @@ const SCENARIOS = [
     // ever climbs toward this, something made layout unconditionally
     // reachable and THAT is the regression the extraction was aimed at.
     // Measured 46.1 KB, of which roughly 35 KB is the layout engines.
-    budget: 52 * 1024,
+    // RAISED 52 -> 69 KB, 2026-08-17 (merge of the ai-agent-guide
+    // routing arc). Measured 66.0 KB. G3tLayeredLayout now pulls the
+    // whole g3t routing chain that arc built: g3t-routing (the A*
+    // obstacle router plus the VR-10 travel-band collision fix),
+    // g3t-nudging, g3t-dummy-chain, g3t-channel-router and
+    // g3t-fallback-classifier. That is roughly 20 KB of new first-party
+    // compute reachable from naming a layout engine, and it is
+    // reachable because it IS the layout engine: the router is not an
+    // optional add-on to G3tLayeredLayout, it is how that engine emits
+    // edge geometry. Splitting it back out would mean a layout that
+    // returns node boxes and no routes, which is not the product.
+    // RAISED 69 -> 76 KB, 2026-08-20 (post-merge routing hardening:
+    // crossing-aware relayout seeded untangle, nudging second arms-only
+    // pass for K(n,n) storms, grazeTolerance inset on the crossing
+    // decision). Measured 72.9 KB. All additions live inside
+    // g3t-nudging and route-scene-edges, both reachable only from
+    // G3tLayeredLayout. core-ugm held at 4.8 KB confirming no leak.
+    // Headroom 3.1 KB.
+    budget: 76 * 1024,
     code:
       `import { UGM, ForceLayout, G3tLayeredLayout } from "@g3t/core";\n` +
       `export const g = new UGM();\n` +
@@ -115,7 +133,25 @@ const SCENARIOS = [
     // Worst case for core: an adopter who imports the barrel and uses
     // everything. Close to publish weight by construction.
     // Measured 141.3 KB.
-    budget: 155 * 1024,
+    // RAISED 155 -> 182 KB, 2026-08-17 (merge of the ai-agent-guide
+    // feature arc). Measured 178.9 KB. This scenario is `export * from
+    // "@g3t/core"`, so it prices the barrel with nothing shaken out,
+    // and the arc added routing (see core-layout above), FDEB edge
+    // bundling, projection pseudo-nodes, RDF 1.2 hyperarc projection
+    // and scene-edge routing. +37.6 KB, tracking the publish-weight
+    // raise in check-bundle-size.mjs (163.8 -> 206.3) as it should.
+    // RAISED 182 -> 194 KB, 2026-08-20 (post-merge routing hardening,
+    // same additions as core-layout above). Measured 189.4 KB.
+    // Headroom 4.6 KB.
+    //
+    // Read this number as the CEILING, not as what an adopter pays.
+    // Every one of those additions is a named export in a
+    // `sideEffects: false` package, so an adopter who does not import
+    // bundleEdges pays nothing for it; the two scenarios above are the
+    // honest readings for real import shapes, and both moved far less.
+    // This line existing is the reason the @g3t/layout extraction was
+    // retired rather than reinstated when the routing arc landed.
+    budget: 194 * 1024,
     code: `export * from "@g3t/core";\n`,
   },
   {
@@ -125,7 +161,12 @@ const SCENARIOS = [
     // common react import. Externals are peers the adopter installs;
     // what is counted is g3t's own code, core's included.
     // Measured 81.4 KB, core's contribution included.
-    budget: 92 * 1024,
+    // RAISED 92 -> 98 KB, 2026-08-20. Measured 94.6 KB. Growth from
+    // RoutingControlStrip shared component (brief 26 demo coherence)
+    // landing in CytoscapeCanvas's dependency tree, and from the
+    // nudging/relayout additions visible in core-layout above.
+    // Headroom 3.4 KB.
+    budget: 98 * 1024,
     code: `export { CytoscapeCanvas } from "@g3t/react";\n`,
   },
 ];
@@ -169,6 +210,10 @@ try {
     await build({
       logLevel: "error",
       configFile: false,
+      // Exclude the project's publicDir (favicon images etc.) so dirBytes
+      // counts only emitted JS. Without this, vite copies public/ into every
+      // outDir and inflates every scenario by the same constant offset.
+      publicDir: false,
       resolve: {
         alias: [
           { find: /^@g3t\/core$/, replacement: CORE },

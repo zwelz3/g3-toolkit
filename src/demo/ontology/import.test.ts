@@ -35,6 +35,13 @@ describe("parseRdfFile", () => {
     expect(type?.objectType).toBe("uri");
   });
 
+  // 30 s, not the 5 s default. This is the first test to take the
+  // JSON-LD branch, so it pays for `await import("jsonld")` (see
+  // import.ts): a large module, loaded lazily ON PURPOSE so it stays
+  // out of the initial bundle, and transpiled on the fly here. The
+  // Turtle test above only pays for the much smaller n3. The clock
+  // moves rather than the laziness, because the laziness is the
+  // shipped behavior this test exists to exercise.
   it("parses JSON-LD via N-Quads", async () => {
     const result = await parseRdfFile("extra.jsonld", JSONLD);
     const subjects = new Set(result.triples.map((t) => t.subject));
@@ -42,7 +49,7 @@ describe("parseRdfFile", () => {
     const call = result.triples.find((t) => t.predicate.endsWith("callSign"));
     expect(call?.object).toBe("LYRA-1");
     expect(call?.objectType).toBe("literal");
-  });
+  }, 30_000);
 
   it("rejects RDF/XML with a convert-to-Turtle message", async () => {
     await expect(parseRdfFile("onto.owl", "<rdf:RDF/>")).rejects.toThrow(

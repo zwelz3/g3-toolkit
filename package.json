@@ -1,6 +1,6 @@
 {
   "name": "g3-toolkit",
-  "version": "1.0.0",
+  "version": "1.0.0-rc007",
   "description": "A composable, paradigm-neutral graph visualization toolkit for RDF, LPG, and Holonic architectures.",
   "type": "module",
   "license": "Apache-2.0",
@@ -33,8 +33,8 @@
     "docs:api": "typedoc",
     "docs:check": "typedoc --emit none",
     "docs:storybook": "storybook build -o docs-out/storybook",
-    "docs:demo": "vite build --base=/g3-toolkit/playground/ --outDir=docs-out/playground --emptyOutDir",
-    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && node -e \"const fs=require('fs');fs.copyFileSync('docs/landing.html','docs-out/index.html')\"",
+    "docs:demo": "vite build --base=/playground/ --outDir=docs-out/playground --emptyOutDir",
+    "docs:build": "pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && node scripts/stamp-landing.mjs",
     "verify:types": "node scripts/verify-types.mjs",
     "verify:snippets": "node scripts/check-readme-snippets.mjs",
     "verify:exports": "vitest run --config vitest.dist.config.ts",

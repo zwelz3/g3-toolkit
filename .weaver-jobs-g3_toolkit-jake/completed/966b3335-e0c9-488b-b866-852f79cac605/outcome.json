@@ -1,0 +1,17 @@
+{
+  "outcome": "success",
+  "atoms_emitted": ["https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/auto-collapse-counts-and-badge-helper-brief-11-26aa0ef9"],
+  "commit_shas": ["9620b2e760978b0334d6a7de3d252c3d0596605b"],
+  "files_changed": [
+    "packages/core/src/scale/collapse-by-cluster.ts",
+    "packages/core/src/scale/collapse-by-cluster.test.ts",
+    "packages/core/src/index.ts",
+    "docs/wiring-guide.md",
+    "examples/wiring/src/wiring-examples.test.tsx",
+    "src/demo/scale/ScaleSurface.tsx",
+    "src/demo/scale/ScaleSurface.test.tsx"
+  ],
+  "summary": "brief 11: interior/boundary edge counts + clusterBadgeText helper + wiring twin + scale demo badge",
+  "duration_min": 8,
+  "blockers": []
+}

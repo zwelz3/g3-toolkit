@@ -8,11 +8,12 @@ g3t is a **component library**, not an application framework. You install it, im
 
 - [Playground](https://zwelz3.github.io/g3-toolkit/playground/): four
   domain shells (provenance auditing, an MBSE workbench, a supply-chain
-  digital thread, a biomedical knowledge graph) plus three capability
-  surfaces (analytics, an ontology workbench, and an 8,000-node scale
-  demo), live in the browser. A fourth, Style Lab, is dev-server only;
-  `src/demo/DemoLanding.tsx` is the register and decides which appear
-  where.
+  digital thread, a biomedical knowledge graph) plus six capability
+  surfaces (analytics, an 8,000-node scale demo, a routing lab, RDF 1.2
+  hyperarcs, a legibility lab, and an ontology workbench), live in the
+  browser. A seventh, Style Lab, is dev-server only, and Scale is the
+  reverse: deployment-only. `src/demo/DemoLanding.tsx` registers all
+  eleven and decides which appear where.
 - [Storybook](https://zwelz3.github.io/g3-toolkit/storybook/): every
   component and control in isolation.
 - [API reference](https://zwelz3.github.io/g3-toolkit/api/): typedoc,
@@ -190,15 +191,16 @@ demo, a wiring recipe, and a component story.
 
 - **Playground** (`pnpm run dev`, or [live](https://zwelz3.github.io/g3-toolkit/playground/)):
   four scenario shells (Auditor, MBSE, Supply Chain, Biomedical)
-  showing the toolkit in domain stories, plus the two capability
-  dashboards under "Capability surfaces" on the same landing page.
+  showing the toolkit in domain stories, plus the seven capability
+  surfaces under "Capability surfaces" on the same landing page.
   Every shell carries a "Built on the toolkit" panel whose mechanisms
   deep-link into the wiring guide.
-- **Capability dashboards** (`examples/decision-dashboards`): the
-  Analytics and Schema dashboards as plain importable components
-  (stats/charts/algorithms/coverage; schema/matrix/sankey/RDF export).
-  Reachable from the playground landing; consumable directly from
-  their package (`vitest run` covers them headlessly).
+- **Capability dashboard** (`examples/decision-dashboards`): the
+  Analytics dashboard as a plain importable component
+  (stats/charts/algorithms/coverage, plus the adjacency matrix and
+  type-flow sankey folded in when the Schema Dashboard was retired
+  2026-07-07). Reachable from the playground landing; consumable
+  directly from its package (`vitest run` covers it headlessly).
 - **Application-shell example** (`examples/full-workspace`): the
   multi-pane workspace pattern (flexlayout) that the published
   packages deliberately do NOT include; source reference plus tests
@@ -248,8 +250,8 @@ internal accounting is in
 
 CSS custom properties (`--g3t-*`) for colors, typography, spacing, shadows. Three built-in presets (light, dark, high-contrast). Components adapt automatically when the theme changes.
 
-```typescript
-import { useThemeStore } from "@g3t/react/state";
+```ts
+import { useThemeStore } from "@g3t/react/theme";
 useThemeStore.getState().setTheme("dark");
 ```
 
@@ -277,10 +279,10 @@ packages/           ← Published npm packages
 examples/           ← Reference integrations (NOT published)
   full-workspace/   ← Multi-pane workspace shell with flexlayout-react
                       and role-based layouts
-  decision-dashboards/ ← Two capability dashboards (Analytics, Schema)
+  decision-dashboards/ ← One capability dashboard (Analytics)
   wiring/           ← Executable twins of the wiring-guide snippets (CI)
 src/                ← Interactive demo + test harness for `pnpm dev`
-                      (four scenario shells; the dev demo, not a
+                      (eleven scenario shells; the dev demo, not a
                       published artifact)
 docs/               ← Adopter guides
 specs/              ← specl-format requirements
@@ -305,13 +307,6 @@ the auth middleware does and does not protect.
 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the standard everyone here
 is held to, [ARCHITECTURE.md](ARCHITECTURE.md) for where a change
 belongs.
-
-## Security
-
-Report vulnerabilities privately, not as public issues. See
-[SECURITY.md](SECURITY.md), which also covers the one question every
-adopter connecting a browser to a graph store should read first: what
-the auth middleware does and does not protect.
 
 ## License
 

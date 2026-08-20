@@ -1,0 +1,9 @@
+done: 1 atoms emitted; commit=-; bailed — Brief 10 plan atom missing (§4 HALT), pnpm sandbox cannot run gates for baseline re-pin, partial delete would ship strictly worse than status quo
+
+Bailed cleanly per the worker mandate. Emitted `kb:Failure` atom (brief-05b-channel-router-rewire-de2f5cd9) linked to the parent orchestrate-routing plan and wrote `/tmp/a7705695-b44d-4469-89d1-4085ff9ea811-outcome.json` with three blockers:
+
+1. **Brief 10 kb:Plan atom missing** — `kb find --type kb:Plan --project g3_toolkit` returns 4 plans, none matching Brief 10. Brief 05 §4 (cited by 05b) directs HALT-and-report on empty lookup. Brief 10 CODE gate passes (`longEdgeNear` at `g3t-routing.ts:119`, accept-site at `:796`) but the plan atom needed for supersession annotation was never minted.
+2. **pnpm sandbox unusable** — `pnpm --version` fails with "unable to open database file"; cannot run `pnpm run gates` / `verify` / bundle ledger. Re-pin protocol requires OBSERVED channel-router-on numbers from live vitest runs.
+3. **Partial-delete risk** — dropping the ladder + perimeter policy + `longEdgeNear` + `useChannelRouter` flag + `scenarios.test.ts:130-188` tests without a verified end-to-end channel-router path would break the long-span/perimeter oracles.
+
+Handoff recorded in `outcome.json`: mint Brief 10 plan atom (or relax the annotation requirement), then re-dispatch in an environment with functional pnpm+vitest.

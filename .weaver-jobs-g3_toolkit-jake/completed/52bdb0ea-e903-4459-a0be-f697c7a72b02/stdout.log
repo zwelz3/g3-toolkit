@@ -1,0 +1,3 @@
+Also, per the standing rule (auto-memory: "Always deploy new updates" and docs pipeline is `pnpm run docs:build`), but pnpm is broken on this host — recording that as a note in stdout. Final one-line summary:
+
+done: 2 atoms emitted; commit=dc0b89b; Legibility Lab shell + fixtures shipped, gates green (typecheck, eslint, prettier, 1679 vitest, spec gates via python3); note: `pnpm` unusable on this host (~/.local/state/pnpm read-only, DB open fails) so `pnpm run gates` was run as its component commands (npx tsc/vitest/eslint/prettier + python3 scripts); docs:build deploy deferred to interactive session for same reason.

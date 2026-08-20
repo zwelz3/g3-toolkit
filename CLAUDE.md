@@ -1,7 +1,9 @@
 # CLAUDE.md
 
 Agent handoff for g3-toolkit. Current state: STATUS.md. History:
-planning/ round logs (see planning/archive/ for retired efforts);
+planning/ round logs (planning/archive/ is gitignored and NOT in a
+fresh clone; for the retired efforts read the retirement records that
+are tracked, e.g. planning/flagship-retirement.md);
 milestone-era tracking is archived in planning/milestone-history.md
 (do not update it). Design records: roadmap/design/ (indexed in
 roadmap/CLAUDE.md). Adopter surface: docs/wiring-guide.md (snippets
@@ -15,7 +17,9 @@ the authority; this line said rc.2 long after the manifests moved). The
 cinematic flagship demo was RETIRED per maintainer ruling: the four
 dev-server shells replaced it, and every public API it alone
 demonstrated was folded first (planning/flagship-retirement.md is the
-audit; the flagship planning docs live in planning/archive/). The two
+audit, and it is the tracked record; the flagship planning docs were
+moved to the gitignored planning/archive/, so they are NOT in a fresh
+clone). The two
 standalone single-file demos (scripts/demo, scripts/thread-demo) were
 retired in the same round; the Pages-deployed playground supersedes
 them, and the projection-pipeline story they carried now lives in the
@@ -34,7 +38,7 @@ TypeScript, React 19, Vite 8, pnpm (enforced), Cytoscape + Graphology,
 Zustand, Vitest + RTL.
 
 THREE channels, and the count is a ruling rather than an omission:
-`@g3t/core/events` was assessed 2026-08-16 and ruled a context-action
+`@g3t/core/events` was assessed 2026-08-15 and ruled a context-action
 COMMAND BUS, not a fourth integration channel. 13 of its 21 declared
 event types were emitted by nothing and were deleted; the `eventBus`
 singleton is deprecated (it carries the cross-instance identity hazard
@@ -129,33 +133,54 @@ day estimates (priority ordering only), plain immediate correction of
 mistakes, complete verified outputs. Visual changes ship through the
 Pages playground (and Playwright screenshots once baselines land); the visual-acceptance page was RETIRED 2026-07-04
 with copy that tells the reviewer what to exercise; every round gets
-a planning log entry, CHANGELOG entry, and a packaged zip + page in
-outputs. Findings from his review get root-caused, not patched.
+a planning log entry and a CHANGELOG entry. The packaged zip + page in
+outputs/ is NO LONGER part of this: outputs/ is gitignored as of
+2026-08-14 (round deliverables are point-in-time artifacts naming a
+commit, and the zip is a 6 MB binary per round). Findings from his
+review get root-caused, not patched.
 
 ## Open threads (head of queue; full queue in STATUS.md)
 
-**Structural-view rendering (current active thread, 2026-06-21).** Full
-state in STATUS.md and `roadmap/design/structural-rendering.md`. Landed and
-gate-green: camera/position stability (D15), port-based body-edge
-attachment with perpendicular exit, and the obstacle-aware routing CORE
-slice (`layoutStructural` emits ELK node-avoiding routes into
-`geometry.edges`, option `routeEdges`, default on); and (2026-06-22) the
-CONVERTER slice that renders them: `structural-to-cytoscape.ts` projects
-each route polyline onto `curve-style: segments` (enum, so via a class) for
-body and synthetic-point-port edges, taxi as fallback when routeEdges is off
-or a route has no interior bend; declared-port edges keep the taxi exit on
-purpose (the port fixes a perpendicular the projection would fight). Edge
-rendering is NOT headlessly verifiable: IMMEDIATE NEXT is Zach's review via
-the Pages playground (the visual-acceptance surface is retired), then A3 polish.
+**Routing, legibility and the merged tree (head of queue, 2026-08-17).**
+`ai-agent-guide` merged with `fable-updates`; both arcs are now on one
+tree and STATUS.md carries the resolution detail. Landed and gate-green
+from the FEATURE arc (briefs 01-18): the route-nudging post-pass
+(`nudge`, OPT-IN, default false), the long-edge perimeter policy with
+the VR-10 travel-band collision fix, LAY-005 dummy chains, the
+corridor-supply contract, the additive channel router (flag off by
+default; 05b measured channel-as-default regressing crossings 2-8x),
+`routeEdges` on `CytoscapeCanvas` for non-structural scenes, dense-scene
+pseudo-node spreading, force-directed edge bundling, RDF 1.2
+triple-term ingest plus the hyperarc and edge projections, holon
+boundary projection, `buildImageExport`, `labelWrapRule`, and the
+Routing Lab / RDF 1.2 Hyperarcs / Legibility Lab shells. From the
+HARDENING arc: ESM-only publishing, the frozen `api-surface.json`,
+adapter request hygiene, one versioned-JSON failure convention,
+`ViewErrorBoundary`, whole-tree lint, and eight new gate scripts.
+IMMEDIATE NEXT is Zach's review via the Pages playground: nothing in
+the gate covers rendered output, the orthogonal-on-force look is the
+review target, and the per-shell `ROUTE_EDGES` constants revert
+individually. Then e2e on the merged tree, then audit item 23.
+
+**Structural-view rendering (LANDED 2026-06-22; kept for the rulings).**
+Full state in `roadmap/design/structural-rendering.md`. Camera/position
+stability (D15), port-based body-edge attachment with perpendicular
+exit, the obstacle-aware routing CORE slice (`layoutStructural` emits
+node-avoiding routes into `geometry.edges`, option `routeEdges`, default
+on), and the CONVERTER slice that renders them: `structural-to-cytoscape.ts`
+projects each route polyline onto `curve-style: segments` (enum, so via a
+class) for body and synthetic-point-port edges, taxi as fallback when
+routeEdges is off or a route has no interior bend; declared-port edges
+keep the taxi exit on purpose (the port fixes a perpendicular the
+projection would fight).
 ALSO landed 2026-06-22: a Minimap component (@g3t/react interaction/camera;
-Molecules/Minimap) wired into the gallery and the standalone demo, which
-also gained a Graph/Structural view-switch. ALSO active: the Storybook
+Molecules/Minimap) wired into the gallery. ALSO active: the Storybook
 atomic-design reshape (Atoms/Molecules titled, Minimap included; Toolbar
 moved to Compounds and Charts/Features to Reference; Coordinated Selection
 and Node Editor Modal now in Patterns; remaining legacy retitles,
 CytoscapeCanvas/Views/UX-Surface/Layouts, tracked in STATUS.md).
 
-**Perf/warning fixes (2026-06-17, UNVERIFIED — await live review).**
+**Perf/warning fixes (2026-06-17, UNVERIFIED, await live review).**
 Block-view lag and console floods were traced (via an instrumented
 build) to per-frame Cytoscape data-mapping warnings, not React. Landed
 and gate-green, but rendered behavior NOT yet confirmed by Zach: (1)
@@ -184,19 +209,25 @@ narrative was deliberately dropped, recoverable from history.
 
 **Demo/examples surface (supporting).** `src/demo/DemoLanding.tsx` is
 the register and the authority; count from it rather than from here.
-It currently registers EIGHT scenarios, each with its own shell: four
+It currently registers ELEVEN scenarios, each with its own shell: four
 domain stories (Provenance Auditor, MBSE Satellite Workbench, Supply
-Chain Digital Thread, Biomedical Knowledge Graph) and four capability
-surfaces (Analytics Dashboard, Scale, Style Lab, Ontology Workbench).
+Chain Digital Thread, Biomedical Knowledge Graph) and seven capability
+surfaces (Analytics Dashboard, Scale, Style Lab, Routing Lab, RDF 1.2
+Hyperarcs, Legibility Lab, Ontology Workbench).
 Two are environment-gated there: Scale is hidden in DEV and Style Lab
-is shown only in DEV. `examples/decision-dashboards` exports ONE
+is shown only in DEV, so the deployed page shows ten and `pnpm run dev`
+shows ten different ones. `SHELL_MAP` in src/demo/Demo.tsx holds
+LOADERS, not ready-made lazy components, because React.lazy caches a
+rejected import forever and the retry path needs a fresh one;
+scripts/build-landing.mjs cross-checks the register against that map in
+both directions and regenerates docs/landing.html from them. `examples/decision-dashboards` exports ONE
 dashboard, AnalyticsDashboard; the Schema Dashboard was retired
 2026-07-07 (planning/schema-dashboard-retirement.md) with MatrixView
 and SankeyView folded into Analytics, and this file kept listing it, as
 did that package's own README. Showcase example deleted. Custom
 raster/logo icons supported
 (isImageRef passthrough) and shown in Supply Chain. These are
-desktop-only and AWAIT VISUAL REVIEW — the build can verify
+desktop-only and AWAIT VISUAL REVIEW: the build can verify
 compile/test/bundle but not rendered output; the reviewer (Zach) checks
 cinematics, layout, and legibility live.
 
@@ -211,5 +242,5 @@ data-paradigm/scale gaps catalogued honestly in
 planning/rdf-lpg-virtualization-audit.md (no shapes parser, no
 reasoning, no canvas-level virtualization). Descope note: "Sankey
 removed" / "virtualization rescoped" in older docs meant removed from
-the ROADMAP, not the codebase — SankeyView and the virtualizer/
+the ROADMAP, not the codebase. SankeyView and the virtualizer/
 incremental-layout APIs are still shipped and exported.

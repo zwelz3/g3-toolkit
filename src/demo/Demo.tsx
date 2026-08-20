@@ -4,7 +4,7 @@
  * Default view (npm run dev): landing page with scenario cards.
  * Clicking a card renders the full app with that dataset.
  *
- * Shells are CODE-SPLIT (G3L Round 49): eight lazy chunks instead
+ * Shells are CODE-SPLIT (G3L Round 49): eleven lazy chunks instead
  * of one bundle carrying every example, which was the source of the
  * >500 kB chunk warning. The landing paints from a small chunk; a
  * shell's code loads on selection (the production-smoke spec's
@@ -57,6 +57,18 @@ const SHELL_MAP: Record<string, ShellLoader> = {
   "style-lab": () =>
     import("./stylelab/StyleLabShell").then((m) => ({
       default: m.StyleLabShell,
+    })),
+  "routing-lab": () =>
+    import("./routing/RoutingShell").then((m) => ({ default: m.RoutingShell })),
+  "rdf12-hyperarcs": () =>
+    import("./rdf12/Rdf12Shell").then((m) => ({ default: m.Rdf12Shell })),
+  legibility: () =>
+    import("./legibility/LegibilityShell").then((m) => ({
+      default: m.LegibilityShell,
+    })),
+  "routing-explain": () =>
+    import("./routing-explain/RoutingExplainShell").then((m) => ({
+      default: m.RoutingExplainShell,
     })),
 };
 

@@ -37,7 +37,11 @@ const mockCy = {
   // actually changes the selection store while a canvas is mounted).
   // The same collection now also serves the in-place scene patch
   // (MR-1 flash fix): the patch snapshots ids via elements().forEach.
-  elements: vi.fn(() => ({ removeClass: vi.fn(), forEach: vi.fn() })),
+  elements: vi.fn(() => ({
+    removeClass: vi.fn(),
+    addClass: vi.fn(),
+    forEach: vi.fn(),
+  })),
   // In-place patch surface (planScenePatch application): with the
   // id snapshot empty (forEach above yields nothing), every element
   // lands in `add`, which is fine for these lifecycle pins.
@@ -116,6 +120,64 @@ describe("CytoscapeCanvas component (M0.E3.T1)", () => {
     unmount();
 
     expect(mockCy.destroy).toHaveBeenCalled();
+  });
+
+  it("edgeClickIsolate routes edge taps through the emphasis store, not selection (brief 23)", async () => {
+    const { useEmphasisStore } = await import("../../state/emphasis-store");
+    useEmphasisStore.getState().clear();
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addEdge("a", "b", { type: "knows" });
+    render(<CytoscapeCanvas ugm={ugm} edgeClickIsolate />);
+    // Grab the "tap edge" handler the component registered on mockCy.on.
+    const tapEdgeCall = mockCy.on.mock.calls.find(
+      (c) => c[0] === "tap" && c[1] === "edge",
+    );
+    expect(tapEdgeCall).toBeDefined();
+    const handler = tapEdgeCall![2] as (evt: {
+      target: { id: () => string };
+      originalEvent: object;
+    }) => void;
+    // First tap: isolate this edge.
+    act(() => {
+      handler({ target: { id: () => "e-1" }, originalEvent: {} });
+    });
+    let st = useEmphasisStore.getState();
+    expect(st.active).toBe(true);
+    expect(st.emphasizedEdgeIds.has("e-1")).toBe(true);
+    expect(st.emphasizedEdgeIds.size).toBe(1);
+    expect(useSelectionStore.getState().selectedEdgeIds.size).toBe(0);
+    // Second tap on the same edge: clear.
+    act(() => {
+      handler({ target: { id: () => "e-1" }, originalEvent: {} });
+    });
+    st = useEmphasisStore.getState();
+    expect(st.active).toBe(false);
+    expect(st.emphasizedEdgeIds.size).toBe(0);
+  });
+
+  it("edgeClickIsolate default (off) preserves click-to-select behavior", async () => {
+    const { useEmphasisStore } = await import("../../state/emphasis-store");
+    useEmphasisStore.getState().clear();
+    useSelectionStore.getState().clearSelection();
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addEdge("a", "b", { type: "knows" });
+    render(<CytoscapeCanvas ugm={ugm} />);
+    const tapEdgeCall = mockCy.on.mock.calls.find(
+      (c) => c[0] === "tap" && c[1] === "edge",
+    );
+    const handler = tapEdgeCall![2] as (evt: {
+      target: { id: () => string };
+      originalEvent: object;
+    }) => void;
+    act(() => {
+      handler({ target: { id: () => "e-2" }, originalEvent: {} });
+    });
+    expect(useSelectionStore.getState().selectedEdgeIds.has("e-2")).toBe(true);
+    expect(useEmphasisStore.getState().active).toBe(false);
   });
 
   // Bugfix 8 regression test: prevent the OS-level browser context menu
@@ -557,11 +619,24 @@ describe("multi-select drag (review 4.8)", () => {
   }
 
   function handlersByEvent() {
-    const map = new Map<string, (evt: unknown) => void>();
+    // Real cytoscape dispatches to EVERY listener registered for an
+    // event; the canvas registers both the multi-select drag handlers
+    // and the routing pass's drag-free reroute on ("free", "node").
+    // Mirror that by fanning one synthetic event out to all of them.
+    const lists = new Map<string, ((evt: unknown) => void)[]>();
     for (const call of mockCy.on.mock.calls) {
       if (call.length === 3 && call[1] === "node") {
-        map.set(call[0] as string, call[2] as (evt: unknown) => void);
+        const key = call[0] as string;
+        const list = lists.get(key) ?? [];
+        list.push(call[2] as (evt: unknown) => void);
+        lists.set(key, list);
       }
+    }
+    const map = new Map<string, (evt: unknown) => void>();
+    for (const [key, list] of lists) {
+      map.set(key, (evt: unknown) => {
+        for (const h of list) h(evt);
+      });
     }
     return map;
   }

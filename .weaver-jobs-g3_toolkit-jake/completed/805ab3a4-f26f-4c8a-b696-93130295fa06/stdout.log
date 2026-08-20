@@ -1,0 +1,12 @@
+done: 1 atoms emitted; commit=995a0e0; folded 5 blockers
+
+Fixes applied to `03-dummy-chains-brief.md`:
+
+**Blockers fixed (5):**
+1. **Step 4 case-b both-at-root-scope gap** -- added explicit rule: when both endpoints are at root scope, the dummy is also placed at root scope with no parent container.
+2. **Step 4 case-c NCA vs parent-of-source contradiction** -- removed the parenthetical and committed to "nearest common ancestor of the two endpoint containers" as the single authoritative rule.
+3. **Step 1 DUMMY_NODE_SIZE zero-contradiction** -- removed "default to zero," mandated a positive non-zero constant, and required a dedicated test that fails when set to zero.
+4. **Step 6 perimeter flag name unspecified** -- replaced the vague "flag" with the concrete `LONG_EDGE_NEAR` threshold predicate (matching brief 10's `longEdgeNear` routing option), with absent-option treated as `Infinity` (policy disabled, default-false).
+5. **Missing root-scope degenerate test** -- added the both-endpoints-at-root-scope case to the step-4 parent-assignment unit test list.
+
+**Warnings folded (5 of 6):** schema update for `StructuralEdgeGeometry`, minimum two barycenter sweep requirement, direction assertion for intermediate points, commit-granularity constraint, and isolated `routeStructuralEdges` unit test. The sixth warning (DUMMY_NODE_SIZE spacing test) is covered by the blocker-3 fix.

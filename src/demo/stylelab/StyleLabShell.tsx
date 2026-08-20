@@ -47,6 +47,10 @@ import {
   styleLabLegacyStylesheet,
 } from "./style-lab-fixture";
 import { publishCanvas } from "../testing/e2e-hooks";
+import {
+  useRoutingControls,
+  RoutingControlStrip,
+} from "../components/routing-controls";
 
 interface ParityRow {
   element: string;
@@ -59,6 +63,11 @@ interface HonestyRow {
   element: string;
   unsupported: string;
 }
+
+/** Post-layout obstacle-aware routing on this shell's canvases (both
+ *  panes: legacy + engine). Per-shell kill-switch (D8): flip to false
+ *  and re-push to revert. */
+const ROUTE_EDGES = true;
 
 const LOD_CONTEXTS = [
   { label: "Close-up (zoom 1.0, 40 visible)", zoom: 1.0, visibleElements: 40 },
@@ -213,6 +222,16 @@ export function StyleLabShell({
     return { rows, checks };
   }, [legacyCy, engineCy]);
 
+  const {
+    routeMode,
+    setRouteMode,
+    routeEdgesConfig,
+    routeRefreshSignal,
+    refreshRoutes,
+    relayoutSignal,
+    relayout,
+  } = useRoutingControls();
+
   const lodContext = LOD_CONTEXTS[lodIndex] ?? LOD_CONTEXTS[0];
   const lod = resolveLod(DEFAULT_LOD_SCHEDULE, {
     zoom: lodContext.zoom,
@@ -270,6 +289,13 @@ export function StyleLabShell({
           engine-plus-bypass path (right), with the parity computed live from
           cytoscape&apos;s own resolved styles.
         </p>
+        <RoutingControlStrip
+          idPrefix="style-lab"
+          routeMode={routeMode}
+          setRouteMode={setRouteMode}
+          refreshRoutes={refreshRoutes}
+          relayout={relayout}
+        />
       </header>
 
       <div style={{ display: "flex", gap: 16 }}>
@@ -288,6 +314,10 @@ export function StyleLabShell({
               layout="grid"
               onReady={onLegacyReady}
               animate={false}
+              routeEdges={ROUTE_EDGES ? routeEdgesConfig : false}
+              routeRefreshSignal={routeRefreshSignal}
+              relayoutSignal={relayoutSignal}
+              edgeClickIsolate
             />
           </div>
         </section>
@@ -306,6 +336,10 @@ export function StyleLabShell({
               layout="grid"
               onReady={onEngineReady}
               animate={false}
+              routeEdges={ROUTE_EDGES ? routeEdgesConfig : false}
+              routeRefreshSignal={routeRefreshSignal}
+              relayoutSignal={relayoutSignal}
+              edgeClickIsolate
             />
           </div>
         </section>

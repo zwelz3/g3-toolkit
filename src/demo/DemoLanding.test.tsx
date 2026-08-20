@@ -41,7 +41,11 @@ describe("DemoLanding", () => {
   it("lists the capability surfaces beneath the scenarios (P1.4)", () => {
     expect(CAPABILITY_SURFACES.map((s) => s.id).sort()).toEqual([
       "analytics-dashboard",
+      "legibility",
       "ontology-workbench",
+      "rdf12-hyperarcs",
+      "routing-explain",
+      "routing-lab",
       "scale",
       "style-lab",
     ]);
@@ -62,6 +66,19 @@ describe("DemoLanding", () => {
     render(<DemoLanding onSelect={onSelect} />);
     fireEvent.click(screen.getByText("Analytics Dashboard"));
     expect(onSelect.mock.calls[0]?.[0]?.id).toBe("analytics-dashboard");
+  });
+
+  it("links the adopter and AI-agent guides in the footer (A33)", () => {
+    render(<DemoLanding onSelect={() => {}} />);
+    const links: [string, string][] = [
+      ["landing-wiring-guide-link", "docs/wiring-guide.md"],
+      ["landing-llms-link", "llms.txt"],
+      ["landing-agents-link", "AGENTS.md"],
+    ];
+    for (const [testid, path] of links) {
+      const a = screen.getByTestId(testid);
+      expect(a.getAttribute("href")).toContain(path);
+    }
   });
 
   it("hands the clicked scenario to onSelect", () => {

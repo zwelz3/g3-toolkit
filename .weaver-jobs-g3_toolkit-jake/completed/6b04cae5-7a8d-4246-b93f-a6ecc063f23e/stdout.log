@@ -1,0 +1,3 @@
+Push succeeded (credential-lock warning is cosmetic, the ref update landed). Final one-line summary:
+
+done: 3 atoms emitted; commit=b803d47; success — 05a channel router + fallback classifier land as pure additive modules behind off-by-default `useChannelRouter` flag; 17 new unit oracles + 1568 total tests green

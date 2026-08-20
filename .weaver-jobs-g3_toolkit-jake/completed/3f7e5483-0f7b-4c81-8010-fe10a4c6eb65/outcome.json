@@ -1,0 +1,19 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/long-edge-perimeter-policy-for-dense-scene-legibility-8b2aff0a",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/prune-wall-wide-span-skips-already-perimeter-routed-by-vr-9--cd02a3e2",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/pnpm-store-unable-to-open-database-file-on-this-host-blocks--5523e6ed"
+  ],
+  "commit_shas": ["ac0a742b44432dc86b03e7a436e20aaf32172c21"],
+  "files_changed": [
+    "packages/core/src/layout/g3t-engine/g3t-routing.ts",
+    "packages/core/src/layout/g3t-engine/g3t-layered.ts",
+    "packages/core/src/layout/g3t-engine/g3t-structural.ts",
+    "packages/core/src/layout/structural.ts",
+    "src/demo/routing/scenarios.test.ts"
+  ],
+  "summary": "Brief 10 long-edge perimeter policy landed: eligible edges (near>=longEdgeNear, default 12) prefer VR-9 perimeter detour with deterministic outward stagger; typecheck+lint+prettier+1490 tests+spec gates green.",
+  "duration_min": 20,
+  "blockers": []
+}

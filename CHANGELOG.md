@@ -1,5 +1,218 @@
 # Changelog
 
+## 1.0.3: 2026-08-19 (scene-route shear fix: label-inclusive bounding boxes)
+
+**Bugfix — routed edges rendered with sheared, non-orthogonal corners and
+cut back across node bodies (Bio / Scale / Provenance Auditor / Supply
+Chain).** `runCanvasEdgeRouting` and `runCanvasRelayout` read
+`n.boundingBox()` with defaults, which INCLUDE the rendered label.
+Node labels sit below the node (`text-valign: bottom`, wrapped at
+110px), so each box center sat below the node's actual position.
+Cytoscape renders `curve-style: segments` relative to the node
+POSITIONS, so every interior bend point was projected against a
+displaced source→target line: orthogonal Z-routes rendered as diagonal
+"triangle" jogs, and detours computed around invisible label
+rectangles appeared to route over the node itself. The wrap change of
+2026-08-14 (multi-line labels) made the displacement large, and the
+direct-unless-crossing default (brief 19) made it conspicuous by
+mixing straight beziers with the sheared detours. Both passes now read
+`boundingBox({ includeLabels: false, includeOverlays: false })`: route
+terminals coincide with node positions (exact segment projection) and
+the relayout write-back no longer drifts nodes downward by half the
+label height per press. Trade-off: edges may once again cross label
+text (the pre-wrap behavior); label-aware obstacle boxes would need a
+separate anchor model and are not attempted here.
+
+## 1.0.0 (continued): 2026-08-19 (Routing Explained DEV shell, brief 20)
+
+**Brief 20 — "Routing Explained" DEV-only explainer shell.**
+
+- **`RoutingExplainShell` (DEV-only).** New capability surface `routing-explain` (gated `import.meta.env.DEV`) that teaches the routing pipeline through three vertical panels: a live `StructuralSvgView`-rendered flow diagram of the `routeSceneEdges` decision tree (DOWN layout, the same structural engine documenting itself), a live `CytoscapeCanvas` demo with a 6-node dense graph, and a prose legend. The 3-state mode select (Direct / Orthogonal / Off) changes only the `routeEdges` prop — same UGM/graph, no re-init or refit per the camera-stability doctrine.
+- **`DemoLanding` and `Demo` updated.** `CAPABILITY_SURFACES` gains the `routing-explain` card (lime-green accent, `⤳` icon, tags: routeEdges, A\* router, direct-unless-crossing). `SHELL_MAP` gets the loader. `scripts/build-landing.mjs` GATES array and `docs/landing.html` updated to account for the new dev-only surface (now: Style Lab + Routing Explained dev-only, Scale prod-only).
+- **Smoke test.** `RoutingExplainShell.test.tsx` covers mount, back affordance, default mode, mode switching (orthogonal and off), flow diagram delivery to `StructuralSvgView`, and the DEV-only badge (7 tests, all pass).
+
+## 1.0.0 (continued): 2026-08-19 (direct-unless-crossing default, routing pulldown on 8 shells)
+
+**Brief 19 — direct-unless-crossing routing default + per-shell routing pulldown.**
+
+- **`routeSceneEdges` mode field.** `RouteSceneOptions` gains `mode?: "direct-unless-crossing" | "always"`. Default is `"direct-unless-crossing"`: the router checks each edge's straight segment against the obstacle set and skips routing when the path is clear, leaving those edges as bezier curves. Use `"always"` to replicate the previous behavior (route every edge regardless). The crossing check reuses the already-exported `polylineIntersectsBoxes` primitive.
+- **`CytoscapeCanvas` `routeEdges` prop extended.** `routeEdges` now accepts `{ mode?: "direct" | "orthogonal" }` in addition to the existing tuning options (`maxEdges`, `clearance`, `bendPenalty`, `minStub`). `"direct"` maps to core `"direct-unless-crossing"`; `"orthogonal"` maps to `"always"`. `routeEdges={true}` (bare) uses `"direct"` mode. This is a library-wide default change: existing shells that pass `routeEdges={true}` now route direct-unless-crossing instead of always-orthogonal.
+- **3-state routing pulldown on 8 shells.** Routing Lab, Ontology Workbench, RDF 1.2 Hyperarcs, Legibility Lab, Biomedical, Style Lab, Supply Chain Digital Thread, and Scale now all expose a `Routes` select with three options: `Direct (auto-Z)` / `Orthogonal (always)` / `Off (bezier)`. Per-shell `ROUTE_EDGES` kill-switches remain as the emergency revert path; the pulldown is additive.
+- **Wiring guide updated.** The "Route edges around nodes" section now documents the mode options and the direct/orthogonal trade-off with a mode table. Executable wiring test twin extended with two new mode tests.
+
+## 1.0.0 (continued): 2026-08-18 (anchor capacity, edge hover, Routing Lab controls)
+
+Three findings from the Routing Lab review, two of them the same root
+cause seen from different ends.
+
+- **Anchor pitch with corner overflow, a new OPT-IN layout option
+  (`anchorPitch`).** The fan divides a side into `count + 1` and takes
+  the interior points, so its pitch is `extent / (count + 1)` with no
+  floor. Fan-In Bus at Large asks one 52px-tall Collector to absorb 17
+  arrivals, which lands them **2.9px apart**: mathematically distinct,
+  visually one line carrying 17 stacked arrowheads. No existing option
+  helped, because none of them adds space. Setting a pitch floors the
+  separation and wraps the outermost edges in fan order around the
+  corners onto the perpendicular sides; a box that saturates those too
+  falls back to even division on whichever side each edge landed on.
+  This REDUCES stacking rather than abolishing it, and the tests say so
+  rather than claiming a guarantee: placement feeds `anchorOf`, and
+  VR-7f can still slide two anchors onto the same exposed cross because
+  it chooses per edge without seeing its neighbours. Making distinctness
+  a guarantee means teaching VR-7f and the side-fallback to see the
+  anchors already placed, which is a larger change than this. Omitted,
+  which is
+  the default, is byte-identical to before: the placement lives behind
+  its own branch and writes to its own map, so the oracle-pinned fan is
+  untouched. Threaded through `g3tLayoutStructural` and into the
+  `layoutStructural` memo key, since a cached run under a different
+  pitch is the wrong answer.
+- **Nudge could never have fixed that**, and it is worth writing down
+  why, because the symptom reads like a nudging bug from either side.
+  `g3t-nudging.ts` pins the first and last segment of every route
+  (`fixed = i === 0 || i === pts.length - 2`), so it moves interior
+  runs only. The overlapping horizontal stubs in Fan-In Bus ARE the
+  terminal segments, sitting at the anchor coordinate, 2.9px apart. The
+  apparent axis asymmetry between scenarios (verticals separate in
+  Fan-In Bus, horizontals in Crossing Storm) is the same rule seen
+  twice: `sidesFor` picks sides by largest signed border gap, so the
+  interior segment is vertical when edges anchor east/west and
+  horizontal when they anchor north/south.
+- **SVG edges are now hoverable.** `StructuralSvgView` drew each edge
+  as a 1.5px stroke with `fill="none"` and no hit area, so SVG
+  hit-testing registered only inside those 1.5px and a consumer styling
+  `g[data-ssv-edge]:hover` had to be pixel-accurate; grazing a line
+  flickered the state rather than holding it. Click was never affected,
+  because that path goes through `hitTestStructural` and its
+  width-aware tolerance. Every edge group now carries a transparent
+  12px hit path (`data-ssv-edge-hit`) beneath the visible stroke, which
+  restores the same forgiveness to hover. Beneath rather than above on
+  purpose: in a dense fan the nearest edge's own line should win over a
+  neighbour's hit band.
+- **Nudge separation is now tunable: `trackGap` and
+  `corridorMaxGapFactor`, both OPT-IN with defaults unchanged.** Asked
+  for more forced spacing in medium and large graphs, the obvious move
+  is to raise the nudge track gap, and on its own that does not work.
+  The corridor gap is `min(factor * layerSpacing, demand * trackGap +
+  2 * clearance)`, so at the default 80px layer spacing the cap binds
+  above 28 edges per corridor and everything past that is spread across
+  a fixed 240px however wide the tracks were asked to be. Going 8 to 12
+  with the factor left at 3 changes a 40-edge corridor not at all (6.0px
+  either way) and SHRINKS the fully-served range from 28 edges to 19.
+  The factor is the lever that bites at scale; the track gap is the one
+  that bites below the cap, which is why both are exposed and why the
+  Lab presets move them as pairs. `computeCorridorGap` had already
+  written down the diagnostic: cap-limited corridors mean the
+  maxGapFactor default is too restrictive. Threaded through the layout
+  so the corridor the layout RESERVES widens with the tracks the router
+  spreads, keeping the supply/demand drift assertion honest, and into
+  the memo key. Defaults are untouched pending a measured choice.
+- **Two nudge bugs fixed, both reported as "nudge moved an edge that
+  was nowhere near another edge".** Separation is a LOCAL property and
+  the pass was treating it as a corridor-wide one, in two places.
+  First, grouping is a transitive closure over the capture band, so a
+  chain of segments each within `trackGap * 2` of the next became ONE
+  group spanning far more than the band, and every member was re-placed
+  as a single evenly-spaced run. Capture is the right net to catch
+  candidates with and the wrong unit to plan with, so each group is now
+  split into the maximal runs whose consecutive members are closer than
+  one track gap; anything already adequately spaced is left exactly
+  where the router put it. Second, placement anchored on the corridor
+  midline, the centre of the space between the bounding obstacle faces,
+  so a run sitting comfortably off to one side of a wide corridor was
+  dragged to the middle of it. Runs now keep their own centre of mass
+  and spread about it, clamped into the corridor. Both placement sites
+  were affected, including the replan path.
+- **Routing Lab: two new Engine controls**, Anchor pitch and
+  Separation. Both default to the library values so the bench keeps
+  showing what a host gets untouched.
+- **RULING: no bundling control in the Routing Lab.** It was built and
+  withdrawn before landing, so it appears nowhere in history and this
+  entry is the only record. Force-directed bundling assumes point-like
+  nodes; the structural view has compartmented boxes with declared
+  ports, and FDEB ignores ports, box geometry and obstacles by
+  construction, so on Port Storm it drew long diagonals out of the port
+  anchors straight across the boxes. Splicing the router's endpoints
+  back on and then clipping the interior points were both treating
+  symptoms of a host mismatch rather than the mismatch. Bundling keeps
+  its proper home on the force canvas in the Scale surface, where the
+  nodes are point-like and the edges are long and roughly parallel. Do
+  not re-add it to the structural view without revisiting this.
+
+## 1.0.0 (continued): 2026-08-17 (the feature arc and the hardening arc merged)
+
+`ai-agent-guide` merged with `fable-updates`. The two branches forked
+from the same commit on 2026-08-14 and did disjoint work, so the entries
+below this one are two parallel sequences rather than one history. Read
+dates across the two arcs as concurrent, not sequential.
+
+- **Briefs 15-18 land with this merge**, having shipped on the feature
+  branch without their own entries: `buildImageExport` (PNG snapshot via
+  the toolbar Export menu plus a programmatic helper), force-directed
+  edge bundling (`bundleEdges` / `bundledPolylineToSegments`, FDEB after
+  Holten and van Wijk 2009, deterministic and endpoint-preserving, with
+  a clean bypass above `maxEdges`), the Legibility Lab demo shell, and
+  the fix that routes canvas edges synchronously at `layoutstop` when
+  the layout is already settled, with `routeEdges` enabled on the
+  ontology and RDF 1.2 canvases.
+- **Five inert structural layout options stay removed, and `nudge`
+  stays.** The feature branch added `nudge` beside `nodePlacement` and
+  `crossingMinimization` in `StructuralLayoutOptions`; the hardening
+  branch deleted the latter two as pass-throughs into an `elk.*` string
+  map the g3t engine does not read. The removal wins on both branches:
+  neither option reaches an engine, and the merged builder had already
+  dropped every read of them. `nudge` is a boolean branch the g3t engine
+  reads directly and is unaffected; a note in `structural.ts` now says
+  so, so the next audit does not sweep it into the same bucket.
+- **A duplicated RDF 1.2 declaration block was removed from
+  `SparqlAdapter`.** The triple-term commits landed independently on both
+  branches, so git merged two byte-identical copies of `RdfTerm` and
+  `TripleTerm` into a file that looked clean. The duplicate alias is a
+  hard `TS2300`, and it was invisible because the merge's own conflict
+  markers suppress semantic diagnostics for the whole program.
+- **Ten of the feature branch's new exports were WITHDRAWN before the
+  public surface was refrozen**, on the ruling the 2026-08-15 subpath
+  withdrawal established: named in no adopter document, called by
+  nothing outside their own module. From `@g3t/core` and
+  `@g3t/core/layout`: `assignTracks`, `emitChannelRoute`,
+  `routeChannelOverflow`, `classifyFallback`, internals of a router
+  behind an off-by-default flag (their TYPES still ship; they describe
+  public geometry). From `@g3t/core` and `@g3t/core/projection`:
+  `filterPseudoNodes`, `filterPseudoEdges`, `PSEUDO_FLAG`,
+  `PSEUDO_CONNECTOR_TYPE`, `PSEUDO_TRUNK_TYPE`; `isPseudoNode` is the
+  one predicate a host needs and it stays. From `@g3t/core`:
+  `inferTerminalSides`, an internal step of `routeSceneEdges`. Per the
+  archive-don't-delete ruling every module and test stays in the tree.
+- **`api-surface.json` refrozen: 34 additions across 5 entries, zero
+  removals.** The zero is the load-bearing half, since it proves no
+  withdrawal from the hardening arc was lost in a conflict resolution.
+  Six additions that had no documentation now have some: the wiring
+  guide's RDF 1.2 section documents `tripleLabel`, `termLabel`,
+  `localName`, `STAR_EDGE_TYPE` and `RDF_STATEMENT_FLAG`, and the export
+  section documents `buildExport` alongside `buildImageExport`,
+  including the fact that one returns text and the other a blob.
+- **Budgets re-measured rather than merged.** Both branches raised caps
+  in parallel off one baseline, so neither surviving number covered the
+  other's code. Publish weight: core 169.0 to 209 KB (measured 206.3),
+  react 390 to 397 KB (measured 393.9). Adopter cost, which nobody had
+  raised on the feature branch: `core-layout` 52 to 69 KB (measured
+  66.0) and `core-all` 155 to 182 KB (measured 178.9). `core-ugm` held
+  at 4.8 KB, which is the check that matters: none of the new routing
+  code became reachable from `UGM` alone. The `@g3t/layout` (ARC-009)
+  extraction stays retired, and this merge strengthens the reason.
+- **Four wiring-guide snippets now compile.** The hardening arc added a
+  gate that typechecks every fenced block against the real package
+  types, and the feature arc's fences were written before it existed:
+  a missing `CytoscapeCanvas` import, two undeclared host values, and
+  an untyped callback parameter. Three of the four were outside any
+  conflict region.
+- The demo register is ELEVEN scenarios. `SHELL_MAP` took the hardening
+  arc's retryable-loader shape (a module-level `lazy()` caches a
+  rejected import forever) and gained the feature arc's three shells:
+  Routing Lab, RDF 1.2 Hyperarcs, Legibility Lab. `docs/landing.html`
+  regenerated from the demo sources: ten deployed surfaces, Style Lab
+  being dev-only.
+
 ## 1.0.0 (continued): 2026-08-16 (ESM-only publishing, e2e retargeted to the SVG renderer)
 
 - **The packages publish ESM only. The `require` condition and the cjs
@@ -679,6 +892,96 @@
   this branch only.
 - Docs: `capabilities-and-limits.md` said the incremental-layout symbols
   are exported from `@g3t/core`. All four are on `@g3t/core/layout`.
+
+## 1.0.0 (continued): 2026-08-14 consolidation: VR-10 routing fix, RDF 1.2 triple terms, holon boundary view
+
+- **VR-10 routing correctness.** The long-edge perimeter policy and
+  `detourAround` (VR-9) verified candidate rails against the obstacle
+  set pre-filtered by the simple route's bounding box; a perimeter
+  rail leaves that bbox by definition, so whole rows were invisible
+  to both the bound derivation and the collision check (prune-wall's
+  `pskip.0` rail ran through 19 boxes). New `travelBand` helper
+  filters the FULL obstacle set to the route's travel-axis span, and
+  band-derived bounds now COMPETE with the near-derived candidates
+  instead of replacing them. 108-cell sweep (9 scenarios x 3 sizes x
+  4 flows): 8 violations to 0, all other rows byte-identical; a
+  flow-sweep regression pin now runs every scenario under all four
+  flows.
+- **RDF 1.2 triple terms.** `SparqlAdapter` ingests triple-term
+  objects (`<< s p o >>` reification, flat and nested) without
+  corruption, tested against a captured Fuseki fixture. (Cherry-picked
+  from the upstream PR branch so the consolidated line carries it.)
+- **Holon boundary + projection representation (brief 12).**
+  `Holon.boundaryNodeIds` / `Portal.boundaryNodeId` (additive,
+  optional) declare what a holon publishes. New
+  `HolonicAdapter.projectHolonBoundary(holon)` emits the ringed holon
+  (`_boundaryRing`, double-ring canvas styling), exposed nodes inside
+  the ring via the `_boundaryContains` containment type, and portal
+  stubs with `_portalTransit` mid-edge glyphs (diamond when
+  CONSTRUCT-backed). `registerHolonDrillItems` (@g3t/react) adds
+  "Open boundary" / "Open interior" context-menu drills. The ontology
+  workbench gains a Holons tab walking holarchy, boundary, and
+  interior over a spacecraft segment fixture. Wiring-guide section
+  plus executable twin.
+
+## 1.0.0 (continued): 2026-08-14 canvas edge routing (routeEdges prop)
+
+- New `CytoscapeCanvas` prop `routeEdges` runs a post-layout
+  obstacle-aware routing pass on any NON-structural scene, using the
+  same A* router that already backs the structural view. Off by
+  default in the library; the demo shells (Auditor, Supply Chain,
+  Biomedical, Analytics dashboard, Style Lab both panes) all set it
+  to `true` via a module-level `ROUTE_EDGES` constant that acts as a
+  per-shell kill-switch. The Scale surface enables it only in the
+  collapsed clusters view.
+- New pure module `@g3t/core` exports: `routeSceneEdges`,
+  `inferTerminalSides`, `polylineToCytoscapeSegments`, and companion
+  types (`SceneNodeBox`, `SceneEdgeEndpoints`, `RouteSceneOptions`,
+  `RouteSceneResult`). Framework-agnostic, unit-tested, and consumable
+  by future SVG renderers without a React dependency.
+- Wiring: routing runs on every `layoutstop` (double-fire and
+  rapid-restart guarded by a generation counter; animate-aware timing:
+  synchronous read for `animate={false}`, deferred to
+  `animationDuration + 16ms` otherwise) and on `drag-free` for the
+  dragged node's incident edges. All writes go through `cy.batch()`;
+  no re-init, camera and positions hold. Structural scenes are
+  detected (any edge with `g3t-structural-edge-routed`) and skipped.
+- Scale cap: `maxEdges` (default 600) checked on `cy.edges(':visible')`;
+  above the cap the pass skips and warns once. Same predicate for both
+  the layoutstop and drag-free paths so filtered scenes behave
+  consistently.
+- Wiring-guide snippet and executable twin in `examples/wiring/`.
+
+## 1.0.0 (continued): 2026-08-14 Routing Lab engine controls
+
+- The Routing Lab dashboard gained an Engine toolbar row exposing
+  every live routing switch: a nudge checkbox (default ON in the lab,
+  ahead of the still-staged library default flip), the long-edge
+  perimeter threshold (`longEdgeNear`: off / 8 / 12 / 20), router
+  anchor (source/target), placement (Brandes-Koepf/median), layering
+  strategy (network-simplex / Coffman-Graham / tight-tree), and an
+  effort preset over the anytime phase budgets. Demo-only; no library
+  defaults changed.
+
+## 1.0.0 (continued): 2026-08-14 label wrapping
+
+- Canvas node labels now word-wrap (`text-wrap: wrap`,
+  `text-max-width: 110px` on the base node rule). Reported against the
+  biomedical shell, where long entity names rendered as single
+  unwrapped lines and overlapped neighboring labels; the fix is in
+  `DEFAULT_STYLESHEET` so every canvas benefits. The style-lab parity
+  oracle covers both style paths with the same base stack, so parity
+  is unaffected.
+- The override knob for that default: `labelWrapRule(maxWidthPx |
+  false)`, exported from `@g3t/react` and passed through the
+  `stylesheet` prop (a style refresh; positions and camera hold). A
+  number re-widths the wrap, `false` disables it. The biomedical shell
+  demonstrates it live with a "Wrap labels" switch (default on, 90px),
+  recipe in the wiring guide with a CI twin. The demo landing footer
+  now links the wiring guide, llms.txt, and AGENTS.md; both AI guides
+  cover the new surface plus the opt-in `nudge` routing option and the
+  Routing Lab dashboard.
+
 
 ## 1.0.0 (continued): register of 2026-08-06 (R-15, R-16, R-17)
 

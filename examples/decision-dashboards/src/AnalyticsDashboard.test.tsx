@@ -33,6 +33,8 @@ const captured = vi.hoisted(() => ({
   specs: [] as Array<{ color?: string; size?: string }>,
   menus: [] as CapturedMenu[],
   hidden: [] as Array<ReadonlySet<string> | undefined>,
+  routeEdges: [] as unknown[],
+  edgeClickIsolate: [] as (boolean | undefined)[],
 }));
 
 vi.mock("@g3t/react", async (importOriginal) => {
@@ -62,6 +64,8 @@ vi.mock("@g3t/react", async (importOriginal) => {
       ugm: UGM;
       menuManager?: CapturedMenu;
       hidden?: ReadonlySet<string>;
+      routeEdges?: unknown;
+      edgeClickIsolate?: boolean;
       encodingSpec?: {
         node: {
           color?: { driver?: string };
@@ -71,6 +75,8 @@ vi.mock("@g3t/react", async (importOriginal) => {
     }) => {
       if (props.menuManager) captured.menus.push(props.menuManager);
       captured.hidden.push(props.hidden);
+      captured.routeEdges.push(props.routeEdges);
+      captured.edgeClickIsolate.push(props.edgeClickIsolate);
       captured.specs.push({
         color: props.encodingSpec?.node.color?.driver,
         size: props.encodingSpec?.node.size?.driver,
@@ -113,6 +119,8 @@ describe("AnalyticsDashboard context menu (full toolkit action set)", () => {
     useEmphasisStore.getState().clear();
     captured.menus.length = 0;
     captured.hidden.length = 0;
+    captured.routeEdges.length = 0;
+    captured.edgeClickIsolate.length = 0;
   });
 
   it("registers the full toolkit node set (registerToolkitActions)", () => {
@@ -279,5 +287,20 @@ describe("demonstrations have visible consequences (5.1/5.2)", () => {
     expect(screen.getByText("Origin coverage by tier")).toBeDefined();
     expect(screen.queryByText("Algorithm demonstrations")).toBeNull();
     expect(screen.queryByText(/Derive a property/)).toBeNull();
+  });
+});
+
+describe("AnalyticsDashboard routing wiring", () => {
+  afterEach(() => {
+    cleanup();
+    captured.routeEdges.length = 0;
+    captured.edgeClickIsolate.length = 0;
+  });
+
+  it("passes routeEdges={mode:direct} and edgeClickIsolate to the canvas", () => {
+    render(<AnalyticsDashboard />);
+    const re = captured.routeEdges.at(-1);
+    expect(re).toEqual({ mode: "direct" });
+    expect(captured.edgeClickIsolate.at(-1)).toBe(true);
   });
 });

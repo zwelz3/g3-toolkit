@@ -80,6 +80,16 @@ const GLYPH_PAD = 4;
  *  Render and hit test MUST use the same value. */
 const PLAIN_GLYPH_BAND = GLYPH_H + 2 * GLYPH_PAD;
 
+/** Width of the transparent pointer target painted under every edge.
+ *  The visible stroke is 1.5px, which is not a hoverable target: CSS
+ *  `:hover` on the edge group needs the pointer INSIDE the stroke, so
+ *  a hover-driven affordance flickered rather than held. 12 matches
+ *  the width-aware tolerance hitTestStructural already applies to
+ *  clicks, so hover and click now forgive the same amount. Raising it
+ *  makes edges easier to grab but lets adjacent edges in a dense fan
+ *  steal each other's pointer; the topmost hit wins. */
+const EDGE_HIT_WIDTH = 12;
+
 /** R-10: zones that are AFFORDANCES rather than scene surface. A
  *  press on one is an intent to act on that element, so it starts
  *  neither a node drag nor a canvas pan. Future affordance zones
@@ -1103,7 +1113,32 @@ export function StructuralSvgView({
             };
           })();
           return (
-            <g key={id} data-ssv-edge={id}>
+            // `cursor` is inherited, so it belongs on the GROUP, not on
+            // the hit band. Put it only on the band and the visible
+            // 1.5px stroke sits on top of it carrying the root's
+            // `grab`, so the pointer flips to a hand on either side of
+            // the line and back to the pan cursor directly over it.
+            <g key={id} data-ssv-edge={id} style={{ cursor: "pointer" }}>
+              {/* Invisible hover/pointer target. The visible stroke is
+                  1.5px and `fill="none"`, so SVG hit-testing registers
+                  only INSIDE that 1.5px: a consumer styling
+                  `g[data-ssv-edge]:hover` had to be pixel-accurate, and
+                  grazing the line flickered the state instead of
+                  holding it. Click was never affected, because that
+                  path goes through hitTestStructural, which applies a
+                  width-aware tolerance; this restores the same
+                  forgiveness to hover. Painted first so it sits BENEATH
+                  the visible stroke and the arrowheads, and it carries
+                  no data-ssv-edge-path, so the styling contract (which
+                  keys on that attribute) is untouched. */}
+              <path
+                d={d}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={EDGE_HIT_WIDTH}
+                pointerEvents="stroke"
+                data-ssv-edge-hit={id}
+              />
               <path
                 d={d}
                 fill="none"

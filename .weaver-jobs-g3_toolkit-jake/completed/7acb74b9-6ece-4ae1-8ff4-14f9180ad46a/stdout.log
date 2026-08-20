@@ -1,0 +1,1 @@
+done: 1 atoms emitted; commit=ea6afed; folded 3 blockers (circular 5c -> AABB proxy, silent track overflow -> gate-green oracle, mixed-mode nudging scope undefined -> conservative whole-edge rule) and 5 warnings (Brief 10 IRI lookup, rollback kb:verify step, caller audit promoted to hard gate, strict-decrease weakened to non-regression, anti-monotone oracle added).

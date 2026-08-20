@@ -1,0 +1,17 @@
+{
+  "outcome": "bailed",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Failure/brief-05b-channel-router-rewire-de2f5cd9"
+  ],
+  "commit_shas": [],
+  "files_changed": [],
+  "summary": "Brief 05b bailed: Brief 10 kb:Plan atom missing (halt per brief §4), pnpm sandbox cannot run gates for baseline re-pin, and partial delete-without-verified-replacement would ship strictly worse than status quo",
+  "duration_min": 8,
+  "blockers": [
+    "Brief 10 kb:Plan atom does not exist in graph (only 4 plans in g3_toolkit: baseline-g3_toolkit-via-resync-deep, nudging-default-flip-followup, orchestrate-routing-quality-33ea5324, smart-routing-on-every-example); Brief 05 §4 directs HALT-and-report on empty lookup",
+    "Weaver sandbox pnpm unusable: 'pnpm --version' fails with 'unable to open database file'; no writable ~/.pnpm-store or ~/.config/pnpm; cannot run 'pnpm run gates', 'pnpm run verify', or bundle-ledger re-baseline",
+    "Re-pin protocol requires OBSERVED channel-router-on crossings/bends numbers via vitest through the workspace toolchain the sandbox cannot reach",
+    "Landing the destructive half (ladder + longEdgeNear perimeter policy + useChannelRouter flag + associated tests at src/demo/routing/scenarios.test.ts:130-188) without a verified end-to-end channel-router path would break long-span edges in span-gauntlet/crossing-storm/prune-wall wide-span perimeter oracles"
+  ],
+  "handoff": "Foreground: (1) mint Brief 10 kb:Plan atom via 'kb create --type kb:Plan --project g3_toolkit ...' OR relax the annotation requirement in brief 05b; (2) re-dispatch in an environment with functional pnpm+vitest so baseline can be observed live; (3) ensure Prettier is run on every touched file before commit (05a false-greened lint by skipping prettier --check per gotcha weaver-sandbox-workers-report-gates-green)"
+}

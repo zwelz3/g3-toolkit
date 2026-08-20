@@ -1,0 +1,186 @@
+{
+  "project": "g3_toolkit",
+  "generated_at": "2026-08-15T14:20:40Z",
+  "graphdb": {
+    "endpoint": "https://forge.tail515200.ts.net:3030/spindle_g3_toolkit/sparql",
+    "graph_sizes": {
+      "statements": 46280,
+      "global": 0,
+      "jobs": 0,
+      "usage": 75,
+      "drift": 2,
+      "code": 62025,
+      "ontology": 701
+    }
+  },
+  "head_local_git": "cc87d18",
+  "current_workblocks": [
+    {
+      "wb": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/WorkBlock/routing",
+      "summary": "make smart routing",
+      "ts": "2026-08-14T01:40:41Z"
+    },
+    {
+      "wb": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/WorkBlock/get_ai",
+      "summary": "develop instructions for ai to use g3",
+      "ts": "2026-08-13T14:56:46Z"
+    }
+  ],
+  "open_questions": [],
+  "recent_decisions": [
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/route-edges-enabled-on-ontology-and-rdf12-canvases-d5ebae89",
+      "subj": "route-edges-enabled-on-ontology-and-rdf12-canvases",
+      "summary": "No maxEdges override needed: demo graphs are small and the dev-only runtime warning surfaces if a consumer feeds a denser graph. Scale drill exceeds the cap by design and is already documented inline.",
+      "ts": "2026-08-15T12:50:47Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/route-edges-defer-gate-uses-effective-animate-plus-layout-se-c4e33dfb",
+      "subj": "route-edges-defer-gate-uses-effective-animate-plus-layout-settled-ref",
+      "summary": "Fix lives in the canvas layer, not the demo, because the cause is a generic mismatch between the two animate sources; every routeEdges consumer that sets layoutOptions.animate:false while leaving the canvas prop truthy benefited without touching demos. The layoutSettledRef guard fixes a distinct secondary flash (initial fresh-fcose mount routing on pre-layout positions) with a per-instance flag reset at cy creation and flipped at first layoutstop.",
+      "ts": "2026-08-15T12:50:37Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/legibility-lab-shipped-brief-17-5e4d438a",
+      "subj": "legibility-lab-shipped-brief-17",
+      "summary": "Adopted untracked src/demo/legibility/fixtures.ts (parallel-session drop) as canonical: 14-degree hub, 6+2 bus, single-exposed-radio holon. Reused hubBurst/busCollapse from brief 06 (commit 4526192) and HolonicAdapter.projectHolonBoundary from brief 12. Pseudo-node style rules are field-scoped (node[?pseudo], edge[type = ...]) per canvas doctrine so real elements never see a data-mapper. Camera captured on viewport + restored on re-init so raw<->spread does not refit wildly (raw and spread differ in node-id set, which is by contract a different graph).",
+      "ts": "2026-08-15T12:35:53Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/a105-brief-17-legibility-lab-dispatched-brief-18-scale-flash-d8e59dba",
+      "subj": "A105: brief 17 (Legibility Lab) dispatched, brief 18 (scale flash + routing coverage) chained via zero-LLM watcher",
+      "summary": "Jake A105 asked: (1) routing coverage \u2014 audit found routeEdges ON in audit/supply/bio/stylelab/routing/scale-clusters + MBSE structural default, OFF in ontology x4 + rdf12, brief 18 closes it; (2) didactic pseudo-node + holon-boundary demo \u2014 orphan src/demo/legibility/fixtures.ts (dropped by a parallel session 12:22Z, unowned) is exactly the right fixture set, brief 17 adopts it; (3) scale demo flashes on the deployed production build \u2014 brief 18 mandates Playwright frame-capture repro before any fix; (4) omni7 Engineering Studio ALREADY has a Macro Topology tab (vis-network, pages/4_Engineering_Studio.py:1681) \u2014 held for clarification. Sequential jobs (shared-tree race gotcha); brief17 job=52bdb0ea.",
+      "ts": "2026-08-15T12:28:18Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/opened-ghostsystemsai-g3-toolkit-pr-1-for-overnight-yfiles-g-57163633",
+      "subj": "Opened GhostSystemsAI/g3-toolkit PR #1 for overnight yFiles gap-fill work",
+      "summary": "PR #1 docs/ai-agent-guide -> main. HEAD is exactly 5 clean commits ahead of origin/main (fast-forwardable ancestor). All gates green on committed tree: 1671 tests pass, bundle in budget (core 198.3/200KB), spec gates pass under python3. Commits: scale badges 9620b2e, rdf12 inspector+holon drill 4f5ded0, briefs 8e0f4e8, image export 193e3ea, edge bundling 4f92ade.",
+      "ts": "2026-08-15T03:25:47Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/core-bundle-budget-raised-196-to-200-kb-for-fdeb-module-39d69512",
+      "subj": "core bundle budget raised 196 to 200 KB for FDEB module",
+      "summary": "Bundle ledger contract in CLAUDE.md: growth requires a written rationale in check-bundle-size.mjs, do NOT silently raise. Added the dated ledger entry alongside the numeric bump.",
+      "ts": "2026-08-15T01:37:58Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/edge-bundling-shipped-as-pure-geometry-in-g3t-core-def3627b",
+      "subj": "edge-bundling shipped as pure geometry in @g3t/core",
+      "summary": "FDEB (Holten van Wijk 2009). Deterministic: no RNG, fixed subdivision/iteration schedule; compatibility matrix computed once (O(E^2)) across all cycles. Endpoints re-pinned from input positions so no drift can appear at route[0]/route[last]. maxEdges bypass returns straight polylines with skipped=true. bundledPolylineToSegments projects onto Cytoscape curve-style: segments so the existing routed-edge class renders it.",
+      "ts": "2026-08-15T01:37:55Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/brief15-image-export-helper-906232a1",
+      "subj": "brief15-image-export-helper",
+      "summary": "Cytoscape ships cy.png natively so no new dependency; blob output + URL.createObjectURL/revoke pattern already used elsewhere; selection-scoped raster is not meaningful so opts expose only full/scale/bg. SVG export deferred (needs cytoscape-svg + bundle-ledger entry).",
+      "ts": "2026-08-15T01:22:35Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/yfiles-gap-analysis-image-export-edge-bundling-chosen-as-ove-27023c53",
+      "subj": "yFiles gap analysis: image export + edge bundling chosen as overnight adds",
+      "summary": "Picked the two highest adoption-value gaps that fit the three-channel library doctrine; fisheye/label-placement/snapping deferred as lower value or larger scope",
+      "ts": "2026-08-15T01:17:43Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/rdf12-hyperarc-click-to-inspect-holon-interior-drill-a-hyper-bf077547",
+      "subj": "rdf12 hyperarc click-to-inspect + holon interior drill (a hyperarc is a graph itself)",
+      "summary": "Wired the already-shipped DetailInspector + useSelectionStore (CytoscapeCanvas auto-taps into the store) plus a new pure buildStatementInterior(full,stmtId) that copies the statement node and its outgoing rdf:subject/rdf:object/annotation edges into a self-contained sub-UGM. Demo-local, zero core API change; swapping to a different node-id set is a legitimate canvas re-init per camera-stability doctrine. Jake's framing 'a hyper arc can be a graph itself' is realized literally: entering a diamond shows its interior as a graph, nested diamonds drill deeper.",
+      "ts": "2026-08-15T01:15:01Z"
+    }
+  ],
+  "recent_assertions": [],
+  "gotchas": [
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/brief-14-11-worker-commits-were-prettier-dirty-pnpm-run-lint-addb009a",
+      "subj": "brief 14/11 worker commits were prettier-dirty; pnpm run lint (prettier --check) was false-green",
+      "summary": "brief 14/11 worker commits were prettier-dirty; pnpm run lint (prettier --check) was false-green",
+      "ts": "2026-08-15T01:15:11Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/brief-14-worker-false-green-committed-non-compiling-tree-plu-859b8d00",
+      "subj": "brief-14 worker false-green: committed non-compiling tree plus red bundle gate",
+      "summary": "brief-14 worker false-green: committed non-compiling tree plus red bundle gate",
+      "ts": "2026-08-14T23:29:43Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/cytoscape-data-mapped-style-selector-scoping-0980f3cb",
+      "subj": "cytoscape data-mapped style selector scoping",
+      "summary": "cytoscape data-mapped style selector scoping",
+      "ts": "2026-08-14T23:20:16Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/playground-docs-demo-built-with-vite---base-g3-toolkit-playg-76083749",
+      "subj": "Playground docs:demo built with vite --base=/g3-toolkit/playground/ white-screens the root-served site",
+      "summary": "Playground docs:demo built with vite --base=/g3-toolkit/playground/ white-screens the root-served site",
+      "ts": "2026-08-14T21:44:48Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/brief-05b-was-being-implemented-by-two-concurrent-sessions-i-f1077e18",
+      "subj": "Brief 05b was being implemented by two concurrent sessions in the same routing files",
+      "summary": "Brief 05b was being implemented by two concurrent sessions in the same routing files",
+      "ts": "2026-08-14T17:24:42Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/weaver-sandbox-workers-report-gates-green-on-eslint-vitest-a-6d93115f",
+      "subj": "weaver-sandbox workers report gates-green on eslint+vitest alone; prettier-check and bundle-ledger are silently skipped",
+      "summary": "weaver-sandbox workers report gates-green on eslint+vitest alone; prettier-check and bundle-ledger are silently skipped",
+      "ts": "2026-08-14T16:44:34Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/pnpm-store-db-is-on-a-read-only-filesystem-in-the-weaver-san-b801caff",
+      "subj": "pnpm store db is on a read-only filesystem in the weaver sandbox, so pnpm-driven gates (pnpm run gates / pnpm run verify) fail with 'unable to open database file' even though the code is valid",
+      "summary": "pnpm store db is on a read-only filesystem in the weaver sandbox, so pnpm-driven gates (pnpm run gates / pnpm run verify) fail with 'unable to open database file' even though the code is valid",
+      "ts": "2026-08-14T15:46:46Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/pnpm-store-unable-to-open-database-file-on-this-host-blocks--5523e6ed",
+      "subj": "pnpm store 'unable to open database file' on this host blocks pnpm run gates",
+      "summary": "pnpm store 'unable to open database file' on this host blocks pnpm run gates",
+      "ts": "2026-08-14T13:08:14Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/parallel-session-shipped-the-same-bio-label-overlap-fix-4-mi-b0906df8",
+      "subj": "Parallel session shipped the same bio label-overlap fix 4 minutes before this one; the two mechanisms silently broke the wrap-off switch",
+      "summary": "Parallel session shipped the same bio label-overlap fix 4 minutes before this one; the two mechanisms silently broke the wrap-off switch",
+      "ts": "2026-08-14T13:05:58Z"
+    },
+    {
+      "a": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/worker-gate-claims-exclude-the-bundle-ledger-brief-01-worker-53afa869",
+      "subj": "Worker gate claims exclude the bundle ledger: brief-01 worker (job c63c21d2) reported 'typecheck + lint + prettier + 1495 vitest green, build succeeds' and outcome success, but full 'pnpm run gates' was RED \u2014 core bundle 165.2/155.5 KB, ledger never run.",
+      "summary": "Worker gate claims exclude the bundle ledger: brief-01 worker (job c63c21d2) reported 'typecheck + lint + prettier + 1495 vitest green, build succeeds' and outcome success, but full 'pnpm run gates' was RED \u2014 core bundle 165.2/155.5 KB, ledger never run.",
+      "ts": "2026-08-14T12:55:45Z"
+    }
+  ],
+  "open_plans": [
+    {
+      "item": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Plan/nudging-default-flip-followup-1123aca5",
+      "parent": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Plan/orchestrate-routing-quality-dense-scene-legibility-dependenc-33ea5324",
+      "subj": "nudging-default-flip-followup",
+      "summary": "Flip StructuralLayoutOptions.nudge default from false to true after measuring baseline re-pin scope; re-pin every affected snapshot/geometry test in the SAME PR as a separate commit; test count and revert path documented in commit body.",
+      "st": "open",
+      "ts": "2026-08-14T12:48:40Z"
+    },
+    {
+      "item": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Plan/orchestrate-routing-quality-dense-scene-legibility-dependenc-33ea5324",
+      "subj": "Orchestrate: routing quality + dense-scene legibility + dependency independence",
+      "summary": "Seven-brief sequenced run: nudging, routing coverage, dummy chains, corridor supply, channel router, pseudo-node dense-scene legibility, Tier-1/2 clean-room dependency replacement",
+      "st": "open",
+      "ts": "2026-08-14T04:55:53Z"
+    },
+    {
+      "item": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Plan/smart-routing-on-every-example-new-cytoscapecanvas-routeedge-4a77bf39",
+      "subj": "Smart routing on every example: new CytoscapeCanvas routeEdges capability (post-layout routeOrthogonal pass) + enable across all 6 non-structural demo surfaces",
+      "summary": "Smart routing on every example: new CytoscapeCanvas routeEdges capability (post-layout routeOrthogonal pass) + enable across all 6 non-structural demo surfaces",
+      "st": "open",
+      "ts": "2026-08-14T04:45:58Z"
+    },
+    {
+      "item": "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Plan/baseline-g3_toolkit-via-resync-deep",
+      "parent": "https://forge.tail515200.ts.net/ontology/kb/site/project/g3_toolkit",
+      "st": "open",
+      "ts": "2026-08-13T14:47:37Z"
+    }
+  ],
+  "open_plans_total": 4
+}

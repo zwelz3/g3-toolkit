@@ -9,7 +9,11 @@
  */
 import { describe, it, expect } from "vitest";
 import { UGM } from "../ugm/ugm";
-import { collapseByCluster, buildSubgraph } from "./collapse-by-cluster";
+import {
+  collapseByCluster,
+  buildSubgraph,
+  clusterBadgeText,
+} from "./collapse-by-cluster";
 
 /** Deterministic RNG (mulberry32). */
 function mulberry32(seed: number): () => number {
@@ -167,6 +171,127 @@ describe("collapseByCluster invariants", () => {
         expect(Number(edge?.properties.weight)).toBeGreaterThanOrEqual(1);
       }
     });
+  });
+});
+
+describe("interior + boundary edge counts on supernodes (brief 11)", () => {
+  /**
+   * Every supernode carries interiorEdgeCount and boundaryEdgeCount
+   * derived from the SAME edge pass that aggregates cluster-link
+   * weights, so the three sums reconcile against the total edge
+   * count. This is the "how many paths in it" number the owner asked
+   * for.
+   */
+  it("counts reconcile against the total edge budget", () => {
+    const ugm = planted(6, 40, 13); // 240 nodes
+    const res = collapseByCluster(ugm, {
+      threshold: 10,
+      clusterProperty: "community",
+    });
+    expect(res.collapsed).toBe(true);
+
+    // Total unique edges in the input UGM.
+    const seenEdges = new Set<string>();
+    ugm.forEachNode((id) => {
+      for (const e of ugm.getNodeEdges(id)) seenEdges.add(e);
+    });
+    const totalEdges = seenEdges.size;
+
+    // Sum of cluster-link weights (inter-cluster contribution).
+    let linkWeightSum = 0;
+    res.ugm.forEachNode((id) => {
+      for (const e of res.ugm.getNodeEdges(id)) {
+        const edge = res.ugm.getEdge(e);
+        if (edge?.type === "cluster-link") {
+          // Each cluster link is enumerated from both endpoints via
+          // getNodeEdges; count once by dedup on the edge id.
+        }
+      }
+    });
+    const linkIds = new Set<string>();
+    res.ugm.forEachNode((id) => {
+      for (const e of res.ugm.getNodeEdges(id)) linkIds.add(e);
+    });
+    for (const e of linkIds) {
+      const edge = res.ugm.getEdge(e);
+      if (edge?.type === "cluster-link") {
+        linkWeightSum += Number(edge.properties.weight ?? 0);
+      }
+    }
+
+    let interiorSum = 0;
+    let boundarySum = 0;
+    for (const superId of res.members.keys()) {
+      const attrs = res.ugm.getNode(superId);
+      expect(typeof attrs?.properties.interiorEdgeCount).toBe("number");
+      expect(typeof attrs?.properties.boundaryEdgeCount).toBe("number");
+      interiorSum += Number(attrs?.properties.interiorEdgeCount ?? 0);
+      boundarySum += Number(attrs?.properties.boundaryEdgeCount ?? 0);
+    }
+
+    // Invariant 1: interior + inter-cluster partition the total.
+    expect(interiorSum + linkWeightSum).toBe(totalEdges);
+    // Invariant 2: each inter-cluster edge contributes one boundary
+    // incidence to each side, so the boundary sum is exactly twice
+    // the inter-cluster edge total.
+    expect(boundarySum).toBe(2 * linkWeightSum);
+  });
+
+  it("all-intra-community fixture: boundary is zero everywhere, interior sums to total", () => {
+    // Two disconnected communities: every edge stays inside its own
+    // cluster, so every boundaryEdgeCount must be 0.
+    const ugm = new UGM();
+    for (let c = 0; c < 2; c++) {
+      for (let i = 0; i < 20; i++) {
+        ugm.addNode(`c${c}-${i}`, {
+          types: ["N"],
+          properties: { community: `g${c}` },
+        });
+      }
+      for (let i = 0; i < 20; i++) {
+        ugm.addEdge(`c${c}-${i}`, `c${c}-${(i + 1) % 20}`, { type: "in" });
+      }
+    }
+    const res = collapseByCluster(ugm, {
+      threshold: 10,
+      clusterProperty: "community",
+    });
+    let interiorSum = 0;
+    for (const superId of res.members.keys()) {
+      const attrs = res.ugm.getNode(superId);
+      expect(attrs?.properties.boundaryEdgeCount).toBe(0);
+      interiorSum += Number(attrs?.properties.interiorEdgeCount ?? 0);
+    }
+    expect(interiorSum).toBe(40); // 20 per community, 2 communities
+  });
+});
+
+describe("clusterBadgeText (pure helper)", () => {
+  it("formats N nodes and interior links from a supernode's attrs", () => {
+    expect(clusterBadgeText({ memberCount: 12, interiorEdgeCount: 34 })).toBe(
+      "12 nodes · 34 links",
+    );
+  });
+
+  it("uses singular forms for exactly 1", () => {
+    expect(clusterBadgeText({ memberCount: 1, interiorEdgeCount: 1 })).toBe(
+      "1 node · 1 link",
+    );
+  });
+
+  it("defaults missing or invalid counts to 0", () => {
+    expect(clusterBadgeText({})).toBe("0 nodes · 0 links");
+    expect(clusterBadgeText(null)).toBe("0 nodes · 0 links");
+    expect(clusterBadgeText(undefined)).toBe("0 nodes · 0 links");
+    expect(clusterBadgeText({ memberCount: "not a number" })).toBe(
+      "0 nodes · 0 links",
+    );
+  });
+
+  it("accepts numeric strings (properties round-tripped through JSON)", () => {
+    expect(
+      clusterBadgeText({ memberCount: "12", interiorEdgeCount: "34" }),
+    ).toBe("12 nodes · 34 links");
   });
 });
 

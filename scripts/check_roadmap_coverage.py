@@ -44,7 +44,13 @@ def roadmap_owners() -> dict[str, list[str]]:
     for f in sorted((ROOT / "roadmap").rglob("*.md")):
         if f.name == "CLAUDE.md":
             continue
-        rel = str(f.relative_to(ROOT / "roadmap"))
+        # as_posix(), not str(): the roadmap/CLAUDE.md index table this
+        # is compared against writes forward slashes, so str() on
+        # Windows produced "engineering\concept-editing.md" against an
+        # index holding "engineering/concept-editing.md" and EVERY pair
+        # mismatched in both directions (60 violations, all spurious).
+        # Linux and CI never saw it because both sides agreed there.
+        rel = f.relative_to(ROOT / "roadmap").as_posix()
         text = f.read_text(encoding="utf-8")
         # Owns headers may wrap; capture from "**Owns:**" to the next
         # bold field or blank line. Dedupe per file: only cross-FILE

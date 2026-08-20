@@ -1,0 +1,19 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/scale-flash-root-cause-route-defer-gate-reads-canvas-prop-no-8fe0334c",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/route-edges-defer-gate-uses-effective-animate-plus-layout-se-c4e33dfb",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/route-edges-enabled-on-ontology-and-rdf12-canvases-d5ebae89"
+  ],
+  "commit_shas": ["47a51b1", "cc87d18"],
+  "files_changed": [
+    "packages/react/src/views/canvas/CytoscapeCanvas.tsx",
+    "src/demo/scale/ScaleSurface.tsx",
+    "tests/e2e/scale-flash.spec.ts",
+    "src/demo/ontology/OntologyShell.tsx",
+    "src/demo/rdf12/Rdf12Shell.tsx"
+  ],
+  "summary": "Fixed Scale demo route-flash by gating routeEdges layoutstop defer on effective animate (not canvas prop) + layoutSettledRef; enabled routeEdges on 4 ontology + 1 rdf12 canvas; added Playwright regression probe.",
+  "duration_min": 22,
+  "blockers": []
+}

@@ -22,6 +22,7 @@
  */
 
 import type { UGM } from "../ugm";
+import { isPseudoNode } from "../projection/pseudo-nodes";
 
 export interface SubgraphSelection {
   /** Node ids to export; empty or omitted exports every node. */
@@ -49,6 +50,11 @@ function collect(ugm: UGM, selection?: SubgraphSelection) {
   const nodes: ExportNode[] = [];
   ugm.forEachNode((id, attrs) => {
     if (wanted && !wanted.has(id)) return;
+    // Pseudo nodes (Brief 06 hubBurst/busCollapse) are a projection-time
+    // spreading device; they and their incident edges never leave via
+    // export. Dropping the node also drops its edges below (the present
+    // set never includes it).
+    if (isPseudoNode(attrs)) return;
     nodes.push({
       id,
       types: [...(attrs.types ?? [])],

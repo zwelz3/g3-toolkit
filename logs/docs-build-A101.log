@@ -1,0 +1,254 @@
+$ pnpm run docs:api && pnpm run docs:storybook && pnpm run docs:demo && node -e "const fs=require('fs');fs.copyFileSync('docs/landing.html','docs-out/index.html')"
+$ typedoc
+[96m[info][0m html generated at ./docs-out/api
+$ storybook build -o docs-out/storybook
+
+┌  Building storybook v10.5.2
+│
+◇  Cleaning outputDir: docs-out/storybook
+│
+◇  Loading presets
+│
+◇  Building manager..
+│
+●  Building open services..
+│
+●  Building preview..
+│  Vite vite v8.1.5 building client environment for production...
+[2Ktransforming...✓ 1091 modules transformed.
+rendering chunks...
+computing gzip size...
+│  Vite docs-out/storybook/iframe.html
+│  21.53 kB │ gzip:   5.83 kB
+│  docs-out/storybook/assets/Minimap-BjSg4FBu.css
+│  0.43 kB │ gzip:   0.25 kB
+│  docs-out/storybook/assets/NodeEditorModal-CfHbEfaz.css
+│  1.03 kB │ gzip:   0.48 kB
+│  docs-out/storybook/assets/NodePropertyInspector-CEHt1Hly.css
+│  2.31 kB │ gzip:   0.85 kB
+│  docs-out/storybook/assets/TemporalRangeFilter-Co1AhNpo.css
+│  2.54 kB │ gzip:   0.67 kB
+│  docs-out/storybook/assets/src-uDgl4rBt.css
+│  11.09 kB │ gzip:   2.29 kB
+│  docs-out/storybook/assets/stats-xmOS_XP_.css
+│  19.51 kB │ gzip:   3.62 kB
+│  docs-out/storybook/assets/search-D41JDXqj.js
+│  0.19 kB │ gzip:   0.16 kB
+│  docs-out/storybook/assets/chunk-242VQQM5-Bvks-qQ6.js
+│  0.22 kB │ gzip:   0.19 kB
+│  docs-out/storybook/assets/chunk-S2IHWCOG-DVwvO9OI.js
+│  0.24 kB │ gzip:   0.17 kB
+│  docs-out/storybook/assets/formatter-L2YTDE3Q-DE84QQ6Q.js
+│  0.28 kB │ gzip:   0.23 kB
+│  docs-out/storybook/assets/jsx-runtime-cM__dR4X.js
+│  0.43 kB │ gzip:   0.30 kB
+│  docs-out/storybook/assets/palette-jtcA93dI.js
+│  0.51 kB │ gzip:   0.35 kB
+│  docs-out/storybook/assets/react-XnqUzw--.js
+│  0.53 kB │ gzip:   0.33 kB
+│  docs-out/storybook/assets/esm-DgCf05VI.js
+│  0.77 kB │ gzip:   0.45 kB
+│  docs-out/storybook/assets/overlay-store-CRYD0Xgn.js
+│  0.80 kB │ gzip:   0.38 kB
+│  docs-out/storybook/assets/src-BbsnuGIJ.js
+│  0.99 kB │ gzip:   0.50 kB
+│  docs-out/storybook/assets/rolldown-runtime-DaJ6WEGw.js
+│  1.17 kB │ gzip:   0.66 kB
+│  docs-out/storybook/assets/preload-helper-si3HNj2m.js
+│  1.29 kB │ gzip:   0.73 kB
+│  docs-out/storybook/assets/DocsRenderer-LL677BLK-DSDlk5U0.js
+│  1.32 kB │ gzip:   0.71 kB
+│  docs-out/storybook/assets/layout-switcher-MPxqQx7W.js
+│  1.36 kB │ gzip:   0.72 kB
+│  docs-out/storybook/assets/chunk-IMSF75WX-CvplaxuL.js
+│  1.62 kB │ gzip:   0.89 kB
+│  docs-out/storybook/assets/EmptyState-BsjOLuLe.js
+│  1.92 kB │ gzip:   0.90 kB
+│  docs-out/storybook/assets/spec-apply-DUDxU9YZ.js
+│  2.07 kB │ gzip:   1.05 kB
+│  docs-out/storybook/assets/FilterBuilder.stories-CUvzItxb.js
+│  2.29 kB │ gzip:   1.13 kB
+│  docs-out/storybook/assets/FacetFilter.stories-BrImME7Y.js
+│  2.34 kB │ gzip:   1.15 kB
+│  docs-out/storybook/assets/Encoding.stories-C_VA4T8V.js
+│  2.44 kB │ gzip:   1.03 kB
+│  docs-out/storybook/assets/SearchBar.stories-BTaZozJu.js
+│  2.68 kB │ gzip:   1.29 kB
+│  docs-out/storybook/assets/CoordinatedSelection.stories-D1sfB6Qh.js
+│  2.86 kB │ gzip:   1.20 kB
+│  docs-out/storybook/assets/FacetFilter-DW_Wd7iT.js
+│  2.86 kB │ gzip:   1.30 kB
+│  docs-out/storybook/assets/chunk-DRQKCCAG-BYT7chAe.js
+│  3.36 kB │ gzip:   1.41 kB
+│  docs-out/storybook/assets/Skeleton.stories-dBlPVM4n.js
+│  3.37 kB │ gzip:   1.24 kB
+│  docs-out/storybook/assets/SpecPort.stories-Bxm0VvjK.js
+│  3.46 kB │ gzip:   1.51 kB
+│  docs-out/storybook/assets/EmptyState.stories-DGDndLdH.js
+│  3.52 kB │ gzip:   1.23 kB
+│  docs-out/storybook/assets/react-dom-ua_76iqd.js
+│  3.57 kB │ gzip:   1.36 kB
+│  docs-out/storybook/assets/icons-Ysf6quyu.js
+│  3.63 kB │ gzip:   1.60 kB
+│  docs-out/storybook/assets/TemporalRangeFilter-K0bZMqwi.js
+│  3.64 kB │ gzip:   1.43 kB
+│  docs-out/storybook/assets/FilterBuilder-CsaQudGq.js
+│  3.65 kB │ gzip:   1.39 kB
+│  docs-out/storybook/assets/ThemeManager-Cu1rLk4z.js
+│  3.69 kB │ gzip:   1.38 kB
+│  docs-out/storybook/assets/TemporalRangeFilter.stories-CtSuCabo.js
+│  4.17 kB │ gzip:   1.43 kB
+│  docs-out/storybook/assets/selection-store-DDBPSfCH.js
+│  4.17 kB │ gzip:   1.76 kB
+│  docs-out/storybook/assets/encoding-spec-CjUTFD_2.js
+│  4.23 kB │ gzip:   1.88 kB
+│  docs-out/storybook/assets/AlgorithmPanel-BsVIz7Es.js
+│  4.93 kB │ gzip:   1.97 kB
+│  docs-out/storybook/assets/Overview-DLHDeKN6.js
+│  5.17 kB │ gzip:   2.04 kB
+│  docs-out/storybook/assets/chunk-KJHJLCBK-BY4zlZIC.js
+│  5.32 kB │ gzip:   2.02 kB
+│  docs-out/storybook/assets/AppLayouts.stories-BqTEPcXt.js
+│  5.53 kB │ gzip:   1.64 kB
+│  docs-out/storybook/assets/LayoutManager-DOdj_HhK.js
+│  5.88 kB │ gzip:   1.97 kB
+│  docs-out/storybook/assets/UxSurface.stories-CVfcCK5z.js
+│  6.33 kB │ gzip:   2.22 kB
+│  docs-out/storybook/assets/F1-F8.stories-BjAIFWAX.js
+│  7.04 kB │ gzip:   2.37 kB
+│  docs-out/storybook/assets/NodeEditorModal.stories-Dd7OgGFA.js
+│  7.44 kB │ gzip:   2.77 kB
+│  docs-out/storybook/assets/react-DvlgmmzG.js
+│  7.53 kB │ gzip:   2.88 kB
+│  docs-out/storybook/assets/NodeStyleEditor-kwyks9lw.js
+│  7.81 kB │ gzip:   2.85 kB
+│  docs-out/storybook/assets/NodePropertyInspector.stories-BSaSBLT8.js
+│  8.13 kB │ gzip:   2.60 kB
+│  docs-out/storybook/assets/M10-M13.stories-BaZlI5gd.js
+│  10.06 kB │ gzip:   3.43 kB
+│  docs-out/storybook/assets/context-menu-D6g-WbfR.js
+│  10.19 kB │ gzip:   3.54 kB
+│  docs-out/storybook/assets/Views.stories-85e9qHb3.js
+│  10.38 kB │ gzip:   3.00 kB
+│  docs-out/storybook/assets/Minimap.stories-LDDg6LBY.js
+│  10.39 kB │ gzip:   3.92 kB
+│  docs-out/storybook/assets/toolbar-DKKVbNQM.js
+│  10.67 kB │ gzip:   3.17 kB
+│  docs-out/storybook/assets/ToolbarAndAlgorithms.stories-D3lYjjbd.js
+│  11.08 kB │ gzip:   4.05 kB
+│  docs-out/storybook/assets/annotations-BE8h4mZI.js
+│  11.12 kB │ gzip:   3.79 kB
+│  docs-out/storybook/assets/src-C4obgQm8.js
+│  14.13 kB │ gzip:   4.71 kB
+│  docs-out/storybook/assets/CytoscapeCanvas.stories-BvDvzkxK.js
+│  14.32 kB │ gzip:   4.40 kB
+│  docs-out/storybook/assets/NodePropertyInspector-BrcLTKY1.js
+│  14.58 kB │ gzip:   4.59 kB
+│  docs-out/storybook/assets/chunk-W22LQPXL-Cs9A2y4k.js
+│  22.71 kB │ gzip:   7.59 kB
+│  docs-out/storybook/vite-inject-mocker-entry.js
+│  27.86 kB │ gzip:   9.66 kB
+│  docs-out/storybook/assets/matchers-5TDFFDYO-KbDH9QY-.js
+│  28.76 kB │ gzip:   9.67 kB
+│  docs-out/storybook/assets/SearchBar-DbTuLKkp.js
+│  29.11 kB │ gzip:  10.57 kB
+│  docs-out/storybook/assets/Color-23OOGO2C-8XQWDmck.js
+│  30.97 kB │ gzip:  11.64 kB
+│  docs-out/storybook/assets/encoding-CQvMGaw7.js
+│  31.48 kB │ gzip:   7.92 kB
+│  docs-out/storybook/assets/WithTooltip-7X4HQR7L-DdUd2g-B.js
+│  32.77 kB │ gzip:  11.48 kB
+│  docs-out/storybook/assets/theming-CUoF76nu.js
+│  55.49 kB │ gzip:  21.45 kB
+│  docs-out/storybook/assets/tree-BBYcWBwv.js
+│  66.85 kB │ gzip:  18.61 kB
+│  docs-out/storybook/assets/syntaxhighlighter-YFXUGROL-Dj6MgjKT.js
+│  75.90 kB │ gzip:  27.25 kB
+│  docs-out/storybook/assets/src-BpSfyEg_.js
+│  122.78 kB │ gzip:  31.62 kB
+│  docs-out/storybook/assets/react-18-CMolJgJ6.js
+│  179.12 kB │ gzip:  56.69 kB
+│  docs-out/storybook/assets/blocks-DmAh-zk6.js
+│  184.48 kB │ gzip:  58.74 kB
+│  docs-out/storybook/assets/components-CxNSA5kS.js
+│  568.19 kB │ gzip: 180.95 kB
+│  docs-out/storybook/assets/axe-Bc8qmOhH.js
+│  570.86 kB │ gzip: 155.74 kB
+│  docs-out/storybook/assets/CytoscapeCanvas-D7_W6qMd.js
+│  611.26 kB │ gzip: 189.27 kB
+│  docs-out/storybook/assets/iframe-4AWnbHFz.js
+│  1,131.72 kB │ gzip: 323.09 kB
+│  docs-out/storybook/assets/stats-CateiEaa.js
+│  1,840.03 kB │ gzip: 596.65 kB
+
+│
+▲  Vite [33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins.
+│  Here is a breakdown:
+│  - storybook:project-annotations-plugin (34%)
+│  - plugin-csf (23%)
+│  - storybook:react-docgen-plugin (22%)
+│  - storybook:code-generator-plugin (10%)
+│  - storybook:mock-loader (5%)
+│  See ]8;;https://rolldown.rs/reference/InputOptions.checks#plugintimingshttps://rolldown.rs/reference/InputOptions.checks#plugintimings]8;;
+│  for more details.
+
+│
+▲  Vite [plugin builtin:vite-reporter]
+│  (!) Some chunks are larger than 500 kB after minification. Consider:
+│  - Using dynamic import() to code-split the application
+│  - Use build.rolldownOptions.output.codeSplitting to improve chunking:
+│  ]8;;https://rolldown.rs/reference/OutputOptions.codeSplittinghttps://rolldown.rs/reference/OutputOptions.codeSplitting]8;;
+│  - Adjust chunk size limit for this warning via
+│  build.chunkSizeWarningLimit.
+│  Vite ✓ built in 5.57s
+│
+◇  Output directory: /GSystems/src/g3-toolkit/docs-out/storybook
+│
+└  Storybook build completed successfully
+
+$ vite build --base=/playground/ --outDir=docs-out/playground --emptyOutDir
+vite v8.1.5 building client environment for production...
+[2Ktransforming...✓ 1069 modules transformed.
+rendering chunks...
+computing gzip size...
+docs-out/playground/index.html                                      0.81 kB │ gzip:   0.38 kB
+docs-out/playground/assets/ThreadShell-BjSg4FBu.css                 0.43 kB │ gzip:   0.25 kB
+docs-out/playground/assets/FloatingPanel-CEHt1Hly.css               2.31 kB │ gzip:   0.85 kB
+docs-out/playground/assets/index-uDgl4rBt.css                      11.09 kB │ gzip:   2.29 kB
+docs-out/playground/assets/e2e-hooks-Ptz8wdv5.js                    0.32 kB │ gzip:   0.22 kB
+docs-out/playground/assets/usePrefersReducedMotion-Cvp-FM4L.js      0.50 kB │ gzip:   0.30 kB
+docs-out/playground/assets/rolldown-runtime-QTnfLwEv.js             0.69 kB │ gzip:   0.42 kB
+docs-out/playground/assets/shacl-validator-C0CqALay.js              2.15 kB │ gzip:   0.92 kB
+docs-out/playground/assets/path-analysis-Ckmx9amk.js                2.51 kB │ gzip:   1.02 kB
+docs-out/playground/assets/CapabilityCallout-DYh7Dt9v.js            2.60 kB │ gzip:   1.27 kB
+docs-out/playground/assets/element-pointer-events-BLVnbmF3.js       4.17 kB │ gzip:   1.77 kB
+docs-out/playground/assets/sparql-l014Mp4T.js                       6.41 kB │ gzip:   2.50 kB
+docs-out/playground/assets/FloatingLegend-EJyKE9jy.js               8.10 kB │ gzip:   2.73 kB
+docs-out/playground/assets/orthogonal-router-OeYFZjNk.js           10.34 kB │ gzip:   4.28 kB
+docs-out/playground/assets/canvas-adapter-CHbFIxjP.js              10.92 kB │ gzip:   3.70 kB
+docs-out/playground/assets/FloatingPanel-sdu_5LsB.js               11.57 kB │ gzip:   3.77 kB
+docs-out/playground/assets/Rdf12Shell-CJlwIKX0.js                  11.97 kB │ gzip:   4.02 kB
+docs-out/playground/assets/use-structural-layout-XP1lJUeY.js       13.45 kB │ gzip:   4.69 kB
+docs-out/playground/assets/ScaleSurface-Dilt6PVC.js                13.76 kB │ gzip:   5.62 kB
+docs-out/playground/assets/g3t-structural-S0h263dX.js              15.19 kB │ gzip:   5.47 kB
+docs-out/playground/assets/g3t-routing-BuNZ-fAv.js                 18.26 kB │ gzip:   6.60 kB
+docs-out/playground/assets/StyleLabShell-BEPR3kHB.js               21.75 kB │ gzip:   6.90 kB
+docs-out/playground/assets/MbseShell-e0gdz96l.js                   24.26 kB │ gzip:   7.37 kB
+docs-out/playground/assets/AuditShell-DA814LOk.js                  25.13 kB │ gzip:   8.14 kB
+docs-out/playground/assets/RoutingShell-Chub7FcY.js                27.33 kB │ gzip:   8.96 kB
+docs-out/playground/assets/BioShell-mIRBVr5Q.js                    29.38 kB │ gzip:   8.78 kB
+docs-out/playground/assets/structural-edge-overlay-DIYdyJMH.js     32.31 kB │ gzip:  10.47 kB
+docs-out/playground/assets/ThreadShell-DgPAYHkl.js                 33.21 kB │ gzip:  11.46 kB
+docs-out/playground/assets/OntologyShell-BqVZPIZ0.js               51.25 kB │ gzip:  15.87 kB
+docs-out/playground/assets/src-CoDM3eiU.js                         61.91 kB │ gzip:  17.29 kB
+docs-out/playground/assets/jsonld-UYEPrqFa.js                     116.50 kB │ gzip:  32.02 kB
+docs-out/playground/assets/index-BabdJWdt.js                      352.15 kB │ gzip: 111.48 kB
+docs-out/playground/assets/CytoscapeCanvas-DcmqP20h.js            676.45 kB │ gzip: 201.08 kB
+docs-out/playground/assets/DashboardSurfaces-eAhh8b3G.js        1,216.33 kB │ gzip: 401.51 kB
+
+✓ built in 418ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

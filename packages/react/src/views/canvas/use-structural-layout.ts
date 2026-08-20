@@ -128,7 +128,6 @@ export function useStructuralLayout(
       cancelled = true;
     };
     // optionsKey stands in for the options object (content-keyed).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, optionsKey]);
 
   // Stale-while-revalidate: only an INPUT change shows loading.

@@ -1,0 +1,1 @@
+done: 3 atoms emitted; commit=4f92ade; brief 16 FDEB edge bundling shipped in @g3t/core with scale-demo toggle, wiring-guide snippet, and CI-executed twin; core bundle 196->200 KB with ledger rationale; all gates green (1671 tests, typecheck, lint, prettier, python spec gates).

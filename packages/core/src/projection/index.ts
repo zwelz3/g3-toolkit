@@ -22,6 +22,34 @@ export {
   reificationCollapse,
 } from "./transforms";
 
+// WITHDRAWN 2026-08-17 (merge review): filterPseudoNodes,
+// filterPseudoEdges, PSEUDO_FLAG, PSEUDO_CONNECTOR_TYPE,
+// PSEUDO_TRUNK_TYPE. Undocumented and used nowhere outside
+// pseudo-nodes.ts; the module and its tests stay in the tree. See
+// packages/core/ARCHIVE.md.
+export { hubBurst, busCollapse, isPseudoNode } from "./pseudo-nodes";
+export type {
+  PseudoKind,
+  HubBurstOptions,
+  HubBurstResult,
+  HubBurstEdgeAssignment,
+  SatelliteMap,
+  BusCollapseOptions,
+  BusCollapseResult,
+  JunctionMap,
+} from "./pseudo-nodes";
+
+export {
+  projectTripleTermsAsEdges,
+  projectTripleTermsAsHyperarcs,
+  tripleLabel,
+  termLabel,
+  localName,
+  STAR_EDGE_TYPE,
+  RDF_STATEMENT_FLAG,
+} from "./hyperarc";
+export type { TripleTermAnnotation } from "./hyperarc";
+
 // WITHDRAWN 2026-08-15: checkRenderPermission. Undocumented and
 // unused; the module and its tests stay in the tree. See
 // packages/core/ARCHIVE.md.

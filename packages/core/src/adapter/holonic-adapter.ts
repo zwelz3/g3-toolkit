@@ -36,6 +36,12 @@ export interface Portal {
   targetHolonId: string;
   /** CONSTRUCT query that produces the portal's subgraph. */
   constructQuery?: string;
+  /**
+   * Which exposed boundary node this portal transits (must appear in
+   * the owning holon's `boundaryNodeIds`). Optional; portals without
+   * it attach to the holon itself in the boundary projection.
+   */
+  boundaryNodeId?: string;
 }
 
 /** A holon in the four-graph model (Interior, Boundary, Projection, Context). */
@@ -59,6 +65,12 @@ export interface Holon {
   }>;
   /** Portals connecting this holon to others. */
   portals: Portal[];
+  /**
+   * Interior node ids the holon EXPOSES at its boundary (the
+   * Projection space of the four-graph model). Optional and additive:
+   * datasets without it render exactly as before.
+   */
+  boundaryNodeIds?: string[];
 }
 
 /** In-memory representation of a Holonic dataset. */
@@ -172,6 +184,98 @@ export class HolonicAdapter implements GraphAdapter {
           });
         }
       }
+    }
+
+    return ugm;
+  }
+
+  /**
+   * Edge type the boundary projection uses to express "exposed node
+   * sits inside the holon's boundary ring". Consumers that render
+   * compounds map it via a containment option; it is NOT a semantic
+   * edge of the dataset.
+   */
+  static readonly BOUNDARY_CONTAINMENT_EDGE = "_boundaryContains";
+
+  /**
+   * Project a holon's BOUNDARY view (the Projection space of the
+   * four-graph model): what the holon PUBLISHES. Sits between
+   * `projectToLPG` (opaque holon) and `projectHolonInterior` (fully
+   * open interior).
+   *
+   * Shape emitted:
+   * - the holon node, marked `_boundaryRing: true` (styling renders
+   *   the visible ring; no extra graph elements);
+   * - each exposed boundary node (from `boundaryNodeIds`), linked
+   *   from the holon by a `_boundaryContains` edge so compound-aware
+   *   renderers draw it INSIDE the ring;
+   * - one stub node per portal target outside the ring, with the
+   *   portal edge crossing out from its `boundaryNodeId` (or the
+   *   holon itself when unset), marked `_portalTransit: true` and
+   *   `_hasConstruct` for glyph styling.
+   *
+   * Additive: datasets without boundary fields yield just the ringed
+   * holon plus portal stubs.
+   */
+  projectHolonBoundary(holon: Holon): UGM {
+    const ugm = new UGM();
+
+    ugm.addNode(holon.id, {
+      types: [...holon.types, "_Holon"],
+      properties: {
+        ...holon.properties,
+        name: holon.label,
+        _isHolon: true,
+        _boundaryRing: true,
+        _portalCount: holon.portals.length,
+      },
+    });
+
+    const exposed = new Set(holon.boundaryNodeIds ?? []);
+    for (const node of holon.interiorNodes ?? []) {
+      if (!exposed.has(node.id)) continue;
+      ugm.addNode(node.id, {
+        types: node.types,
+        properties: {
+          ...node.properties,
+          _holonId: holon.id,
+          _exposed: true,
+        },
+      });
+      ugm.addEdge(holon.id, node.id, {
+        type: HolonicAdapter.BOUNDARY_CONTAINMENT_EDGE,
+        properties: {},
+      });
+    }
+
+    for (const portal of holon.portals) {
+      const target = this.dataset.holons.find(
+        (h) => h.id === portal.targetHolonId,
+      );
+      const stubId = `_stub:${portal.targetHolonId}`;
+      if (!ugm.hasNode(stubId)) {
+        ugm.addNode(stubId, {
+          types: target ? [...target.types, "_Holon"] : ["_Holon"],
+          properties: {
+            name: target?.label ?? portal.targetHolonId,
+            _isHolon: true,
+            _portalStub: true,
+          },
+        });
+      }
+      const from =
+        portal.boundaryNodeId !== undefined &&
+        exposed.has(portal.boundaryNodeId)
+          ? portal.boundaryNodeId
+          : holon.id;
+      ugm.addEdge(from, stubId, {
+        type: portal.label,
+        properties: {
+          _portalId: portal.id,
+          _portalTransit: true,
+          _hasConstruct: !!portal.constructQuery,
+        },
+      });
     }
 
     return ugm;

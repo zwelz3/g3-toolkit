@@ -1,6 +1,6 @@
 {
   "name": "@g3t/charts",
-  "version": "1.0.0",
+  "version": "1.0.0-rc007",
   "description": "Linked statistical charts (bar, scatter, line, pie) backed by ECharts. Consumes @g3t/core data pipelines and integrates with @g3t/react components.",
   "type": "module",
   "module": "./dist/index.mjs",

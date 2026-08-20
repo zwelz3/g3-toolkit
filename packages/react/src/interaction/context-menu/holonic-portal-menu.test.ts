@@ -10,7 +10,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { HolonicAdapter, type HolonicDataset } from "@g3t/core";
 import { ContextMenuManager } from "./ContextMenuManager";
-import { registerPortalMenuItems } from "./holonic-portal-menu";
+import {
+  registerPortalMenuItems,
+  registerHolonDrillItems,
+} from "./holonic-portal-menu";
 
 describe("HolonicAdapter portal menu (M3.E2.T4)", () => {
   it("registers portal traverse menu item for holon nodes", () => {
@@ -110,5 +113,73 @@ describe("HolonicAdapter portal menu (M3.E2.T4)", () => {
     const [portal, result] = onTraverse.mock.calls[0] ?? [];
     expect(portal.id).toBe("p1");
     expect(result.nodeCount).toBe(1); // inner node
+  });
+});
+
+describe("registerHolonDrillItems (specs/05 boundary view)", () => {
+  const dataset: HolonicDataset = {
+    holons: [
+      {
+        id: "h1",
+        label: "Cell",
+        types: ["IntelCell"],
+        properties: {},
+        portals: [
+          { id: "p1", label: "link", sourceHolonId: "h1", targetHolonId: "h2" },
+        ],
+        interiorNodes: [{ id: "inner", types: ["X"], properties: {} }],
+        boundaryNodeIds: ["inner"],
+      },
+      {
+        id: "h2",
+        label: "Other",
+        types: ["Other"],
+        properties: {},
+        portals: [],
+      },
+    ],
+  };
+
+  it("offers Open boundary on every holon, Open interior only with interior nodes", () => {
+    const adapter = new HolonicAdapter(dataset);
+    const menuManager = new ContextMenuManager();
+    registerHolonDrillItems(adapter, menuManager, vi.fn());
+
+    const h1Items = menuManager
+      .resolve({ type: "node", id: "h1", position: { x: 0, y: 0 } })
+      .map((i) => i.id);
+    expect(h1Items).toContain("open-holon-boundary");
+    expect(h1Items).toContain("open-holon-interior");
+
+    // h2 has no interior nodes: boundary yes, interior no.
+    const h2Items = menuManager
+      .resolve({ type: "node", id: "h2", position: { x: 0, y: 0 } })
+      .map((i) => i.id);
+    expect(h2Items).toContain("open-holon-boundary");
+    expect(h2Items).not.toContain("open-holon-interior");
+  });
+
+  it("Open boundary hands the boundary projection to the host", () => {
+    const adapter = new HolonicAdapter(dataset);
+    const menuManager = new ContextMenuManager();
+    const onOpen = vi.fn();
+    registerHolonDrillItems(adapter, menuManager, onOpen);
+
+    const items = menuManager.resolve({
+      type: "node",
+      id: "h1",
+      position: { x: 0, y: 0 },
+    });
+    items
+      .find((i) => i.id === "open-holon-boundary")
+      ?.action({ type: "node", id: "h1", position: { x: 0, y: 0 } });
+
+    expect(onOpen).toHaveBeenCalledOnce();
+    const [level, holon, ugm] = onOpen.mock.calls[0] ?? [];
+    expect(level).toBe("boundary");
+    expect(holon.id).toBe("h1");
+    // h1 ringed + exposed inner + h2 stub.
+    expect(ugm.nodeCount).toBe(3);
+    expect(ugm.getNode("h1")?.properties._boundaryRing).toBe(true);
   });
 });

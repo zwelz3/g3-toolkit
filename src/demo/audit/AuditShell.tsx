@@ -38,6 +38,14 @@ import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import { provenanceChainFor } from "./chain";
 import { createDefaultMenuManager } from "@g3t/react";
+import {
+  useRoutingControls,
+  RoutingControlStrip,
+} from "../components/routing-controls";
+
+/** Post-layout obstacle-aware routing on this shell's canvas. Per-shell
+ *  kill-switch (D8): flip to false and re-push to revert. */
+const ROUTE_EDGES = true;
 
 const SPEC: EncodingSpec = {
   version: 1,
@@ -73,6 +81,15 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
   // EXPLICIT trace root instead of riding selection, which is what
   // caused the tree to re-root (and visually collapse) whenever a
   // hop was clicked.
+  const {
+    routeMode,
+    setRouteMode,
+    routeEdgesConfig,
+    routeRefreshSignal,
+    refreshRoutes,
+    relayoutSignal,
+    relayout,
+  } = useRoutingControls();
   const [inspectId, setInspectId] = useState<string | null>(null);
   // LR-11 (owner review 2026-07-22): once the inspector is open, it
   // FOLLOWS the canvas selection instead of pinning its opening
@@ -241,6 +258,13 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
             warnings
           </span>
         </div>
+        <RoutingControlStrip
+          idPrefix="au"
+          routeMode={routeMode}
+          setRouteMode={setRouteMode}
+          refreshRoutes={refreshRoutes}
+          relayout={relayout}
+        />
       </header>
 
       <div className="au-body">
@@ -376,6 +400,10 @@ export function AuditShell({ onBack }: { onBack: () => void }) {
             hidden={hidden}
             animate={!reducedMotion}
             menuManager={menuManager}
+            routeEdges={ROUTE_EDGES ? routeEdgesConfig : false}
+            routeRefreshSignal={routeRefreshSignal}
+            relayoutSignal={relayoutSignal}
+            edgeClickIsolate
           />
         </main>
 

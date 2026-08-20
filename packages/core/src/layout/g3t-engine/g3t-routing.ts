@@ -22,28 +22,72 @@ import {
   routeOrthogonal,
   type RouteSide,
 } from "../../route/orthogonal-router";
+import { dedupeCollinear, type Pt } from "./g3t-polyline-utils";
+import { nudgeRoutes } from "./g3t-nudging";
+import {
+  assignTracks,
+  emitChannelRoute,
+  routeChannelOverflow,
+  type ChannelPlan,
+} from "./g3t-channel-router";
 
-interface Pt {
-  x: number;
-  y: number;
+/** VR-10 (owner Jake, 2026-08-14): the obstacle set a perimeter or
+ *  detour route must be JUDGED against.
+ *
+ *  Both shapes sweep out past the field on the CROSS axis and run the
+ *  whole TRAVEL axis, so their footprint is NOT the simple route's
+ *  bounding box. Verifying them against the caller's `near` set (which
+ *  is filtered by the simple route's bbox) shipped a full-field rail
+ *  straight through an entire node row: prune-wall/L under DOWN flow,
+ *  edge pskip.0. That row sat LEFT of the simple route's bbox, so it
+ *  was invisible BOTH to the band bounds (`lo` landed inside the
+ *  field, at the source column) and to the collision check (which
+ *  never saw those 19 boxes).
+ *
+ *  A perimeter/detour polyline's extent on the travel axis is exactly
+ *  the min/max of its defining points, so filtering the FULL obstacle
+ *  set to that interval is provably equivalent to checking every box,
+ *  at one linear pass per edge: no grid, no quadratic term, the
+ *  PRF-002 budget is untouched. */
+function travelBand(
+  points: readonly Pt[],
+  horizontalTravel: boolean,
+  obstacles: readonly RouteBox[],
+): RouteBox[] {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const p of points) {
+    const v = horizontalTravel ? p.x : p.y;
+    lo = Math.min(lo, v);
+    hi = Math.max(hi, v);
+  }
+  return obstacles.filter((b) =>
+    horizontalTravel
+      ? b.x < hi && b.x + b.width > lo
+      : b.y < hi && b.y + b.height > lo,
+  );
 }
 
-function dedupeCollinear(points: Pt[]): Pt[] {
-  const out: Pt[] = [];
-  for (const p of points) {
-    const a = out[out.length - 2];
-    const b = out[out.length - 1];
-    if (
-      a !== undefined &&
-      b !== undefined &&
-      ((a.x === b.x && b.x === p.x) || (a.y === b.y && b.y === p.y))
-    ) {
-      out[out.length - 1] = p;
-    } else {
-      out.push(p);
-    }
-  }
-  return out;
+/** VR-10: cross-axis bounds that clear every box in `set`, padded by
+ *  CLEAR. Offered as CANDIDATES, never as a replacement: a bound
+ *  derived from a WIDER set sweeps further out, which clears more
+ *  boxes on the cross axis but lengthens the two perpendicular runs
+ *  that connect the rail to the tips -- and those can cross boxes the
+ *  narrower bound never reached. Collect both, verify each, keep the
+ *  one nearest the midline. */
+function crossBounds(
+  set: readonly RouteBox[],
+  horizontalTravel: boolean,
+  clear: number,
+): { lo: number; hi: number } | null {
+  if (set.length === 0) return null;
+  return {
+    lo: Math.min(...set.map((b) => (horizontalTravel ? b.y : b.x))) - clear,
+    hi:
+      Math.max(
+        ...set.map((b) => (horizontalTravel ? b.y + b.height : b.x + b.width)),
+      ) + clear,
+  };
 }
 
 /** VR-9 (owner IBD screenshots, 2026-07-28): when the router fails
@@ -59,18 +103,28 @@ export function detourAround(
   sTip: Pt,
   tPoint: Pt,
   tTip: Pt,
-  near: readonly RouteBox[],
+  obstacles: readonly RouteBox[],
+  /** VR-10: the caller's simple-route near-set, when it has one. Its
+   *  bounds stay in the candidate list (they are often the tighter,
+   *  better-reading detour); they are just no longer TRUSTED without a
+   *  full-band check. Defaults to `obstacles` so the 5-arg form is a
+   *  band-only detour. */
+  near: readonly RouteBox[] = obstacles,
 ): Pt[] | null {
-  if (near.length === 0) return null;
+  if (obstacles.length === 0) return null;
   const CLEAR = 16;
   const horizontalTravel =
     Math.abs(tTip.x - sTip.x) >= Math.abs(tTip.y - sTip.y);
-  const lo =
-    Math.min(...near.map((b) => (horizontalTravel ? b.y : b.x))) - CLEAR;
-  const hi =
-    Math.max(
-      ...near.map((b) => (horizontalTravel ? b.y + b.height : b.x + b.width)),
-    ) + CLEAR;
+  // VR-10: verification runs against the band the detour actually
+  // sweeps -- the FULL obstacle set over this route's travel span --
+  // not the caller's simple-route near-set, which by construction
+  // omits the boxes a detour leaves that bbox to reach.
+  const band = travelBand(
+    [sPoint, sTip, tTip, tPoint],
+    horizontalTravel,
+    obstacles,
+  );
+  if (band.length === 0) return null;
   const mk = (cross: number): Pt[] =>
     dedupeCollinear(
       horizontalTravel
@@ -92,9 +146,19 @@ export function detourAround(
           ],
     );
   const mid = horizontalTravel ? (sTip.y + tTip.y) / 2 : (sTip.x + tTip.x) / 2;
-  const candidates = [mk(lo), mk(hi)].filter(
-    (pts) => !polylineIntersectsBoxes(pts, near),
-  );
+  const crosses: number[] = [];
+  for (const bounds of [
+    crossBounds(near, horizontalTravel, CLEAR),
+    crossBounds(band, horizontalTravel, CLEAR),
+  ]) {
+    if (bounds === null) continue;
+    for (const cross of [bounds.lo, bounds.hi]) {
+      if (!crosses.includes(cross)) crosses.push(cross);
+    }
+  }
+  const candidates = crosses
+    .map((cross) => mk(cross))
+    .filter((pts) => !polylineIntersectsBoxes(pts, band));
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => {
     const detourOf = (pts: Pt[]): number => {
@@ -118,8 +182,98 @@ export function routeStructuralEdges(
      *  order rather than against the target's center. Default
      *  "source" preserves existing scenes exactly. */
     anchor?: "source" | "target";
+    /** Parallel-run separation post-pass (see g3t-nudging.ts).
+     *  Groups coincident parallel interior segments into corridors
+     *  and distributes them across distinct tracks. Currently OPT-IN
+     *  (default false); the brief mandates a follow-up flip to
+     *  default true, gated on a baseline re-pin. */
+    nudge?: boolean;
+    /** Long-edge perimeter policy (owner Jake, 2026-08-14): edges
+     *  whose simple-route near-obstacle set contains at least this
+     *  many boxes prefer a perimeter detour (VR-9 detourAround) over
+     *  the interior corridor, so long lines through dense fields move
+     *  to the outside where they read cleanly. Default 12; Infinity
+     *  disables (single-line rollback). Ineligible edges are
+     *  byte-identical to before. */
+    longEdgeNear?: number;
+    /** LAY-005 (owner Jake, 2026-08-14): dummy-chain bend hints per
+     *  edge id, in source-to-target order. When an edge has hints and
+     *  is NOT perimeter-eligible, the interior route seeds from these
+     *  points instead of the single midpoint jog; the hints ride out
+     *  as `intermediate` on the emitted geometry. Perimeter-eligible
+     *  edges skip seeding by policy (the perimeter detour is the
+     *  right shape for a long line through a dense field). */
+    bendHints?: ReadonlyMap<string, readonly Pt[]>;
+    /** PRF-003 brief 05a (owner Jake, 2026-08-14): route via the
+     *  additive channel router (g3t-channel-router.ts) instead of the
+     *  ladder. TRANSIENT SCAFFOLDING: 05a lands the module + unit
+     *  oracles behind an off-by-default flag so 05b can flip it, delete
+     *  the ladder, and re-pin the six-scenario baseline in one commit
+     *  with an OBSERVED (not blind) after-value. Default false =>
+     *  byte-identical to today. When true AND `channelPlan` is
+     *  supplied, edges route through the channel model; when true but
+     *  no plan is supplied, the flag has no effect (the ladder still
+     *  runs). NO-LEGACY: 05b removes this flag when it lands the
+     *  wire-up. */
+    useChannelRouter?: boolean;
+    /** PRF-003 brief 05a: channel/track plan the additive router
+     *  consumes. Callers derive this from their layered layout
+     *  (g3tLayoutStructural / g3tLayoutFlat carry the layer + corridor
+     *  info); 05a keeps it caller-supplied so this brief lands without
+     *  touching the layout pipeline. */
+    channelPlan?: ChannelPlan;
+    /** Minimum px between adjacent anchors on one side, with overflow
+     *  onto the two adjacent sides once a side saturates. OPT-IN;
+     *  omitted (the default) is byte-identical to today.
+     *
+     *  The plain fan divides a side into `count + 1` and takes the
+     *  interior points, so its pitch is `extent / (count + 1)` with no
+     *  floor. That is fine until a side is asked to absorb more edges
+     *  than it has room for: 17 arrivals on a 52px-tall box land 2.9px
+     *  apart, which is mathematically distinct and visually one line
+     *  with 17 arrowheads stacked on it. No existing option helps,
+     *  because none of them adds space.
+     *
+     *  When set, anchors are placed at AT LEAST this pitch, centred on
+     *  the side. Once `count` exceeds what the side can hold, the
+     *  outermost edges in fan order wrap around the corners onto the
+     *  two perpendicular sides (an edge arriving from far above takes
+     *  the north face), nearest-corner first, each overflow side
+     *  pitch-limited in turn. Edges that overflow keep their fan
+     *  ORDER, so the sequence still reads around the box.
+     *
+     *  A side is never given more than it can hold at this pitch. A
+     *  box with genuinely too many incident edges saturates its
+     *  overflow sides too, and those fall back to even division on the
+     *  side they landed on: legibility degrades from there.
+     *
+     *  This REDUCES stacking, it does not abolish it, and the
+     *  difference is worth stating. Placement here is an input to
+     *  `anchorOf`, not the last word: VR-7f slides an anchor whose
+     *  natural spot is covered by the counterpart box to the nearest
+     *  exposed cross, and two anchors can slide onto the SAME cross
+     *  because that choice is made per edge with no knowledge of its
+     *  neighbours. An assigned side that is fully covered also falls
+     *  through to the ordinary side walk, which takes that side's
+     *  midpoint. Both paths can still coincide. Making distinctness a
+     *  guarantee means teaching those two to see the anchors already
+     *  placed, which is a larger change than this option.
+     *
+     *  Ordering caveat: the fan sorts by the far end's coordinate in
+     *  the PRIMARY side's axis. Once an edge overflows around a
+     *  corner, its own axis changes, so the sort key at the far end
+     *  can be read in the other axis. That affects fan ORDER only,
+     *  never placement, and it is the same imprecision the plain fan
+     *  already carries for mixed-side pairs. */
+    anchorPitch?: number;
+    /** Target separation between nudged parallel runs, px. Default 8.
+     *  Only read when `nudge` is on. Callers coming through the layout
+     *  should set it there instead, so the corridor the layout
+     *  RESERVES widens to match; setting it only here spreads runs
+     *  into space that was never allocated. */
+    trackGap?: number;
   },
-): Record<string, { points: Pt[] }> {
+): Record<string, { points: Pt[]; intermediate?: Pt[] }> {
   // Direction-aware (WS-D D3a fix): under horizontal flow (RIGHT/
   // LEFT, the default) edges leave EAST/WEST and jog VERTICALLY in
   // the inter-layer gap; under vertical flow they leave NORTH/SOUTH
@@ -129,7 +283,29 @@ export function routeStructuralEdges(
   const direction = options?.direction ?? "RIGHT";
   const horizontal = direction === "RIGHT" || direction === "LEFT";
   const budgetMs = options?.routingBudgetMs ?? 80;
-  const out: Record<string, { points: Pt[] }> = {};
+  // LAY-005 (owner Jake, 2026-08-14): absent -> Infinity (policy
+  // disabled, so seeding applies to every hinted edge). Callers that
+  // want the perimeter policy pass the threshold explicitly
+  // (g3tLayoutStructural preserves the historical default of 12).
+  const longEdgeNear = options?.longEdgeNear ?? Infinity;
+  const bendHints = options?.bendHints;
+  const useChannelRouter =
+    (options?.useChannelRouter ?? false) && options?.channelPlan !== undefined;
+  const channelPlan = useChannelRouter ? options?.channelPlan : undefined;
+  const out: Record<string, { points: Pt[]; intermediate?: Pt[] }> = {};
+  // Perimeter-routed edges collected during the loop; a post-pass
+  // staggers coincident tracks so two long lines sharing a band do
+  // not overlap exactly. (Once 01-nudging lands, its group machinery
+  // treats each staggered band as an ordinary corridor group; this
+  // stagger remains as deterministic pre-ordering.)
+  interface PerimeterRec {
+    edgeId: string;
+    horizontal: boolean;
+    side: "lo" | "hi";
+    cross: number;
+    build: (cross: number) => Pt[];
+  }
+  const perimeterRoutes: PerimeterRec[] = [];
   const topBoxes = Object.entries(geometry.nodes).filter(
     ([, g]) => g.kind !== "row",
   );
@@ -220,6 +396,54 @@ export function routeStructuralEdges(
   // how much to spread" property they asked for.
   const anchorFirst = options?.anchor ?? "source";
   const fanOffset = new Map<string, number>(); // `${edge}@${node}` -> tangent coord
+  // Anchor-pitch overflow (opt-in, see options.anchorPitch). ONLY
+  // written when the option is set, and read only where it is present,
+  // so the default path never sees it and stays byte-identical. A
+  // separate map rather than widening fanOffset for the same reason:
+  // the default fan is oracle-pinned and not worth the risk.
+  const anchorPitch = options?.anchorPitch;
+  const fanSide = new Map<string, RouteSide>(); // `${edge}@${node}` -> side
+  /** The two sides perpendicular to `side`, low end first. Overflow
+   *  wraps around the corners onto these. */
+  const perpSides = (side: RouteSide): [RouteSide, RouteSide] =>
+    side === "EAST" || side === "WEST" ? ["NORTH", "SOUTH"] : ["WEST", "EAST"];
+  /** Span available for anchors on one side of `g`, as [min, max] in
+   *  that side's tangent axis. */
+  const spanOf = (
+    g: { x: number; y: number; width: number; height: number },
+    side: RouteSide,
+    margin: number,
+  ): [number, number] => {
+    const ew = side === "EAST" || side === "WEST";
+    const lo = (ew ? g.y : g.x) + margin;
+    const hi = (ew ? g.y + g.height : g.x + g.width) - margin;
+    return [lo, Math.max(lo, hi)];
+  };
+  /** Place `n` anchors centred on [lo, hi] at `pitch` spacing, or as
+   *  many as fit. Returns fewer than `n` only when the span cannot
+   *  hold them; the caller overflows the rest. */
+  const placeAtPitch = (
+    lo: number,
+    hi: number,
+    pitch: number,
+    n: number,
+  ): number[] => {
+    if (n <= 0) return [];
+    const span = hi - lo;
+    const capacity = Math.max(1, Math.floor(span / pitch) + 1);
+    const take = Math.min(n, capacity);
+    if (take === 1) return [lo + span / 2];
+    // Spread to the full span when there is room to spare, so a light
+    // side still reads as an even fan rather than a tight cluster in
+    // the middle; tighten to exactly `pitch` once it is crowded.
+    // `(take - 1) * step <= span` holds either way, because capacity
+    // is floor(span / pitch) + 1, so the run always fits inside the
+    // span and `start` below never pushes it past `hi`.
+    const step = Math.max(pitch, span / take);
+    const total = step * (take - 1);
+    const start = lo + Math.max(0, (span - total) / 2);
+    return Array.from({ length: take }, (_, i) => start + i * step);
+  };
   const collect = (ends: "source" | "target", align = false): void => {
     fans.clear();
     for (const e of edges) {
@@ -251,6 +475,56 @@ export function routeStructuralEdges(
       );
       const lo = ew ? g.y : g.x;
       const extent = ew ? g.height : g.width;
+      if (anchorPitch !== undefined && anchorPitch > 0) {
+        // Opt-in pitch + corner overflow. Takes precedence over both
+        // branches below: it subsumes the even fan (it spreads to the
+        // full span when there is room) and the align pass has no
+        // answer for a saturated side, which is the case this exists
+        // for.
+        const MARGIN = 8;
+        // Bound once, so the closure below takes a plain number rather
+        // than relying on narrowing to survive into it.
+        const pitchPx = anchorPitch;
+        const primary = (sideRaw ?? "EAST") as RouteSide;
+        const [pLo, pHi] = spanOf(g, primary, MARGIN);
+        const onPrimary = placeAtPitch(pLo, pHi, pitchPx, sorted.length);
+        const excess = sorted.length - onPrimary.length;
+        // The MIDDLE of the fan keeps the primary side; the outermost
+        // edges wrap around the corners, which is where they were
+        // already heading. Split the excess evenly so neither corner
+        // takes the whole overflow.
+        const lowCount = Math.floor(excess / 2);
+        const [lowSide, highSide] = perpSides(primary);
+        const lowEdges = sorted.slice(0, lowCount);
+        const midEdges = sorted.slice(lowCount, lowCount + onPrimary.length);
+        const highEdges = sorted.slice(lowCount + onPrimary.length);
+        midEdges.forEach((a, i) => {
+          fanOffset.set(`${a.edge}@${node}`, onPrimary[i] ?? pLo);
+          fanSide.set(`${a.edge}@${node}`, primary);
+        });
+        const placeOverflow = (group: typeof sorted, side: RouteSide): void => {
+          if (group.length === 0) return;
+          const [oLo, oHi] = spanOf(g, side, MARGIN);
+          let pos = placeAtPitch(oLo, oHi, pitchPx, group.length);
+          if (pos.length < group.length) {
+            // This side saturated too. Fall back to even division on
+            // it, so the anchors still separate as far as the border
+            // allows instead of stacking on one point. Legibility
+            // degrades past this; no anchor is lost.
+            const oSpan = oHi - oLo;
+            pos = group.map(
+              (_, i) => oLo + ((i + 1) / (group.length + 1)) * oSpan,
+            );
+          }
+          group.forEach((a, i) => {
+            fanOffset.set(`${a.edge}@${node}`, pos[i] ?? oLo);
+            fanSide.set(`${a.edge}@${node}`, side);
+          });
+        };
+        placeOverflow(lowEdges, lowSide);
+        placeOverflow(highEdges, highSide);
+        continue;
+      }
       if (align) {
         // R-4 v2 (consumer measurement 2026-08-03): sorting by the
         // other end's assigned coordinate is NOT enough. In a
@@ -390,11 +664,31 @@ export function routeStructuralEdges(
       return chosen === undefined ? null : mk(chosen);
     };
     const fanPreferred = fanOffset.get(`${e.id}@${node}`);
+    // Anchor-pitch overflow assigned this edge to a specific side, so
+    // try that one FIRST rather than the gap-ordered primary. Empty
+    // unless options.anchorPitch is set, so the default walk below is
+    // reached unchanged. VR-7f still applies: if the assigned side is
+    // covered by the counterpart box we fall through to the normal
+    // ordering rather than anchoring into another box.
+    const assignedSide = fanSide.get(`${e.id}@${node}`);
+    if (assignedSide !== undefined) {
+      const a = buildAnchor(assignedSide, fanPreferred);
+      if (a !== null) return a;
+    }
     const ordered = sidesFor(node, other);
     for (let i = 0; i < ordered.length; i++) {
       const side = ordered[i];
       if (side === undefined) continue;
-      const a = buildAnchor(side, i === 0 ? fanPreferred : undefined);
+      if (side === assignedSide) continue; // already tried, and failed
+      // `fanPreferred` is a coordinate in its OWN side's tangent axis.
+      // On the default path that side is ordered[0], so passing it
+      // there is correct. When overflow assigned a different side and
+      // that side was rejected, the coordinate means nothing here (a
+      // y from an EAST fan read as an x on NORTH), so drop it and take
+      // the side's natural midpoint.
+      const preferred =
+        i === 0 && assignedSide === undefined ? fanPreferred : undefined;
+      const a = buildAnchor(side, preferred);
       if (a !== null) return a;
     }
     // Everything covered (extreme containment): the primary side's
@@ -413,6 +707,32 @@ export function routeStructuralEdges(
           side: primary,
         };
   };
+
+  // PRF-003 brief 05a: pre-compute channel/track assignment before the
+  // per-edge loop. Entry/exit cross-coord for the divergence sort uses
+  // node centers (deterministic, geometry-only); the emitter reads this
+  // per edge inside the loop. When `useChannelRouter` is off (default)
+  // this whole block is dead code (channelPlan === undefined).
+  const channelAssignment = channelPlan
+    ? assignTracks(
+        edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          entryCross:
+            channelPlan.direction === "RIGHT" ||
+            channelPlan.direction === "LEFT"
+              ? centerY(e.source)
+              : centerX(e.source),
+          exitCross:
+            channelPlan.direction === "RIGHT" ||
+            channelPlan.direction === "LEFT"
+              ? centerY(e.target)
+              : centerX(e.target),
+        })),
+        channelPlan,
+      )
+    : null;
 
   const t0 = Date.now();
   for (const e of edges) {
@@ -574,6 +894,79 @@ export function routeStructuralEdges(
             : { x: a.point.x, y: a.point.y - STUB };
     const sTip = outward(s);
     const tTip = outward(t);
+    // PRF-003 brief 05a: channel router branch. When the flag is on
+    // AND a plan is supplied, route via the channel model; overflow
+    // (edges beyond a channel's demand) delegates to routeOrthogonal.
+    // If both fail, fall through to `simple` so no edge disappears.
+    if (channelPlan !== undefined && channelAssignment !== null) {
+      const isOverflow = channelAssignment.overflow.has(e.id);
+      if (!isOverflow) {
+        const points = emitChannelRoute(
+          {
+            id: e.id,
+            source: e.source,
+            target: e.target,
+          },
+          {
+            source: s,
+            sourceTip: sTip,
+            target: t,
+            targetTip: tTip,
+          },
+          channelPlan,
+          channelAssignment,
+        );
+        out[e.id] = { points };
+        continue;
+      }
+      const overflowRoute = routeChannelOverflow(
+        {
+          source: s,
+          sourceTip: sTip,
+          target: t,
+          targetTip: tTip,
+        },
+        obstacles,
+      );
+      if (overflowRoute !== null) {
+        out[e.id] = { points: overflowRoute };
+        continue;
+      }
+      // Overflow router refused: emit an honest simple template. The
+      // channel-router path does NOT fall back to the escalation ladder
+      // (05b deletes the ladder outright); dropping here mirrors the
+      // ladder's end state and keeps the edge in the output.
+      const sEwOF = s.side === "EAST" || s.side === "WEST";
+      const tEwOF = t.side === "EAST" || t.side === "WEST";
+      const simpleOF =
+        sEwOF && tEwOF
+          ? dedupeCollinear([
+              s.point,
+              sTip,
+              { x: (sTip.x + tTip.x) / 2, y: sTip.y },
+              { x: (sTip.x + tTip.x) / 2, y: tTip.y },
+              tTip,
+              t.point,
+            ])
+          : !sEwOF && !tEwOF
+            ? dedupeCollinear([
+                s.point,
+                sTip,
+                { x: sTip.x, y: (sTip.y + tTip.y) / 2 },
+                { x: tTip.x, y: (sTip.y + tTip.y) / 2 },
+                tTip,
+                t.point,
+              ])
+            : dedupeCollinear([
+                s.point,
+                sTip,
+                sEwOF ? { x: tTip.x, y: sTip.y } : { x: sTip.x, y: tTip.y },
+                tTip,
+                t.point,
+              ]);
+      out[e.id] = { points: simpleOF };
+      continue;
+    }
     // Gap route: jog once at the midline between the two anchor
     // borders, along the flow axis: a vertical jog in the gap under
     // horizontal flow, a horizontal jog under vertical flow.
@@ -639,8 +1032,148 @@ export function routeStructuralEdges(
       (b) =>
         b.x < bx2 && b.x + b.width > bx1 && b.y < by2 && b.y + b.height > by1,
     );
+    // Long-edge perimeter policy (owner ruling 2026-08-14): before
+    // accepting a clean simple route through a dense field, prefer a
+    // perimeter detour so the line reads outside the wall rather than
+    // threading its interior corridors. Eligibility uses the same
+    // near-set the accept check already computed. Null-safe: if no
+    // detour clears, we fall through to the existing accept and the
+    // simple route stands (the policy never converts a legal route
+    // into a violation).
+    if (near.length >= longEdgeNear) {
+      const CLEAR = 16;
+      const horizontalTravel =
+        Math.abs(tTip.x - sTip.x) >= Math.abs(tTip.y - sTip.y);
+      // VR-10 (owner Jake, 2026-08-14): eligibility is still judged on
+      // the simple route's near-set (unchanged, so ineligible edges
+      // stay byte-identical), but the perimeter rail is VERIFIED
+      // against the travel band from the FULL obstacle set. `near`
+      // omits everything outside the simple route's bbox, and a
+      // perimeter rail leaves that bbox by definition -- that gap put
+      // pskip.0 through 19 boxes of row p0 while passing its own
+      // check. Both bound sets stay on offer (near ⊆ band, so the
+      // near-derived rail is the tighter of the two when it verifies).
+      const band = travelBand(
+        [s.point, sTip, tTip, t.point],
+        horizontalTravel,
+        obstacles,
+      );
+      const build = (cross: number): Pt[] =>
+        dedupeCollinear(
+          horizontalTravel
+            ? [
+                s.point,
+                sTip,
+                { x: sTip.x, y: cross },
+                { x: tTip.x, y: cross },
+                tTip,
+                t.point,
+              ]
+            : [
+                s.point,
+                sTip,
+                { x: cross, y: sTip.y },
+                { x: cross, y: tTip.y },
+                tTip,
+                t.point,
+              ],
+        );
+      const mid = horizontalTravel
+        ? (sTip.y + tTip.y) / 2
+        : (sTip.x + tTip.x) / 2;
+      const cands: Array<{ side: "lo" | "hi"; cross: number; pts: Pt[] }> = [];
+      const seenCross = new Set<number>();
+      for (const bounds of [
+        crossBounds(near, horizontalTravel, CLEAR),
+        crossBounds(band, horizontalTravel, CLEAR),
+      ]) {
+        if (bounds === null) continue;
+        for (const side of ["lo", "hi"] as const) {
+          const cross = side === "lo" ? bounds.lo : bounds.hi;
+          if (seenCross.has(cross)) continue;
+          seenCross.add(cross);
+          const pts = build(cross);
+          if (band.length > 0 && polylineIntersectsBoxes(pts, band)) continue;
+          cands.push({ side, cross, pts });
+        }
+      }
+      const chosen =
+        cands.length === 0
+          ? null
+          : cands.sort(
+              (a, b) => Math.abs(a.cross - mid) - Math.abs(b.cross - mid),
+            )[0];
+      if (chosen !== null && chosen !== undefined) {
+        out[e.id] = { points: chosen.pts };
+        perimeterRoutes.push({
+          edgeId: e.id,
+          horizontal: horizontalTravel,
+          side: chosen.side,
+          cross: chosen.cross,
+          build,
+        });
+        continue;
+      }
+    }
+    // LAY-005: bend-hint seeding for non-perimeter-eligible edges.
+    // The hints came from dummy-chain placement, so they express the
+    // ordering's preferred column at each intermediate layer; a
+    // hint-seeded polyline threads through those bends and gives the
+    // rest of the pipeline (routing verification, nudging, canvas
+    // rendering) a route that already respects layered structure.
+    // Perimeter-eligible edges skip seeding by policy (the perimeter
+    // detour is the right shape for a long line through a dense
+    // field). Hints ride out as `intermediate` on the emitted
+    // geometry so downstream tooling can distinguish structural bends
+    // from routing corrections.
+    const hintsForEdge =
+      bendHints !== undefined && near.length < longEdgeNear
+        ? bendHints.get(e.id)
+        : undefined;
+    if (hintsForEdge !== undefined && hintsForEdge.length > 0) {
+      const horizontalTravel =
+        Math.abs(tTip.x - sTip.x) >= Math.abs(tTip.y - sTip.y);
+      const seeded: Pt[] = [s.point, sTip];
+      let prev: Pt = sTip;
+      for (const h of hintsForEdge) {
+        if (horizontalTravel) {
+          seeded.push({ x: h.x, y: prev.y });
+          seeded.push({ x: h.x, y: h.y });
+        } else {
+          seeded.push({ x: prev.x, y: h.y });
+          seeded.push({ x: h.x, y: h.y });
+        }
+        prev = { x: h.x, y: h.y };
+      }
+      if (horizontalTravel) seeded.push({ x: tTip.x, y: prev.y });
+      else seeded.push({ x: prev.x, y: tTip.y });
+      seeded.push(tTip);
+      seeded.push(t.point);
+      const seededPts = dedupeCollinear(seeded);
+      const seededNear = obstacles.filter((b) => {
+        let sx1 = Infinity;
+        let sy1 = Infinity;
+        let sx2 = -Infinity;
+        let sy2 = -Infinity;
+        for (const pnt of seededPts) {
+          sx1 = Math.min(sx1, pnt.x);
+          sy1 = Math.min(sy1, pnt.y);
+          sx2 = Math.max(sx2, pnt.x);
+          sy2 = Math.max(sy2, pnt.y);
+        }
+        return (
+          b.x < sx2 && b.x + b.width > sx1 && b.y < sy2 && b.y + b.height > sy1
+        );
+      });
+      if (!polylineIntersectsBoxes(seededPts, seededNear)) {
+        out[e.id] = { points: seededPts, intermediate: [...hintsForEdge] };
+        continue;
+      }
+    }
     if (!polylineIntersectsBoxes(simple, near)) {
-      out[e.id] = { points: simple };
+      out[e.id] = hintsForEdge
+        ? { points: simple, intermediate: [...hintsForEdge] }
+        : { points: simple };
       continue;
     }
     const clear = [...obstacles]; // VR-7a: endpoint boxes included
@@ -683,6 +1216,7 @@ export function routeStructuralEdges(
         if (routed !== null) {
           out[e.id] = {
             points: dedupeCollinear([s.point, ...routed.points, t.point]),
+            ...(hintsForEdge ? { intermediate: [...hintsForEdge] } : {}),
           };
           done = true;
           break;
@@ -694,8 +1228,42 @@ export function routeStructuralEdges(
     // VR-9: the router failed everywhere; detour around the band
     // rather than drawing through it. Straight-simple only when
     // even the detour cannot clear (extreme containment).
-    const detour = detourAround(s.point, sTip, t.point, tTip, near);
-    out[e.id] = { points: detour ?? simple };
+    const detour = detourAround(s.point, sTip, t.point, tTip, obstacles, near);
+    out[e.id] = {
+      points: detour ?? simple,
+      ...(hintsForEdge ? { intermediate: [...hintsForEdge] } : {}),
+    };
+  }
+  // Deterministic perimeter stagger: coincident perimeter tracks on
+  // the same side of a band derive an identical cross coordinate; walk
+  // edge-id groups and offset each track beyond the first by index*8
+  // OUTWARD (away from the field). This is input hygiene, not a
+  // substitute for nudging; 01-nudging (when it lands) will subsume
+  // the ordering, but keeping this pre-pass keeps snapshots stable.
+  if (perimeterRoutes.length > 1) {
+    const STAGGER = 8;
+    const groups = new Map<string, PerimeterRec[]>();
+    for (const rec of perimeterRoutes) {
+      const key = `${rec.horizontal ? "H" : "V"}#${rec.side}#${Math.round(rec.cross)}`;
+      const list = groups.get(key) ?? [];
+      list.push(rec);
+      groups.set(key, list);
+    }
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      list.sort((a, b) => (a.edgeId < b.edgeId ? -1 : 1));
+      list.forEach((rec, i) => {
+        if (i === 0) return;
+        const delta = (rec.side === "lo" ? -1 : 1) * i * STAGGER;
+        out[rec.edgeId] = { points: rec.build(rec.cross + delta) };
+      });
+    }
+  }
+  if (options?.nudge) {
+    const { routes } = nudgeRoutes(out, obstacles, {
+      trackGap: options?.trackGap,
+    });
+    return routes;
   }
   return out;
 }

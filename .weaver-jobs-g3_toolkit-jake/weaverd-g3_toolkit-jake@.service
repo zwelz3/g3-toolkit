@@ -1,0 +1,50 @@
+[Unit]
+Description=weaverd-g3_toolkit (worker %i) — async runner for g3_toolkit dev work
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jake
+Group=ghost-devs
+WorkingDirectory=/GSystems/src/g3-toolkit
+
+# Shared canonical daemon; WEAVER_JOBS_DIR scopes this pool to its own queue.
+ExecStart=/usr/bin/python3 /GSystems/src/specter-loom/codex/src/weaverd/daemon.py --worker-id %i
+
+KillSignal=SIGTERM
+TimeoutStopSec=30min
+Restart=on-failure
+RestartSec=5
+
+Environment=HOME=/home/jake
+Environment=PATH=/home/jake/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/GSystems/src/specter-loom/codex/src/kb
+Environment=KB_STORE_BACKEND=fuseki
+Environment=KB_GRAPHDB_URL=https://forge.tail515200.ts.net:7200
+Environment=KB_FUSEKI_URL=https://forge.tail515200.ts.net:3030
+Environment=WEAVER_GRAPHDB_URL=https://forge.tail515200.ts.net:3030/spindle_g3_toolkit/sparql
+Environment=WEAVER_JOBS_GRAPH=https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/graph/jobs
+Environment=WEAVER_PROJECT_LABEL=g3_toolkit
+Environment=WEAVER_WORKER_ID=g3_toolkit-jake-%i
+Environment=WEAVER_JOBS_DIR=/GSystems/src/g3-toolkit/.weaver-jobs-g3_toolkit-jake
+Environment=WEAVER_DRIFT_THRESHOLD_MIN=25
+# Worker git push credential path: GIT_ASKPASS shim resolves the pool user's
+# forge token via kb credstore runtime (svc-seed decrypt, no plaintext at
+# rest). GIT_TERMINAL_PROMPT=0 fails loud on a lookup miss instead of
+# blocking on an invisible tty prompt (the shared GITLAB_TOKEN in
+# /etc/weaverd.env is retired by this wiring).
+Environment=GIT_ASKPASS=/GSystems/src/specter-loom/codex/src/weaverd/git-askpass-kb.sh
+Environment=GIT_TERMINAL_PROMPT=0
+EnvironmentFile=-/etc/fuseki/weaver-g3_toolkit.env
+EnvironmentFile=-/etc/fuseki/weaver-g3_toolkit-jake.env
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/GSystems/src/g3-toolkit -/home/jake/.claude -/home/jake/.claude.json -/home/jake/.claude-max-b -/home/jake/.npm
+ReadOnlyPaths=/GSystems/src/specter-loom/codex /GSystems/ontologies /GSystems/config
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

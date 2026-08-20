@@ -1,0 +1,16 @@
+done: 1 atom emitted; commit=b47c991; folded 3 blockers + 6 warnings into 01-route-nudging-brief
+
+**Summary of changes made to `01-route-nudging-brief.md`:**
+
+**3 blocking findings resolved:**
+1. **branch-b anchor (contract-gap):** Added explicit midline-centering starting anchor for branch (b), matching branch (a)'s convention -- n tracks placed symmetric about the free-span midline with spacing `span/(n+1)`.
+2. **retry logic (logic-error):** Split failure handling by type: BOX CHECK failures retry at `trackGap/2` (spacing-driven, retry may help); CROSSING CHECK failures immediately revert with no retry (group-membership-driven, halved gap cannot fix ordering that introduced the crossing).
+3. **rollback path (missing-rollback):** Scoped the ROLLBACK PATH explicitly to nudging-caused regressions, with a cross-reference to the NORMALIZATION CAVEAT for normalization-caused regressions.
+
+**6 warning findings folded:**
+4. Verified and documented `routeStructuralEdges` options bag signature (`routingBudgetMs`, `direction`, `anchor` -- no collision with `nudge`).
+5. Specified deterministic corridor emission order for key-collision suffix (axis/midline/extent[0] lexicographic ascending).
+6. Added `layoutBound` one-source-of-truth rule (computed once at pass start, never mid-pass).
+7. Acknowledged `dedupeCollinear` .d.ts leakage with accept-or-extract-to-private-helper note.
+8. Added `nudge: false` bypass test to Verification (the only test that confirms the flag provides a complete steps-1-5 bypass).
+9. Added runtime note that branch (b) clearance has no validation backstop -- unit test is sole enforcement layer. Also updated the retry-branch test to assert crossing-check failures do NOT trigger a retry.

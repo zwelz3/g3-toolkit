@@ -1,0 +1,12 @@
+{
+  "outcome": "bailed",
+  "atoms_emitted": [],
+  "commit_shas": [],
+  "files_changed": [],
+  "summary": "brief-05 channel router scope exceeds single-worker-run budget; failure atom logged with two-phase remediation",
+  "duration_min": 8,
+  "blockers": [
+    "Brief mandates single atomic commit deleting escalation ladder + Brief-10 stage-A accept-site AND landing a new channel/track model with libavoid divergence sort AND 3-condition fallback classifier (same-layer, anti-monotone via layer-adjacency walk, compound-boundary via bounding-box containment) AND narrowed nudging scope AND per-channel demand-vs-track overflow assertion AND re-pinned oracles across 6 lab scenarios AND new track-count-bound + compound-boundary + anti-monotone oracle tests. Realistic surface: 800-1500 LOC across ~8 files with pinned numeric oracles that cannot be authored blind (LAY005_BASELINE re-pin requires observed crossings/bends from a working implementation). Strict determinism + zero-regression acceptance makes partial or rushed impl worse than an honest bail. Brief 05 is explicitly labeled as D3b work in packages/core/src/layout/g3t-engine/g3t-routing.ts:16 ('The channel router (PRF-003) replaces escalation wholesale in D3b')."
+  ],
+  "recommended_next_step": "Redispatch as a two-phase brief: phase 1 lands channel-router module + fallback classifier as pure-additive code behind an off-by-default flag with unit oracles for track assignment combinatorics, dedupeCollinear round-trip, and the 3-condition fallback classifier; phase 2 rewires g3tLayoutStructural to consume the module, deletes the escalation ladder and Brief-10 stage-A accept-site, and re-pins the 6-scenario LAY005_BASELINE using the flag-on run as the observed baseline. Verified gate state pre-bail: Brief 03 (dummy chains, cc38406), Brief 04 (corridor supply, 725299e), Brief 10 (long-edge perimeter, ac0a742) all landed on main; caller audit for routeStructuralEdges enumerates 5 sites (packages/core/src/index.ts:187 export, packages/core/src/layout/index.ts:7 re-export, packages/core/src/layout/g3t-engine/structural-patterns.test.ts x4 direct calls, packages/core/src/layout/g3t-engine/g3t-layered.test.ts:685 dynamic import) with no callers branching on perimeter-route-specific format."
+}

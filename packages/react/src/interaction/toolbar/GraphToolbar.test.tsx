@@ -7,6 +7,7 @@ import {
   layoutConfig,
   runGraphLayout,
   buildExport,
+  buildImageExport,
 } from "./GraphToolbar";
 import { usePositionPinStore } from "../../state/position-pin-store";
 
@@ -31,7 +32,7 @@ function mockCy() {
     zoom: vi.fn(() => 1),
     fit: vi.fn(),
     animate: vi.fn(),
-    png: vi.fn(() => "data:image/png;base64,stub"),
+    png: vi.fn(() => new Blob(["stub-png-bytes"], { type: "image/png" })),
     nodes: vi.fn(() => ({ lock: vi.fn(), unlock: vi.fn() })),
     getElementById: vi.fn(() => ({
       nonempty: () => true,
@@ -218,17 +219,68 @@ describe("export (R2.11 slice, round 26)", () => {
     expect(JSON.parse(all.content).nodes).toHaveLength(2);
   });
 
-  it("PNG export calls cy.png at 2x full", () => {
+  it("buildImageExport delegates to cy.png(blob) and names the artifact", () => {
     const { cy, raw } = mockCy();
+    const art = buildImageExport(cy, { full: true, scale: 3, bg: "#fff" });
+    expect(raw.png).toHaveBeenCalledWith({
+      output: "blob",
+      full: true,
+      scale: 3,
+      bg: "#fff",
+    });
+    expect(art.filename).toBe("g3t-graph.png");
+    expect(art.mime).toBe("image/png");
+    expect(art.blob).toBeInstanceOf(Blob);
+  });
+
+  it("buildImageExport defaults to full graph at 2x", () => {
+    const { cy, raw } = mockCy();
+    buildImageExport(cy);
+    expect(raw.png).toHaveBeenCalledWith({
+      output: "blob",
+      full: true,
+      scale: 2,
+      bg: undefined,
+    });
+  });
+
+  it("Image (PNG) menu entry renders and drives buildImageExport with a revoked object URL", () => {
+    const { cy, raw } = mockCy();
+    const created: string[] = [];
+    const revoked: string[] = [];
+    const origCreate = URL.createObjectURL;
+    const origRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn((b: Blob) => {
+      const u = `blob:mock-${created.length}-${b.size}`;
+      created.push(u);
+      return u;
+    }) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn((u: string) => {
+      revoked.push(u);
+    }) as typeof URL.revokeObjectURL;
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
-    fireEvent.click(screen.getByTestId("toolbar-export"));
-    fireEvent.click(screen.getByTestId("export-png"));
-    expect(raw.png).toHaveBeenCalledWith({ full: true, scale: 2 });
-    expect(clickSpy).toHaveBeenCalled();
-    clickSpy.mockRestore();
+    try {
+      render(<GraphToolbar ugm={graph()} cy={cy} />);
+      fireEvent.click(screen.getByTestId("toolbar-export"));
+      const btn = screen.getByTestId("export-png");
+      expect(btn.textContent).toBe("Image (PNG)");
+      fireEvent.click(btn);
+      expect(raw.png).toHaveBeenCalledWith({
+        output: "blob",
+        full: true,
+        scale: 2,
+        bg: undefined,
+      });
+      expect(clickSpy).toHaveBeenCalled();
+      expect(created).toHaveLength(1);
+      expect(revoked).toEqual(created);
+    } finally {
+      clickSpy.mockRestore();
+      URL.createObjectURL = origCreate;
+      URL.revokeObjectURL = origRevoke;
+    }
   });
 
   it("treats a destroyed instance as absent: search cannot crash a stale handle (9.9)", () => {

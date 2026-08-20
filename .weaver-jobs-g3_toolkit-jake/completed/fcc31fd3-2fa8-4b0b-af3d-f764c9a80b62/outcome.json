@@ -1,0 +1,29 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/routeedges-prop-wires-post-layout-obstacle-aware-routing-int-aa2488ce",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/routescenedges-pure-module-exported-from-g3t-core-for-framew-cd53142b"
+  ],
+  "commit_shas": ["b084c9617b07920ed89ac58d8b6b86102feb3306"],
+  "files_changed": [
+    "packages/core/src/route/route-scene-edges.ts",
+    "packages/core/src/route/route-scene-edges.test.ts",
+    "packages/core/src/index.ts",
+    "packages/react/src/views/canvas/CytoscapeCanvas.tsx",
+    "packages/react/src/views/canvas/canvas-edge-routing.test.ts",
+    "src/demo/bio/BioShell.tsx",
+    "src/demo/audit/AuditShell.tsx",
+    "src/demo/supply/ThreadShell.tsx",
+    "src/demo/stylelab/StyleLabShell.tsx",
+    "src/demo/scale/ScaleSurface.tsx",
+    "examples/decision-dashboards/src/AnalyticsDashboard.tsx",
+    "examples/wiring/src/wiring-examples.test.tsx",
+    "docs/wiring-guide.md",
+    "scripts/check-bundle-size.mjs",
+    "CHANGELOG.md",
+    "STATUS.md"
+  ],
+  "summary": "routeEdges prop on CytoscapeCanvas + pure @g3t/core routeSceneEdges module; enabled on 5 shells + Scale clusters view; 1514 tests pass, typecheck clean, bundle ledger raised 388->390 KB",
+  "duration_min": 12,
+  "blockers": []
+}

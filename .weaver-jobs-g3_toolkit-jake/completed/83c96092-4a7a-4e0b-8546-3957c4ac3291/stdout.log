@@ -1,0 +1,1 @@
+done: 1 atoms emitted; commit=9ae3f91; folded 4 blockers (encoding contradiction, double-assignment, degree-semantics mismatch, busCollapse missing tests) + 8 warnings into 06-dense-scene-legibility-brief.md

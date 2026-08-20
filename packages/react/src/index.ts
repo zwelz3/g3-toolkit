@@ -198,6 +198,7 @@ export type { CyStylesheet } from "./views/canvas/CytoscapeCanvas";
 export {
   DEFAULT_STYLESHEET,
   themeColorRules,
+  labelWrapRule,
 } from "./views/canvas/CytoscapeCanvas";
 
 // R-15 (register, 2026-08-06): types a consumer must NAME to use a

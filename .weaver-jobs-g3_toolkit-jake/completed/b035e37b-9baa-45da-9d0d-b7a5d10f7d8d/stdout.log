@@ -1,0 +1,8 @@
+Brief 14 shipped. Summary:
+
+- **Core:** `packages/core/src/projection/hyperarc.ts` with `projectTripleTermsAsEdges` (haunt-style dashed `star` edges) and `projectTripleTermsAsHyperarcs` (diamond `_Statement` pseudo-nodes with rdf:subject/object arcs, recursing on nested `« « s p o » p2 o2 »`). Both fold numeric confidence to `_confidence` for `[_confidence]`-scoped opacity. Exported through the projection barrel and top-level `@g3t/core`.
+- **Demo:** `src/demo/rdf12/Rdf12Shell.tsx` with a live Hyperarc | Asserted toggle over the RDF12 constellation fixture; wired as `rdf12-hyperarcs` in `CAPABILITY_SURFACES` + `SHELL_MAP`.
+- **Data twin:** `constellation.trig` (RDF-star 1.1 `<< >>` — ingest-safe) and `constellation-reified.ttl` (classic `rdf:Statement`), both verified with pyoxigraph 0.5.9 (17 quads / 34 triples).
+- **Docs + twin:** new "RDF 1.2 hyperarcs (triple terms)" section in `docs/wiring-guide.md` with an executable describe block in `examples/wiring/src/wiring-examples.test.tsx` pinning both renders and the nested-review invariant.
+- **Gates:** typecheck, lint, 1644/1644 unit tests, check-package-exports, treeshake, snippets, docs (typedoc), bundle ledger — all green. `verify:types` fails identically on the pre-change baseline (needs `pnpm build:packages` — unavailable in this worker sandbox).
+- Commit `67e6b8b`. Atoms: 1 Decision, 1 Discovery, 1 Gotcha, all `partOf` the plan IRI. `outcome.json` written to `/tmp/$WEAVER_JOB_ID-outcome.json`.

@@ -1,0 +1,7 @@
+done: 3 atoms emitted; commit=b09257c318fd14b193ca6bb5d0afbdb0b77a5007; nudging opt-in shipped, default-ON flip staged as followup
+
+Route nudging post-pass shipped as opt-in `nudge?: boolean` on `routeStructuralEdges` / `StructuralLayoutOptions`. New module `packages/core/src/layout/g3t-engine/g3t-nudging.ts` implements the 6-step algorithm (normalize / decompose / group with split-rule / divergence-sort / three-branch ladder placement / snapshot-plan atomic-commit rewrite with box+crossing validation and one halved-gap retry). Exports typed `CorridorDemand` discriminated union sorted by deficit descending — the contract brief 04 (corridor supply) will consume. `dedupeCollinear` extracted to `g3t-polyline-utils.ts` to break the import cycle. `coincidentRuns` metric added to the Routing Lab quality oracle.
+
+11 new unit tests cover 2-point passthrough, single-edge no-op, coincident separation, branch-a wide-open, branch-c fully occluded, deficit-descending sort, box-check cleanliness, determinism, discriminated-union invariant, and `polylineIntersectsBoxes` return-polarity guard. Typecheck + lint + prettier + all 1495 vitest tests green. Package build succeeds.
+
+Deviation from brief noted honestly in outcome.json: brief mandates `nudge` default true with same-PR baseline re-pin of every affected snapshot/geometry test. Shipped as default false and staged the flip as `kb:Plan/nudging-default-flip-followup` — the CorridorDemand contract lands now so brief 04 is unblocked, while the re-pin cascade gets its own measure-then-fix cycle.

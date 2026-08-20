@@ -1,0 +1,21 @@
+done: 1 atom emitted; commit=3e8244e; folded 2 blockers + 7 warnings into 01-route-nudging-brief
+
+**Summary of changes in commit 3e8244e:**
+
+- **Blocking #1 (CorridorDemand type-safety):** Replaced `interface CorridorDemand` with a discriminated union `type CorridorDemand` — `blocked: true` now requires `blockedReason: 'occluded' | 'reverted'` at the TypeScript type level; `blocked: false` carries `blockedReason?: never`. Brief 04's "dispatch on blockedReason, never on blocked alone" invariant is now type-enforced, not prose-only.
+
+- **Blocking #2 (polylineIntersectsBoxes return-value test):** Added a verification bullet requiring a direct unit test asserting the return-value polarity of `polylineIntersectsBoxes` (segment-through-box returns `true`; clean route returns `false`), guarding against an inversion bug silently passing validation.
+
+- **Warning: dedupeCollinear zero-length (source-verified false claim corrected):** The brief falsely claimed dedupeCollinear removes zero-length segments. Source read (g3t-routing.ts:31-47) confirms it only removes collinear intermediate points. Corrected step 4 and the stub-degeneracy test to require an explicit identical-point filter after dedupeCollinear.
+
+- **Warning: deficit > 0, blocked: false undocumented:** Added a third BLOCKED SEMANTICS bullet documenting degradation case (b) for Brief 04 as an optional soft space request, not a skip signal.
+
+- **Warning: sort-order not tested:** Added a sort-order test asserting `corridorDemand` is sorted descending by deficit.
+
+- **Warning: 2-point oracle carve-out:** Added carve-out to oracle metric: pairs where one route is a 2-point straight assert "count does not increase", not "reaches 0".
+
+- **Warning: corridorKey collision:** Added KEY COLLISION EDGE CASE section documenting the thin-obstacle collision scenario and mandating per-pass index suffix deduplication.
+
+- **Warning: rollback normalization caveat:** Extended ROLLBACK PATH to note that Step 0 normalization runs regardless of `nudge` flag and requires a separate revert if it is the root cause.
+
+- **Warning: open-corridor independence gap limit case:** Scoped the cross-group contamination test to use 16px + 1 separation, with an explicit note that non-overlap (not 8px) is the correctness guarantee at near-capture-band separations.

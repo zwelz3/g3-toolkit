@@ -1,0 +1,4 @@
+routing: executor=claude model=opus
+WARN: Presidio gate failed (proceeding to Tier-1): presidio-analyzer not installed; run: pip install presidio-analyzer presidio-anonymizer
+c2112e34-8cbe-4bc4-83eb-438e7ff8125a
+brief18 dispatched after 52bdb0ea-e903-4459-a0be-f697c7a72b02 at 2026-08-15T12:36:52Z

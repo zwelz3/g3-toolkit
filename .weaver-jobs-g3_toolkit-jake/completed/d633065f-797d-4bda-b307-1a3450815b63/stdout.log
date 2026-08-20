@@ -1,0 +1,10 @@
+Deployed. Brief 19 is complete.
+
+**Summary:** Implemented the `direct-unless-crossing` routing default and 3-state routing pulldown across all 8 scene-routing demo shells.
+
+- **Core change** (`route-scene-edges.ts`): Added `mode?: "direct-unless-crossing" | "always"` to `RouteSceneOptions`. Default is `"direct-unless-crossing"` — uses `polylineIntersectsBoxes` to skip routing for edges whose straight shot is clear.
+- **Canvas change** (`CytoscapeCanvas.tsx`): Extended `routeEdges` prop with `mode?: "direct" | "orthogonal"`. `routeEdges={true}` now means direct mode (library-wide default change).
+- **8 shells updated**: Routing Lab, Ontology Workbench, RDF 1.2 Hyperarcs, Legibility Lab, Biomedical, Style Lab, Supply Chain, Scale — each has a `Routes` select with Direct (auto-Z) / Orthogonal (always) / Off (bezier).
+- **Tests**: 4 new mode tests in core, 2 new wiring twins; fixed the dense-scene test.
+- **Wiring guide**: Updated with mode table and examples.
+- Gates: typecheck ✓, lint ✓, tests ✓ (3 pre-existing nudging failures unchanged), spec gates ✓. Deployed to g3.ghostsystems.ai at commit `ed917da`.

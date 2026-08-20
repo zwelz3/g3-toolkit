@@ -1,0 +1,20 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/legibility-lab-shipped-brief-17-5e4d438a",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/camera-hold-across-pseudo-reprojection"
+  ],
+  "commit_shas": ["dc0b89babae363f700ecec5706a48a7e163ea452"],
+  "files_changed": [
+    "src/demo/Demo.tsx",
+    "src/demo/DemoLanding.test.tsx",
+    "src/demo/DemoLanding.tsx",
+    "src/demo/legibility/LegibilityShell.test.tsx",
+    "src/demo/legibility/LegibilityShell.tsx",
+    "src/demo/legibility/fixtures.test.ts",
+    "src/demo/legibility/fixtures.ts"
+  ],
+  "summary": "Legibility Lab shell (brief 17): hub burst, bus collapse, holon boundary panels with field-scoped pseudo-node styling and camera hold across raw<->spread; all gates green.",
+  "duration_min": 12,
+  "blockers": []
+}

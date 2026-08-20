@@ -1,0 +1,29 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/lay-005-dummy-chains-landed-augmented-ordering-interpolated--33b4d410"
+  ],
+  "commit_shas": ["cc384069d88b460a2360c2289c613d75d9acd9e1"],
+  "files_changed": [
+    "packages/core/src/layout/g3t-engine/g3t-dummy-chain.ts",
+    "packages/core/src/layout/g3t-engine/g3t-dummy-chain.test.ts",
+    "packages/core/src/layout/g3t-engine/g3t-layered.ts",
+    "packages/core/src/layout/g3t-engine/g3t-structural.ts",
+    "packages/core/src/layout/g3t-engine/g3t-routing.ts",
+    "packages/core/src/layout/structural.ts",
+    "src/demo/routing/scenarios.test.ts",
+    "scripts/check-bundle-size.mjs"
+  ],
+  "summary": "LAY-005 dummy chains landed: augmented ordering + interpolated hints, no BK compaction inflation. 21 new tests, gates green.",
+  "duration_min": 32,
+  "blockers": [],
+  "notes": {
+    "tests_added": 21,
+    "test_results": "1537 passed / 6 skipped",
+    "bundle_ledger": "169->173KB (rationale in check-bundle-size.mjs)",
+    "deferrals": [
+      "Dummies do not participate in Brandes-Koepf compaction; positions are layer-index-interpolated from placed real endpoints. Full BK participation reproducibly regressed prune-wall perimeter routing; deferred until channel router (PRF-003).",
+      "chooseDummyParent helper landed with 4-case unit tests but returns root in practice because StructuralNode has no top-level nesting today. One-liner wire-up at future nested call site."
+    ]
+  }
+}

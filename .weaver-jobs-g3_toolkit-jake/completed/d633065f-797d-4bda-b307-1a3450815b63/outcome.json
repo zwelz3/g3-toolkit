@@ -1,0 +1,45 @@
+{
+  "job_id": "d633065f-797d-4bda-b307-1a3450815b63",
+  "brief": "19-direct-routing-toggle",
+  "status": "complete",
+  "commit": "ed917da",
+  "branch": "docs/ai-agent-guide",
+  "summary": "Implemented direct-unless-crossing routing default and 3-state routing pulldown on 8 demo shells.",
+  "deliverables": {
+    "core_change": "RouteSceneOptions.mode field ('direct-unless-crossing' | 'always') with default 'direct-unless-crossing'. Uses polylineIntersectsBoxes pre-check to skip routing when the straight path is clear.",
+    "react_change": "CytoscapeCanvas routeEdges prop extended with mode?: 'direct' | 'orthogonal'. routeEdges={true} now means direct mode (library-wide default change).",
+    "shells_updated": [
+      "src/demo/routing/RoutingShell.tsx (structural shell; orthogonal default preserved for lab)",
+      "src/demo/ontology/OntologyShell.tsx (4 canvases; shared routeEdgesConfig)",
+      "src/demo/rdf12/Rdf12Shell.tsx",
+      "src/demo/legibility/LegibilityShell.tsx (3 panels via PanelCanvas prop)",
+      "src/demo/bio/BioShell.tsx",
+      "src/demo/stylelab/StyleLabShell.tsx (2 canvases)",
+      "src/demo/supply/ThreadShell.tsx",
+      "src/demo/scale/ScaleSurface.tsx (clusters view only)"
+    ],
+    "tests": "4 new mode tests in route-scene-edges.test.ts; 2 new wiring twin tests in wiring-examples.test.tsx; fixed dense-scene test (added explicit mode:'always' since path is clear in that fixture)",
+    "docs": "wiring-guide.md updated with mode table and three code examples",
+    "kb_atoms": [
+      "Decision: direct-unless-crossing-is-the-library-wide-default-for-route-fe1ea871",
+      "Gotcha: routeedges-bare-true-now-routes-direct-unless-crossing-not-a-b63b56c0",
+      "Discovery: polylineintersectsboxes-already-exported-direct-mode-crossin-c4939c3b"
+    ]
+  },
+  "gates": {
+    "typecheck": "pass",
+    "lint": "pass (source files only; .weaver-jobs and STATE.json warnings pre-existing)",
+    "test": "1813 pass / 3 fail (pre-existing nudging test failures unrelated to this brief)",
+    "verify": "exports/smoke/bundle pass; check-readme-snippets pre-existing failure",
+    "spec_gates": "all 3 python spec gates pass"
+  },
+  "forks_resolved_by_owner": [
+    "3-state pulldown: Direct (auto-Z) / Orthogonal (always) / Off (bezier)",
+    "Library-wide default: direct-unless-crossing",
+    "Scope: 8 scene-routing shells only; structural/MBSE block router untouched"
+  ],
+  "pre_existing_failures": [
+    "packages/core/src/layout/g3t-engine/g3t-nudging.test.ts: 3 tests (nudge separation math)",
+    "scripts/check-readme-snippets.mjs: landing.html pre attribute split across lines"
+  ]
+}

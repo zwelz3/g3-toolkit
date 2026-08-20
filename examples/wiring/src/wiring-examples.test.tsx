@@ -15,6 +15,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
   UGM,
+  routeSceneEdges,
+  polylineToCytoscapeSegments,
   parseAlgorithmResult,
   applyAlgorithmResult,
   ingestAlgorithmResults,
@@ -38,8 +40,19 @@ import {
   typeCollapse,
   collapseByCluster,
   buildSubgraph,
+  bundleEdges,
+  bundledPolylineToSegments,
+  optimizePlacement,
   G3tEventBus,
+  HolonicAdapter,
+  projectTripleTermsAsEdges,
+  projectTripleTermsAsHyperarcs,
+  STAR_EDGE_TYPE,
+  RDF_STATEMENT_FLAG,
+  type HolonicDataset,
   type RDFGraph,
+  type RdfTerm,
+  type TripleTermAnnotation,
 } from "@g3t/core";
 import {
   usePositionPinStore,
@@ -47,6 +60,7 @@ import {
   useOverlayStore,
   useThemeStore,
   runGraphLayout,
+  buildImageExport,
   DEFAULT_LAYOUT_OPTIONS,
   ContextMenuManager,
   captureWorkspace,
@@ -58,10 +72,13 @@ import {
   applyEncodingSpec,
   createTheme,
   createCameraController,
+  labelWrapRule,
+  useEmphasisStore,
   ProvenanceTrace,
   Minimap,
   createDefaultMenuManager,
   registerToolkitActions,
+  registerHolonDrillItems,
   ViewErrorBoundary,
   type ProvenanceChain,
 } from "@g3t/react";
@@ -643,6 +660,19 @@ describe("scaling (guide: Scaling: collapse large graphs to clusters)", () => {
     expect(members.get("cluster:t1")?.length).toBe(40);
     expect(clustered.getNode("cluster:t1")?.properties.memberCount).toBe(40);
 
+    // Interior + boundary edge counts land on every supernode. In
+    // this fixture every edge stays inside its team (created as
+    // `x{c}-i` -> `x{c}-0`), so boundary must be 0 and interior
+    // must be the team's edge count. This is the wiring an adopter
+    // uses to answer "how many paths in this cluster?" without
+    // re-walking the source UGM.
+    expect(clustered.getNode("cluster:t1")?.properties.interiorEdgeCount).toBe(
+      39,
+    );
+    expect(clustered.getNode("cluster:t1")?.properties.boundaryEdgeCount).toBe(
+      0,
+    );
+
     const { ugm: sub, truncated } = buildSubgraph(
       big,
       members.get("cluster:t1") ?? [],
@@ -650,6 +680,105 @@ describe("scaling (guide: Scaling: collapse large graphs to clusters)", () => {
     );
     expect(truncated).toBe(true);
     expect(sub.getNodeIds().length).toBe(25);
+  });
+
+  it("composes the count badge for a Cytoscape label via clusterBadgeText", async () => {
+    const { clusterBadgeText } = await import("@g3t/core");
+    const big = new UGM();
+    for (let c = 0; c < 3; c++) {
+      for (let i = 0; i < 40; i++) {
+        big.addNode(`y${c}-${i}`, {
+          types: ["Thing"],
+          properties: { name: `y${c}-${i}`, team: `t${c}` },
+        });
+        if (i > 0) big.addEdge(`y${c}-${i}`, `y${c}-0`, { type: "in" });
+      }
+    }
+    const { ugm: clustered } = collapseByCluster(big, {
+      threshold: 100,
+      clusterProperty: "team",
+    });
+
+    // Precompute the badge onto each supernode so the Cytoscape
+    // stylesheet can point at `data(_badge)`. Renderer-neutral: the
+    // helper is a pure text function, no cytoscape import required.
+    clustered.forEachNode((_id, attrs) => {
+      attrs.properties._badge = clusterBadgeText(attrs.properties);
+    });
+
+    expect(clustered.getNode("cluster:t0")?.properties._badge).toBe(
+      "40 nodes · 39 links",
+    );
+  });
+});
+
+describe("edge bundling (guide: Edge bundling)", () => {
+  it("bundles a small parallel cluster deterministically, endpoints preserved", () => {
+    // Two near-parallel edges between four nodes: the FDEB canonical
+    // convergence case. The wiring-guide snippet shape.
+    const positions = {
+      a1: { x: 0, y: 0 },
+      a2: { x: 100, y: 0 },
+      b1: { x: 0, y: 8 },
+      b2: { x: 100, y: 8 },
+    };
+    const edges = [
+      { id: "a", source: "a1", target: "a2" },
+      { id: "b", source: "b1", target: "b2" },
+    ];
+
+    const { routes, skipped } = bundleEdges(positions, edges);
+    expect(skipped).toBe(false);
+
+    // Endpoints stay pinned to the input node positions.
+    for (const e of edges) {
+      const poly = routes.get(e.id)!;
+      expect(poly[0]).toBe(positions[e.source as keyof typeof positions]);
+      expect(poly[poly.length - 1]).toBe(
+        positions[e.target as keyof typeof positions],
+      );
+    }
+
+    // The two edges' same-index interior points converge relative
+    // to the input gap of 8.
+    const a = routes.get("a")!;
+    const b = routes.get("b")!;
+    const mid = Math.floor(a.length / 2);
+    expect(Math.abs(a[mid]!.y - b[mid]!.y)).toBeLessThan(8);
+
+    // Second run yields byte-identical routes (no RNG anywhere).
+    const again = bundleEdges(positions, edges);
+    for (const e of edges) {
+      const p1 = routes.get(e.id)!;
+      const p2 = again.routes.get(e.id)!;
+      expect(p1.length).toBe(p2.length);
+      for (let i = 0; i < p1.length; i++) {
+        expect(p1[i]!.x).toBe(p2[i]!.x);
+        expect(p1[i]!.y).toBe(p2[i]!.y);
+      }
+    }
+
+    // The segments projection is what the Cytoscape `curve-style:
+    // segments` rule consumes on the render side.
+    const seg = bundledPolylineToSegments(a);
+    expect(seg).not.toBeNull();
+    expect(seg!.weights.length).toBe(a.length - 2);
+    expect(seg!.distances.length).toBe(a.length - 2);
+  });
+
+  it("bypasses cleanly (skipped=true) when input exceeds maxEdges", () => {
+    const positions: Record<string, { x: number; y: number }> = {};
+    for (let i = 0; i < 20; i++) positions[`n${i}`] = { x: i * 10, y: 0 };
+    const edges = Array.from({ length: 10 }, (_, i) => ({
+      id: `e${i}`,
+      source: `n${i}`,
+      target: `n${i + 10}`,
+    }));
+    const { routes, skipped } = bundleEdges(positions, edges, { maxEdges: 5 });
+    expect(skipped).toBe(true);
+    for (const e of edges) {
+      expect(routes.get(e.id)!.length).toBe(2);
+    }
   });
 });
 
@@ -732,6 +861,24 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(csv.split("\n").length).toBeGreaterThan(3);
   });
 
+  it("buildImageExport(cy) returns a PNG blob artifact via cy.png", () => {
+    // jsdom cannot rasterize, so the wiring twin verifies the
+    // delegation contract with a stub Core (real browser confirms
+    // pixels via Zach's visual pass).
+    const png = vi.fn(() => new Blob(["fake"], { type: "image/png" }));
+    const cy = { png } as unknown as Core;
+    const art = buildImageExport(cy, { scale: 2 });
+    expect(png).toHaveBeenCalledWith({
+      output: "blob",
+      full: true,
+      scale: 2,
+      bg: undefined,
+    });
+    expect(art.filename).toBe("g3t-graph.png");
+    expect(art.mime).toBe("image/png");
+    expect(art.blob).toBeInstanceOf(Blob);
+  });
+
   it("applyEncodingSpec resolves a spec into per-element visual patches", () => {
     const ugm = tinyGraph();
     const patch = applyEncodingSpec(
@@ -764,6 +911,21 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(theme.textPrimary.length).toBeGreaterThan(0);
   });
 
+  it("labelWrapRule builds a node[label]-scoped wrap rule for the stylesheet prop", () => {
+    const styleOf = (rule: ReturnType<typeof labelWrapRule>) =>
+      (rule as unknown as { style: Record<string, string> }).style;
+    const rule = labelWrapRule(90);
+    // Field-scoped selector (mapping-warning doctrine) so nodes without
+    // a data label never trigger per-frame Cytoscape warnings.
+    expect(rule.selector).toBe("node[label]");
+    expect(styleOf(rule)["text-wrap"]).toBe("wrap");
+    expect(styleOf(rule)["text-max-width"]).toBe("90px");
+    // Default width when called bare.
+    expect(styleOf(labelWrapRule())["text-max-width"]).toBe("120px");
+    // false DISABLES the canvas's default 110px wrap.
+    expect(styleOf(labelWrapRule(false))["text-wrap"]).toBe("none");
+  });
+
   it("createCameraController drives the cy viewport imperatively", () => {
     const eles = { length: 2, nonempty: () => true };
     const fit = vi.fn();
@@ -785,5 +947,260 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(fit.mock.calls.length + animate.mock.calls.length).toBeGreaterThan(
       0,
     );
+  });
+});
+
+describe("routeEdges (guide: Route edges around nodes on any layout)", () => {
+  it("routeSceneEdges + polylineToCytoscapeSegments give a canvas-ready detour", () => {
+    // A -> B with an obstacle sitting between them; the pure module
+    // that the CytoscapeCanvas routeEdges pass calls under the hood.
+    const nodes = [
+      { id: "a", x: 0, y: 40, width: 40, height: 40 },
+      { id: "obst", x: 100, y: 0, width: 60, height: 200 },
+      { id: "b", x: 240, y: 40, width: 40, height: 40 },
+    ];
+    const { routed } = routeSceneEdges(nodes, [
+      { id: "e", source: "a", target: "b" },
+    ]);
+    const pts = routed.get("e");
+    expect(pts).toBeDefined();
+    if (!pts) return;
+    const seg = polylineToCytoscapeSegments(pts);
+    expect(seg).not.toBeNull();
+    if (!seg) return;
+    // segment-distances/weights arrays consumable by cytoscape's
+    // "curve-style: segments" — same field names the canvas stamps as
+    // `_segDist` / `_segWeight` under the g3t-canvas-edge-routed class.
+    expect(seg.distances.length).toBe(seg.weights.length);
+    expect(seg.distances.length).toBeGreaterThan(0);
+  });
+
+  it("mode: direct — clear edge left as bezier, crossing edge routed", () => {
+    // Verifies the prop API documented in the wiring guide:
+    //   routeEdges={{ mode: "direct" }} (the default)
+    // Clear A -> B (no obstacle between them) → not routed (stays bezier).
+    const clearNodes = [
+      { id: "a", x: 0, y: 0, width: 40, height: 40 },
+      { id: "b", x: 200, y: 200, width: 40, height: 40 },
+    ];
+    const { routed: clearRouted } = routeSceneEdges(
+      clearNodes,
+      [{ id: "e", source: "a", target: "b" }],
+      { mode: "direct-unless-crossing" },
+    );
+    expect(clearRouted.has("e")).toBe(false);
+
+    // A -> B with an obstacle on the straight path → must route.
+    const blockedNodes = [
+      { id: "a", x: 0, y: 40, width: 40, height: 40 },
+      { id: "obst", x: 100, y: 0, width: 60, height: 200 },
+      { id: "b", x: 240, y: 40, width: 40, height: 40 },
+    ];
+    const { routed: blockedRouted } = routeSceneEdges(
+      blockedNodes,
+      [{ id: "e", source: "a", target: "b" }],
+      { mode: "direct-unless-crossing" },
+    );
+    expect(blockedRouted.has("e")).toBe(true);
+  });
+
+  it("mode: always — routes every edge regardless of crossing", () => {
+    // Verifies routeEdges={{ mode: "orthogonal" }} (mapped to "always" in core).
+    const nodes = [
+      { id: "a", x: 0, y: 0, width: 40, height: 40 },
+      { id: "b", x: 200, y: 0, width: 40, height: 40 },
+    ];
+    const { routed } = routeSceneEdges(
+      nodes,
+      [{ id: "e", source: "a", target: "b" }],
+      { mode: "always" },
+    );
+    expect(routed.has("e")).toBe(true);
+  });
+});
+
+describe("refresh routes / re-layout / edge isolate (guide: Refresh routes / re-layout / isolate an edge)", () => {
+  it("optimizePlacement reduces (or preserves) crossings — the primitive relayoutSignal drives", () => {
+    // Four nodes wired as a K(2,2) storm: the two "cross" edges intersect
+    // on straight lines. optimizePlacement is what the CytoscapeCanvas
+    // relayoutSignal effect calls under the hood.
+    const nodes = [
+      { id: "a", x: 0, y: 0, width: 40, height: 40 },
+      { id: "b", x: 200, y: 0, width: 40, height: 40 },
+      { id: "c", x: 0, y: 200, width: 40, height: 40 },
+      { id: "d", x: 200, y: 200, width: 40, height: 40 },
+    ];
+    const edges = [
+      { id: "e1", source: "a", target: "d" },
+      { id: "e2", source: "b", target: "c" },
+    ];
+    const result = optimizePlacement(nodes, edges, { budgetMs: 50, seed: 7 });
+    expect(result.crossingsAfter).toBeLessThanOrEqual(result.crossingsBefore);
+    // Positions returned for every node (id set preserved — the canvas
+    // relies on this to apply positions without re-init).
+    for (const n of nodes) expect(result.positions.has(n.id)).toBe(true);
+  });
+
+  it("useEmphasisStore.setPathEffect / clear is the isolate contract (edgeClickIsolate)", () => {
+    // With edgeClickIsolate on, an edge tap calls setPathEffect for that
+    // single edge; a repeat tap (or a background tap) calls clear. The
+    // canvas talks to this exact store shape.
+    const store = useEmphasisStore.getState();
+    store.clear();
+    store.setPathEffect([], ["e-42"], "e-42");
+    const s1 = useEmphasisStore.getState();
+    expect(s1.active).toBe(true);
+    expect(s1.emphasizedEdgeIds.has("e-42")).toBe(true);
+    expect(s1.emphasizedEdgeIds.size).toBe(1);
+    useEmphasisStore.getState().clear();
+    const s2 = useEmphasisStore.getState();
+    expect(s2.active).toBe(false);
+    expect(s2.emphasizedEdgeIds.size).toBe(0);
+  });
+});
+
+describe("holon boundary (guide: Holon boundary views)", () => {
+  const dataset: HolonicDataset = {
+    holons: [
+      {
+        id: "space",
+        label: "Space Segment",
+        types: ["Segment"],
+        properties: {},
+        interiorNodes: [
+          { id: "comms", types: ["CommsSubsystem"], properties: {} },
+          { id: "bus", types: ["BusSubsystem"], properties: {} },
+        ],
+        interiorEdges: [{ source: "comms", target: "bus", type: "on" }],
+        boundaryNodeIds: ["comms"],
+        portals: [
+          {
+            id: "p-down",
+            label: "downlinksTo",
+            sourceHolonId: "space",
+            targetHolonId: "ground",
+            boundaryNodeId: "comms",
+          },
+        ],
+      },
+      {
+        id: "ground",
+        label: "Ground Segment",
+        types: ["Segment"],
+        properties: {},
+        portals: [],
+      },
+    ],
+  };
+
+  it("projects the three drill levels with ring, containment, and transit markers", () => {
+    const adapter = new HolonicAdapter(dataset);
+
+    // Holarchy: opaque holons, portals as edges.
+    const holarchy = adapter.projectToLPG();
+    expect(holarchy.nodeCount).toBe(2);
+
+    // Boundary: ringed holon + exposed node + external stub; the
+    // hidden interior node (bus) does not appear.
+    const boundary = adapter.projectHolonBoundary(dataset.holons[0]!);
+    expect(boundary.getNode("space")?.properties._boundaryRing).toBe(true);
+    expect(boundary.getNode("comms")?.properties._exposed).toBe(true);
+    expect(boundary.hasNode("bus")).toBe(false);
+    let containment = 0;
+    let transit = 0;
+    boundary.forEachEdge((_id, attrs) => {
+      if (attrs.type === HolonicAdapter.BOUNDARY_CONTAINMENT_EDGE)
+        containment++;
+      if (attrs.properties._portalTransit === true) transit++;
+    });
+    expect(containment).toBe(1);
+    expect(transit).toBe(1);
+
+    // Interior: the fully open flat LPG.
+    expect(adapter.projectHolonInterior(dataset.holons[0]!).nodeCount).toBe(2);
+  });
+
+  it("registers drill items the host consumes to swap the canvas UGM", () => {
+    const adapter = new HolonicAdapter(dataset);
+    const menuManager = new ContextMenuManager();
+    const opened: string[] = [];
+    registerHolonDrillItems(adapter, menuManager, (level, holon) => {
+      opened.push(`${level}:${holon.id}`);
+    });
+
+    const items = menuManager.resolve({
+      type: "node",
+      id: "space",
+      position: { x: 0, y: 0 },
+    });
+    items
+      .find((i) => i.id === "open-holon-boundary")
+      ?.action({ type: "node", id: "space", position: { x: 0, y: 0 } });
+    expect(opened).toEqual(["boundary:space"]);
+  });
+});
+
+describe("wiring guide: rdf 1.2 hyperarcs", () => {
+  const EX = "http://example.org/sat#";
+  const XSD = "http://www.w3.org/2001/XMLSchema#";
+  const uri = (l: string): RdfTerm & { type: "uri" } => ({
+    type: "uri",
+    value: `${EX}${l}`,
+  });
+  const lit = (v: string, dt?: string): RdfTerm => ({
+    type: "literal",
+    value: v,
+    ...(dt ? { datatype: `${XSD}${dt}` } : {}),
+  });
+  const quote = (
+    s: RdfTerm,
+    p: RdfTerm,
+    o: RdfTerm,
+  ): RdfTerm & { type: "triple" } => ({
+    type: "triple",
+    value: { subject: s, predicate: p, object: o },
+  });
+
+  const massFact = quote(uri("aquila1"), uri("hasMass"), lit("950", "decimal"));
+  const rows: TripleTermAnnotation[] = [
+    { stmt: massFact, ann: uri("statedBy"), val: uri("engineering") },
+    { stmt: massFact, ann: uri("confidence"), val: lit("0.9", "decimal") },
+    // Nested review OF the mass-confidence assertion — only the
+    // hyperarc render can express it.
+    {
+      stmt: quote(
+        quote(massFact, uri("confidence"), lit("0.9", "decimal")),
+        uri("reviewedBy"),
+        uri("qa"),
+      ),
+      ann: uri("statedBy"),
+      val: uri("qa"),
+    },
+  ];
+
+  it("hyperarc render reifies each unique « s p o » to a diamond pseudo-node", () => {
+    const ugm = projectTripleTermsAsHyperarcs(rows);
+    const stmts = ugm
+      .getNodeIds()
+      .filter((id) => ugm.getNode(id)?.types.includes("_Statement"));
+    // massFact + outer review + inner (mass, confidence 0.9) = 3
+    expect(stmts.length).toBe(3);
+    for (const s of stmts) {
+      expect(ugm.getNode(s)?.properties[RDF_STATEMENT_FLAG]).toBe(true);
+    }
+    // Numeric confidence folds onto the statement node for opacity.
+    const confidences = stmts
+      .map((s) => ugm.getNode(s)?.properties._confidence)
+      .filter((c): c is number => typeof c === "number");
+    expect(confidences).toContain(0.9);
+  });
+
+  it("edge render emits one dashed `star` edge per annotation row", () => {
+    const ugm = projectTripleTermsAsEdges(rows);
+    let stars = 0;
+    ugm.forEachEdge((_id, attrs) => {
+      if (attrs.type === STAR_EDGE_TYPE) stars++;
+    });
+    expect(stars).toBe(rows.length);
   });
 });

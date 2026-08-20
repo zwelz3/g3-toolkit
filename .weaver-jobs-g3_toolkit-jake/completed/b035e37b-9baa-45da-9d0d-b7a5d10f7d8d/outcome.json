@@ -1,0 +1,28 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/brief-14-rdf-1-2-hyperarc-demo-shipped-cb67e98b",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/sparql-adapter-triple-term-render-gap-be23e423",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/cytoscape-data-mapped-style-selector-scoping-0980f3cb"
+  ],
+  "commit_shas": ["67e6b8b940933dc9f6c6ac8a867b3b07e5358afb"],
+  "files_changed": [
+    "packages/core/src/projection/hyperarc.ts",
+    "packages/core/src/projection/hyperarc.test.ts",
+    "packages/core/src/projection/index.ts",
+    "packages/core/src/index.ts",
+    "src/demo/rdf12/rdf12.ts",
+    "src/demo/rdf12/rdf12.test.ts",
+    "src/demo/rdf12/Rdf12Shell.tsx",
+    "src/demo/rdf12/constellation.trig",
+    "src/demo/rdf12/constellation-reified.ttl",
+    "src/demo/Demo.tsx",
+    "src/demo/DemoLanding.tsx",
+    "src/demo/DemoLanding.test.tsx",
+    "docs/wiring-guide.md",
+    "examples/wiring/src/wiring-examples.test.tsx"
+  ],
+  "summary": "brief 14: shipped RDF 1.2 hyperarc + edge projections in @g3t/core, standalone playground shell as separate capability card, .trig/.ttl data twin (pyoxigraph 0.5.9 verified), wiring guide section + CI-executable twin. Gates: typecheck+lint+1644 unit tests+exports+treeshake+snippets+bundle-ledger+docs green; verify:types pre-existing failure unrelated to changes (needs pnpm build:packages which sandbox cannot run).",
+  "duration_min": 25,
+  "blockers": []
+}

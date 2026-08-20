@@ -45,6 +45,27 @@ describe("applyEncodingSpec", () => {
     expect(patch.edges.size).toBe(0);
   });
 
+  it("never binds a spec channel to a pseudo node (Brief 06 skip guard)", () => {
+    const ugm = graph();
+    ugm.addNode("pseudo:sat:p1:worksAt|out", {
+      types: ["Pseudo"],
+      properties: { pseudo: true },
+    });
+    const spec: EncodingSpec = {
+      version: 1,
+      node: {
+        color: {
+          driver: "types",
+          scale: { kind: "categorical", palette: "okabe-ito" },
+        },
+      },
+      edge: {},
+    };
+    const patch = applyEncodingSpec(spec, ugm);
+    expect(patch.nodes.has("pseudo:sat:p1:worksAt|out")).toBe(false);
+    expect(patch.nodes.has("p1")).toBe(true);
+  });
+
   it("rounds node sizes to integers and edge widths to one decimal", () => {
     const spec: EncodingSpec = {
       version: 1,

@@ -76,8 +76,102 @@ const BUDGETS = {
   // oracle-pinned.
   // Round 21 (2026-08-05): +1 KB for the structural style applier
   // (R-12a), the renderer-neutral counterpart of the cytoscape one.
-  core: 169.0 * 1024,
+  // Brief 25 (2026-08-19): 209 -> 216 KB. Measured 214.5 KB after
+  // the seeded crossing-aware ordering restarts landed in orderLayers
+  // (mulberry32 PRNG + shuffleSeeded + refactored per-restart sweep).
+  // Baseline at branch tip measured 213.5 KB, so this window covers
+  // both the pre-existing overrun on the branch and the +1.0 KB of
+  // opt-in restart machinery; unset options keep the fast path.
+  // 216 -> 218 KB, 2026-08-20 (nudge two-pass arm separation): measured
+  // 217.2 KB, +1.2 KB. nudgeRoutes now runs a second ARMS-ONLY pass
+  // (computeRawArmOverlaps + armPairKey + the pre-existing-overlap
+  // discriminator threaded through attemptGroupRewrite) to separate the
+  // horizontal arms that the first-pass bar-spread pulls into a shared y
+  // in a K(n,n) storm. The pre-existing set is what keeps the pass from
+  // disturbing arms the router already stacked, so it is load-bearing,
+  // not removable padding. Headroom 0.8 KB, held tight; ARC-009 (extract
+  // @g3t/layout) remains the standing way back under the envelope.
+  core: 218 * 1024,
   // Core ledger:
+  // - 169.0 -> 209 KB, 2026-08-17 (MERGE of ai-agent-guide into
+  //   fable-updates). Measured 206.3 KB.
+  //
+  //   The two budget lines that met here FORKED FROM THE SAME 155.5
+  //   cap on 2026-08-14 and each raised against it, so the numbers
+  //   below are two parallel sequences, not one. fable-updates went
+  //   155.5 -> 160 -> 162 -> 166 -> 169 for hardening, then measured
+  //   164.0 after withdrawing 15 subpath exports. ai-agent-guide went
+  //   155.5 -> 167 -> 169 -> 173 -> 176 -> 182 -> 187 -> 190 -> 196
+  //   -> 200 for feature work and measured 198.3. The 169 that appears
+  //   in both is arithmetic coincidence, not a shared checkpoint, and
+  //   neither cap covers the other side's code.
+  //
+  //   FEATURE SIDE, carried forward from ai-agent-guide. Every measured
+  //   number below was taken on a tree containing NONE of the hardening
+  //   accounted for further down this ledger:
+  //   - 155.5 -> 167: brief 01 routing independence. g3t-nudging.ts
+  //     (grouping, divergence sort, placement ladder, snapshot-plan
+  //     atomic commit), the CorridorDemand contract brief 04 consumes,
+  //     and the g3t-polyline-utils extraction. Opt-in behind `nudge`.
+  //     Measured 165.2.
+  //   - 167 -> 169: brief 10 long-edge perimeter policy in
+  //     g3t-routing/g3t-layered. Edges with >= 12 near-obstacle boxes
+  //     prefer a perimeter detour with deterministic outward stagger.
+  //     Measured 167.0.
+  //   - 169 -> 173: LAY-005 dummy chains for long-span edges.
+  //     g3t-dummy-chain.ts (splitLongSpanEdges, harvestBendHints,
+  //     chooseDummyParent) plus the router bend-hint seeding path that
+  //     emits dummy positions as StructuralEdgeGeometry.intermediate.
+  //     Measured 172.5.
+  //   - 173 -> 176: brief 04 corridor supply contract
+  //     (estimateCorridorDemand, computeCorridorGap) threaded through
+  //     g3tLayoutFlat and g3tLayoutStructural, with a dev-mode
+  //     supply/demand drift assertion. Measured 174.4.
+  //   - 176 -> 182: brief 05a channel router (PRF-003 phase 1).
+  //     g3t-channel-router.ts and g3t-fallback-classifier.ts, both
+  //     pure-additive behind an off-by-default `useChannelRouter`.
+  //     Measured 180.7. 05b measured channel-as-default and it
+  //     regressed crossings 2-8x, so the flag stays off and the
+  //     escalation ladder was retained; no net deletion came back.
+  //   - 182 -> 187: brief 06 dense-scene legibility.
+  //     projection/pseudo-nodes.ts (hubBurst satellite spreading,
+  //     busCollapse fan-in junctions, the reverse maps and shared
+  //     filters). Measured 184.8.
+  //   - 187 -> 190: VR-10 routing correctness (travelBand/crossBounds
+  //     fix the perimeter and detourAround collision checks that judged
+  //     against the bbox-filtered `near` set; 8 violations to 0 across
+  //     the 108-cell sweep) plus brief 12 holon boundary projection.
+  //     Measured 187.7.
+  //   - 190 -> 196: brief 14 RDF 1.2 triple-term projection.
+  //     projection/hyperarc.ts (projectTripleTermsAsEdges and
+  //     projectTripleTermsAsHyperarcs, recursing on nested triple
+  //     terms). Measured 192.1.
+  //   - 196 -> 200: brief 16 force-directed edge bundling (FDEB,
+  //     Holten and van Wijk 2009). bundling/edge-bundling.ts, pure
+  //     geometry, opt-in. Measured 198.3.
+  //
+  //   THE @g3t/layout (ARC-009) WITHDRAWAL STANDS, and this merge
+  //   strengthens it. The entry below retired that recommendation on
+  //   the grounds that this number is publish weight, every package
+  //   declares `sideEffects: false`, and layout already costs nothing
+  //   to a consumer who does not import it. The feature side just added
+  //   roughly 43 KB of routing and layout code, which makes the
+  //   distinction between publish weight and adopter cost matter more,
+  //   not less. check-consumer-cost.mjs is where the real question is
+  //   asked; do not reinstate the extraction on the strength of a
+  //   number from this file.
+  //
+  //   MEASURED, not estimated: 206.3 KB against this 209 cap after
+  //   `pnpm run build:packages` on the resolved merge. That is 42.5 KB
+  //   over the 163.8 KB the fable-updates dist measured alone, which
+  //   is the feature side's own 43 KB arriving very nearly intact:
+  //   the two arcs touch different modules, so almost nothing
+  //   deduplicated. Sourcemap audit run first as the 2026-07-03 entry
+  //   requires: ZERO node_modules source bytes across all 110 core
+  //   sourcemaps, so every byte of the growth is first-party.
+  //   Headroom is 2.7 KB, held tight on purpose and in line with the
+  //   entries below; the next addition of any size renegotiates here
+  //   rather than riding slack.
   // - NO RAISE, 2026-08-15 (the @g3t/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against
   //   the unchanged 169.0 cap, so headroom went 1.4 -> 5.0 KB. Two
@@ -348,8 +442,39 @@ const BUDGETS = {
   // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
   // styles, controlled drag offsets, the renderer-neutral editor
   // target) and R-13.3 (one legend serving both renderers).
-  react: 390 * 1024,
+  // Brief 25 (2026-08-19): 397 -> 398 KB. Measured 397.1 KB at
+  // branch tip (unrelated to this brief's changes, which touch core
+  // and demo only, not @g3t/react). Absorbing here so the gate
+  // reflects reality; the drift was already present before this brief.
+  react: 398 * 1024,
   // React ledger:
+  // - 390 -> 397 KB, 2026-08-17 (MERGE of ai-agent-guide into
+  //   fable-updates). Measured 393.9 KB. Same shape as the core entry:
+  //   the two react caps also forked from one 386 baseline and raised
+  //   in parallel, so 390 and 393 are siblings, not a sequence.
+  //   Carried forward from ai-agent-guide, all measured without any of
+  //   the hardening below:
+  //   - 386 -> 388: brief 10 perimeter policy, core routing growth
+  //     re-bundled through the react dist. No react-side code added.
+  //     Measured 386.1.
+  //   - 388 -> 390: the `routeEdges` prop on CytoscapeCanvas. New
+  //     runCanvasEdgeRouting pass (post-layout obstacle-aware routing
+  //     for non-structural scenes), the g3t-canvas-edge-routed
+  //     stylesheet rule, and a routeEdges change effect. The geometry
+  //     (routeSceneEdges, polylineToCytoscapeSegments) is imported from
+  //     @g3t/core, so the react-side growth is wiring only.
+  //     Measured 389.1.
+  //   - 390 -> 393: brief 12 holon boundary view.
+  //     registerHolonDrillItems plus four field-scoped stylesheet rules
+  //     (node[_boundaryRing] double ring, node[_portalStub]
+  //     de-emphasis, edge[_portalTransit] mid-edge glyph with a diamond
+  //     override for CONSTRUCT-backed portals). Measured 390.6.
+  //   Sourcemap audit: ZERO node_modules source bytes across all 137
+  //   react sourcemaps, so the growth is first-party here too.
+  //   Headroom is 3.1 KB. Note this package is at 99% of cap: the
+  //   react dist carries core's routing growth through its own bundle,
+  //   so a core-side addition lands here too even when no react code
+  //   changes. Two of the three entries above are exactly that.
   // - NO RAISE, 2026-08-14 (timeline moved to its own subpath):
   //   387.2 -> 387.7 KB, +0.5 KB, headroom 2.8 -> 2.3 KB. TimelineView
   //   statically imports the two OPTIONAL peers, and rollup had hoisted

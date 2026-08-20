@@ -1,0 +1,22 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/prf-003-05a-channel-router-lands-as-additive-slice-behind-of-afb74bfd",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/routestructuraledges-caller-re-audit-05a-5-call-sites-hold-3d4e0f2c",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/pnpm-store-db-is-on-a-read-only-filesystem-in-the-weaver-sa-8a0e1b73"
+  ],
+  "commit_shas": ["b803d47"],
+  "files_changed": [
+    "packages/core/src/index.ts",
+    "packages/core/src/layout/index.ts",
+    "packages/core/src/layout/g3t-engine/g3t-routing.ts",
+    "packages/core/src/layout/g3t-engine/g3t-channel-router.ts",
+    "packages/core/src/layout/g3t-engine/g3t-channel-router.test.ts",
+    "packages/core/src/layout/g3t-engine/g3t-fallback-classifier.ts",
+    "packages/core/src/layout/g3t-engine/g3t-fallback-classifier.test.ts"
+  ],
+  "summary": "05a: channel router + fallback classifier land as pure additive modules behind off-by-default useChannelRouter flag on routeStructuralEdges; 17 new unit oracles green, 1568 total tests pass, typecheck+eslint+3 spec scripts exit 0",
+  "duration_min": 12,
+  "blockers": [],
+  "notes": "pnpm-driven gates (pnpm run gates / verify / bundle check) not runnable in this sandbox because ~/.local/share/pnpm/store is on a read-only filesystem; ran node_modules/.bin/{tsc,eslint,vitest} + python3 scripts/{lint_specs,sync_spec_status,check_roadmap_coverage}.py directly instead. Bundle-ledger note deferred until a foreground rerun can build; the additive slice is two small files (~380 LOC combined) reachable via imports."
+}

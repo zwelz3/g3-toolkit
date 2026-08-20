@@ -47,6 +47,7 @@ function surfaceVisibleHere(id: string): boolean {
   }
   if (id === "scale") return !import.meta.env.DEV;
   if (id === "style-lab") return import.meta.env.DEV;
+  if (id === "routing-explain") return import.meta.env.DEV;
   return true;
 }
 
@@ -85,6 +86,39 @@ export const CAPABILITY_SURFACES: Scenario[] = [
     tags: ["StyleEngine", "parity oracle", "LOD schedule"],
   },
   {
+    id: "routing-lab",
+    title: "Routing Lab",
+    subtitle: "Hard edge-routing scenarios, graded live",
+    description:
+      "Adversarial structural graphs built to stress the layered engine's orthogonal edge routing: long-span edges over populated layers, complete bipartite crossing storms (single and double), obstacle fields past the router's 64-box prune threshold, whole rails of back edges, wrong-way ports, and interlocking cycles. Per-edge colors plus hover/click tracing keep one line followable through the crossings, and every laid-out scene is graded live: routed coverage, crossings, bends, and hard box violations.",
+    accent: "#fb7185",
+    accentGlow: "rgba(251, 113, 133, 0.15)",
+    icon: "⎇",
+    tags: ["layoutStructural", "edge routes", "quality metrics"],
+  },
+  {
+    id: "rdf12-hyperarcs",
+    title: "RDF 1.2 Hyperarcs",
+    subtitle: "Quoted triples as pseudo-nodes vs annotation edges",
+    description:
+      "A spacecraft constellation authored in RDF 1.2 triple-term syntax: each base fact is a quoted triple annotated with who stated it, how confident they are, and when it was recorded. A live toggle switches between two projections of the same rows — a diamond `_Statement` pseudo-node with rdf:subject/object arcs (the only shape that survives nested `« « … » p o »`), and the haunt g-xplore convention of one dashed `star` edge per annotation. Confidence drives edge/node opacity in both.",
+    accent: "#38bdf8",
+    accentGlow: "rgba(56, 189, 248, 0.15)",
+    icon: "≪",
+    tags: ["RDF 1.2", "triple terms", "hyperarc", "holon"],
+  },
+  {
+    id: "legibility",
+    title: "Legibility Lab",
+    subtitle: "Hub burst, bus collapse, and holon boundary",
+    description:
+      "The smallest graphs that make each spreading device readable at a glance. Toggle raw vs spread to watch a 14-degree hub collapse into two grouped satellites, six like edges converge through one trunk (with a below-threshold group visibly staying direct), and a two-holon dataset render its boundary ring with a single exposed node the portal transits through.",
+    accent: "#22d3ee",
+    accentGlow: "rgba(34, 211, 238, 0.15)",
+    icon: "◐",
+    tags: ["hubBurst", "busCollapse", "holon boundary"],
+  },
+  {
     id: "ontology-workbench",
     title: "Ontology Workbench",
     subtitle: "Protege-style browsing, SHACL, SPARQL, and a demo reasoner",
@@ -94,6 +128,17 @@ export const CAPABILITY_SURFACES: Scenario[] = [
     accentGlow: "rgba(112, 72, 232, 0.15)",
     icon: "\u2726",
     tags: ["RDFS-plus", "SHACL", "SPARQL", "import"],
+  },
+  {
+    id: "routing-explain",
+    title: "Routing Explained",
+    subtitle: "Flow diagram of the scene-router decision logic",
+    description:
+      "A didactic surface showing how the scene router decides between a straight bezier and an orthogonal A* detour. A structural flow diagram documents the direct-unless-crossing gate, the three user-facing modes (Direct, Orthogonal, Off), and where the structural/MBSE engine sits separately. A live canvas lets you flip the mode and watch two edges change in real time.",
+    accent: "#a3e635",
+    accentGlow: "rgba(163, 230, 53, 0.15)",
+    icon: "\u2933",
+    tags: ["routeEdges", "A* router", "direct-unless-crossing"],
   },
 ];
 
@@ -359,6 +404,59 @@ export function DemoLanding({
             </svg>
             Source on GitHub
           </a>
+        </div>
+        {/* A33: adopter + AI-agent guides surfaced on the landing page
+            so a visitor (or an agent pointed at the playground) finds
+            the integration docs without spelunking the repo. */}
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            justifyContent: "center",
+            flexWrap: "wrap",
+            gap: 14,
+          }}
+        >
+          {[
+            [
+              "Wiring guide",
+              "https://github.com/zwelz3/g3-toolkit/blob/main/docs/wiring-guide.md",
+              "landing-wiring-guide-link",
+            ],
+            [
+              "AI guide (llms.txt)",
+              "https://github.com/zwelz3/g3-toolkit/blob/main/llms.txt",
+              "landing-llms-link",
+            ],
+            [
+              "Agent guide (AGENTS.md)",
+              "https://github.com/zwelz3/g3-toolkit/blob/main/AGENTS.md",
+              "landing-agents-link",
+            ],
+          ].map(([label, href, testid]) => (
+            <a
+              key={testid}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              data-testid={testid}
+              style={{ color: "#94a3b8", textDecoration: "none" }}
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+        <div
+          data-testid="landing-version"
+          style={{
+            marginTop: 18,
+            fontFamily: "var(--g3t-font-mono, monospace)",
+            fontSize: 11,
+            color: "#334155",
+            letterSpacing: "0.04em",
+          }}
+        >
+          V{__APP_VERSION__}
         </div>
       </div>
     </div>

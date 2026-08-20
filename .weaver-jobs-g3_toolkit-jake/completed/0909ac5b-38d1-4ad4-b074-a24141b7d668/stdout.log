@@ -1,0 +1,8 @@
+Brief 21 landed. Summary:
+
+- **Extended `nudgeRoutes`** so arm segments (first/last of a polyline) become grouping candidates alongside bars. Arms cannot translate — placement inserts a jog via `anchor → stub → bend → run to far bend → rejoin`, preserving anchor coordinates byte-identically.
+- **Ordering**: bars first (translates don't shift indices), then arms in descending max-segIndex per group so lower-index arm splices are unaffected. `attemptGroupRewrite` now seeds from accumulated `committed` state instead of `normalized`.
+- **Short-arm skip**: `armAlongExtent < 2*trackGap` excluded from movable pool.
+- **Atomicity contract preserved**: existing box + crossing-no-worse checks handle the Z-route case where b's arm-run would cross a's translated bar — the group reverts with `blockedReason="reverted"`.
+- **Tests**: 5 new (Z-route bars-only w/ arm revert, V-H-V diverging arms both jog, anchor preservation, idempotence with corridor-sized obstacles, short-arm skip). 15/18 pass; the 3 fails are the pre-existing "only moves what is actually crowded" set the brief enumerates.
+- **Bundle unchanged** (208.6 KB core). No ledger entry needed. Local commit `df960e0` on `docs/ai-agent-guide` — no push, no PR per owner rule.

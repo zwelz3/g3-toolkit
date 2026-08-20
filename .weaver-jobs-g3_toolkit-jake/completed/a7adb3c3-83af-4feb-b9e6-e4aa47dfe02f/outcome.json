@@ -1,0 +1,9 @@
+{
+  "outcome": "success",
+  "atoms_emitted": ["https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/folded-overnight-sanity-redline-into-08-renderer-independenc-0072b75f"],
+  "commit_shas": ["0d7b29b"],
+  "files_changed": ["planning/orchestrate-routing-independence/08-renderer-independence-brief.md"],
+  "summary": "Folded 3 blocking + 9 warning sanity findings into 08-renderer-independence-brief; committed and pushed",
+  "duration_min": 5,
+  "blockers": []
+}

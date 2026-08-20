@@ -57,6 +57,13 @@ describe("the categorical palettes are distinct values with distinct names", () 
     expect(CANVAS_CATEGORICAL).toBe(OKABE_ITO_COLORS);
   });
 
+  // 30 s, not the 5 s default: this test is IMPORT-BOUND. It pulls in
+  // four react barrels, and `./index` alone transitively reaches most
+  // of the package, transpiled on the fly. It crossed the default on
+  // ordinary hardware once the 2026-08-17 merge grew the barrel. The
+  // cost is the point of the test (it must resolve the REAL barrels to
+  // see what they export), so the clock moves rather than the
+  // assertion. A genuine hang still fails.
   it("no react entry point exports the name OKABE_ITO", async () => {
     // The collision would come back the moment a barrel re-exported
     // the canvas palette under core's name again.
@@ -77,5 +84,5 @@ describe("the categorical palettes are distinct values with distinct names", () 
         ).toEqual(OKABE_ITO);
       }
     }
-  });
+  }, 30_000);
 });

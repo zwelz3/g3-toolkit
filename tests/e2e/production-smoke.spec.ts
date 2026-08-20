@@ -19,6 +19,7 @@ const EXAMPLES: { title: string; toolbar: boolean }[] = [
   // exposes it, so the smoke still checks its chunk in prod.
   { title: "Style Lab", toolbar: false },
   { title: "Ontology Workbench", toolbar: true },
+  { title: "Routing Lab", toolbar: false },
   { title: "Provenance Auditor", toolbar: false },
   { title: "MBSE Satellite Workbench", toolbar: false },
   { title: "Biomedical Knowledge Graph", toolbar: false },

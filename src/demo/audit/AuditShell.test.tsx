@@ -33,6 +33,9 @@ const captured = vi.hoisted(() => ({
       }) => void;
     }>;
   }>,
+  routeRefreshSignal: [] as Array<number | undefined>,
+  relayoutSignal: [] as Array<number | undefined>,
+  edgeClickIsolate: [] as Array<boolean | undefined>,
 }));
 
 vi.mock("@g3t/react", async (importOriginal) => {
@@ -43,9 +46,15 @@ vi.mock("@g3t/react", async (importOriginal) => {
       ugm: UGM;
       hidden?: ReadonlySet<string>;
       menuManager?: (typeof captured.menuManagers)[number];
+      routeRefreshSignal?: number;
+      relayoutSignal?: number;
+      edgeClickIsolate?: boolean;
     }) => {
       captured.hidden.push(props.hidden);
       if (props.menuManager) captured.menuManagers.push(props.menuManager);
+      captured.routeRefreshSignal.push(props.routeRefreshSignal);
+      captured.relayoutSignal.push(props.relayoutSignal);
+      captured.edgeClickIsolate.push(props.edgeClickIsolate);
       return <div data-testid="canvas-stub" />;
     },
   };
@@ -59,6 +68,9 @@ import { useSelectionStore, useOverlayStore } from "@g3t/react";
 beforeEach(() => {
   captured.hidden.length = 0;
   captured.menuManagers.length = 0;
+  captured.routeRefreshSignal.length = 0;
+  captured.relayoutSignal.length = 0;
+  captured.edgeClickIsolate.length = 0;
 });
 afterEach(() => {
   useSelectionStore.getState().selectNodes([]);
@@ -172,6 +184,17 @@ describe("AuditShell slider-to-graph wiring", () => {
     expect(useOverlayStore.getState().activeIds).toContain("prov.violations");
     fireEvent.click(screen.getByTestId("au-ov-violations"));
     expect(useOverlayStore.getState().activeIds).toHaveLength(0);
+  });
+
+  it("refresh-routes / re-layout buttons bump their signal props; edge isolate is on", () => {
+    render(<AuditShell onBack={() => {}} />);
+    const startRoute = captured.routeRefreshSignal.at(-1) ?? 0;
+    const startRelayout = captured.relayoutSignal.at(-1) ?? 0;
+    expect(captured.edgeClickIsolate.at(-1)).toBe(true);
+    fireEvent.click(screen.getByTestId("au-refresh-routes"));
+    expect(captured.routeRefreshSignal.at(-1)).toBe(startRoute + 1);
+    fireEvent.click(screen.getByTestId("au-relayout"));
+    expect(captured.relayoutSignal.at(-1)).toBe(startRelayout + 1);
   });
 
   it("play sweeps the window end forward and pauses (6.3)", () => {

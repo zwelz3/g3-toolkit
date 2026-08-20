@@ -1,6 +1,6 @@
 {
   "name": "@g3t/core",
-  "version": "1.0.0",
+  "version": "1.0.0-rc007",
   "description": "Framework-agnostic graph data model, adapters, and algorithms for the g3-toolkit.",
   "type": "module",
   "module": "./dist/index.mjs",

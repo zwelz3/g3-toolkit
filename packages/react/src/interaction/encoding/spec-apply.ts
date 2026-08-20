@@ -20,6 +20,7 @@
  */
 
 import type { UGM } from "@g3t/core";
+import { isPseudoNode } from "@g3t/core";
 import { getIcon } from "../../icons";
 import {
   makeColorResolver,
@@ -149,6 +150,10 @@ export function applyEncodingSpec(spec: EncodingSpec, ugm: UGM): EncodingPatch {
 
   const nodes = new Map<string, NodeVisualPatch>();
   ugm.forEachNode((id, attrs) => {
+    // The attribute-mapper never binds visual channels to pseudo nodes
+    // (Brief 06): satellites/junctions carry their own direct-property
+    // styling, but the spec-driven channels are for real elements only.
+    if (isPseudoNode(attrs)) return;
     const patch: NodeVisualPatch = {};
     if (nodeColor) {
       const c = nodeColor(attrs);

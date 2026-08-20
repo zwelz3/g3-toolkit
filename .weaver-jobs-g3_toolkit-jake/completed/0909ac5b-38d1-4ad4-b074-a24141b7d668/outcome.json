@@ -1,0 +1,13 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/brief-21-arm-jog-separation-on-both-axes-of-z-routes-116d481d",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/brief-21-arm-jog-vs-sibling-bar-crossing"
+  ],
+  "commit_shas": ["df960e015f0396fc4d6789dc455de7bced215564"],
+  "files_changed": [
+    "packages/core/src/layout/g3t-engine/g3t-nudging.ts",
+    "packages/core/src/layout/g3t-engine/g3t-nudging.test.ts"
+  ],
+  "summary": "brief 21: nudge now separates both axes of Z-routes via arm-jog splicing (bars first, arms hi-to-lo splice, anchor byte-identical); 646/649 core tests pass (3 pre-existing reds allowed), bundle unchanged, local commit df960e015f03 on docs/ai-agent-guide"
+}

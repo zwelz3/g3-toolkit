@@ -230,6 +230,15 @@ export interface StructuralLayoutOptions extends G3tEngineTuning {
    */
   routeEdges?: boolean;
   /**
+   * Parallel-run separation post-pass. Groups coincident parallel
+   * interior segments emitted by `routeStructuralEdges` into
+   * corridors and distributes them across distinct tracks. Currently
+   * OPT-IN (default false); the brief mandates a follow-up flip to
+   * default true, gated on a same-PR baseline re-pin of every
+   * affected snapshot/geometry test.
+   */
+  nudge?: boolean;
+  /**
    * Prior TOP-LEVEL positions: a layout sketch (G3L:LAY-017; the
    * ruled 12.20 experiment graduated). When present and non-empty,
    * the run switches ELK layered's cycle-breaking, layering, and
@@ -264,7 +273,11 @@ export interface StructuralLayoutOptions extends G3tEngineTuning {
  * that no longer runs, which is the part that made them worse than
  * absent. A host driving its own ELK through buildStructuralElkGraph
  * still sets these, on the returned graph's layoutOptions, where they
- * reach the engine that honors them. */
+ * reach the engine that honors them.
+ *
+ * `nudge` above is NOT in this bucket and should not be re-audited into
+ * it: it is a boolean branch the g3t engine reads directly
+ * (g3t-structural.ts and g3t-routing.ts), not an `elk.*` pass-through. */
 
 /* Expand/collapse was removed by ruling (2026-07-10); see
  * planning/expand-collapse-postmortem.md before reintroducing any
@@ -306,6 +319,15 @@ export interface StructuralPortGeometry {
  */
 export interface StructuralEdgeGeometry {
   points: { x: number; y: number }[];
+  /**
+   * LAY-005 (owner Jake, 2026-08-14): ordered dummy-chain bend hints
+   * for edges the layered pass split into a chain of pseudo nodes
+   * (long-span edges spanning k>1 layers). Points are ABSOLUTE and
+   * ordered source-to-target. Present only when the layered pass
+   * produced hints AND the edge was not perimeter-routed. Downstream
+   * `.points` consumers can ignore this: `points` is the drawn route.
+   */
+  intermediate?: { x: number; y: number }[];
 }
 
 /**
@@ -735,13 +757,28 @@ function layoutOptionsKey(options?: StructuralLayoutOptions): string {
     spacing: options?.spacing ?? 60,
     layerSpacing: options?.layerSpacing ?? (options?.spacing ?? 60) + 20,
     routeEdges: options?.routeEdges ?? true,
+    nudge: options?.nudge ?? false,
     g3t: {
       layering: options?.layering ?? "network-simplex",
       layerWidth: options?.layerWidth ?? 8,
       placement: options?.placement ?? "brandes-koepf",
       layeringBudgetMs: options?.layeringBudgetMs ?? 80,
       orderingBudgetMs: options?.orderingBudgetMs ?? 60,
+      // Seeded crossing-aware restarts (opt-in). null keeps the
+      // serialized key stable when unset, so the default single-pass
+      // behavior shares its cache entry with previously-run inputs.
+      orderSeed: options?.orderSeed ?? null,
+      orderRestarts: options?.orderRestarts ?? null,
       routingBudgetMs: options?.routingBudgetMs ?? 80,
+      longEdgeNear: options?.longEdgeNear ?? 12,
+      // Participates in the key: changing the pitch changes the
+      // geometry, so a cached run under a different pitch is the
+      // wrong answer. `null` for "unset" keeps the serialized key
+      // stable rather than dropping the field.
+      anchorPitch: options?.anchorPitch ?? null,
+      // Both change geometry, so both must key the cache.
+      trackGap: options?.trackGap ?? null,
+      corridorMaxGapFactor: options?.corridorMaxGapFactor ?? null,
     },
     // Sketch participates in the memo key: a sketched re-layout of the
     // same input+options is a DIFFERENT computation from the

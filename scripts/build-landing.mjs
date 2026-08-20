@@ -106,6 +106,11 @@ const GATES = [
     line: `if (id === "style-lab") return import.meta.env.DEV;`,
     in: "dev",
   },
+  {
+    id: "routing-explain",
+    line: `if (id === "routing-explain") return import.meta.env.DEV;`,
+    in: "dev",
+  },
 ];
 for (const gate of GATES) {
   if (!landingSrc.includes(gate.line)) {

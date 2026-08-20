@@ -1,0 +1,13 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/folded-overnight-sanity-redline-into-06-dense-scene-legibili-390ff11c"
+  ],
+  "commit_shas": ["707f4d7"],
+  "files_changed": [
+    "planning/orchestrate-routing-independence/06-dense-scene-legibility-brief.md"
+  ],
+  "summary": "Folded 5 blocking sanity findings into 06-dense-scene-legibility-brief: hubBurst tie-breaking, LOD contract, JunctionMap, transforms.ts scope/rollback, encoding-spec guard mechanism",
+  "duration_min": 8,
+  "blockers": []
+}

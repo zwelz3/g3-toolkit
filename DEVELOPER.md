@@ -177,17 +177,25 @@ lint cannot tell you whether a selector matches anything.
 pnpm dev          # Opens at localhost:5173
 ```
 
-The landing page offers eight cards, each with a dedicated shell (there
+The landing page offers eleven cards, each with a dedicated shell (there
 is no generic fallback app any more): four scenario shells (Provenance
 Auditor, MBSE Satellite Workbench, Supply Chain Digital Thread,
-Biomedical Knowledge Graph) and four capability surfaces (Analytics
-Dashboard, Scale, Style Lab, Ontology Workbench). Two of the surfaces are
+Biomedical Knowledge Graph) and seven capability surfaces (Analytics
+Dashboard, Scale, Style Lab, Routing Lab, RDF 1.2 Hyperarcs, Legibility
+Lab, Ontology Workbench). Two of the surfaces are
 environment-gated in `src/demo/DemoLanding.tsx`: Style Lab is dev-only and Scale
-is production-only, both overridable with `?e2e=1`.
+is production-only, both overridable with `?e2e=1`, so each mode shows
+ten and not the same ten.
 
 Every shell is a lazy chunk, so the landing paints from a small bundle
 and a shell loads on selection. A failed chunk fetch is caught by a
-`ViewErrorBoundary` with a retry, not left to blank the page.
+`ViewErrorBoundary` with a retry, not left to blank the page. That is
+why `SHELL_MAP` in `src/demo/Demo.tsx` holds loader THUNKS rather than
+module-level `lazy()` calls: `React.lazy` caches a rejected import
+permanently, so a retry has to build a new lazy from the loader.
+`scripts/build-landing.mjs` cross-checks the register against that map
+in both directions and regenerates the surface list in
+`docs/landing.html`; `pnpm run verify:landing` fails if they drift.
 
 Demo code lives in `src/demo/` and is NOT part of the published package.
 

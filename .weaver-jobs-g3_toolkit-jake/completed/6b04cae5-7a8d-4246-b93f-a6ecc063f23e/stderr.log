@@ -1,0 +1,2 @@
+Permission allow rule (/home/jake/.claude/settings.json): Write(/GSystems/**) is not matched by file permission checks — only Edit(path) rules are. Use Edit(/GSystems/**) instead (Edit rules cover all file-editing tools).
+Permission allow rule (/home/jake/.claude/settings.json): Write(/home/jake/.claude/**) is not matched by file permission checks — only Edit(path) rules are. Use Edit(/home/jake/.claude/**) instead (Edit rules cover all file-editing tools).

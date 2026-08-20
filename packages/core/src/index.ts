@@ -40,7 +40,8 @@ export type {
 
 // ── Adapters ────────────────────────────────────────────────────────
 export type { GraphAdapter, SchemaModel } from "./adapter";
-export { SparqlAdapter } from "./adapter";
+export { SparqlAdapter, tripleTermToValue } from "./adapter";
+export type { RdfTerm, TripleTerm } from "./adapter";
 export { CypherAdapter } from "./adapter";
 export { HolonicAdapter } from "./adapter";
 export type { GremlinAdapterConfig } from "./adapter";
@@ -152,12 +153,46 @@ export type {
 } from "./projection";
 export { typeCollapse } from "./projection";
 export { createPresetPipeline } from "./projection";
+// Brief 06: projection-level pseudo-node spreading (dense-scene
+// legibility). UGM -> UGM transforms applied after projection.
+//
+// WITHDRAWN 2026-08-17 (merge review): filterPseudoNodes,
+// filterPseudoEdges, PSEUDO_FLAG, PSEUDO_CONNECTOR_TYPE and
+// PSEUDO_TRUNK_TYPE. Undocumented, and used by nothing outside
+// pseudo-nodes.ts itself; `isPseudoNode` is the one predicate a host
+// needs and it stays. Same class as the 2026-08-15 withdrawal. The
+// module and its tests stay in the tree.
+export { hubBurst, busCollapse, isPseudoNode } from "./projection";
+export type {
+  PseudoKind,
+  HubBurstOptions,
+  HubBurstResult,
+  HubBurstEdgeAssignment,
+  SatelliteMap,
+  BusCollapseOptions,
+  BusCollapseResult,
+  JunctionMap,
+} from "./projection";
 export type {
   PresetName,
   HolonicProjectionPipeline,
   ViewTarget,
   RenderRequest,
 } from "./projection";
+// Brief 14: RDF 1.2 triple terms as hyperarcs. Two pure UGM
+// projections over quoted-triple annotation rows (edges vs
+// pseudo-node reification), the pedagogical toggle in the RDF 1.2
+// playground shell.
+export {
+  projectTripleTermsAsEdges,
+  projectTripleTermsAsHyperarcs,
+  tripleLabel,
+  termLabel,
+  localName,
+  STAR_EDGE_TYPE,
+  RDF_STATEMENT_FLAG,
+} from "./projection";
+export type { TripleTermAnnotation } from "./projection";
 
 // ── Diff ────────────────────────────────────────────────────────────
 export { diffGraphs, computeSchemaHash } from "./diff";
@@ -195,6 +230,20 @@ export type {
   Position,
 } from "./layout";
 export type { IncrementalLayoutOptions } from "./layout/incremental-layout";
+// PRF-003 brief 05a: channel router additive slice (off-by-default
+// flag on routeStructuralEdges); 05b flips the flag on. Its four
+// runtime helpers were WITHDRAWN 2026-08-17; see the note in
+// ./layout/index.ts. The types ship from ./layout.
+export type {
+  Channel,
+  ChannelPlan,
+  ChannelEdge,
+  TrackAssignment,
+  FallbackNodeInfo,
+  FallbackEdge,
+  FallbackReason,
+  FallbackClassification,
+} from "./layout";
 // ── Layout quality metrics (G3L:QLT-002): the falsifiability oracle
 //    for engine comparisons and stability assertions ────────────────
 export type {
@@ -306,7 +355,21 @@ export { khopNeighborhood } from "./path-analysis/khop";
 export type { KhopOptions } from "./path-analysis/khop";
 export type { PathResult, PathOptions } from "./path-analysis";
 export * from "./export";
-export { collapseByCluster, buildSubgraph } from "./scale/collapse-by-cluster";
+export {
+  collapseByCluster,
+  buildSubgraph,
+  clusterBadgeText,
+} from "./scale/collapse-by-cluster";
+export {
+  bundleEdges,
+  bundledPolylineToSegments,
+} from "./bundling/edge-bundling";
+export type {
+  BundlingEdge,
+  BundleEdgesOptions,
+  BundleEdgesResult,
+  XY as BundlingPoint,
+} from "./bundling/edge-bundling";
 export type {
   CollapseByClusterOptions,
   CollapseResult,
@@ -323,6 +386,19 @@ export type {
   RouteSide,
   RouteTerminal,
 } from "./route/orthogonal-router";
+// WITHDRAWN 2026-08-17 (merge review): inferTerminalSides. An internal
+// step of routeSceneEdges, undocumented and called by nothing else.
+export {
+  routeSceneEdges,
+  polylineToCytoscapeSegments,
+} from "./route/route-scene-edges";
+export type {
+  SceneNodeBox,
+  SceneEdgeEndpoints,
+  RouteSceneOptions,
+  RouteSceneResult,
+  SceneRoutedEdge,
+} from "./route/route-scene-edges";
 export {
   applyChangeSet,
   invertChangeSet,
@@ -367,6 +443,13 @@ export {
 } from "./model/document-errors";
 export type { DocumentKind, DocumentErrorCode } from "./model/document-errors";
 export { layoutStructuralWithChangeSet } from "./layout/change-driven-layout";
+export { optimizePlacement } from "./layout/crossing-aware-placement";
+export type {
+  PlacementNode,
+  PlacementEdge,
+  OptimizePlacementOptions,
+  PlacementResult,
+} from "./layout/crossing-aware-placement";
 export type {
   ChangeDrivenLayoutResult,
   ChangeDrivenLayoutOptions,

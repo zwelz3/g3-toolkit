@@ -11,14 +11,30 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import type { UGM } from "@g3t/core";
 
-const canvasCalls = vi.hoisted(() => ({ nodeCounts: [] as number[] }));
+const canvasCalls = vi.hoisted(() => ({
+  nodeCounts: [] as number[],
+  stylesheets: [] as unknown[],
+  routeRefreshSignal: [] as Array<number | undefined>,
+  relayoutSignal: [] as Array<number | undefined>,
+  edgeClickIsolate: [] as Array<boolean | undefined>,
+}));
 
 vi.mock("@g3t/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@g3t/react")>();
   return {
     ...actual,
-    CytoscapeCanvas: (props: { ugm: UGM }) => {
+    CytoscapeCanvas: (props: {
+      ugm: UGM;
+      stylesheet?: unknown;
+      routeRefreshSignal?: number;
+      relayoutSignal?: number;
+      edgeClickIsolate?: boolean;
+    }) => {
       canvasCalls.nodeCounts.push(props.ugm.getNodeIds().length);
+      canvasCalls.stylesheets.push(props.stylesheet);
+      canvasCalls.routeRefreshSignal.push(props.routeRefreshSignal);
+      canvasCalls.relayoutSignal.push(props.relayoutSignal);
+      canvasCalls.edgeClickIsolate.push(props.edgeClickIsolate);
       return <div data-testid="canvas-stub" />;
     },
   };
@@ -30,6 +46,9 @@ import { useSelectionStore } from "@g3t/react";
 afterEach(() => {
   useSelectionStore.getState().selectNodes([]);
   cleanup();
+  canvasCalls.routeRefreshSignal.length = 0;
+  canvasCalls.relayoutSignal.length = 0;
+  canvasCalls.edgeClickIsolate.length = 0;
 });
 
 describe("BioShell SPARQL workbench", () => {
@@ -77,6 +96,28 @@ describe("BioShell SPARQL workbench", () => {
     expect(canvasCalls.nodeCounts.at(-1)).toBe(projectedCount);
   });
 
+  it("wraps labels by default and the switch toggles the wrap rule off", () => {
+    render(<BioShell onBack={() => {}} />);
+    const last = () =>
+      canvasCalls.stylesheets.at(-1) as
+        | { selector: string; style: Record<string, string> }[]
+        | undefined;
+    // Default ON: one node[label]-scoped wrap rule (restyle channel).
+    const rules = last();
+    expect(rules).toHaveLength(1);
+    expect(rules?.[0]?.selector).toBe("node[label]");
+    expect(rules?.[0]?.style["text-wrap"]).toBe("wrap");
+    const toggle = screen.getByTestId("bio-wrap-toggle");
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    // OFF must actually disable wrap (text-wrap: none), not merely
+    // fall back to the canvas base rule's default 110px wrap.
+    fireEvent.click(toggle);
+    expect(last()?.[0]?.style["text-wrap"]).toBe("none");
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(toggle);
+    expect(last()?.[0]?.style["text-wrap"]).toBe("wrap");
+  });
+
   it("carries the production-engine notice and the capability callout", () => {
     const { container } = render(<BioShell onBack={() => {}} />);
     expect(container.textContent).toContain("curated in-browser executor");
@@ -84,5 +125,16 @@ describe("BioShell SPARQL workbench", () => {
     expect(screen.getByTestId("capability-callout").textContent).toContain(
       "rdfToUgm",
     );
+  });
+
+  it("refresh-routes / re-layout buttons bump their signal props; edge isolate is on", () => {
+    render(<BioShell onBack={() => {}} />);
+    const startRoute = canvasCalls.routeRefreshSignal.at(-1) ?? 0;
+    const startRelayout = canvasCalls.relayoutSignal.at(-1) ?? 0;
+    expect(canvasCalls.edgeClickIsolate.at(-1)).toBe(true);
+    fireEvent.click(screen.getByTestId("bio-refresh-routes"));
+    expect(canvasCalls.routeRefreshSignal.at(-1)).toBe(startRoute + 1);
+    fireEvent.click(screen.getByTestId("bio-relayout"));
+    expect(canvasCalls.relayoutSignal.at(-1)).toBe(startRelayout + 1);
   });
 });

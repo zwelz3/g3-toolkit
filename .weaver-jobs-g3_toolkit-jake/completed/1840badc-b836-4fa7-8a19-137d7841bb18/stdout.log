@@ -1,0 +1,16 @@
+done: 1 atoms emitted; commit=470003e; folded 4 blockers
+
+**What was folded:**
+
+**Blocking (all 4):**
+1. **Logic-error: deletion ordering vs. independent-merge contradiction** -- Removed the imposed W3->W4->W2->W5->W1 sequence from the policy; replaced with explicit statement that no dispatch sequence is imposed, the ordering is advisory complexity guidance only, and reviewers must not hold any widget PR pending another's status.
+2. **W1 prerequisite enforcement gap** -- Added a concrete enforcement rule: W1 worker brief declares `depends_on: brief-08-merged` in YAML frontmatter; weaverd blocks submission; manual submission before dependency satisfaction is prohibited.
+3. **S1 audit deferred rather than gated** -- Promoted the audit to a formal prerequisite gate with a committed artifact in `planning/orchestrate-routing-independence/` required before W1 implementation is dispatched; implementation cannot start until audit artifact is committed.
+4. **W5 option unresolved** -- Resolved to option (a) (clean-room Turtle/JSON-LD subset reader) with explicit rationale; option (b) escalation path defined (log kb:Decision + update brief before proceeding -- cannot be decided silently at execution time).
+
+**Warnings (all 5 cheap ones):**
+- Pre-migration echarts behavioral fixture required before any assertion is rewritten (objective baseline, not self-certification)
+- `vis-data` scope grep-verified: exclusively `TimelineView.tsx:14`, no other import
+- Bundle ratchet scoped to post-deletion state; mid-PR states not subject to ratchet
+- Rollback policy added: failed sub-PR is closed, dep stays, dep deletion only ships with implementation in same merge unit
+- `assignLayers` (line 194) and `orderLayers` (line 270) verified exported from `g3t-layered.ts`; reference renders capture procedure specified

@@ -1,0 +1,16 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/crossing-aware-placement-optimizer-brief-22-ddeb963b"
+  ],
+  "commit_shas": ["1421f5a"],
+  "files_changed": [
+    "packages/core/src/layout/crossing-aware-placement.ts",
+    "packages/core/src/layout/crossing-aware-placement.test.ts",
+    "packages/core/src/index.ts",
+    "api-surface.json",
+    "planning/orchestrate-routing-independence/22-crossing-aware-placement-brief.md"
+  ],
+  "summary": "brief 22: optimizePlacement shipped in @g3t/core; 5 tests green; gates match documented pre-existing reds only",
+  "blockers": []
+}

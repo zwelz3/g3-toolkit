@@ -1,0 +1,26 @@
+{
+  "outcome": "success",
+  "atoms_emitted": [
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Decision/routingexplainshell-flow-diagram-uses-structural-engine-to-d-ef86caac",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Discovery/brief-19-core-uses-direct-unless-crossing-always-internally--bb548f12",
+    "https://forge.tail515200.ts.net/ontology/kb/g3_toolkit/Gotcha/demolanding-test-tsx-hardcodes-capability_surfaces-id-list-a-678b92f7"
+  ],
+  "commit_shas": ["5fb7f54b4340decfa5f7134238adeb5c0af19c2b"],
+  "files_changed": [
+    "src/demo/routing-explain/RoutingExplainShell.tsx",
+    "src/demo/routing-explain/RoutingExplainShell.test.tsx",
+    "src/demo/DemoLanding.tsx",
+    "src/demo/DemoLanding.test.tsx",
+    "src/demo/Demo.tsx",
+    "scripts/build-landing.mjs",
+    "docs/landing.html",
+    "CHANGELOG.md"
+  ],
+  "summary": "routing-explain DEV shell shipped: structural flow diagram + live canvas + 3-state mode select, 7 tests green",
+  "duration_min": 45,
+  "blockers": [
+    "pre-existing lint failures (58 errors in .verify-snippets/, SpecLegend.tsx, structural-svg-view.tsx, RoutingShell.tsx, StyleLabShell.tsx, ThreadShell.tsx) — not introduced by this brief; new routing-explain/ files are lint-clean",
+    "pre-existing verify failure: check-readme-snippets.mjs fails because <pre data-snippet=\"tsx\"> is formatted across lines in docs/landing.html (HTML_SNIPPET regex requires inline tag) — pre-dates this brief (confirmed via git stash)",
+    "pre-existing nudging test failures in g3t-nudging.test.ts (3 tests) — not introduced by this brief"
+  ]
+}

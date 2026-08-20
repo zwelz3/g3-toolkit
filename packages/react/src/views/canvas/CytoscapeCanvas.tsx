@@ -140,7 +140,16 @@ import {
 } from "./structural-to-cytoscape";
 import type { StructuralDecorations } from "./structural-to-cytoscape";
 import type { StructuralGraphInput, StructuralGeometry } from "@g3t/core";
-import { prefersReducedMotion } from "@g3t/core";
+import {
+  prefersReducedMotion,
+  routeSceneEdges,
+  polylineToCytoscapeSegments,
+  optimizePlacement,
+  type SceneEdgeEndpoints,
+  type SceneNodeBox,
+  type PlacementNode,
+  type PlacementEdge,
+} from "@g3t/core";
 
 export type CyStylesheet = cytoscape.StylesheetCSS | cytoscape.StylesheetStyle;
 
@@ -388,6 +397,11 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
       "font-size": "10px",
       "text-margin-y": 4,
       "min-zoomed-font-size": 8,
+      // Long labels (biomedical names, raw-triple literals) rendered on
+      // one unwrapped line collide with neighboring nodes' labels; wrap
+      // at a width close to the default node footprint instead.
+      "text-wrap": "wrap",
+      "text-max-width": "110px",
       // Bugfix 6: cartographic halo style - readable on light AND dark
       // backgrounds without per-theme branching
       color: "#e0e0e0",
@@ -421,6 +435,30 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
     style: {
       width: "data(_size)",
       height: "data(_size)",
+    } as any,
+  },
+  {
+    // Holon boundary ring (specs/05 boundary view): the annulus between
+    // the holon's interior and the outside is node STYLING, not extra
+    // graph elements. Double border reads as a ring on both plain and
+    // compound (containment-parent) holon nodes.
+    selector: "node[_boundaryRing]",
+    style: {
+      "border-width": 6,
+      "border-style": "double",
+      "border-color": "#c9a227",
+      "border-opacity": 0.9,
+    } as any,
+  },
+  {
+    // External holon stubs in the boundary view: de-emphasized so the
+    // published subgraph inside the ring carries the visual weight.
+    selector: "node[_portalStub]",
+    style: {
+      "background-opacity": 0.35,
+      "border-width": 1,
+      "border-style": "dashed",
+      "border-color": "#888",
     } as any,
   },
   {
@@ -472,12 +510,50 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
     } as any,
   },
   {
+    // Portal transit glyph (specs/05 boundary view): a mid-edge marker
+    // makes the point where a portal edge crosses the boundary ring
+    // legible. Position is wherever the router puts the edge; no anchor
+    // constraint solving. CONSTRUCT-backed portals get a distinct
+    // diamond via the [_hasConstruct] override below.
+    selector: "edge[_portalTransit]",
+    style: {
+      "mid-target-arrow-shape": "circle",
+      "mid-target-arrow-color": "#c9a227",
+      "arrow-scale": 1.2,
+      "line-style": "dashed",
+    } as any,
+  },
+  {
+    selector: "edge[_portalTransit][?_hasConstruct]",
+    style: {
+      "mid-target-arrow-shape": "diamond",
+    } as any,
+  },
+  {
     // Bugfix 21: bezier override for edges that need the curve.
     // ugmToCytoscapeElements sets _curveStyle = "bezier" for self-loops,
     // parallel multi-edges, and bidirectional pairs.
     selector: 'edge[_curveStyle = "bezier"]',
     style: {
       "curve-style": "bezier",
+    } as any,
+  },
+  {
+    // Post-layout obstacle-aware routing (routeEdges prop, non-structural
+    // scenes). Distinct class from the structural router's routed edges:
+    // structural rules carry SVG-overlay opacity:0 in overlay mode and
+    // per-edge listeners that must not touch force-layout edges. Inert
+    // unless the routing pass stamps _segDist/_segWeight and the class.
+    selector: "edge.g3t-canvas-edge-routed",
+    style: {
+      "curve-style": "segments",
+      // Route terminals are box CENTERS (routeSceneEdges boxCenter), so the
+      // segment baseline must be center-to-center. Cytoscape defaults
+      // edge-distances to `intersection` (border-to-border), which shifts
+      // every bend off the routed geometry by the node half-extent.
+      "edge-distances": "node-position",
+      "segment-distances": "data(_segDist)",
+      "segment-weights": "data(_segWeight)",
     } as any,
   },
   {
@@ -654,11 +730,31 @@ export function composeCanvasStylesheet(
   merged.push({
     selector: ".g3t-hidden",
     style: { display: "none" },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
   return merged;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** Label word-wrap override. The base node rule wraps labels by
+ *  DEFAULT (110px, the bio-shell overlap fix); this is the single
+ *  knob over that default: a number re-widths the wrap, `false`
+ *  disables it (text-wrap: none). Append the returned rule via the
+ *  `stylesheet` prop; toggling is a STYLE REFRESH by the relayout
+ *  contract, so positions and the camera hold. Scoped to
+ *  `node[label]` (the mapping-warning doctrine: never a bare `node`
+ *  rule for data-carried fields). */
+export function labelWrapRule(maxWidthPx: number | false = 120): CyStylesheet {
+  return {
+    selector: "node[label]",
+    style:
+      maxWidthPx === false
+        ? ({ "text-wrap": "none" } as never)
+        : ({
+            "text-wrap": "wrap",
+            "text-max-width": `${maxWidthPx}px`,
+          } as never),
+  };
+}
 
 /** Upstream P2 (prm-analyzer, 2026-07-28): interaction knobs that
  *  are init-time-only in cytoscape (wheelSensitivity in
@@ -782,6 +878,264 @@ export interface CytoscapeCanvasProps {
    * where it has not changed; rebuild it only when the hidden set does.
    */
   hidden?: ReadonlySet<string>;
+  /**
+   * Post-layout obstacle-aware edge routing for NON-structural scenes.
+   * Structural scenes already carry routed edges from `layoutStructural`;
+   * this prop is a no-op there (detected by the presence of any edge
+   * bearing the `g3t-structural-edge-routed` class).
+   *
+   * `true` enables the pass with defaults; a config object sets
+   * `maxEdges` (default 600 — above this, the pass skips and warns
+   * once) plus optional router tuning (`clearance`, `bendPenalty`,
+   * `minStub`; the router's own defaults are 12, 30, 28). Applied on
+   * every `layoutstop` and on drag-free of incident edges; runs inside
+   * `cy.batch()` so the write is a single restyle, never a re-init.
+   */
+  routeEdges?:
+    | boolean
+    | {
+        maxEdges?: number;
+        clearance?: number;
+        bendPenalty?: number;
+        minStub?: number;
+        /**
+         * Grazing tolerance (px) for "direct" mode. An edge whose straight
+         * shot only clips the outer `grazeTolerance` shell of a node stays
+         * bezier; only a shot that cuts deeper into a node body Z-routes.
+         * Higher = fewer routed/cornered edges. Default 8. Ignored in
+         * "orthogonal" mode.
+         */
+        grazeTolerance?: number;
+        /**
+         * Routing mode. Default "direct" (route only edges whose straight
+         * segment crosses a node box). "orthogonal" routes every edge
+         * axis-aligned regardless of obstacles; "direct" (the default) leaves
+         * clear edges as bezier and only detours around actual crossings.
+         */
+        mode?: "direct" | "orthogonal";
+      };
+  /**
+   * Refresh-routes signal (brief 23, A54). Bump this counter to re-run the
+   * obstacle-aware routing pass over ALL visible edges on the CURRENT node
+   * positions, without moving any node. Explicit user op (a "Refresh routes"
+   * button). No-op when `routeEdges` is off/undefined or the scene is
+   * structural. Uses signal-counter semantics for multi-instance safety: no
+   * global command store, each canvas responds only to its own prop bump.
+   */
+  routeRefreshSignal?: number;
+  /**
+   * Re-layout (untangle) signal (brief 23, A54). Bump this counter to run
+   * the crossing-aware placement optimizer on the current visible scene,
+   * apply the returned positions, then re-run the routing pass. Explicit
+   * user op — the camera/position-hold rule does NOT apply here (same
+   * class as reheat/fit/zoom). Non-structural scenes only.
+   */
+  relayoutSignal?: number;
+  /**
+   * When true, an edge tap isolates that edge via the emphasis layer
+   * (`useEmphasisStore.setPathEffect`) instead of firing a plain
+   * selection. Tapping the currently-isolated edge again, or the
+   * background, clears the isolate. Opt-in; default false so existing
+   * canvases keep click-to-select. Brief 23 (A54).
+   */
+  edgeClickIsolate?: boolean;
+}
+
+/** Resolve the public `routeEdges` prop shape into the concrete options
+ *  `runCanvasEdgeRouting` takes. Shared by the init-effect handlers and
+ *  the prop-change / refresh / relayout effects so every pass resolves
+ *  the SAME way from the LIVE prop value (the handlers previously
+ *  captured a snapshot at cy init, so a Routes-mode change never reached
+ *  drag-free or layoutstop reroutes). */
+function resolveRouteCfg(
+  routeConfig: NonNullable<Exclude<CytoscapeCanvasProps["routeEdges"], false>>,
+): {
+  maxEdges: number;
+  clearance?: number;
+  bendPenalty?: number;
+  minStub?: number;
+  grazeTolerance?: number;
+  mode: "direct-unless-crossing" | "always";
+} {
+  return routeConfig === true
+    ? { maxEdges: 600, grazeTolerance: 8, mode: "direct-unless-crossing" }
+    : {
+        maxEdges: routeConfig.maxEdges ?? 600,
+        clearance: routeConfig.clearance,
+        bendPenalty: routeConfig.bendPenalty,
+        minStub: routeConfig.minStub,
+        grazeTolerance: routeConfig.grazeTolerance ?? 8,
+        mode:
+          routeConfig.mode === "orthogonal"
+            ? "always"
+            : "direct-unless-crossing",
+      };
+}
+
+/** ROUTE_EDGES pass (routeEdges prop). Reads current node bounding boxes
+ *  from the live Cytoscape instance, runs the pure `routeSceneEdges`
+ *  routing pass, and writes `_segDist`/`_segWeight` + the
+ *  `g3t-canvas-edge-routed` class to each edge that routed successfully.
+ *  Edges whose router result is null get any prior routing data CLEARED
+ *  (per-edge graceful degradation, no phantom polylines). The write
+ *  happens inside `cy.batch()` so it is a single restyle, never a re-init.
+ *
+ *  No-op when the scene is structural (any edge carries the
+ *  `g3t-structural-edge-routed` class) — structural scenes already carry
+ *  routes from `layoutStructural`. Skips (and warns once) when the visible
+ *  edge count exceeds `maxEdges`. Filter for edges provided by the caller;
+ *  when omitted, ALL visible edges are routed. */
+export function runCanvasEdgeRouting(
+  cy: Core,
+  opts: {
+    maxEdges: number;
+    clearance?: number;
+    bendPenalty?: number;
+    minStub?: number;
+    grazeTolerance?: number;
+    mode?: "direct-unless-crossing" | "always";
+  },
+  incidentTo?: string,
+): { skipped: boolean; routedCount: number } {
+  // No-op on structural scenes: the structural router already owns them
+  // and shipped opacity:0 rules would apply to shared classes.
+  if (cy.edges(".g3t-structural-edge-routed").length > 0) {
+    return { skipped: true, routedCount: 0 };
+  }
+  const visibleEdges = cy.edges(":visible");
+  if (visibleEdges.length > opts.maxEdges) {
+    return { skipped: true, routedCount: 0 };
+  }
+  const nodeBoxes: SceneNodeBox[] = [];
+  cy.nodes(":visible").forEach((n) => {
+    // Compound parents have no drawn body of their own; their children's
+    // boxes already cover the interior, so excluding them keeps edges
+    // from bending around empty container geometry.
+    if (n.isParent()) return;
+    // Labels MUST be excluded: cytoscape renders `curve-style: segments`
+    // relative to the node POSITIONS (body centers), so route terminals
+    // must be body-box centers. A label-inclusive box (labels sit below
+    // the node) shifts the center off the position and shears every bend
+    // point when the polyline is projected onto segment weights.
+    const bb = n.boundingBox({ includeLabels: false, includeOverlays: false });
+    nodeBoxes.push({
+      id: n.id(),
+      x: bb.x1,
+      y: bb.y1,
+      width: bb.w,
+      height: bb.h,
+    });
+  });
+  const edgePairs: SceneEdgeEndpoints[] = [];
+  const scope = incidentTo
+    ? visibleEdges.filter((e) => {
+        const d = e.data() as { source?: string; target?: string };
+        return d.source === incidentTo || d.target === incidentTo;
+      })
+    : visibleEdges;
+  scope.forEach((e) => {
+    const d = e.data() as { id?: string; source?: string; target?: string };
+    if (d.id && d.source && d.target) {
+      edgePairs.push({ id: d.id, source: d.source, target: d.target });
+    }
+  });
+  const { routed } = routeSceneEdges(nodeBoxes, edgePairs, {
+    clearance: opts.clearance,
+    bendPenalty: opts.bendPenalty,
+    minStub: opts.minStub,
+    grazeTolerance: opts.grazeTolerance,
+    mode: opts.mode,
+  });
+  let routedCount = 0;
+  cy.batch(() => {
+    scope.forEach((e) => {
+      const id = e.id();
+      const pts = routed.get(id);
+      const seg = pts ? polylineToCytoscapeSegments(pts) : null;
+      if (seg) {
+        e.data("_segDist", seg.distances.join(" "));
+        e.data("_segWeight", seg.weights.join(" "));
+        e.addClass("g3t-canvas-edge-routed");
+        routedCount++;
+      } else {
+        // Null result OR straight polyline: clear any prior routing data
+        // so the edge reverts to bezier with no phantom polyline.
+        if (e.data("_segDist") !== undefined) e.removeData("_segDist");
+        if (e.data("_segWeight") !== undefined) e.removeData("_segWeight");
+        if (e.hasClass("g3t-canvas-edge-routed")) {
+          e.removeClass("g3t-canvas-edge-routed");
+        }
+      }
+    });
+  });
+  return { skipped: false, routedCount };
+}
+
+/** Re-layout (untangle) pass (relayoutSignal prop, brief 23). Reads current
+ *  visible node boxes + visible edge endpoint pairs from the live cy, runs
+ *  the pure `optimizePlacement` optimizer, and applies the returned
+ *  positions inside `cy.batch()`. Skipped on structural scenes (they carry
+ *  their own placement pipeline). The optimizer returns box TOP-LEFT
+ *  coordinates (same convention as MetricsNode); Cytoscape's node.position()
+ *  is CENTER, so we translate by half-extent on write. Pure with respect to
+ *  the graph: node id set is preserved (reposition only). Exported for
+ *  direct unit-testing against a fake cy. */
+export function runCanvasRelayout(
+  cy: Core,
+  opts?: { budgetMs?: number; seed?: number },
+): {
+  skipped: boolean;
+  moved: number;
+  crossingsBefore: number;
+  crossingsAfter: number;
+} {
+  if (cy.edges(".g3t-structural-edge-routed").length > 0) {
+    return { skipped: true, moved: 0, crossingsBefore: 0, crossingsAfter: 0 };
+  }
+  const nodes: PlacementNode[] = [];
+  cy.nodes(":visible").forEach((n) => {
+    if (n.isParent()) return;
+    // Body box only: the write-back below maps box center -> position(),
+    // so a label-inclusive box would drift every node downward by half
+    // the label height on each relayout press.
+    const bb = n.boundingBox({ includeLabels: false, includeOverlays: false });
+    nodes.push({
+      id: n.id(),
+      x: bb.x1,
+      y: bb.y1,
+      width: bb.w,
+      height: bb.h,
+    });
+  });
+  const edges: PlacementEdge[] = [];
+  cy.edges(":visible").forEach((e) => {
+    const d = e.data() as { id?: string; source?: string; target?: string };
+    if (d.id && d.source && d.target) {
+      edges.push({ id: d.id, source: d.source, target: d.target });
+    }
+  });
+  const result = optimizePlacement(nodes, edges, {
+    budgetMs: opts?.budgetMs ?? 350,
+    ...(opts?.seed !== undefined ? { seed: opts.seed } : {}),
+  });
+  let moved = 0;
+  cy.batch(() => {
+    for (const n of nodes) {
+      const p = result.positions.get(n.id);
+      if (!p) continue;
+      if (p.x !== n.x || p.y !== n.y) moved++;
+      cy.getElementById(n.id).position({
+        x: p.x + n.width / 2,
+        y: p.y + n.height / 2,
+      });
+    }
+  });
+  return {
+    skipped: false,
+    moved,
+    crossingsBefore: result.crossingsBefore,
+    crossingsAfter: result.crossingsAfter,
+  };
 }
 
 /** Apply the visibility filter as a batched class toggle: hidden nodes
@@ -887,6 +1241,10 @@ export function CytoscapeCanvas({
   structuralDecorations,
   structuralEdgeLayer = "cytoscape",
   hidden,
+  routeEdges,
+  routeRefreshSignal,
+  relayoutSignal,
+  edgeClickIsolate = false,
 }: CytoscapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -956,6 +1314,22 @@ export function CytoscapeCanvas({
   const hiddenRef = useRef(hidden);
   // eslint-disable-next-line react-hooks/refs
   hiddenRef.current = hidden;
+  const routeEdgesRef = useRef(routeEdges);
+  // eslint-disable-next-line react-hooks/refs
+  routeEdgesRef.current = routeEdges;
+  // Live prop reads from within listeners attached once at init (edge/bg
+  // tap handlers). Prop changes must not require a canvas re-init.
+  const edgeClickIsolateRef = useRef(edgeClickIsolate);
+  // eslint-disable-next-line react-hooks/refs
+  edgeClickIsolateRef.current = edgeClickIsolate;
+  // True once layoutstop has fired on the current cy instance; guards
+  // the prop-change effect from routing against pre-layout positions
+  // during a graph rebuild (init effect and the change effect both
+  // fire on ugm change, and the change effect used to run its pass
+  // synchronously against wherever the just-started layout had put
+  // nodes at that microtask - the initial fcose flash on the Scale
+  // demo's first-visit path).
+  const layoutSettledRef = useRef(false);
 
   /** One stylesheet assembly for init AND live theme restyles.
    *  Order is the precedence story: structural defaults (fallback
@@ -1343,12 +1717,31 @@ export function CytoscapeCanvas({
     });
 
     cy.on("tap", "edge", (evt) => {
-      selectEdges([evt.target.id()]);
+      const id = evt.target.id();
+      // Brief 23 (A54): edgeClickIsolate lights the tapped edge via the
+      // emphasis layer; tapping the currently-isolated edge again clears.
+      // Single-edge check because the isolate contract is one-edge-at-a-time
+      // (setPathEffect over a multi-edge set is a different affordance).
+      if (edgeClickIsolateRef.current) {
+        const st = useEmphasisStore.getState();
+        const emph = st.emphasizedEdgeIds;
+        if (emph.size === 1 && emph.has(id)) {
+          st.clear();
+        } else {
+          st.setPathEffect([], [id], id);
+        }
+        return;
+      }
+      selectEdges([id]);
     });
 
-    // Background tap clears selection
+    // Background tap clears selection AND any active isolate (brief 23).
     cy.on("tap", (evt) => {
       if (evt.target === cy) {
+        if (edgeClickIsolateRef.current) {
+          const st = useEmphasisStore.getState();
+          if (st.active) st.clear();
+        }
         clearSelection();
       }
     });
@@ -1436,9 +1829,82 @@ export function CytoscapeCanvas({
     if (structural) applyRoutedSegmentBypasses(cy);
 
     cyRef.current = cy;
+    layoutSettledRef.current = false;
     setOverlayCy(cy);
     // Re-apply the visibility filter to this (possibly rebuilt) instance.
     applyHiddenClasses(cy, hiddenRef.current);
+
+    // Post-layout obstacle-aware edge routing (routeEdges prop). Skipped
+    // for structural scenes (the structural router already owns them).
+    // Generation counter guards against layoutstop double-fire (some
+    // layout plugins emit twice) and against a deferred callback firing
+    // after a fresher layoutstop has superseded it (rapid successive
+    // relayouts): only the callback whose captured generation matches
+    // the live counter runs.
+    if (!structural) {
+      let routingGeneration = 0;
+      let warnedScale = false;
+      // Resolve the config INSIDE the pass, from the live ref: these
+      // handlers outlive prop changes (they are torn down only on cy
+      // re-init), so a captured snapshot would pin the Routes mode from
+      // mount time — a drag after switching Direct -> Orthogonal used to
+      // reroute incident edges in the OLD mode (observed live: dragging
+      // in Orthogonal un-routed the dragged node's edges). Wiring is also
+      // unconditional for non-structural scenes so enabling routing after
+      // mount still gets layoutstop/drag reroutes.
+      const runPass = (incidentTo?: string): void => {
+        const live = routeEdgesRef.current;
+        if (!live) return;
+        const cfg = resolveRouteCfg(live);
+        const r = runCanvasEdgeRouting(cy, cfg, incidentTo);
+        if (
+          r.skipped &&
+          !warnedScale &&
+          cy.edges(".g3t-structural-edge-routed").length === 0 &&
+          typeof process !== "undefined" &&
+          process.env?.NODE_ENV !== "production"
+        ) {
+          warnedScale = true;
+          console.warn(
+            `[g3t] routeEdges skipped: visible edge count exceeds maxEdges=${cfg.maxEdges}. Raise maxEdges to route dense scenes, or leave routing off above the threshold.`,
+          );
+        }
+      };
+      cy.on("layoutstop", () => {
+        layoutSettledRef.current = true;
+        routingGeneration++;
+        const gen = routingGeneration;
+        // Only animate:true (per-tick animation) leaves positions
+        // interpolating at layoutstop and needs the deferred read.
+        // animate:false and animate:"end" both mean positions are
+        // SETTLED at layoutstop; deferring there paints straight
+        // beziers for animationDuration+16ms before edges snap to
+        // routed polylines (visible flash on the Scale demo's return
+        // paths where layoutOptions.animate is false but the canvas
+        // prop is true). The layout-config `animate` overrides the
+        // canvas prop by way of layoutOptionsRef spread order.
+        const effectiveAnimate = layoutOptionsRef.current?.animate ?? animate;
+        if (
+          effectiveAnimate === false ||
+          effectiveAnimate === "end" ||
+          animationDuration === 0
+        ) {
+          runPass();
+        } else {
+          const delay = (animationDuration ?? 400) + 16;
+          setTimeout(() => {
+            // Stale callback (a newer layoutstop superseded): drop.
+            if (gen !== routingGeneration) return;
+            if (cyRef.current !== cy) return;
+            runPass();
+          }, delay);
+        }
+      });
+      // Drag-free incident-edge reroute (subject to the same gate).
+      cy.on("free", "node", (evt) => {
+        runPass(evt.target.id());
+      });
+    }
     // Bugfix 3: read from ref (see comment near onReadyRef above)
     onReadyRef.current?.(cy);
 
@@ -1593,6 +2059,79 @@ export function CytoscapeCanvas({
       });
     });
   }, [encodingSpec, ugm, structural]);
+
+  // routeEdges prop CHANGE handler: when the config flips or is enabled
+  // after mount, run the pass immediately against the current positions.
+  // The init effect wires listeners for FUTURE layoutstops and drag-frees;
+  // this covers "turn routing on for the already-mounted scene". When
+  // routing is disabled (prop is false/undefined) after being on, we
+  // clear the routed data so edges revert to bezier without waiting for
+  // a re-layout.
+  const routeEdgesKey = routeEdges
+    ? typeof routeEdges === "object"
+      ? JSON.stringify(routeEdges)
+      : "true"
+    : "";
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    if (routeEdges) {
+      // Skip if the current cy has not settled a layout yet: the init
+      // effect's layoutstop handler will route with correct positions.
+      // Routing here against a still-animating fcose paints edges to
+      // the initial (random) positions until layoutstop fires - the
+      // Scale demo's first-visit flash. Prop flips AFTER settle still
+      // route immediately (the intended change-handler behavior).
+      if (!layoutSettledRef.current) return;
+      runCanvasEdgeRouting(cy, resolveRouteCfg(routeEdges));
+    } else {
+      // Clear any previously stamped routing data so edges revert.
+      cy.batch(() => {
+        cy.edges(".g3t-canvas-edge-routed").forEach((e) => {
+          if (e.data("_segDist") !== undefined) e.removeData("_segDist");
+          if (e.data("_segWeight") !== undefined) e.removeData("_segWeight");
+          e.removeClass("g3t-canvas-edge-routed");
+        });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeEdgesKey, ugm]);
+
+  // Refresh routes (brief 23, A54): explicit re-run of the routing pass
+  // on CURRENT node boxes. Signal-counter API: host bumps the number, we
+  // fire on real change. No-op when routing is off or the scene is
+  // structural (runCanvasEdgeRouting itself guards structural). We skip
+  // the initial mount (lastSignalRef seeded to the first value) so mount
+  // does not double-fire against the init effect's layoutstop handler.
+  const lastRouteRefreshSignalRef = useRef(routeRefreshSignal);
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    if (routeRefreshSignal === lastRouteRefreshSignalRef.current) return;
+    lastRouteRefreshSignalRef.current = routeRefreshSignal;
+    const cfg = routeEdgesRef.current;
+    if (!cfg) return;
+    runCanvasEdgeRouting(cy, resolveRouteCfg(cfg));
+  }, [routeRefreshSignal]);
+
+  // Re-layout / untangle (brief 23, A54): explicit user op — reads current
+  // boxes, runs the crossing-aware placement optimizer, applies the new
+  // positions, then re-runs the routing pass. Non-structural only. This
+  // moves nodes deliberately (not a same-graph camera hold — same class as
+  // reheat/fit/zoom, per the camera-stability doctrine).
+  const lastRelayoutSignalRef = useRef(relayoutSignal);
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    if (relayoutSignal === lastRelayoutSignalRef.current) return;
+    lastRelayoutSignalRef.current = relayoutSignal;
+    if (structuralRef.current) return;
+    const r = runCanvasRelayout(cy);
+    if (r.skipped) return;
+    const cfg = routeEdgesRef.current;
+    if (!cfg) return;
+    runCanvasEdgeRouting(cy, resolveRouteCfg(cfg));
+  }, [relayoutSignal]);
 
   // Visibility filter (hidden prop): a batched class toggle, applied on
   // every hidden-set change. NOT in the init dep array, so toggling the

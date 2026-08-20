@@ -78,6 +78,29 @@ export function buildExport(
   };
 }
 
+/** Pure image-export helper (testable without a real canvas): wraps
+ *  Cytoscape's native `cy.png` in blob-output mode and returns a
+ *  ready-to-download artifact. Selection-scoped raster export is not
+ *  meaningful; callers control whole-graph (`full: true`, default) vs
+ *  current viewport (`full: false`) via opts. No new dependency: SVG
+ *  export would need cytoscape-svg and is intentionally out of scope
+ *  (see wiring-guide.md).
+ *  @param cy Live Cytoscape Core (from `CytoscapeCanvas` onReady).
+ *  @param opts full/scale/bg passed straight through to `cy.png`.
+ *  @returns filename/mime/blob triple; caller does the download. */
+export function buildImageExport(
+  cy: Core,
+  opts: { full?: boolean; scale?: number; bg?: string } = {},
+): { filename: string; mime: string; blob: Blob } {
+  const blob = cy.png({
+    output: "blob",
+    full: opts.full ?? true,
+    scale: opts.scale ?? 2,
+    bg: opts.bg,
+  }) as unknown as Blob;
+  return { filename: "g3t-graph.png", mime: "image/png", blob };
+}
+
 function triggerDownload(filename: string, href: string): void {
   const a = document.createElement("a");
   a.href = href;
@@ -456,14 +479,21 @@ export function GraphToolbar({
                 role="menuitem"
                 onClick={() => {
                   if (!cy) return;
-                  triggerDownload(
-                    "g3t-canvas.png",
-                    cy.png({ full: true, scale: 2 }),
+                  const { filename, mime, blob } = buildImageExport(cy, {
+                    full: true,
+                    scale: 2,
+                  });
+                  const url = URL.createObjectURL(
+                    blob instanceof Blob
+                      ? blob
+                      : new Blob([blob], { type: mime }),
                   );
+                  triggerDownload(filename, url);
+                  URL.revokeObjectURL(url);
                   setExportOpen(false);
                 }}
               >
-                PNG (canvas, 2x)
+                Image (PNG)
               </button>
             </div>
           ) : null}

@@ -1,0 +1,11 @@
+done: 1 atoms emitted; commit=c2e59ee; folded 3 blockers
+
+**Summary of changes to `04-corridor-supply-brief.md`:**
+
+- **Blocker 1 (corridorDemand source contradiction):** Removed the false preamble claim that the pass "consumes the corridorDemand measurement." Clarified that `corridorDemand` from the nudging pass is used only by the dev-mode drift assertion post-routing; gap sizing always uses the structural estimate computed before placement.
+
+- **Blocker 2 (maxGapFactor does not guarantee oracle):** Scoped the oracle assertion explicitly to lab scenarios constructed so no corridor's demand exceeds `maxGapFactor * baseGap / trackGap`. High-fan-in scenarios beyond the cap are tested separately and are expected to hit the degradation branch.
+
+- **Blocker 3 (demand-or-estimate dual-path undefined):** Eliminated the ambiguous "demand-or-estimate function" framing. The design now states unambiguously: the structural estimate always drives gap sizing, there is no runtime selection branch.
+
+- **Warnings addressed:** Acknowledged chain-segment proxy limitations; specified E/W corridors use the same formula on x-axis with same constants (flagging need for separate calibration if axis treatment differs); added calibrated drift assertion tolerance requirement; added active-constraint annotation to the area guard to detect when maxGapFactor rather than baseGap is binding.
