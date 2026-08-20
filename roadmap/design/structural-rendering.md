@@ -279,7 +279,7 @@ Three compounding causes, each fixed:
   new geometry second). Fit happens only on first mount or a genuinely
   different graph.
 
-Principle (D15 in specs/09-design-decisions.md, doctrine in CLAUDE.md):
+Principle (D15 in specs/g3t/spec.md#decisions, doctrine in CLAUDE.md):
 SAME INPUT GRAPH => camera (pan/zoom) and node positions HOLD. Re-init or
 refit only on a different graph or an explicit user op (fit/zoom buttons,
 focus, reheat, layout-algorithm selection). Known gaps: a genuine
@@ -452,7 +452,7 @@ substantive change.
 - `packages/react/src/views/canvas/CytoscapeCanvas.tsx`: camera captured
   in the effect cleanup; same-graph restore keyed on node-id identity;
   decoration rebuild keyed on content (D15).
-- `CLAUDE.md`, `specs/09-design-decisions.md`: D15.
+- `CLAUDE.md`, `specs/g3t/spec.md#decisions`: D15.
 - Tests: `structural.test.ts` (layerSpacing effect + cache bypass);
   `structural-to-cytoscape.test.ts` (synth-port distribution, invisible
   rendering, perpendicular-exit class, declared-port end unchanged);

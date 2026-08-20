@@ -62,6 +62,19 @@ CAPS = {
     # (blank-node vs IRI-named property shapes, sh:node/sh:target
     # edges) need a richer parse than the lightweight in-core model
     # carries, and stay open
+    # Cited-but-not-verified caps (2026-08-20, added while harvesting
+    # verifiedBy). These three ARE named in a test file's text, so the
+    # colocated heuristic is not what over-credited them: the test
+    # exercises part of the requirement while the requirement claims
+    # more. Citation is not verification, and only reading the test
+    # against the acceptance criteria separates the two.
+    "R7.3": "in-progress",  # matrix-acceptance.test states it outright:
+    # the view truncates to maxSize and announces it; "true
+    # aggregation/pagination per R7.3's letter does not exist"
+    "R7.7": "in-progress",  # only comment references in
+    # working-set-manager.ts; no workspace-settings surface and no
+    # deployment-level administrator override, which is what R7.7's
+    # acceptance is entirely about
     "R1.17": "in-progress",  # report document + adapter
     # (shacl-report.test) + severity overlays + count/severity drivers
     # + VA-29; and the cross-link/filter/detail logic (shacl-links.test:
@@ -81,7 +94,9 @@ CAPS = {
 # heuristic and require the R-ID to appear in a test file's text for
 # `implemented` credit.
 
-ORDER = ["proposed", "accepted", "in-progress", "implemented", "verified"]
+# specl 1.0.0 implementation vocabulary, weakest first. "proposed" and
+# "accepted" are gone: the format calls the unbuilt state "not-started".
+ORDER = ["not-started", "in-progress", "implemented", "verified"]
 # reqId: excludes FIXTURE DATA (the MBSE satellite model carries
 # requirement nodes with reqId: "R1.x" fields; model content is not
 # traceability, and the mbse directory has colocated tests, so every
@@ -90,6 +105,11 @@ EXCLUDE_LINE = re.compile(
     r"planned|not yet|NOT implemented|reqId\s*:", re.IGNORECASE
 )
 RID = re.compile(r"\bR\d+\.\d+\b")
+# specl 1.0.0 removes retired items from the measured population: a
+# withdrawn or superseded requirement is struck, not unbuilt, and asking
+# what its implementation status should be is a category error.
+RETIRED = re.compile(r"(?m)^\s+- itemStatus:\s*(withdrawn|superseded)\s*$")
+
 
 
 def collect_citations() -> tuple[set[str], set[str]]:
@@ -125,7 +145,7 @@ def expected_status(rid: str, test_cited: set[str], src_cited: set[str]) -> str:
     elif rid in src_cited:
         target = "in-progress"
     else:
-        target = "proposed"
+        target = "not-started"
     cap = CAPS.get(rid)
     if cap and ORDER.index(target) > ORDER.index(cap):
         target = cap
@@ -143,16 +163,26 @@ def main() -> int:
             if not m:
                 continue
             rid = m.group(1)
-            status_m = re.search(r"status:\s*([\w-]+)", block)
+            if RETIRED.search(block):
+                continue
+            status_m = re.search(r"(?m)^\s+- implementation:\s*([\w-]+)$", block)
             current = status_m.group(1) if status_m else "(missing)"
             counts[current] += 1
             expected = expected_status(rid, test_cited, src_cited)
+            # `verified` is a claim only a human can make: it means someone
+            # read the named test against the acceptance criteria and found
+            # every one exercised. Citations top out at `implemented`, so the
+            # heuristic can never suggest it and must not report it as drift.
+            # It is still gated: `verified` is only accepted where the
+            # requirement is genuinely test-cited.
+            if current == "verified" and expected == "implemented":
+                continue
             if current != expected:
                 drift.append(
-                    f"  {spec.name} {rid}: status is '{current}', "
+                    f"  {spec.name} {rid}: implementation is '{current}', "
                     f"citations suggest '{expected}'"
                 )
-    print("Requirement status distribution:", dict(counts))
+    print("Requirement implementation distribution:", dict(counts))
     if drift:
         print(f"\n{len(drift)} status/citation drift item(s):")
         for d in drift:

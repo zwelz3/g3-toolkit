@@ -5,7 +5,7 @@
  * The React component that renders the menu lives separately.
  *
  * @see specs/02-functional-interaction.md R2.1, R2.2, R2.3
- * @see specs/09-design-decisions.md D3
+ * @see specs/g3t/spec.md#decisions D3
  */
 
 /** The kind of element that was right-clicked. */

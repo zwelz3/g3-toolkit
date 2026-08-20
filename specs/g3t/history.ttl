@@ -1,0 +1,39 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+<https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z> a specl:MaturityAssessment ;
+    prov:generatedAtTime "2026-08-20T00:00:00Z"^^xsd:dateTime ;
+    specl:assessed <https://w3id.org/g3t/spec/g3t> ;
+    specl:maturityScore 79 ;
+    specl:subscore <https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-agent> ;
+    specl:subscore <https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-decisionrecord> ;
+    specl:subscore <https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-designnote> ;
+    specl:subscore <https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-openissue> ;
+    specl:subscore <https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-persona> .
+
+<https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-agent> a specl:ClassSubscore ;
+    specl:itemClass "Agent" ;
+    specl:cleanCount 6 ;
+    specl:totalCount 6 .
+
+<https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-decisionrecord> a specl:ClassSubscore ;
+    specl:itemClass "DecisionRecord" ;
+    specl:cleanCount 15 ;
+    specl:totalCount 15 .
+
+<https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-designnote> a specl:ClassSubscore ;
+    specl:itemClass "DesignNote" ;
+    specl:cleanCount 6 ;
+    specl:totalCount 6 .
+
+<https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-openissue> a specl:ClassSubscore ;
+    specl:itemClass "OpenIssue" ;
+    specl:cleanCount 3 ;
+    specl:totalCount 14 .
+
+<https://w3id.org/g3t/spec/g3t#assessment-20260820T000000Z-persona> a specl:ClassSubscore ;
+    specl:itemClass "Persona" ;
+    specl:cleanCount 12 ;
+    specl:totalCount 12 .
+

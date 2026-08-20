@@ -1,0 +1,214 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix spec: <https://w3id.org/g3t/spec/ux#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<https://w3id.org/g3t/spec/ux> a specl:Specification ;
+    specl:declares spec:reference-g3t ;
+    specl:refines <https://w3id.org/g3t/spec/g3t> ;
+    dct:conformsTo <https://w3id.org/specl/contract/2> ;
+    dct:title "g3-toolkit: UX Defaults and Accessibility" ;
+    dct:hasVersion "0.1.0" ;
+    specl:status "draft" ;
+    dct:identifier "g3-ux" ;
+    specl:prefix "g3tux" ;
+    dct:created "2026-05-17"^^xsd:date ;
+    specl:intent """This specification defines working-set defaults (P2), accessibility requirements, and cognitive-load management strategies. These are cross-cutting concerns that apply to all archetype views.""" ;
+    specl:purpose """""" .
+
+spec:source-2f848780 a specl:SourceDocument ;
+    dct:identifier "07-ux-defaults-accessibility.md" .
+
+spec:reference-g3t a specl:SpecificationReference ;
+    specl:prefix "g3t" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/g3t#" ;
+    specl:referencePath "g3t/spec.ttl" .
+
+spec:R7.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The Link-Chart Canvas (R1.1) MUST default to a maximum of 500 visible nodes and…" ;
+    dct:description "The Link-Chart Canvas (R1.1) MUST default to a maximum of 500 visible nodes and 2,000 visible edges. When a query or expansion would exceed this limit, the toolkit MUST prompt the user with an aggregation suggestion (\"Collapse by community?\", \"Show top-N by centrality?\") or require explicit override." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "30"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:constrains <https://w3id.org/g3t/components#CanvasRenderer> ;
+    specl:acceptanceCriterion "Given a query returning 800 nodes, when the canvas attempts to render, then a prompt appears offering aggregation options before rendering proceeds." .
+
+spec:R7.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The Hierarchical / Tree-Map view (R1.6) MUST default to a maximum of 1,000…" ;
+    dct:description "The Hierarchical / Tree-Map view (R1.6) MUST default to a maximum of 1,000 visible nodes with lazy-load expansion. Deeper levels load on user-initiated expand." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "38"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:constrains <https://w3id.org/g3t/components#TreeRenderer> ;
+    specl:acceptanceCriterion "Given a 5,000-node hierarchy, when the tree view opens, then only the first two levels (up to 1,000 nodes) render; a \"load more\" indicator appears on deeper branches." .
+
+spec:R7.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The Matrix / Heatmap view (R1.4) MUST default to a maximum of 200x200 cells" ;
+    dct:description "The Matrix / Heatmap view (R1.4) MUST default to a maximum of 200x200 cells. Larger matrices MUST be aggregated or paginated before rendering." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "46"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:verifiedBy spec:test-87aa8644 ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:constrains <https://w3id.org/g3t/components#MatrixRenderer> ;
+    specl:acceptanceCriterion "Given a matrix request of 350x350 categories, when the view opens, then cells are aggregated or paginated to within the 200x200 default before rendering." .
+
+spec:R7.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The Tabular view (R1.7) MUST default to a maximum of 10,000 rows per page with…" ;
+    dct:description "The Tabular view (R1.7) MUST default to a maximum of 10,000 rows per page with pagination controls." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "55"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:constrains <https://w3id.org/g3t/components#TableRenderer> ;
+    specl:acceptanceCriterion "Given a query result of 25,000 rows, when the table opens, then at most 10,000 rows render per page with pagination controls." .
+
+spec:R7.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The toolkit was to default a flow-path cap for the Sankey view" ;
+    dct:description "The toolkit was to default a flow-path cap for the Sankey view. Withdrawn from the roadmap 2026-06-12 together with the view it constrained; the implemented behaviour remains in the partial SankeyView code, uncommitted." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "63"^^xsd:integer ;
+    specl:itemStatus "withdrawn" .
+
+spec:R7.6 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The Streaming / Operational Monitoring view (capability cluster C8" ;
+    dct:description "The Streaming / Operational Monitoring view (capability cluster C8; research/use-case-survey.md, section B.8) SHOULD default to a 500-node sliding window, with nodes outside the window aging out unless explicitly pinned by the user." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "66"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:constrains <https://w3id.org/g3t/components#StreamAdapter> .
+
+spec:R7.7 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "All working-set limits MUST be configurable via workspace settings" ;
+    dct:description "All working-set limits MUST be configurable via workspace settings. Overriding a limit MUST require an explicit user action (e.g., clicking \"Show all\" with a performance warning). Limits MUST NOT be silently disabled." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "73"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:acceptanceCriterion "Given a platform administrator who sets the canvas limit to 300 for a deployment, when an analyst opens a canvas, then the 300-node limit applies." .
+
+spec:R7.8 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The toolkit MUST use colorblind-safe categorical palettes (Okabe-Ito or…" ;
+    dct:description "The toolkit MUST use colorblind-safe categorical palettes (Okabe-Ito or ColorBrewer-categorical) as the default color scheme for all views. No information MUST be encoded solely by color; shape, pattern, or label MUST serve as redundant channels." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "81"^^xsd:integer ;
+    specl:implementationStatus "verified" ;
+    specl:verifiedBy spec:test-f83b12e1 ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains spec:component-StyleManager ;
+    specl:acceptanceCriterion "Given two node types distinguished by color, when a colorblind-safe palette is active, then the types are also distinguishable by icon shape." .
+
+spec:R7.9 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The toolkit MUST support keyboard navigation across nodes in the canvas" ;
+    dct:description "The toolkit MUST support keyboard navigation across nodes in the canvas. Tab order MUST default to degree-ordered (highest-degree nodes first) but MUST be overridable. Arrow keys MUST traverse edges from the focused node." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "89"^^xsd:integer ;
+    specl:implementationStatus "verified" ;
+    specl:verifiedBy spec:test-11fba701 ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains spec:component-AccessibilityManager ;
+    specl:constrains <https://w3id.org/g3t/components#CanvasRenderer> ;
+    specl:acceptanceCriterion "Given a canvas with 20 nodes, when the user presses Tab, then focus moves to the highest-degree node; pressing an arrow key moves focus along an edge to a neighbor." .
+
+spec:R7.10 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The toolkit MUST provide screen-reader-compatible summaries for graph structures" ;
+    dct:description "The toolkit MUST provide screen-reader-compatible summaries for graph structures. When a node receives focus, the screen reader MUST announce: node label, node types, number of connections, and a breakdown by connected type (e.g., \"Alice, Person, 5 connections: 3 to Person, 2 to Organization\")." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "98"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains spec:component-AccessibilityManager ;
+    specl:acceptanceCriterion "Given a screen reader active, when a node is focused via keyboard, then the reader announces the structured summary." .
+
+spec:R7.11 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The Table view (R1.7) MUST serve as the accessible fallback for any selection" ;
+    dct:description "The Table view (R1.7) MUST serve as the accessible fallback for any selection. Any set of nodes/edges selected in any view MUST be representable as a table. This is the minimum-viable accessible representation of graph data." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "105"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#TableRenderer> ;
+    specl:constrains spec:component-AccessibilityManager ;
+    specl:acceptanceCriterion "Given any selection made in the canvas, map, or timeline, when \"Show in table\" is invoked, then the selected elements render as table rows with their properties." .
+
+spec:R7.12 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "The toolkit MUST support a high-contrast mode for all views, compliant with…" ;
+    dct:description "The toolkit MUST support a high-contrast mode for all views, compliant with WCAG 2.1 AA contrast ratios." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "113"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains spec:component-StyleManager ;
+    specl:acceptanceCriterion "Given high-contrast mode enabled, when any view renders, then foreground/background pairs meet WCAG 2.1 AA contrast ratios (4.5:1 normal text, 3:1 large text and graphics)." .
+
+spec:US7.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "As a visually impaired analyst using a screen reader, I want to navigate a…" ;
+    dct:description "As a visually impaired analyst using a screen reader, I want to navigate a graph by keyboard and hear structured summaries of each node so that I can perform link analysis without relying on the visual canvas." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "122"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER12> ;
+    specl:benefit "I can participate in investigations using the same toolkit as my sighted colleagues" ;
+    specl:implementationStatus "not-started" .
+
+spec:US7.2 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/ux> ;
+    dct:title "As a platform administrator deploying to a classified environment, I want to…" ;
+    dct:description "As a platform administrator deploying to a classified environment, I want to set the canvas node limit to 200 for all users so that accidental large-graph rendering does not cause denial-of-service on thin-client terminals." ;
+    prov:wasDerivedFrom spec:source-2f848780 ;
+    specl:sourceLine "127"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:benefit "I can ensure acceptable performance on constrained hardware" ;
+    specl:implementationStatus "not-started" .
+
+spec:component-AccessibilityManager a specl:Component ;
+    dct:identifier "AccessibilityManager" .
+
+spec:component-StyleManager a specl:Component ;
+    dct:identifier "StyleManager" .
+
+spec:test-11fba701 a specl:Test ;
+    dct:identifier "packages/react/src/a11y/a11y.test.tsx" .
+
+spec:test-87aa8644 a specl:Test ;
+    dct:identifier "packages/react/src/views/matrix/matrix-acceptance.test.tsx" .
+
+spec:test-f83b12e1 a specl:Test ;
+    dct:identifier "packages/react/src/views/canvas/palette.test.ts" .
+

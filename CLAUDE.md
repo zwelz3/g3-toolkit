@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-Agent handoff for g3-toolkit. Current state: STATUS.md. History:
+Agent handoff for g3-toolkit. Current state: the CURRENT FOCUS block
+below, which is the only current-state prose in the repository. History:
 planning/ round logs (see planning/archive/ for retired efforts);
 milestone-era tracking is archived in planning/milestone-history.md
 (do not update it). Design records: roadmap/design/ (indexed in
@@ -9,18 +10,39 @@ run in CI at examples/wiring/). Hand-maintained counts have drifted
 several times; when a number disagrees with a gate script, the script
 is right.
 
-**CURRENT FOCUS (2026-07-03): demo quality, reliability, and OSS
-adoptability.** The library is feature-stable at 1.0.0 (package.json is
-the authority; this line said rc.2 long after the manifests moved). The
-cinematic flagship demo was RETIRED per maintainer ruling: the four
-dev-server shells replaced it, and every public API it alone
-demonstrated was folded first (planning/flagship-retirement.md is the
-audit; the flagship planning docs live in planning/archive/). The two
-standalone single-file demos (scripts/demo, scripts/thread-demo) were
-retired in the same round; the Pages-deployed playground supersedes
+**CURRENT FOCUS (2026-08-20): the specifications are a specl 1.0.0
+family; the demo/adoption thread is paused behind it.** `specs/` is a
+seven-member family (parent `specs/g3t/`, five migrated peers at their
+original numbered paths, and `specs/routing/`), translated to `.ttl`
+beside each root and gated by `scripts/check_specs.py`. Requirement
+state is `implementation:`, not `status:`; the values are specl's
+(`not-started`/`in-progress`/`implemented`/`verified`).
+
+**Do not hand-maintain a number that a gate produces.** Maturity and
+progress come from `specl-validate score`, and the trend from each
+member's `history.ttl`. Current maturity is honest and low where the
+evidence is thin: `functional` reads 18% because 26 of its requirements
+have no test, not because it regressed. This file's CURRENT FOCUS block
+is now the ONLY current-state prose in the repository; `/STATUS.md` was
+deleted 2026-08-20 and its 75 superseded snapshots moved to
+planning/status-history.md (do not update it). Two current-state
+documents had already drifted six weeks apart, which is why there is
+one.
+
+Open decisions for the owner are tracked in
+planning/spec-family-owner-needs.md; the round record is
+planning/spec-family-round-log.md.
+
+The library remains feature-stable at 1.0.0 (package.json is the
+authority). The cinematic flagship demo was RETIRED per maintainer
+ruling: the four dev-server shells replaced it, and every public API it
+alone demonstrated was folded first (planning/flagship-retirement.md is
+the audit; the flagship planning docs live in planning/archive/). The
+two standalone single-file demos (scripts/demo, scripts/thread-demo)
+were retired in the same round; the Pages-deployed playground supersedes
 them, and the projection-pipeline story they carried now lives in the
 wiring guide plus the biomedical shell's raw-vs-projected toggle. The
-active plan is planning/demo-adoption-plan.md.
+demo/adoption plan is planning/demo-adoption-plan.md.
 
 ## What this is
 
@@ -58,12 +80,15 @@ reading that reasoning.
     # = typecheck && lint && verify && test && gates:spec, the exact
     # ci.yml order. FIVE steps: gates:spec runs the three Python spec
     # scripts, so running the four listed below it is not the gate.
+    # check_specs.py needs specl on PATH (pip install specl==1.0.0);
+    # it delegates every structural check to the specl CLI and adds
+    # the whole-family check no CLI does.
     # verify builds the packages and runs the dist/export/smoke/bundle
     # checks; a round is not done on unit tests alone. Environment
     # self-test if typecheck seems suspiciously quiet: inject a
     # deliberate type error in src/ and confirm the gate goes red.
     pnpm run verify          # build, exports, snippets, typedoc, bundle ledger
-    python3 scripts/lint_specs.py specs/
+    python3 scripts/check_specs.py
     python3 scripts/sync_spec_status.py
     python3 scripts/check_roadmap_coverage.py
 
@@ -110,7 +135,7 @@ a written rationale in scripts/check-bundle-size.mjs (the ledger).
   GAP: manual drags still reset on a genuine geometry change (collapse
   recreates from layout geometry); the force-directed path does not yet
   restore the camera across a same-graph re-init. See
-  specs/09-design-decisions.md (camera/position stability).
+  specs/g3t/spec.md#decisions (camera/position stability, D15).
 - Data-mapped style props (`width: data(_size)`, `opacity:
   data(_confidence)`) MUST sit on a `[field]`-scoped selector
   (`node[_size]`, `edge[_confidence]`), never a bare `node`/`edge` rule.
@@ -132,10 +157,10 @@ with copy that tells the reviewer what to exercise; every round gets
 a planning log entry, CHANGELOG entry, and a packaged zip + page in
 outputs. Findings from his review get root-caused, not patched.
 
-## Open threads (head of queue; full queue in STATUS.md)
+## Open threads (head of queue)
 
 **Structural-view rendering (current active thread, 2026-06-21).** Full
-state in STATUS.md and `roadmap/design/structural-rendering.md`. Landed and
+state in `roadmap/design/structural-rendering.md`. Landed and
 gate-green: camera/position stability (D15), port-based body-edge
 attachment with perpendicular exit, and the obstacle-aware routing CORE
 slice (`layoutStructural` emits ELK node-avoiding routes into
@@ -153,7 +178,8 @@ also gained a Graph/Structural view-switch. ALSO active: the Storybook
 atomic-design reshape (Atoms/Molecules titled, Minimap included; Toolbar
 moved to Compounds and Charts/Features to Reference; Coordinated Selection
 and Node Editor Modal now in Patterns; remaining legacy retitles,
-CytoscapeCanvas/Views/UX-Surface/Layouts, tracked in STATUS.md).
+CytoscapeCanvas/Views/UX-Surface/Layouts, tracked in
+planning/status-history.md).
 
 **Perf/warning fixes (2026-06-17, UNVERIFIED — await live review).**
 Block-view lag and console floods were traced (via an instrumented
@@ -201,7 +227,8 @@ compile/test/bundle but not rendered output; the reviewer (Zach) checks
 cinematics, layout, and legibility live.
 
 **Library roadmap (valid, not the current focus).** The grouped roadmap
-(Groups A-G in STATUS.md) covers SHACL views, structural rendering,
+(Groups A-G, planning/status-history.md) covers SHACL views, structural
+rendering,
 provenance/virtualization affordances, analyst workflow, viz
 algorithms, and streaming. Group A (structural rendering) and the SHACL
 shape+report pair shipped. Remaining library items of note: SHACL B4

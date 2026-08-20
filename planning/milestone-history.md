@@ -6,7 +6,8 @@
 > feature-readiness matrix) and the former root `PROGRESS.md`
 > (per-session ticket log, implementation decisions). Their numbers
 > are SNAPSHOTS of the rc.2 audit era and are NOT maintained.
-> Current state lives in /STATUS.md; the authoritative round log is
+> Current state lives in CLAUDE.md's CURRENT FOCUS block; the
+> authoritative round log is
 > planning/visual-acceptance-1.md; durable implementation lore was
 > promoted to /DEVELOPER.md. Do not update this file.
 

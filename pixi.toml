@@ -21,7 +21,7 @@ lint       = { cmd = "pnpm run lint", depends-on = ["install"], description = "R
 docs       = { cmd = "python scripts/build_docs.py -b html docs/source docs/build/html", description = "Build HTML documentation" }
 docs-clean = { cmd = "python -c \"import shutil; shutil.rmtree('docs/build', ignore_errors=True)\"", description = "Clean built docs" }
 docs-serve = { cmd = "python -m http.server 8000 -d docs/build/html", depends-on = ["docs"], description = "Build and serve docs locally" }
-lint-specs = { cmd = "python scripts/lint_specs.py specs/", description = "Lint specl markdown files" }
+check-specs = { cmd = "python scripts/check_specs.py", description = "Translate, validate and layer the specl specification family" }
 
 [dependencies]
 python = ">=3.11"
@@ -30,3 +30,8 @@ sphinx = ">=7.0"
 myst-parser = ">=3.0"
 furo = ">=2024.0"
 pyyaml = ">=6.0"
+
+[pypi-dependencies]
+# specl is a CLI with no supported public API; scripts/check_specs.py
+# shells out to specl-translate and specl-validate rather than importing.
+specl = "==1.0.0"

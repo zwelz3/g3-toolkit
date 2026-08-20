@@ -1,0 +1,717 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix spec: <https://w3id.org/g3t/spec/functional#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<https://w3id.org/g3t/spec/functional> a specl:Specification ;
+    specl:declares spec:reference-g3t ;
+    specl:refines <https://w3id.org/g3t/spec/g3t> ;
+    dct:conformsTo <https://w3id.org/specl/contract/2> ;
+    dct:title "g3-toolkit: Archetype Views" ;
+    dct:hasVersion "0.1.0" ;
+    specl:status "draft" ;
+    dct:identifier "g3-func-views" ;
+    specl:prefix "g3tfunc" ;
+    dct:created "2026-05-17"^^xsd:date ;
+    specl:intent """This specification defines the 12 archetype views that compose the g3-toolkit's visualization layer. Each archetype is a reusable view component; they are not standalone applications. They compose into domain-specific workspaces via the Composite Dashboard (R1.12).  All views consume a unified node/edge/property model (P5). Whether that model was populated from LPG, from RDF via projection (P4), or from Holonic `project_to_lpg()` (P6) is irrelevant to the view layer.   This specification defines the cross-cutting interaction patterns that operate across all archetype views. These are not view-specific features; they are universal primitives (P3) that compose with any view.""" ;
+    specl:purpose """""" .
+
+spec:source-7f93c576 a specl:SourceDocument ;
+    dct:identifier "01-functional-views.md" .
+
+spec:source-7f69d7b4 a specl:SourceDocument ;
+    dct:identifier "02-functional-interaction.md" .
+
+spec:reference-g3t a specl:SpecificationReference ;
+    specl:prefix "g3t" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/g3t#" ;
+    specl:referencePath "g3t/spec.ttl" .
+
+spec:R1.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Link-Chart Canvas view (\"Investigation Canvas\") with…" ;
+    dct:description "The toolkit MUST provide a Link-Chart Canvas view (\"Investigation Canvas\") with force-directed and hierarchical layout modes, node icons with label and per-class color, and edge thickness/style encoding for confidence and relationship type." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "37"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains <https://w3id.org/g3t/components#LayoutEngine> ;
+    specl:constrains spec:component-NodeRenderer ;
+    specl:constrains <https://w3id.org/g3t/components#EdgeRenderer> ;
+    specl:acceptanceCriterion "Given a graph with 200 nodes and 500 edges, when the canvas is opened, then nodes render with class-appropriate icons and edges render with type-appropriate styles within 2 seconds." ;
+    specl:acceptanceCriterion "Given a graph exceeding 500 nodes, when the canvas is opened, then the user is prompted with an aggregation suggestion before rendering proceeds." .
+
+spec:R1.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Timeline / Temporal Playback view that renders…" ;
+    dct:description "The toolkit MUST provide a Timeline / Temporal Playback view that renders events on a horizontal time axis, supports scrubbing and animation, and filters the linked canvas by temporal range." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "47"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains spec:component-TimelineRenderer ;
+    specl:constrains spec:component-CrossViewLinker ;
+    specl:acceptanceCriterion "Given a graph with timestamped events, when the timeline brush is dragged, then only events within the selected range are highlighted in the linked canvas." .
+
+spec:R1.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Geospatial Overlay view that renders nodes with…" ;
+    dct:description "The toolkit MUST provide a Geospatial Overlay view that renders nodes with latitude/longitude properties on a map and supports region drawing, measurement, and annotation." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "55"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains spec:component-MapRenderer ;
+    specl:constrains spec:component-GeoSpatialAdapter ;
+    specl:acceptanceCriterion "Given nodes with lat/lon properties, when the geo view is opened, then nodes render at their geographic positions on a tiled basemap." .
+
+spec:R1.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Matrix / Heatmap view that renders co-occurrence or…" ;
+    dct:description "The toolkit MUST provide a Matrix / Heatmap view that renders co-occurrence or adjacency counts between node categories in a grid with color-scaled cells." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "63"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:verifiedBy spec:test-87aa8644 ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER2> ;
+    specl:constrains <https://w3id.org/g3t/components#MatrixRenderer> ;
+    specl:acceptanceCriterion "Given a graph with typed nodes, when the matrix view is opened for two selected node types, then the grid renders co-occurrence counts with a color gradient." .
+
+spec:R1.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Schema / Ontology Visualization view that renders…" ;
+    dct:description "The toolkit MUST provide a Schema / Ontology Visualization view that renders class hierarchies, property domains/ranges, and SHACL shape structures." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "72"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:constrains <https://w3id.org/g3t/components#SchemaRenderer> ;
+    specl:constrains spec:component-SHACLParser ;
+    specl:acceptanceCriterion "Given an OWL ontology, when the schema view is opened, then classes render in a hierarchy with property edges showing domain/range." ;
+    specl:acceptanceCriterion "Given a SHACL shapes graph, when the schema view is opened, then shape constraints render as annotated overlays on the class hierarchy." .
+
+spec:R1.6 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Hierarchical / Tree-Map view that renders…" ;
+    dct:description "The toolkit MUST provide a Hierarchical / Tree-Map view that renders containment hierarchies with expand/collapse and supports lazy-load expansion beyond the default node limit." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "81"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER2> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#TreeRenderer> ;
+    specl:constrains spec:component-LazyLoader ;
+    specl:acceptanceCriterion "Given a SysML containment hierarchy with 5,000 nodes, when the tree view is opened, then only the first two levels render initially; deeper levels load on expand." .
+
+spec:R1.7 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Tabular / Grid view that renders SPARQL, Cypher, or…" ;
+    dct:description "The toolkit MUST provide a Tabular / Grid view that renders SPARQL, Cypher, or GQL query results as a sortable, filterable, paginated table with bidirectional cross-selection to all other views." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "90"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:constrains <https://w3id.org/g3t/components#TableRenderer> ;
+    specl:constrains spec:component-CrossViewLinker ;
+    specl:acceptanceCriterion "Given a SPARQL SELECT result with 50,000 rows, when the table view is opened, then the first page of 10,000 rows renders with pagination controls." ;
+    specl:acceptanceCriterion "Given a row selected in the table, when the linked canvas is visible, then the corresponding node highlights in the canvas." .
+
+spec:R1.8 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD provide a Statistical / Analytics Panel that renders degree…" ;
+    dct:description "The toolkit SHOULD provide a Statistical / Analytics Panel that renders degree distributions, centrality plots, community size histograms, and embedding scatter plots from algorithm result properties." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "101"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains spec:component-StatsRenderer ;
+    specl:constrains <https://w3id.org/g3t/components#AlgorithmResultAdapter> ;
+    specl:acceptanceCriterion "Given nodes with a `pagerank` property, when the stats panel is opened, then a histogram of PageRank values renders with brush-to-select." .
+
+spec:R1.9 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit was to provide a Sankey / Flow / Chord view" ;
+    dct:description "The toolkit was to provide a Sankey / Flow / Chord view. Withdrawn from the roadmap 2026-06-12 by review direction; partial SankeyView code remains in the tree under no roadmap commitment." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "110"^^xsd:integer ;
+    specl:itemStatus "withdrawn" .
+
+spec:R1.10 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Diff / Comparison view that renders added, removed…" ;
+    dct:description "The toolkit MUST provide a Diff / Comparison view that renders added, removed, and changed nodes and edges between two graph states in side-by-side or overlay modes." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "113"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER2> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains spec:component-DiffEngine ;
+    specl:constrains spec:component-DiffRenderer ;
+    specl:acceptanceCriterion "Given two named-graph snapshots, when the diff view is opened, then added nodes render green, removed nodes render red, and changed properties are listed in a detail panel." .
+
+spec:R1.11 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Detail / Provenance Inspector panel that displays…" ;
+    dct:description "The toolkit MUST provide a Detail / Provenance Inspector panel that displays node and edge properties, assertion-level provenance, named-graph attribution, confidence scores, and source-document span links." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "123"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains spec:component-ProvenanceAdapter ;
+    specl:constrains <https://w3id.org/g3t/components#DocumentLinker> ;
+    specl:acceptanceCriterion "Given a node with provenance metadata, when the inspector is opened, then the provenance chain renders as a trace from assertion back to source." ;
+    specl:acceptanceCriterion "Given a node from projected RDF, when \"Show raw RDF\" is toggled, then the underlying triples and named graphs display beneath the projected property view." .
+
+spec:R1.12 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Composite Dashboard / Workspace that allows…" ;
+    dct:description "The toolkit MUST provide a Composite Dashboard / Workspace that allows persistent layout of multiple archetype views with save, share, and role-based default configurations." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "134"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkspaceManager> ;
+    specl:constrains <https://w3id.org/g3t/components#PerspectiveStore> ;
+    specl:acceptanceCriterion "Given a saved workspace \"AML Triage\" containing Canvas + Timeline + Map + Table, when a user with the \"aml-analyst\" role logs in, then the workspace loads with all four views cross-linked." .
+
+spec:R1.13 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a Query Editor view with syntax highlighting for…" ;
+    dct:description "The toolkit MUST provide a Query Editor view with syntax highlighting for SPARQL, Cypher, and GQL. Query results MUST populate the UGM and render in the active views. The editor SHOULD support autocompletion from the SchemaModel." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "143"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:verifiedBy spec:test-bb93499d ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER4> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:rationale "Gap analysis: every commercial graph platform ships a query editor. Without one, the toolkit is display-only." ;
+    specl:constrains <https://w3id.org/g3t/components#QueryEditor> ;
+    specl:constrains spec:component-QueryAdapter ;
+    specl:acceptanceCriterion "Given a SPARQL endpoint adapter and the Query Editor open, when a SELECT query is executed, then the result populates the UGM and the linked Table view shows the bindings." ;
+    specl:acceptanceCriterion "Given a syntactically invalid query, when execute is invoked, then the editor surfaces the adapter's error without clearing the current UGM." .
+
+spec:R1.14 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support community overlay visualization, rendering node…" ;
+    dct:description "The toolkit MUST support community overlay visualization, rendering node community membership as background color regions (convex hulls) or as a distinct visual channel (border color, icon badge). Community IDs are sourced from algorithm result properties (R3.5)." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "156"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:rationale "Gap analysis: community detection is a core C6 capability (research/use-case-survey.md, section B.6). ingestAlgorithmResults exists but no visual encoding for community boundaries." ;
+    specl:constrains <https://w3id.org/g3t/components#CanvasRenderer> ;
+    specl:constrains spec:component-VisualEncodingManager ;
+    specl:acceptanceCriterion "Given nodes carrying a community property from ingestAlgorithmResults, when the community overlay is enabled, then nodes sharing a community ID are visually grouped by a shared channel (hull, border color, or badge)." .
+
+spec:R1.15 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD provide an Entity Page view: a consumption-oriented…" ;
+    dct:description "The toolkit SHOULD provide an Entity Page view: a consumption-oriented, schema-driven rendering of a single entity with grouped properties (per class/shape), outbound and inbound relationships with counts, and media/document references. The Entity Page is the human-readable counterpart to the Detail Inspector (R1.11), which remains the debugging surface." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "166"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER4> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER4> ;
+    specl:rationale "Capability landscape (research/capability-landscape.md, section E.1). The entity page is the universal compound across concept trackers (Wikipedia/Wikidata, IMDb), KG suites (Stardog Explorer, TopBraid EDG), and decision support (Foundry object view); the toolkit currently has no consumption surface for a single concept." ;
+    specl:constrains spec:component-EntityPage ;
+    specl:constrains spec:component-SchemaModel ;
+    specl:constrains spec:component-CrossViewLinker ;
+    specl:acceptanceCriterion "Given an entity with typed properties and a SchemaModel, when the Entity Page opens, then properties render grouped by their declaring class or shape, and inbound relationships list with per-type counts." ;
+    specl:acceptanceCriterion "Given a relationship listed on the Entity Page, when it is activated, then the related entity's page opens and the canvas selection updates (cross-view linking per R2.5)." .
+
+spec:R1.16 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD provide a SHACL Shape view that renders a shapes graph with…" ;
+    dct:description "The toolkit SHOULD provide a SHACL Shape view that renders a shapes graph with NodeShapes as compound containers (stereotyped headers; solid border when sh:closed, dashed otherwise), blank-node property shapes as contained items showing path, type, and UML-style cardinality summaries, IRI-named property shapes rendered once with sh:property reference edges, sh:node references as edges between shape containers, and sh:target* links as dashed target edges. Constraint detail beyond the summary renders in the Detail Inspector. (Compartment-row rendering of property shapes arrives with the ELK containers work; see roadmap/design/shacl-views.md.)" ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "179"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:verifiedBy spec:test-2cff8ad6 ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER2> ;
+    specl:constrains <https://w3id.org/g3t/components#CytoscapeCanvas> ;
+    specl:constrains <https://w3id.org/g3t/components#DetailInspector> ;
+    specl:acceptanceCriterion "Given a shapes graph with a closed NodeShape owning three blank-node property shapes (one with sh:minCount 1 and sh:datatype xsd:string), when the Shape view renders, then the NodeShape appears as a solid-bordered container holding three labeled items, the constrained one reading its path with [1..*]-style cardinality and a datatype suffix." .
+
+spec:R1.17 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD visualize SHACL validation reports over the data graph by…" ;
+    dct:description "The toolkit SHOULD visualize SHACL validation reports over the data graph by consuming a versioned report document (adaptable from the in-core validator or external engines such as pyshacl and Jena), rendering severity tiers (violation, warning, info) as independently toggleable emphasis overlays using the theme's semantic colors, ingesting per-focus-node result counts and maximum severity as encoding-spec drivers, including result-path edges in the emphasis, and listing result detail (message, source shape, path, value) in the Detail Inspector. When the Shape view is also open, selecting a result SHOULD cross-highlight the source shape." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "189"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:verifiedBy spec:test-9f69456c ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#CytoscapeCanvas> ;
+    specl:constrains <https://w3id.org/g3t/components#DetailInspector> ;
+    specl:constrains spec:component-AlgorithmPanel ;
+    specl:acceptanceCriterion "Given a report with two violations and one warning across three focus nodes, when loaded, then violations and warnings render as distinct toggleable emphasis tiers, the focus nodes carry result counts usable as a size driver, and the inspector lists each message with its source shape." .
+
+spec:R1.18 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD render UML-style structural element views: compound…" ;
+    dct:description "The toolkit SHOULD render UML-style structural element views: compound containers with stereotyped headers, typed compartments whose rows are real selectable elements (so overlays, badges, and cross-highlighting apply to individual rows), and boundary ports fixed to declared sides, laid out by ELK such that rows stack zero-gap in declared order at uniform width and containers size exactly to header strip plus row heights. The layout produces a versioned geometry document (renderer-neutral absolute boxes) that the canvas consumes; edges MAY attach to ports. The compartment API serves any client; UML custom views and the SHACL Shape view (R1.16) both render through it with zero parallel machinery. AMENDED 2026-07-10: the compartment expand/collapse clauses were REMOVED from this requirement by ruling after four failed browser-review rounds; planning/expand-collapse-postmortem.md records the challenges and the prerequisites any reintroduction must meet, and MUST be read before proposing collapse again." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "200"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:verifiedBy spec:test-fb4ac475 ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER2> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:constrains <https://w3id.org/g3t/components#CytoscapeCanvas> ;
+    specl:constrains <https://w3id.org/g3t/components#DetailInspector> ;
+    specl:acceptanceCriterion "Given the «Block»/part fixture with two titled compartments and a boundary port, when the structural layout runs, then rows stack zero-gap in declared order at one shared width inside their container, the container height equals the header strip plus the sum of row heights, and the port lies on its declared boundary side." ;
+    specl:acceptanceCriterion "Given the resulting geometry document applied to the canvas, when a compartment row is clicked, then exactly that row is selected and the Detail Inspector shows its source element." .
+
+spec:R2.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a right-click context menu on every node in every view" ;
+    dct:description "The toolkit MUST provide a right-click context menu on every node in every view. The menu MUST include at minimum: \"Show N-degree neighbors\" (with a numeric input defaulting to 1), \"Inspect properties\" (opens Detail Inspector), \"Show in table\" (highlights row in Table view), and \"Copy IRI.\"" ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "14"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ContextMenuManager> ;
+    specl:constrains spec:component-CrossViewLinker ;
+    specl:acceptanceCriterion "Given a node in the canvas, when right-clicked, then the context menu appears with all four base items." ;
+    specl:acceptanceCriterion "Given a node in the table view, when right-clicked, then the same base context menu appears." ;
+    specl:acceptanceCriterion "Given a node in the map view, when right-clicked, then the same base context menu appears." .
+
+spec:R2.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST provide a right-click context menu on every edge in every view…" ;
+    dct:description "The toolkit MUST provide a right-click context menu on every edge in every view that renders edges. The menu MUST include at minimum: \"Inspect properties,\" \"Show provenance\" (if provenance metadata exists), and \"Hide edge type.\"" ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "24"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ContextMenuManager> ;
+    specl:constrains <https://w3id.org/g3t/components#EdgeRenderer> ;
+    specl:acceptanceCriterion "Given an edge with a confidence property, when \"Show provenance\" is selected, then the Detail Inspector opens with the provenance trace." .
+
+spec:R2.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The right-click context menu MUST be extensible by plugins and by Holonic…" ;
+    dct:description "The right-click context menu MUST be extensible by plugins and by Holonic portal definitions. Plugin-registered menu items appear in a \"Plugins\" submenu. Holonic portal-derived items appear in a \"Traverse portal to...\" submenu." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "32"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER7> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ContextMenuManager> ;
+    specl:constrains <https://w3id.org/g3t/components#PluginRegistry> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:acceptanceCriterion "Given a plugin that registers a \"Run PageRank from here\" action, when a node is right-clicked, then the item appears in the Plugins submenu." ;
+    specl:acceptanceCriterion "Given a Holonic holon with two outbound portals, when the holon node is right-clicked, then both portals appear in the \"Traverse portal to...\" submenu." .
+
+spec:R2.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "\"Show N-degree neighbors\" MUST default to 1 degree and MUST expand the…" ;
+    dct:description "\"Show N-degree neighbors\" MUST default to 1 degree and MUST expand the neighborhood into the currently active canvas, respecting the working-set limit (P2). If the expansion would exceed the limit, the user MUST be prompted before rendering proceeds." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "43"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains spec:component-GraphExpander ;
+    specl:constrains <https://w3id.org/g3t/components#WorkingSetManager> ;
+    specl:acceptanceCriterion "Given a canvas with 480 nodes and a node with 30 neighbors, when \"Show 1-degree neighbors\" is invoked, then the user is prompted (\"This will add 30 nodes, exceeding the 500-node default. Proceed?\")." .
+
+spec:R2.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support cross-view linking such that selecting an element in…" ;
+    dct:description "The toolkit MUST support cross-view linking such that selecting an element in one view highlights or filters the corresponding element(s) in all other visible views in the same workspace." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "51"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains spec:component-CrossViewLinker ;
+    specl:constrains <https://w3id.org/g3t/components#WorkspaceManager> ;
+    specl:acceptanceCriterion "Given a Canvas and a Table both visible, when a node is selected in the Canvas, then the corresponding row highlights in the Table." ;
+    specl:acceptanceCriterion "Given a Canvas and a Map both visible, when a node with coordinates is selected in the Canvas, then the map pans to and highlights the corresponding marker." .
+
+spec:R2.6 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support expand/collapse (progressive disclosure) in the canvas…" ;
+    dct:description "The toolkit MUST support expand/collapse (progressive disclosure) in the canvas and tree views. Collapsed groups MUST display a count badge and MUST be expandable via double-click or right-click menu." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "60"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains spec:component-NodeGrouper ;
+    specl:constrains <https://w3id.org/g3t/components#LayoutEngine> ;
+    specl:acceptanceCriterion "Given a community of 50 nodes collapsed into a group node, when the group is double-clicked, then the 50 nodes expand with a force-directed sub-layout." .
+
+spec:R2.7 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support search and filter with faceted filtering by node type…" ;
+    dct:description "The toolkit MUST support search and filter with faceted filtering by node type, edge type, and property values, full-text search across node labels and properties, and (when available) SPARQL/Cypher/GQL query input." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "68"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains spec:component-SearchEngine ;
+    specl:constrains spec:component-QueryAdapter ;
+    specl:acceptanceCriterion "Given a graph with Person and Organization nodes, when the facet \"type: Person\" is selected, then only Person nodes and their incident edges remain visible." .
+
+spec:R2.8 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support selection and annotation, including multi-select…" ;
+    dct:description "The toolkit MUST support selection and annotation, including multi-select (lasso, shift-click), tagging (user-defined labels on selected nodes), and user-defined grouping (manual clustering)." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "77"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains spec:component-SelectionManager ;
+    specl:constrains spec:component-AnnotationStore ;
+    specl:acceptanceCriterion "Given a lasso selection of 10 nodes, when the user tags them \"Suspect Cluster A,\" then the tag persists across session save/reload." .
+
+spec:R2.9 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support layout manipulation, including pinning nodes to fixed…" ;
+    dct:description "The toolkit MUST support layout manipulation, including pinning nodes to fixed positions, manual drag-to-arrange, and switching between layout algorithms (force-directed, hierarchical, radial, geographic) without losing pin state." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "85"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains <https://w3id.org/g3t/components#LayoutEngine> ;
+    specl:acceptanceCriterion "Given 5 pinned nodes and a switch from force-directed to hierarchical layout, when the layout completes, then the 5 pinned nodes remain at their user-assigned positions." .
+
+spec:R2.10 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD support temporal playback (animation of graph evolution over…" ;
+    dct:description "The toolkit SHOULD support temporal playback (animation of graph evolution over time) in the Timeline view and as a mode in the canvas." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "92"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains spec:component-TimelineRenderer ;
+    specl:constrains spec:component-AnimationEngine ;
+    specl:acceptanceCriterion "Given a temporal graph spanning 30 days, when playback is started at 1x speed, then nodes and edges appear/disappear according to their time validity." .
+
+spec:R2.11 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support export and reporting, including subgraph export…" ;
+    dct:description "The toolkit MUST support export and reporting, including subgraph export (JSON-LD, Turtle, CSV, PNG/SVG screenshot), structured report generation from selected elements, and workspace state serialization." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "100"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:verifiedBy spec:test-5ec9f52b ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#ExportManager> ;
+    specl:acceptanceCriterion "Given a canvas with 50 selected nodes, when \"Export subgraph as Turtle\" is invoked, then a valid Turtle file containing those nodes, their properties, and their inter-edges is produced." .
+
+spec:R2.12 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD support data entry and curation, including inline editing of…" ;
+    dct:description "The toolkit SHOULD support data entry and curation, including inline editing of node/edge properties, relationship creation via drag-from-node, and SHACL validation feedback on commit." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "109"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains spec:component-WriteBackManager ;
+    specl:constrains spec:component-SHACLValidator ;
+    specl:acceptanceCriterion "Given a node with an editable property, when the user changes the value and commits, then SHACL validation runs and displays pass/fail before the write is persisted." .
+
+spec:R2.13 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit MUST support path analysis between two selected nodes, displaying…" ;
+    dct:description "The toolkit MUST support path analysis between two selected nodes, displaying the shortest path(s) as highlighted edges in the canvas. The user MUST be able to constrain paths by edge type and maximum hops." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "118"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:verifiedBy spec:test-bb93499d ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:rationale "Gap analysis identified path analysis as a critical missing capability. C4 (Network Analytics; research/use-case-survey.md, section B.4) lists shortest path across 7 domains. All major investigation tools (Palantir, i2, Linkurious) provide this." ;
+    specl:constrains spec:component-PathAnalysis ;
+    specl:constrains <https://w3id.org/g3t/components#CanvasRenderer> ;
+    specl:acceptanceCriterion "Given two selected nodes with at least one connecting path, when path analysis is invoked, then the shortest path's edges are highlighted in the canvas." ;
+    specl:acceptanceCriterion "Given a maximum-hops constraint of 2 and only a 3-hop path between the selected nodes, when path analysis is invoked, then no path is returned and the user is informed." .
+
+spec:R2.14 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit was to maintain an undo/redo stack for canvas operations with…" ;
+    dct:description "The toolkit was to maintain an undo/redo stack for canvas operations with Ctrl+Z and Ctrl+Shift+Z bindings and a configurable depth. Withdrawn by AG2 ruling 2026-08-20: no keyboard binding was ever wired, and the requirement had been reading as implemented on a test that exercises the stack rather than the contract. `UndoRedoStack` remains built, exported and tested in the tree under no requirement." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "130"^^xsd:integer ;
+    specl:itemStatus "withdrawn" .
+
+spec:R2.15 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD support investigation bookmarks" ;
+    dct:description "The toolkit SHOULD support investigation bookmarks. A bookmark captures the current selection, active filters, and viewport state. When bookmarks are provided, they SHOULD persist across sessions and SHOULD be shareable as workspace state (R1.12)." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "133"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:rationale "Tagging (M1) provides node labels but no saved searches, subgraph bookmarks, or timestamped investigation notes." ;
+    specl:constrains spec:component-AnnotationStore ;
+    specl:constrains <https://w3id.org/g3t/components#WorkspaceManager> ;
+    specl:acceptanceCriterion "Given a saved bookmark and a reloaded session, when the bookmark is activated, then the captured selection, filters, and viewport are restored." .
+
+spec:R2.16 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD provide change history and review components for…" ;
+    dct:description "The toolkit SHOULD provide change history and review components for write-back-enabled deployments: a per-entity revision feed (timestamp, principal, property-level diff) rendered from history records the adapter supplies, and a local review queue listing pending edits with accept/reject actions routed through the write path (R2.12). History retention and authoritative approval state are backend concerns surfaced through the adapter contract, not stored by the toolkit." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "142"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER4> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER4> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:rationale "Capability landscape (research/capability-landscape.md, section E.2). Every surveyed system with a write path also ships review (Wikidata history and patrol, TopBraid change management); write-back without history is an irreversible-edit surface." ;
+    specl:constrains spec:component-RevisionFeed ;
+    specl:constrains spec:component-ReviewQueue ;
+    specl:constrains spec:component-WriteBackManager ;
+    specl:acceptanceCriterion "Given an adapter exposing three revisions of an entity, when the revision feed opens, then three entries render with property-level diffs in reverse chronological order." ;
+    specl:acceptanceCriterion "Given a pending edit in the review queue, when it is rejected, then no write is issued and the queue entry records the rejection." .
+
+spec:R2.17 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "The toolkit SHOULD provide a saved-query library and session query history for…" ;
+    dct:description "The toolkit SHOULD provide a saved-query library and session query history for the Query Editor (R1.13): queries are nameable, parameterizable (declared placeholders prompt for values on run), and persist via the same pluggable storage used by annotations. History captures executed query text and target adapter per session." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "155"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:rationale "Capability landscape (research/capability-landscape.md, section E.3). Saved queries and history ship in every surveyed database console (Neo4j Browser, GraphDB Workbench, Stardog Studio); their absence forces re-authoring in curation and analytics workflows." ;
+    specl:constrains spec:component-QueryLibrary ;
+    specl:constrains <https://w3id.org/g3t/components#QueryEditor> ;
+    specl:constrains spec:component-AnnotationStore ;
+    specl:acceptanceCriterion "Given a saved query with a declared parameter, when it is run from the library, then the user is prompted for the parameter value and the substituted query executes against the selected adapter." ;
+    specl:acceptanceCriterion "Given three queries executed in a session, when the history panel opens, then the three entries render most-recent-first and re-running an entry executes it unchanged." .
+
+spec:US1.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As an intelligence analyst, I want to open a link-chart canvas seeded with a…" ;
+    dct:description "As an intelligence analyst, I want to open a link-chart canvas seeded with a person-of-interest and progressively expand their network via right-click \"Show 1-degree neighbors,\" so that I can build an investigation without rendering the entire graph." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "213"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:benefit "I can explore a threat network incrementally without information overload" ;
+    specl:implementationStatus "not-started" .
+
+spec:US1.2 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As an MBSE engineer, I want to view a SysML containment hierarchy in a tree…" ;
+    dct:description "As an MBSE engineer, I want to view a SysML containment hierarchy in a tree view and, for any selected component, see its interface dependencies in a linked canvas, so that I can trace failure propagation paths." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "218"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER2> ;
+    specl:benefit "I can identify single points of failure in system-of-systems architectures" ;
+    specl:implementationStatus "not-started" .
+
+spec:US1.3 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As an ontology engineer, I want to view the class hierarchy of my ontology, see…" ;
+    dct:description "As an ontology engineer, I want to view the class hierarchy of my ontology, see SHACL shape constraints as overlays, and diff the current version against the previous release, so that I can validate schema changes before deployment." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "223"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:benefit "I can catch breaking changes before they affect downstream consumers" ;
+    specl:implementationStatus "not-started" .
+
+spec:US1.4 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As a fraud analyst, I want a workspace that combines a transaction-network…" ;
+    dct:description "As a fraud analyst, I want a workspace that combines a transaction-network canvas with a timeline and a statistical panel showing anomaly scores, so that I can triage alerts by visual pattern and quantitative threshold simultaneously." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "228"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:benefit "I can reduce false positives by correlating graph structure with temporal and statistical signals" ;
+    specl:implementationStatus "not-started" .
+
+spec:US1.5 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As a data engineer, I want to see query results in a table and click any row to…" ;
+    dct:description "As a data engineer, I want to see query results in a table and click any row to highlight the corresponding node in the canvas, so that I can verify that my SPARQL or Cypher query returns the expected subgraph." ;
+    prov:wasDerivedFrom spec:source-7f93c576 ;
+    specl:sourceLine "233"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:benefit "I can debug graph queries interactively" ;
+    specl:implementationStatus "not-started" .
+
+spec:US2.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As an analyst, I want to right-click any node in any view and select \"Show…" ;
+    dct:description "As an analyst, I want to right-click any node in any view and select \"Show 1-degree neighbors\" so that I can incrementally build my working set without typing queries." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "170"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:benefit "I can explore a network without leaving the visual context" ;
+    specl:implementationStatus "not-started" .
+
+spec:US2.2 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As a platform administrator, I want to register a custom right-click action via…" ;
+    dct:description "As a platform administrator, I want to register a custom right-click action via a plugin so that domain-specific operations (e.g., \"Submit SAR,\" \"Flag for review\") are available directly from the graph canvas." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "175"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER8> ;
+    specl:benefit "Analysts can take operational actions without switching applications" ;
+    specl:implementationStatus "not-started" .
+
+spec:US2.3 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/functional> ;
+    dct:title "As a fraud analyst, I want to select a cluster of nodes in the canvas and see…" ;
+    dct:description "As a fraud analyst, I want to select a cluster of nodes in the canvas and see them highlighted in the timeline and table simultaneously so that I can verify temporal and property-level patterns." ;
+    prov:wasDerivedFrom spec:source-7f69d7b4 ;
+    specl:sourceLine "180"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:benefit "I can correlate visual structure with data details in one gesture" ;
+    specl:implementationStatus "not-started" .
+
+spec:component-AlgorithmPanel a specl:Component ;
+    dct:identifier "AlgorithmPanel" .
+
+spec:component-AnimationEngine a specl:Component ;
+    dct:identifier "AnimationEngine" .
+
+spec:component-AnnotationStore a specl:Component ;
+    dct:identifier "AnnotationStore" .
+
+spec:component-CrossViewLinker a specl:Component ;
+    dct:identifier "CrossViewLinker" .
+
+spec:component-DiffEngine a specl:Component ;
+    dct:identifier "DiffEngine" .
+
+spec:component-DiffRenderer a specl:Component ;
+    dct:identifier "DiffRenderer" .
+
+spec:component-EntityPage a specl:Component ;
+    dct:identifier "EntityPage" .
+
+spec:component-GeoSpatialAdapter a specl:Component ;
+    dct:identifier "GeoSpatialAdapter" .
+
+spec:component-GraphExpander a specl:Component ;
+    dct:identifier "GraphExpander" .
+
+spec:component-LazyLoader a specl:Component ;
+    dct:identifier "LazyLoader" .
+
+spec:component-MapRenderer a specl:Component ;
+    dct:identifier "MapRenderer" .
+
+spec:component-NodeGrouper a specl:Component ;
+    dct:identifier "NodeGrouper" .
+
+spec:component-NodeRenderer a specl:Component ;
+    dct:identifier "NodeRenderer" .
+
+spec:component-PathAnalysis a specl:Component ;
+    dct:identifier "PathAnalysis" .
+
+spec:component-ProvenanceAdapter a specl:Component ;
+    dct:identifier "ProvenanceAdapter" .
+
+spec:component-QueryAdapter a specl:Component ;
+    dct:identifier "QueryAdapter" .
+
+spec:component-QueryLibrary a specl:Component ;
+    dct:identifier "QueryLibrary" .
+
+spec:component-ReviewQueue a specl:Component ;
+    dct:identifier "ReviewQueue" .
+
+spec:component-RevisionFeed a specl:Component ;
+    dct:identifier "RevisionFeed" .
+
+spec:component-SHACLParser a specl:Component ;
+    dct:identifier "SHACLParser" .
+
+spec:component-SHACLValidator a specl:Component ;
+    dct:identifier "SHACLValidator" .
+
+spec:component-SchemaModel a specl:Component ;
+    dct:identifier "SchemaModel" .
+
+spec:component-SearchEngine a specl:Component ;
+    dct:identifier "SearchEngine" .
+
+spec:component-SelectionManager a specl:Component ;
+    dct:identifier "SelectionManager" .
+
+spec:component-StatsRenderer a specl:Component ;
+    dct:identifier "StatsRenderer" .
+
+spec:component-TimelineRenderer a specl:Component ;
+    dct:identifier "TimelineRenderer" .
+
+spec:component-VisualEncodingManager a specl:Component ;
+    dct:identifier "VisualEncodingManager" .
+
+spec:component-WriteBackManager a specl:Component ;
+    dct:identifier "WriteBackManager" .
+
+spec:test-2cff8ad6 a specl:Test ;
+    dct:identifier "packages/core/src/shacl/shacl-to-structural.test.ts" .
+
+spec:test-5ec9f52b a specl:Test ;
+    dct:identifier "packages/core/src/export/subgraph-export.test.ts" .
+
+spec:test-87aa8644 a specl:Test ;
+    dct:identifier "packages/react/src/views/matrix/matrix-acceptance.test.tsx" .
+
+spec:test-9f69456c a specl:Test ;
+    dct:identifier "packages/core/src/shacl/shacl-report.test.ts" .
+
+spec:test-bb93499d a specl:Test ;
+    dct:identifier "packages/react/src/views/query/gap-analysis.test.tsx" .
+
+spec:test-fb4ac475 a specl:Test ;
+    dct:identifier "packages/core/src/layout/structural.test.ts" .
+

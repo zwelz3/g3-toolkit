@@ -1,0 +1,222 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix spec: <https://w3id.org/g3t/spec/integration#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<https://w3id.org/g3t/spec/integration> a specl:Specification ;
+    specl:declares spec:reference-g3t ;
+    specl:refines <https://w3id.org/g3t/spec/g3t> ;
+    dct:conformsTo <https://w3id.org/specl/contract/2> ;
+    dct:title "g3-toolkit: Holonic Integration" ;
+    dct:hasVersion "0.1.0" ;
+    specl:status "draft" ;
+    dct:identifier "g3-int-holonic" ;
+    specl:prefix "g3tint" ;
+    dct:created "2026-05-17"^^xsd:date ;
+    specl:intent """This specification defines the integration between the g3-toolkit and the Holonic four-graph model (Interior, Boundary, Projection, Context) as implemented by the `holonic` Python library (https://github.com/zwelz3/holonic). Holonic is a first-class data source (P6), not an afterthought adapter.  This specification covers the g3-toolkit's Holonic support module. It is separate from holonic-console (a distinct application under development that will import this toolkit in the future). The integration boundary between g3-toolkit and holonic-console is deferred (P5) until holonic-console's architecture stabilizes.   This specification defines requirements for connecting the g3-toolkit to external data sources beyond the core graph adapters (R3.4). It covers relational virtualization, document linkage, streaming sources, federation, and API integration.""" ;
+    specl:purpose """""" .
+
+spec:source-695b9cb4 a specl:SourceDocument ;
+    dct:identifier "05-integration-holonic.md" .
+
+spec:source-b597bc91 a specl:SourceDocument ;
+    dct:identifier "06-integration-connectors.md" .
+
+spec:reference-g3t a specl:SpecificationReference ;
+    specl:prefix "g3t" ;
+    specl:referenceBase "https://w3id.org/g3t/spec/g3t#" ;
+    specl:referencePath "g3t/spec.ttl" .
+
+spec:R5.1 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit MUST implement a HolonicAdapter that wraps a `HolonicDataset`…" ;
+    dct:description "The toolkit MUST implement a HolonicAdapter that wraps a `HolonicDataset` instance and exposes it through the GraphAdapter interface (R3.3). The adapter MUST support both RdflibBackend and FusekiBackend transparently." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "39"^^xsd:integer ;
+    specl:implementationStatus "in-progress" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:constrains <https://w3id.org/g3t/components#GraphAdapter> ;
+    specl:acceptanceCriterion "Given a HolonicDataset with RdflibBackend containing 5 holons, when the HolonicAdapter is initialized, then `get_schema()` returns holon types and portal types." ;
+    specl:acceptanceCriterion "Given a HolonicDataset with FusekiBackend, when the HolonicAdapter is initialized, then queries execute via SPARQL over HTTP." .
+
+spec:R5.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit MUST render Holonic holarchy topology (`project_holarchy()` output…" ;
+    dct:description "The toolkit MUST render Holonic holarchy topology (`project_holarchy()` output: holons as nodes, portals as edges) in the Link-Chart Canvas (R1.1). This serves as a meta-navigation map. Selecting a holon in the holarchy view MUST load that holon's projected interior into the working canvas." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "48"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:constrains <https://w3id.org/g3t/components#CanvasRenderer> ;
+    specl:acceptanceCriterion "Given a holarchy with 3 holons connected by 2 portals, when holarchy topology is rendered, then 3 nodes and 2 edges appear in the canvas." ;
+    specl:acceptanceCriterion "Given a holon selected in the holarchy view, when double-clicked, then the holon's interior (projected via `project_holon()`) replaces the canvas content." .
+
+spec:R5.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit MUST use `project_to_lpg()` (or the holon's declared…" ;
+    dct:description "The toolkit MUST use `project_to_lpg()` (or the holon's declared ProjectionPipeline) as the default rendering path for Holonic interior graphs. The toolkit's ProjectionPipeline (R4.1) MUST accept Holonic ProjectionPipeline instances as a drop-in replacement." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "58"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ProjectionPipeline> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:acceptanceCriterion "Given a holon with an interior containing 500 RDF triples, when rendered through `project_to_lpg(collapse_types=True, collapse_literals=True, resolve_blanks=True, resolve_lists=True)`, then the canvas shows only named-resource nodes with collapsed properties." .
+
+spec:R5.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit MUST surface Holonic portals as right-click menu items on holon…" ;
+    dct:description "The toolkit MUST surface Holonic portals as right-click menu items on holon nodes. When a node is identified as a holon (via the HolonicAdapter), the right-click menu MUST include a \"Traverse portal to...\" submenu listing all discovered outbound portals (via `find_portals_from()`)." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "66"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER6> ;
+    specl:constrains <https://w3id.org/g3t/components#ContextMenuManager> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:acceptanceCriterion "Given a holon with 3 outbound portals, when right-clicked, then the \"Traverse portal to...\" submenu lists 3 items (one per target holon)." ;
+    specl:acceptanceCriterion "Given a portal selected from the submenu, when invoked, then the portal's CONSTRUCT query executes and the projected result animates into the canvas as an expanded neighborhood." .
+
+spec:R5.5 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit MUST render SHACL membrane validation results (from…" ;
+    dct:description "The toolkit MUST render SHACL membrane validation results (from `validate_membrane()`) as visual annotations. Passing validation renders as a green badge on the holon node; failing validation renders as a red badge with a count of violations. Clicking the badge MUST open the Detail Inspector (R1.11) with the violation details." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "75"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "MUST" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:constrains <https://w3id.org/g3t/components#SchemaRenderer> ;
+    specl:constrains <https://w3id.org/g3t/components#DetailInspector> ;
+    specl:acceptanceCriterion "Given a holon whose interior violates 2 SHACL shapes, when membrane validation runs, then the holon node displays a red badge with \"2\" and clicking it lists both violations." .
+
+spec:R5.6 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit SHOULD support per-holon view configuration via Holonic…" ;
+    dct:description "The toolkit SHOULD support per-holon view configuration via Holonic Projection-layer triples. A holon's Projection graph MAY declare: (a) which archetype views are appropriate, (b) which layout algorithm to use, (c) which visual style (color palette, icon set) to apply. The toolkit reads these declarations when opening a holon and configures the workspace accordingly." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "85"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:constrains <https://w3id.org/g3t/components#WorkspaceManager> ;
+    specl:acceptanceCriterion "Given a holon with a Projection-layer triple declaring \"use hierarchical layout,\" when the holon's interior is opened, then the canvas renders with hierarchical layout rather than force-directed." .
+
+spec:R5.7 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The Detail Inspector (R1.11) SHOULD display the Holonic layer (Interior…" ;
+    dct:description "The Detail Inspector (R1.11) SHOULD display the Holonic layer (Interior, Boundary, Projection, Context) from which each triple originates when viewing a Holonic data source. This is a Holonic-specific overlay on the standard property/provenance view." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "94"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER3> ;
+    specl:constrains <https://w3id.org/g3t/components#DetailInspector> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:acceptanceCriterion "Given a property sourced from a holon's Interior/radar graph, then the inspector displays \"Source: Interior (urn:holon:x/interior/radar).\"" .
+
+spec:R5.8 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit SHOULD support multi-interior rendering" ;
+    dct:description "The toolkit SHOULD support multi-interior rendering. A Holonic holon may have multiple interior named graphs (e.g., radar, EO-IR, fusion). The toolkit SHOULD allow the user to select which interior graphs to include in the rendering and SHOULD visually distinguish data from different interiors (e.g., via color coding or icon badges)." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "102"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#HolonicAdapter> ;
+    specl:constrains <https://w3id.org/g3t/components#CanvasRenderer> ;
+    specl:acceptanceCriterion "Given a holon with 3 interior graphs, when all 3 are selected, then nodes sourced from different interiors are visually distinguishable (e.g., different border colors)." .
+
+spec:R6.2 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit SHOULD support multi-source federation such that a single workspace…" ;
+    dct:description "The toolkit SHOULD support multi-source federation such that a single workspace can combine data from multiple GraphAdapter instances (e.g., one SPARQL, one Cypher, one Holonic). Entity resolution across sources MUST be configurable by shared IRI, owl:sameAs, or user-defined key." ;
+    prov:wasDerivedFrom spec:source-b597bc91 ;
+    specl:sourceLine "24"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains spec:component-FederationManager ;
+    specl:constrains spec:component-EntityResolver ;
+    specl:acceptanceCriterion "Given a SPARQL source and a Cypher source both containing nodes for \"Company X\" linked by a shared IRI, when federated, then a single node appears in the canvas with properties merged from both sources." .
+
+spec:R6.3 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "(Extends: R3.8) The toolkit SHOULD support document and unstructured data…" ;
+    dct:description "(Extends: R3.8) The toolkit SHOULD support document and unstructured data linkage by rendering source-document references (URLs, PDF page+span, image regions) as clickable links or inline previews in the Detail Inspector (R1.11)." ;
+    prov:wasDerivedFrom spec:source-b597bc91 ;
+    specl:sourceLine "32"^^xsd:integer ;
+    specl:implementationStatus "not-started" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:constrains <https://w3id.org/g3t/components#DocumentLinker> ;
+    specl:acceptanceCriterion "Given a node with a `source_document_url` pointing to a PDF, when \"Show source\" is clicked, then an inline PDF viewer opens at the referenced page." .
+
+spec:R6.4 a specl:Requirement ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "The toolkit SHOULD support API integration by accepting JSON or GraphQL…" ;
+    dct:description "The toolkit SHOULD support API integration by accepting JSON or GraphQL responses as supplementary data, mappable to UGM node/edge properties via a configurable transform." ;
+    prov:wasDerivedFrom spec:source-b597bc91 ;
+    specl:sourceLine "40"^^xsd:integer ;
+    specl:implementationStatus "implemented" ;
+    specl:priority "SHOULD" ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER7> ;
+    specl:constrains spec:component-APIAdapter ;
+    specl:acceptanceCriterion "Given a REST endpoint returning JSON with entity metadata, when the API adapter is configured with a field-to-property mapping, then the metadata appears as node properties in the UGM." .
+
+spec:US5.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "As a data engineer using Holonic, I want to open the g3-toolkit pointed at my…" ;
+    dct:description "As a data engineer using Holonic, I want to open the g3-toolkit pointed at my HolonicDataset and see the holarchy as a navigable map so that I can drill into any holon and inspect its projected interior." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "123"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:benefit "I can visually validate the structure of my holarchy" ;
+    specl:implementationStatus "not-started" .
+
+spec:US5.2 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "As an analyst, I want to right-click a sensor holon and select \"Traverse portal…" ;
+    dct:description "As an analyst, I want to right-click a sensor holon and select \"Traverse portal to Fusion\" so that the fused track data from the target holon expands into my canvas without a manual query." ;
+    prov:wasDerivedFrom spec:source-695b9cb4 ;
+    specl:sourceLine "128"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER1> ;
+    specl:benefit "I can follow data flows across holons as easily as expanding a neighborhood" ;
+    specl:implementationStatus "not-started" .
+
+spec:US6.1 a specl:UserStory ;
+    specl:partOf <https://w3id.org/g3t/spec/integration> ;
+    dct:title "As a data engineer, I want to join a Postgres table of audit logs to my graph…" ;
+    dct:description "As a data engineer, I want to join a Postgres table of audit logs to my graph so that analysts can see both graph relationships and transactional history in a single workspace without data duplication." ;
+    prov:wasDerivedFrom spec:source-b597bc91 ;
+    specl:sourceLine "50"^^xsd:integer ;
+    specl:role <https://w3id.org/g3t/spec/g3t#PER5> ;
+    specl:benefit "I can avoid copying relational data into the graph store" ;
+    specl:implementationStatus "not-started" .
+
+spec:component-APIAdapter a specl:Component ;
+    dct:identifier "APIAdapter" .
+
+spec:component-EntityResolver a specl:Component ;
+    dct:identifier "EntityResolver" .
+
+spec:component-FederationManager a specl:Component ;
+    dct:identifier "FederationManager" .
+

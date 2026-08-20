@@ -1,5 +1,116 @@
 # Changelog
 
+## 1.0.0 (continued): 2026-08-20 (the specifications become a specl family)
+
+- **The eleven documents in `specs/` are now a seven-member specl 1.0.0
+  specification family, and `g3t-routing-001` has joined it.** They were
+  specl-*flavoured* before: real front matter, real annotation keys, and
+  a hand-rolled Python linter approximating a toolchain they had never
+  been through. Running the real one found that as-is they translated to
+  **nothing**. The documents put their title at H1 and their sections at
+  H2, specl delimits on H1, so each file read as one unrecognised section
+  and every requirement was discarded, after which `validate` reported
+  zero violations and `score` reported `0/0 items clean`. A migration
+  that loses 100% of its content passes every step after the first, which
+  is why `--fail-on-warning` on translate is now the load-bearing flag in
+  the loop and why the gate script diffs the committed Turtle rather than
+  rewriting it.
+- **Identifiers moved once, deliberately, while it was still free.** Bases
+  are `https://w3id.org/g3t/spec/<member>#`; routing's placeholder
+  `spec.g3-toolkit.dev` base was replaced and its 35 requirements
+  renumbered under `item_prefix: RT`, because 30 of them collided by
+  spelling with legacy R-IDs and the two grep-based gate scripts match
+  bare strings. Renumbering cost nothing only because nothing outside the
+  file cited them: the knowledge base cites zero R-IDs and the routing
+  sources cite zero. That window shuts the moment the assessment starts
+  citing evidence. Legacy R-IDs were **not** touched; they are cited 191
+  times in `packages/*/src` and 179 times in `roadmap/`.
+- **Personas and agents are declared once in the parent and referenced by
+  CURIE, which is the duplication the family exists to remove.** Routing
+  dropped from 70 items to 63 by deleting its local P1-P4 and AG1-AG3.
+  Thirteen prose role names across 118 uses reconciled to 12 personas: a
+  name earned its own identity only if it appeared on a requirement alone
+  or had a thematically distinct requirement set. `Investigator` and
+  `Data Scientist` never appeared without `Analyst`; `MBSE Engineer` and
+  routing's `Systems engineer` are one person. `Visually Impaired
+  Analyst` survived as its own persona because US7.1 is keyboard
+  navigation and audio summaries "without relying on the visual canvas",
+  which is a different interaction model rather than a different domain.
+- **`00-overview.md`, `09-design-decisions.md` and `10-open-questions.md`
+  are deleted; their content is the parent.** 16 citations across 12
+  files were rerouted to `specs/g3t/spec.md#decisions` and
+  `#open-questions` first, and the Sphinx toctree in
+  `docs/source/index.md` was updated, which a path-only search had
+  missed and which would have broken the docs build. Every substantive
+  line survives: all 74 changed lines are annotation mechanics, and the
+  overview's Intent and Purpose are in the parent byte for byte.
+- **Seven collective `affects` targets could not be expressed and were
+  demoted to prose.** `all renderers`, `all view components`,
+  `consumers passing decoration props` and four others name a set, and
+  specl names one thing at a time. What was lost is not the names but the
+  inheritance: `D2 affects <all renderers>` would have reached a renderer
+  added tomorrow. They live in each decision's `rationale` tagged
+  "Collective targets", filed to specl, and tracked for restoration.
+- **`scripts/lint_specs.py` is retired.** It approximated what
+  `specl-validate` now does properly. `scripts/check_specs.py` replaces
+  it and only orchestrates: it shells out to `specl-translate` and
+  `specl-validate` per member, then does the one thing no CLI does,
+  merging the family and failing if one local name resolves to two IRIs.
+  That check earns its place: it caught `PresetRegistry` split into two
+  nodes 18 lines apart in one file, because `constrains` accepts a bare
+  name and mints locally while `affects` refuses one. Every per-member
+  check was clean.
+- Requirement status is `implementation:` now, not `status:`; the two
+  retained gate scripts read it and skip `itemStatus: withdrawn` items,
+  matching 1.0.0's rule that retired items leave the measured population.
+  Distribution is unchanged at 46 implemented, 12 in-progress, 18
+  not-started, which is the evidence the migration preserved every value.
+  **Only 12 of 76 legacy requirements carry test evidence**, and the
+  family reports that honestly rather than inheriting the old numbers.
+- **`STATUS.md` is deleted.** 1,370 lines of which the live section was 29
+  and 75 `## PRIOR SNAPSHOT` blocks were the other 1,341. Three things
+  made it indefensible rather than merely large: the repository already
+  designated `planning/` for history and the file duplicated that inline
+  75 times; `CLAUDE.md` pointed at a "full queue in STATUS.md" that did
+  not exist, the word "thread" appearing twice in 1,370 lines; and two
+  current-state artifacts had drifted six weeks apart, `CLAUDE.md`
+  saying `CURRENT FOCUS (2026-07-03)` while `STATUS.md` said
+  `As of: 2026-08-16`. One current-state artifact cannot drift against
+  itself, so the live section moved into `CLAUDE.md`'s CURRENT FOCUS
+  block and the snapshots to `planning/status-history.md` under the same
+  "do not update" marking `milestone-history.md` carries. Every live
+  reference across `CLAUDE.md`, `DEVELOPER.md`, `roadmap/`, `planning/`
+  and `scripts/` was rerouted first; CHANGELOG and `audit/` entries were
+  left alone as point-in-time records.
+- **Maturity is now measured, not asserted.** Each member records its
+  score to a `history.ttl` via `specl-validate score --history`, so the
+  trend is a `prov:Activity` rather than prose. The first honest reading
+  is much lower than anything hand-written claimed: `functional` is
+  **18%**, not the 89% it showed before traceability was harvested. The
+  drop is not a regression. `UR25` makes the "should have `verifiedBy`"
+  warning conditional on the graph declaring any verification artifact
+  at all, so adding `verifiedBy` to five requirements switched the check
+  on for the 26 that have none. Reported to specl as the item we would
+  most like dispositioned: a project that adds real traceability watches
+  its published badge fall 71 points, which aims the incentive squarely
+  at staying silent.
+- **Twelve requirements were read against their tests rather than their
+  citations, and three were over-credited.** `R2.14` is **withdrawn**:
+  it required `Ctrl+Z MUST undo; Ctrl+Shift+Z MUST redo` and no such
+  binding was ever wired, the only `ctrlKey`/`metaKey` handlers in the
+  tree being canvas multi-select, `Ctrl+Enter` execute and table
+  multi-select. `UndoRedoStack` remains built, exported and tested under
+  no requirement, the same shape `SankeyView` has carried since `R1.9`.
+  `R7.3` and `R7.7` dropped to `in-progress`; only **two** of the twelve
+  earned `verified`. The repo's existing CAPS valve had caught this
+  class once, for `R1.4`, but was built for the colocated-test
+  heuristic: these three are cited in test text, so citation simply is
+  not verification.
+- `R1.9` and `R7.5`, previously deleted and replaced by prose retirement
+  notes, are back as real items with `itemStatus: withdrawn`. The
+  identifiers are permanently reserved, the retirement reason is in the
+  graph, and the shapes stop evaluating them.
+
 ## 1.0.0 (continued): 2026-08-16 (ESM-only publishing, e2e retargeted to the SVG renderer)
 
 - **The packages publish ESM only. The `require` condition and the cjs

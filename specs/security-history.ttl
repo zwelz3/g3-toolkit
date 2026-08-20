@@ -1,0 +1,22 @@
+@prefix specl: <https://w3id.org/specl/ns#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+<https://w3id.org/g3t/spec/security#assessment-20260820T000000Z> a specl:MaturityAssessment ;
+    prov:generatedAtTime "2026-08-20T00:00:00Z"^^xsd:dateTime ;
+    specl:assessed <https://w3id.org/g3t/spec/security> ;
+    specl:maturityScore 91 ;
+    specl:progressScore 0 ;
+    specl:subscore <https://w3id.org/g3t/spec/security#assessment-20260820T000000Z-requirement> ;
+    specl:subscore <https://w3id.org/g3t/spec/security#assessment-20260820T000000Z-userstory> .
+
+<https://w3id.org/g3t/spec/security#assessment-20260820T000000Z-requirement> a specl:ClassSubscore ;
+    specl:itemClass "Requirement" ;
+    specl:cleanCount 5 ;
+    specl:totalCount 5 .
+
+<https://w3id.org/g3t/spec/security#assessment-20260820T000000Z-userstory> a specl:ClassSubscore ;
+    specl:itemClass "UserStory" ;
+    specl:cleanCount 0 ;
+    specl:totalCount 1 .
+

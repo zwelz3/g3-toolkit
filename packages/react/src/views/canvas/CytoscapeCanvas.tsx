@@ -6,7 +6,7 @@
  *
  * @see specs/01-functional-views.md R1.1
  * @see specs/02-functional-interaction.md R2.1, R2.2
- * @see specs/09-design-decisions.md D2, D3, D9, D13
+ * @see specs/g3t/spec.md#decisions D2, D3, D9, D13
  */
 
 import {

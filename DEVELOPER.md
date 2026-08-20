@@ -115,7 +115,7 @@ specs/  roadmap/  planning/  ← Requirements, design records, round logs
 6. Add a Storybook story (if D13)
 7. Expose it through one of the three integration channels and add a
    wiring-guide snippet with its executable twin in `examples/wiring/`
-8. Record the work: a CHANGELOG entry and a STATUS.md refresh if
+8. Record the work: a CHANGELOG entry and a CLAUDE.md CURRENT FOCUS refresh if
    numbers moved (PROGRESS.md and the visual-acceptance round log are
    both retired; the milestone-era record is
    planning/milestone-history.md)

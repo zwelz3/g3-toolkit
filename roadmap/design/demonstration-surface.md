@@ -16,7 +16,7 @@ examples/decision-dashboards; examples/flagship retired 2026-07-03,
 see planning/flagship-retirement.md), and
 roadmap/design/design-system.md (selection signature C1, theming demo
 D2, shells D, adopter contract E).
-**Predecessor:** the Storybook atomic-design reshape (STATUS.md;
+**Predecessor:** the Storybook atomic-design reshape (planning/status-history.md;
 taxonomy in Overview.mdx). That reshape is step one: it organizes the
 sidebar. This record is the continuation: making the organized surface
 actually demonstrate the toolkit's value and hand adopters the verified
@@ -132,7 +132,7 @@ fastest path to a working graph is the strongest usability signal.
 
 **DS6. Capabilities-and-limits page.** An adopter-facing shipped-vs-gap
 page derived from planning/rdf-lpg-virtualization-audit.md and the
-STATUS.md descope notes (no shapes parser, no reasoning, no canvas-level
+descope notes (no shapes parser, no reasoning, no canvas-level
 virtualization). Adopters need the boundary before they invest, not
 after they hit it; surfacing it honestly is a trust asset and matches
 the no-overclaiming discipline the rest of the docs hold.

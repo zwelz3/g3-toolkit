@@ -172,7 +172,7 @@ each. The rendering layer is ready to receive them: the row formatter
 and the StructuralDecorations channel extend without structural
 change. This is multi-slice follow-on work, not a single round.
 
-The ELK structural-rendering group (Group A in STATUS.md) lands
+The ELK structural-rendering group (Group A, planning/status-history.md) lands
 BEFORE the compartment-dependent slices here, by design: the
 compartment API is built once for UML and consumed here unchanged.
 
