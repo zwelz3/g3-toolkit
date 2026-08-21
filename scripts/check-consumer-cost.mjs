@@ -14,7 +14,7 @@
  *
  * That measurement retired a standing recommendation. The bundle
  * ledger had been proposing, across four budget raises, that layout be
- * extracted into a separate `@g3t/layout` package to "bring core back
+ * extracted into a separate `@g3-toolkit/layout` package to "bring core back
  * under its original envelope". It would have moved the publish-weight
  * number without changing any adopter's cost, while adding a fourth
  * tarball and a fourth publish to a release sequence that already has
@@ -28,11 +28,11 @@
  *
  * ## What is counted
  *
- * FIRST-PARTY bytes only. Bare specifiers other than `@g3t/*` are
+ * FIRST-PARTY bytes only. Bare specifiers other than `@g3-toolkit/*` are
  * marked external, because `graphology`, `cytoscape` and React are
  * costs the adopter has already accepted and their weight would swamp
  * the signal: a 200 KB graphology baseline makes a 3 KB first-party
- * regression invisible. `@g3t/*` is aliased to the built dist rather
+ * regression invisible. `@g3-toolkit/*` is aliased to the built dist rather
  * than externalized, so a react scenario correctly pays for the core
  * code it pulls in.
  *
@@ -82,7 +82,7 @@ const SCENARIOS = [
     // Measured 4.8 KB. Budget 6.0 KB: tight on purpose, because every
     // adopter pays this one and it should be hard to grow quietly.
     budget: 6 * 1024,
-    code: `import { UGM } from "@g3t/core";\nexport const g = new UGM();\n`,
+    code: `import { UGM } from "@g3-toolkit/core";\nexport const g = new UGM();\n`,
   },
   {
     id: "core-adapter",
@@ -91,32 +91,32 @@ const SCENARIOS = [
     // Measured 11.3 KB.
     budget: 13 * 1024,
     code:
-      `import { UGM, SparqlAdapter } from "@g3t/core";\n` +
+      `import { UGM, SparqlAdapter } from "@g3-toolkit/core";\n` +
       `export const g = new UGM();\n` +
       `export const a = new SparqlAdapter("http://x");\n`,
   },
   {
     id: "core-layout",
     label: "UGM + layout engines",
-    // The scenario that retired the @g3t/layout extraction. If this
+    // The scenario that retired the @g3-toolkit/layout extraction. If this
     // ever collapses toward core-ugm, tree-shaking broke; if core-ugm
     // ever climbs toward this, something made layout unconditionally
     // reachable and THAT is the regression the extraction was aimed at.
     // Measured 46.1 KB, of which roughly 35 KB is the layout engines.
     budget: 52 * 1024,
     code:
-      `import { UGM, ForceLayout, G3tLayeredLayout } from "@g3t/core";\n` +
+      `import { UGM, ForceLayout, G3tLayeredLayout } from "@g3-toolkit/core";\n` +
       `export const g = new UGM();\n` +
       `export const l = [ForceLayout, G3tLayeredLayout];\n`,
   },
   {
     id: "core-all",
-    label: "@g3t/core root barrel",
+    label: "@g3-toolkit/core root barrel",
     // Worst case for core: an adopter who imports the barrel and uses
     // everything. Close to publish weight by construction.
     // Measured 141.3 KB.
     budget: 155 * 1024,
-    code: `export * from "@g3t/core";\n`,
+    code: `export * from "@g3-toolkit/core";\n`,
   },
   {
     id: "react-canvas",
@@ -126,7 +126,7 @@ const SCENARIOS = [
     // what is counted is g3t's own code, core's included.
     // Measured 81.4 KB, core's contribution included.
     budget: 92 * 1024,
-    code: `export { CytoscapeCanvas } from "@g3t/react";\n`,
+    code: `export { CytoscapeCanvas } from "@g3-toolkit/react";\n`,
   },
 ];
 
@@ -171,8 +171,8 @@ try {
       configFile: false,
       resolve: {
         alias: [
-          { find: /^@g3t\/core$/, replacement: CORE },
-          { find: /^@g3t\/react$/, replacement: REACT },
+          { find: /^@g3-toolkit\/core$/, replacement: CORE },
+          { find: /^@g3-toolkit\/react$/, replacement: REACT },
         ],
       },
       build: {
@@ -186,7 +186,9 @@ try {
           // remains is g3t's own bytes, which is the thing this repo
           // controls and the thing a regression would show up in.
           external: (id) =>
-            !id.startsWith(".") && !isAbsolute(id) && !id.startsWith("@g3t/"),
+            !id.startsWith(".") &&
+            !isAbsolute(id) &&
+            !id.startsWith("@g3-toolkit/"),
         },
       },
     });

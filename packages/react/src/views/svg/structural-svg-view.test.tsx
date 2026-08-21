@@ -8,7 +8,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import React from "react";
-import type { StructuralGeometry, StructuralGraphInput } from "@g3t/core";
+import type {
+  StructuralGeometry,
+  StructuralGraphInput,
+} from "@g3-toolkit/core";
 import { StructuralSvgView } from "./structural-svg-view";
 
 const INPUT: StructuralGraphInput = {

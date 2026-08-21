@@ -38,10 +38,10 @@ get to skip):
   (`--g3t-ease-out`, `--g3t-ease-in-out`) added beside the existing
   durations; `prefers-reduced-motion` now zeroes the duration tokens
   globally, so every token-reading transition disables with one rule.
-- **A2. Shipped:** `prefersReducedMotion()` in @g3t/core; CytoscapeCanvas
+- **A2. Shipped:** `prefersReducedMotion()` in @g3-toolkit/core; CytoscapeCanvas
   animate default and deriveEChartsTheme animation now consult it.
   Originally: Cytoscape layout animation bypasses CSS tokens
-  (JS-driven). Add a `prefersReducedMotion()` helper in @g3t/react and
+  (JS-driven). Add a `prefersReducedMotion()` helper in @g3-toolkit/react and
   make CytoscapeCanvas's `animate` default consult it; same for
   ECharts animation config in deriveEChartsTheme.
 - **A3. Focus ring tokens + `:focus-visible` rules.** Shipped: one

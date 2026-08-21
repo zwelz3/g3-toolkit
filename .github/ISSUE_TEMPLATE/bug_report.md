@@ -35,7 +35,7 @@ bugs are unfalsifiable because they depend on the shape of the data. -->
 
 |                                                    |     |
 | -------------------------------------------------- | --- |
-| `@g3t/core` / `@g3t/react` / `@g3t/charts` version |     |
+| `@g3-toolkit/core` / `@g3-toolkit/react` / `@g3-toolkit/charts` version |     |
 | Bundler and version                                |     |
 | Browser and version                                |     |
 | Node version                                       |     |

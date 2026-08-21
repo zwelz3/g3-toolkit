@@ -30,7 +30,7 @@ import {
   type StructuralGeometry,
   type StructuralGraphInput,
   type StructuralLayoutOptions,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 
 export interface StructuralLayoutResult {
   /** Laid-out scene for the CURRENT input, or null while the FIRST

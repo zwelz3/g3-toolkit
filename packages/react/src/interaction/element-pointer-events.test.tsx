@@ -12,7 +12,7 @@ import type {
   StructuralGeometry,
   StructuralGraphInput,
   VisualAttributes,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import { SvgAdapter } from "../views/svg/svg-adapter";
 import { CanvasAdapter } from "../views/canvas2d/canvas-adapter";
 import { StructuralSvgView } from "../views/svg/structural-svg-view";

@@ -97,7 +97,7 @@ other consumer (SVG export, a future report renderer) reads the same
 document. buildStructuralElkGraph is exported separately so the ELK
 JSON is testable without running layout.
 
-elkjs stays exactly as packaged today: a dependency of @g3t/core,
+elkjs stays exactly as packaged today: a dependency of @g3-toolkit/core,
 externalized by the build (it never enters the bundle; the consumer's
 bundler pulls it), imported from elk.bundled.js which works in
 browser and Node without a worker file. A host-supplied worker

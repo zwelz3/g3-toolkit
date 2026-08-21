@@ -8,15 +8,15 @@
  */
 
 import { useMemo } from "react";
-import type { UGM } from "@g3t/core";
-import type { SchemaModel, ShaclShape } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
+import type { SchemaModel, ShaclShape } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
 
 /**
  * The display-only shape this view reads.
  *
  * This type used to be called `ShaclShape`, which collided with
- * `@g3t/core`'s `ShaclShape` (the validator's model) under one name
+ * `@g3-toolkit/core`'s `ShaclShape` (the validator's model) under one name
  * across two packages. The two are structurally different: core keys
  * its constraint list `properties`, this one keys it `constraints`, so
  * the natural import built an array the component rejected. Renamed so
@@ -53,7 +53,7 @@ export interface SchemaViewProps {
   ugm?: UGM;
   schema?: SchemaModel;
   /**
-   * SHACL shapes to badge target classes with. Accepts `@g3t/core`'s
+   * SHACL shapes to badge target classes with. Accepts `@g3-toolkit/core`'s
    * `ShaclShape` (what `ShaclValidator` and `ShaclShapeBrowser` use) or
    * this view's display-only {@link SchemaViewShape}.
    */

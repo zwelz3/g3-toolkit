@@ -2,7 +2,7 @@
  * Static story gallery: a Storybook-equivalent built with the same
  * approach as the visual-acceptance page. It globs every story file,
  * renders each story against the workspace SOURCE (the Vite config
- * aliases the @g3t packages to their src directories, like the VA
+ * aliases the @g3-toolkit packages to their src directories, like the VA
  * build), and shows a navigable sidebar plus a one-story pane. The
  * whole thing inlines into a single self-contained HTML, so it opens
  * without the Storybook dev server (which currently cannot build while
@@ -33,8 +33,8 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from "react";
-import { injectDesignTokens } from "@g3t/core";
-import { useThemeStore } from "@g3t/react";
+import { injectDesignTokens } from "@g3-toolkit/core";
+import { useThemeStore } from "@g3-toolkit/react";
 import baseCss from "../../packages/react/src/theme/g3t-base.css?raw";
 
 type ThemeId = "light" | "dark" | "high-contrast";

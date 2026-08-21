@@ -21,16 +21,16 @@ import { useEffect } from "react";
 // count, and echarts wakes during the settle window then disposes
 // against jsdom's null 2D context. Their internals are covered by
 // their own suites; the state wiring between panels stays real.
-vi.mock("@g3t/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/react")>();
+vi.mock("@g3-toolkit/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/react")>();
   return {
     ...actual,
     CytoscapeCanvas: () => <div data-testid="canvas-stub" />,
     StatsPanel: () => <div data-testid="stats-stub" />,
   };
 });
-vi.mock("@g3t/charts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/charts")>();
+vi.mock("@g3-toolkit/charts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/charts")>();
   return {
     ...actual,
     LinkedChart: () => <div data-testid="chart-stub" />,

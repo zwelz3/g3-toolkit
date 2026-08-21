@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { Core } from "cytoscape";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import {
   GraphToolbar,
   layoutConfig,

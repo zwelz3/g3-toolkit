@@ -1,7 +1,7 @@
 {
-  "name": "@g3t/charts",
+  "name": "@g3-toolkit/charts",
   "version": "1.0.0",
-  "description": "Linked statistical charts (bar, scatter, line, pie) backed by ECharts. Consumes @g3t/core data pipelines and integrates with @g3t/react components.",
+  "description": "Linked statistical charts (bar, scatter, line, pie) backed by ECharts. Consumes @g3-toolkit/core data pipelines and integrates with @g3-toolkit/react components.",
   "type": "module",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -46,8 +46,8 @@
     "echarts-for-react": "^3.0.0"
   },
   "peerDependencies": {
-    "@g3t/core": "workspace:*",
-    "@g3t/react": "workspace:*",
+    "@g3-toolkit/core": "workspace:^",
+    "@g3-toolkit/react": "workspace:^",
     "react": ">=18.0.0",
     "echarts": ">=5.0.0"
   },

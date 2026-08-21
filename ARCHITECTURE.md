@@ -25,7 +25,7 @@ inside. g3t is the former.
 │  Your layout, your routing, your auth, your state management  │
 │                                                               │
 │  ┌────────────────┐ ┌──────────────┐ ┌──────────────────┐     │
-│  │  @g3t/react    │ │  @g3t/charts │ │  @g3t/core       │     │
+│  │  @g3-toolkit/react    │ │  @g3-toolkit/charts │ │  @g3-toolkit/core       │     │
 │  │                │ │              │ │                   │     │
 │  │  Canvas, Table │ │  LinkedChart │ │  UGM, Adapters,  │     │
 │  │  Map, Tree,    │ │  Bar, Scatter│ │  Projection,     │     │
@@ -37,7 +37,7 @@ inside. g3t is the former.
 └───────────────────────────────────────────────────────────────┘
 ```
 
-### @g3t/core
+### @g3-toolkit/core
 
 Framework-agnostic TypeScript. Zero React dependency. This package
 is usable from Vue, Angular, Svelte, or vanilla JS.
@@ -51,7 +51,7 @@ Dependencies (regular, installed transitively): `graphology`,
 `@dagrejs/dagre`, `d3-force`, `d3-hierarchy`, `elkjs`, `expr-eval`,
 `simple-statistics`. No peer dependencies.
 
-### @g3t/react
+### @g3-toolkit/react
 
 React components that consume UGM. Each component is independently
 importable; using `CytoscapeCanvas` does not pull in `TimelineView`.
@@ -59,7 +59,7 @@ importable; using `CytoscapeCanvas` does not pull in `TimelineView`.
 Contains: 12 view components, 15 control components, accessibility
 companion, state hooks (selection, theme, view filter).
 
-Regular dependencies: `@g3t/core`, `@tanstack/react-table`, `fuse.js`.
+Regular dependencies: `@g3-toolkit/core`, `@tanstack/react-table`, `fuse.js`.
 Peer dependencies (consumer must install): `react`, `react-dom`,
 `cytoscape`, `cytoscape-fcose`, `zustand`, `echarts`. Optional peers
 (declared in `peerDependenciesMeta`, so a package manager does not
@@ -72,7 +72,7 @@ Module resolution runs BEFORE tree-shaking, so a barrel that
 re-exports a component whose optional peers are absent is
 unresolvable even for a consumer who never names that component.
 `TimelineView` therefore ships on its own subpath,
-`@g3t/react/timeline`, and is deliberately absent from the root and
+`@g3-toolkit/react/timeline`, and is deliberately absent from the root and
 `./views` barrels. `scripts/check-optional-peers.mjs` walks the
 emitted import graph out of every declared subpath and fails the
 build if an optional peer becomes statically reachable from any
@@ -82,7 +82,7 @@ directly imported by `TableView` and would otherwise resolve to an
 empty virtual module under Vite when consumers don't explicitly
 install it.
 
-### @g3t/charts (optional)
+### @g3-toolkit/charts (optional)
 
 Linked statistical charts that synchronize selection with the
 graph canvas and table. Install only if you need non-graph
@@ -91,11 +91,11 @@ visualizations.
 Contains: LinkedChart wrapper, 6 chart renderers (bar, scatter
 with trend, line/area, pie/donut, parallel coordinates, sankey).
 
-Regular dependencies: `@g3t/core`, `@g3t/react`, `echarts-for-react`.
+Regular dependencies: `@g3-toolkit/core`, `@g3-toolkit/react`, `echarts-for-react`.
 Peer dependencies: `react`, `echarts`. `echarts-for-react` is a
 regular dep (not peer) because it is directly imported by
 `LinkedChart` (same Vite-resolution rationale as `@tanstack/react-table`
-in `@g3t/react`).
+in `@g3-toolkit/react`).
 
 ## What Is NOT in the Packages
 
@@ -123,7 +123,7 @@ level and belongs in the package.
                     │         Your Application          │
                     │                                   │
  Data Source ──→ Adapter ──→ UGM ──┬──→ CytoscapeCanvas │
- (SPARQL,         (@g3t/core)      │                    │
+ (SPARQL,         (@g3-toolkit/core)      │                    │
   Cypher,                          ├──→ TableView       │
   REST,                            ├──→ MapView         │
   file)                            ├──→ TreeView        │
@@ -142,7 +142,7 @@ level and belongs in the package.
 4. Components share selection state via `useSelectionStore`
 5. You handle everything else (layout, routing, auth, persistence)
 
-### Why `@g3t/core/events` is not a fourth channel
+### Why `@g3-toolkit/core/events` is not a fourth channel
 
 Ruled 2026-08-15. The integration channels stay at three: exported
 stores, props and callbacks, versioned JSON documents.
@@ -169,7 +169,7 @@ did, so a host subscribing to `node:selected` waited forever with no way
 to distinguish that from an idle graph.
 
 Pass a bus you constructed. The exported `eventBus` singleton is
-deprecated: two copies of `@g3t/core` in a tree, or one path reaching it
+deprecated: two copies of `@g3-toolkit/core` in a tree, or one path reaching it
 through `import` while another reaches it through `require`, produce two
 buses, and the menu goes dead with nothing in a stack trace to show why.
 `registerToolkitActions` and `wireCytoscapeContextActions` both take the
@@ -180,7 +180,7 @@ bus as a parameter for that reason.
 Versioned JSON documents are the third integration channel, and their
 parsers do not all fail the same way. The shape of each one tracks what
 the document can usefully say when it fails, and the rule is stated in
-full in `@g3t/core`'s `model/document-errors.ts`:
+full in `@g3-toolkit/core`'s `model/document-errors.ts`:
 
 - A document that can degrade element-wise returns partial results plus
   diagnostics (`parseGraphDocument`, `parseChangeSet`). Throwing would
@@ -205,10 +205,10 @@ Every module follows one of two design decisions:
 
 **D6 (Framework-Agnostic):** Pure TypeScript, no React imports,
 no JSX. These modules work in any JavaScript environment.
-Located in `@g3t/core`.
+Located in `@g3-toolkit/core`.
 
 **D13 (React):** React components with hooks. These require a
-React render tree. Located in `@g3t/react` and `@g3t/charts`.
+React render tree. Located in `@g3-toolkit/react` and `@g3-toolkit/charts`.
 
 When adding new functionality, the rule is: if it can be pure
 TypeScript, it goes in core. The React layer is a thin consumer
@@ -219,7 +219,7 @@ of core interfaces.
 ### Custom Adapter
 
 ```typescript
-import { GraphAdapter, UGM } from "@g3t/core";
+import { GraphAdapter, UGM } from "@g3-toolkit/core";
 
 class MyDatabaseAdapter implements GraphAdapter {
   id = "my-db";
@@ -247,7 +247,7 @@ class MyDatabaseAdapter implements GraphAdapter {
 ### Custom Layout Engine
 
 ```typescript
-import { LayoutEngine, LayoutResult } from "@g3t/core";
+import { LayoutEngine, LayoutResult } from "@g3-toolkit/core";
 
 class CircularLayout implements LayoutEngine {
   id = "circular";
@@ -278,10 +278,10 @@ menuManager.register({
 });
 ```
 
-### Custom DataPipeline (for @g3t/charts)
+### Custom DataPipeline (for @g3-toolkit/charts)
 
 ```typescript
-import { DataPipeline, CategoricalData } from "@g3t/core";
+import { DataPipeline, CategoricalData } from "@g3-toolkit/core";
 
 const riskByRole: DataPipeline<CategoricalData> = {
   id: "risk-by-role",
@@ -321,7 +321,7 @@ All components read from CSS custom properties (`--g3t-*`).
 To theme g3t to match your application:
 
 ```typescript
-import { useThemeStore } from "@g3t/react/state";
+import { useThemeStore } from "@g3-toolkit/react/state";
 
 // Use a built-in preset
 useThemeStore.getState().setTheme("dark");

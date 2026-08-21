@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 
 export interface TemporalSliderProps {

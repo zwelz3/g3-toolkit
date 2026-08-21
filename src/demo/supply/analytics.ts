@@ -13,8 +13,8 @@
  * All functions are pure over a UGM and return plain data, so they are
  * unit-testable without a browser.
  */
-import { UGM, validateShacl, connectedComponents } from "@g3t/core";
-import type { ShaclShape } from "@g3t/core";
+import { UGM, validateShacl, connectedComponents } from "@g3-toolkit/core";
+import type { ShaclShape } from "@g3-toolkit/core";
 import { SHAPE_CERT, SHAPE_PROVENANCE } from "./shapes";
 
 interface NodeView {

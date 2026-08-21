@@ -58,7 +58,7 @@ property keys to channels) is sound and partially realized:
 VisualEncodingManager exists. Remaining work:
 
 1. **P1: Freeze the `AlgorithmResult` protocol** as a published type
-   in @g3t/core (it is the prerequisite for any third-party algorithm
+   in @g3-toolkit/core (it is the prerequisite for any third-party algorithm
    package) and document the property-key conventions the built-in
    views already assume (`pagerank`, `community`, embedding vectors).
    The freeze now includes the structure-shaped result form (R3.9,
@@ -74,7 +74,7 @@ VisualEncodingManager exists. Remaining work:
    (design/projection-and-encoding.md) since overlay emphasis,
    inferred-edge styling, and confidence opacity must coexist.
 2. **P2: Reference algorithm package.** A separate
-   @g3t/algorithms-reference (or example) wrapping graphology-metrics
+   @g3-toolkit/algorithms-reference (or example) wrapping graphology-metrics
    through the frozen protocol, proving the optional-install posture
    (P1, D4) with a real consumer.
 

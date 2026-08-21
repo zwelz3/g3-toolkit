@@ -1,7 +1,7 @@
 {
-  "name": "@g3t/example-full-workspace",
+  "name": "@g3-toolkit/example-full-workspace",
   "version": "0.0.0",
-  "description": "Reference implementation: multi-pane workspace shell using flexlayout-react, demonstrating @g3t/react views with save/load and role-based defaults.",
+  "description": "Reference implementation: multi-pane workspace shell using flexlayout-react, demonstrating @g3-toolkit/react views with save/load and role-based defaults.",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -9,8 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@g3t/core": "workspace:*",
-    "@g3t/react": "workspace:*",
+    "@g3-toolkit/core": "workspace:*",
+    "@g3-toolkit/react": "workspace:*",
     "flexlayout-react": "^0.7.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"

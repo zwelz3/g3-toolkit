@@ -8,7 +8,7 @@ const external = externalsFromPackageJson(resolve(__dirname, "package.json"));
  * Multi-entry library build (P2.4).
  *
  * Each subpath in the package's exports map gets its own bundle so consumers
- * can `import { X } from "@g3t/core/layout"` and tree-shake the rest. The
+ * can `import { X } from "@g3-toolkit/core/layout"` and tree-shake the rest. The
  * dist/ layout matches the exports map declared in package.json:
  *
  *   dist/index.mjs                ← "." (ESM only)
@@ -44,7 +44,7 @@ export default defineConfig({
         diff: resolve(__dirname, "src/diff/index.ts"),
         layout: resolve(__dirname, "src/layout/index.ts"),
         algorithms: resolve(__dirname, "src/algorithm-adapter/index.ts"),
-        // Added in P3.2 reclassification (formerly part of @g3t/react)
+        // Added in P3.2 reclassification (formerly part of @g3-toolkit/react)
         "undo-redo": resolve(__dirname, "src/undo-redo/index.ts"),
         theme: resolve(__dirname, "src/theme/index.ts"),
         "path-analysis": resolve(__dirname, "src/path-analysis/index.ts"),
@@ -64,7 +64,7 @@ export default defineConfig({
       // while both formats ship. Typed CJS never worked anyway (one
       // ESM-flavored .d.ts per entry, so `require` from a .cts raised
       // TS1479), and no consumer, example, doc snippet or test in this
-      // repository requires a @g3t package. Dropping it also removes
+      // repository requires a @g3-toolkit package. Dropping it also removes
       // 44% of emitted runtime JS.
       formats: ["es"],
       fileName: (_format, entryName) => `${entryName}.mjs`,

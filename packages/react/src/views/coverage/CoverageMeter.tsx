@@ -16,7 +16,7 @@
  * opinion about data sourcing or motion policy.
  *
  * Tokens follow the inline-style + CSS-custom-property convention used
- * across @g3t/react; the per-state colors fall back to hardcoded hex when
+ * across @g3-toolkit/react; the per-state colors fall back to hardcoded hex when
  * a brand theme has not defined the semantic token.
  */
 

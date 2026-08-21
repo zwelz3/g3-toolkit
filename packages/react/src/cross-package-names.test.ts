@@ -1,8 +1,8 @@
 /**
  * Cross-package name collisions, pinned.
  *
- * Three names meant two different things across `@g3t/core` and
- * `@g3t/react`. None of them was catchable by the existing gates:
+ * Three names meant two different things across `@g3-toolkit/core` and
+ * `@g3-toolkit/react`. None of them was catchable by the existing gates:
  * `check-api-surface.mjs` compares name SETS per entry point, so two
  * entries exporting the same name with different meanings look
  * correct, and `check-type-reachability.mjs` only asks whether a name
@@ -14,7 +14,10 @@
  * where it is pinned.
  */
 import { describe, it, expect } from "vitest";
-import { OKABE_ITO, contrastRatio as coreContrastRatio } from "@g3t/core";
+import {
+  OKABE_ITO,
+  contrastRatio as coreContrastRatio,
+} from "@g3-toolkit/core";
 import { OKABE_ITO_COLORS } from "./views/canvas/palette";
 import { CANVAS_CATEGORICAL } from "./interaction/encoding/palette-bridge";
 import { contrastRatioOrNull } from "./theme/ThemeManager";
@@ -22,7 +25,7 @@ import { contrastRatio as reactContrastRatio } from "./theme";
 
 describe("contrastRatio means one function", () => {
   it("the name resolves to core's implementation on both packages", () => {
-    // `@g3t/react` used to export its OWN contrastRatio under this
+    // `@g3-toolkit/react` used to export its OWN contrastRatio under this
     // name, returning `number | null`. Re-exporting core's is the
     // LayoutOptions precedent: the shared name gets one meaning.
     expect(reactContrastRatio).toBe(coreContrastRatio);

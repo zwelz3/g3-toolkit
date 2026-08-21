@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useStructuralLayout } from "./use-structural-layout";
-import type { StructuralGraphInput } from "@g3t/core";
+import type { StructuralGraphInput } from "@g3-toolkit/core";
 
 /**
  * Set to make the next layout call reject. The real layout is used
@@ -19,8 +19,11 @@ import type { StructuralGraphInput } from "@g3t/core";
  */
 let rejectNextWith: Error | null = null;
 
-vi.mock("@g3t/core", async () => {
-  const actual = await vi.importActual<typeof import("@g3t/core")>("@g3t/core");
+vi.mock("@g3-toolkit/core", async () => {
+  const actual =
+    await vi.importActual<typeof import("@g3-toolkit/core")>(
+      "@g3-toolkit/core",
+    );
   return {
     ...actual,
     layoutStructural: (...args: Parameters<typeof actual.layoutStructural>) => {

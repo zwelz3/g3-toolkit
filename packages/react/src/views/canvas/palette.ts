@@ -7,7 +7,7 @@
  * Palette source: Okabe & Ito (2008), "Color Universal Design," with
  * ONE substitution: the published palette's black is grey here,
  * because a filled black node reads as a hole on a light canvas.
- * `@g3t/core`'s OKABE_ITO is the unmodified palette and keeps black.
+ * `@g3-toolkit/core`'s OKABE_ITO is the unmodified palette and keeps black.
  * The two therefore DIFFER in their last entry, and used to do so under
  * the same name, since palette-bridge re-exported this one as
  * `OKABE_ITO`. Whether the canvas should adopt core's black is a visual

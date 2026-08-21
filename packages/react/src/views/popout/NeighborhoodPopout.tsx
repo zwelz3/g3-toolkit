@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from "react";
 import { FloatingPanel } from "./FloatingPanel";
-import { khopNeighborhood, type UGM } from "@g3t/core";
+import { khopNeighborhood, type UGM } from "@g3-toolkit/core";
 import { CytoscapeCanvas } from "../canvas/CytoscapeCanvas";
 import type { CyStylesheet } from "../canvas/CytoscapeCanvas";
 import type { EncodingSpec } from "../../interaction/encoding/encoding-spec";

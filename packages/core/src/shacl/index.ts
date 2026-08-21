@@ -10,7 +10,7 @@ export type {
   ShaclValidationResult,
 } from "./shacl-validator";
 // propertyRowText, cardinalitySuffix and valueConstraintCount moved to
-// @g3t/core/internal (2026-08-14). They format row
+// @g3-toolkit/core/internal (2026-08-14). They format row
 // LABELS, so keeping them here would put a rendering opinion under the
 // 1.0 semver contract. See packages/core/src/internal/index.ts.
 export {
@@ -20,7 +20,7 @@ export {
   shaclRowId,
 } from "./shacl-to-structural";
 export type { ShaclToStructuralOptions } from "./shacl-to-structural";
-// severityOverlayId moved to @g3t/core/internal with the three row-text
+// severityOverlayId moved to @g3-toolkit/core/internal with the three row-text
 // formatters above; it mints an overlay id string, which is the same
 // class of rendering detail. severityOverlays (plural) stays: it returns
 // the overlay DOCUMENTS, which are a versioned integration channel.

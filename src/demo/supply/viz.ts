@@ -6,8 +6,8 @@
  * between them; provenance and clusters become small summaries the sidebar
  * lists.
  */
-import { UGM } from "@g3t/core";
-import type { StructuralOverlay } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
+import type { StructuralOverlay } from "@g3-toolkit/core";
 import type { GapFinding } from "./analytics";
 
 export const OVERLAY_VIOLATION = "gap.violations";

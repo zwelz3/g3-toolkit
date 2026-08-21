@@ -19,7 +19,7 @@
  * lightweight model the validator and structural converter consume),
  * not as shape triples; the workbench states this in its UI copy.
  */
-import type { RDFGraph, RDFTriple, ShaclShape } from "@g3t/core";
+import type { RDFGraph, RDFTriple, ShaclShape } from "@g3-toolkit/core";
 
 export const NS = {
   ex: "http://example.org/sat#",

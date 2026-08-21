@@ -28,7 +28,7 @@ import {
   parseJsonObject,
   requireVersion,
   UnsupportedVersionError,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 
 export interface WorkspaceSnapshot {
   version: 1;
@@ -117,7 +117,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): string {
 /**
  * Parse a workspace snapshot.
  *
- * Throws rather than degrading (see `@g3t/core`'s
+ * Throws rather than degrading (see `@g3-toolkit/core`'s
  * `model/document-errors.ts`): a snapshot half-applied is worse than
  * one rejected, because the camera and the pins would disagree. A
  * nested encoding spec is parsed by its own parser, so a bad spec

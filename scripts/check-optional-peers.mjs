@@ -6,7 +6,7 @@
  * `peerDependenciesMeta.<name>.optional` tells the package manager not
  * to install that peer. Module resolution runs BEFORE tree-shaking, so
  * a bare specifier surviving into a chunk that the root barrel imports
- * makes the very first `import { Anything } from "@g3t/react"` throw
+ * makes the very first `import { Anything } from "@g3-toolkit/react"` throw
  * ERR_MODULE_NOT_FOUND for every consumer who took the documented
  * install. Tree-shaking cannot save it: the specifier has to resolve
  * before the bundler ever gets to decide the binding is unused.
@@ -37,7 +37,7 @@ const packagesDir = join(root, "packages");
  * it, and that decision should show up in a diff.
  */
 const OPT_IN = {
-  "@g3t/react": {
+  "@g3-toolkit/react": {
     "vis-timeline": ["./timeline"],
     "vis-data": ["./timeline"],
   },

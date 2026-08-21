@@ -10,7 +10,7 @@
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import * as echarts from "echarts";
 import { useThemeStore } from "../../theme/ThemeManager";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { EmptyState } from "../../interaction/feedback";
 

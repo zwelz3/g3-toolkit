@@ -5,8 +5,8 @@
  * against the prior document proves untouched, not merely similar).
  */
 import { describe, expect, it } from "vitest";
-import type { StructuralGraphInput } from "@g3t/core";
-import { layoutStructural } from "@g3t/core";
+import type { StructuralGraphInput } from "@g3-toolkit/core";
+import { layoutStructural } from "@g3-toolkit/core";
 import { layoutStructuralWithChangeSet } from "./change-driven-layout";
 
 function chain(n: number): StructuralGraphInput {

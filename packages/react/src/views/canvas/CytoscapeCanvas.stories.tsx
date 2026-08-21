@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Core } from "cytoscape";
-import { UGM, eventBus } from "@g3t/core";
+import { UGM, eventBus } from "@g3-toolkit/core";
 import { CytoscapeCanvas } from "./CytoscapeCanvas";
 import {
   ContextMenuManager,
@@ -18,7 +18,7 @@ import {
 
 // Small graph used by Default / LayoutSwitching / Theming. The fixture
 // stays inline so the story is self-contained — pulling from
-// src/demo/fixtures would cross the @g3t/react boundary (D13).
+// src/demo/fixtures would cross the @g3-toolkit/react boundary (D13).
 function buildBasicUGM(): UGM {
   const ugm = new UGM();
   const types = ["Person", "Organization", "Location"];

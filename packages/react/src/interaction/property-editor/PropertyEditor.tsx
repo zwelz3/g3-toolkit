@@ -11,7 +11,7 @@
 // SHACL validation and relationship creation via drag are not yet
 // wired; R2.12 is tracked as in-progress in specs/02.
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 
 export interface PropertyEditCallback {
   onPropertyChange(

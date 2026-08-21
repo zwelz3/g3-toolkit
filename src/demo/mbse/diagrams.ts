@@ -17,7 +17,7 @@ import type {
   StructuralGraphInput,
   StructuralNode,
   StructuralEdge,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import type {
   SysMLModel,
   Diagram,

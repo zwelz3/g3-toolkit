@@ -6,16 +6,16 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { UGM } from "@g3t/core";
-import { LinkedChart } from "@g3t/charts";
+import { UGM } from "@g3-toolkit/core";
+import { LinkedChart } from "@g3-toolkit/charts";
 import { FilterBuilder } from "../interaction/filter/FilterBuilder";
 import { SearchBar } from "../interaction/search/SearchBar";
 import { NodeStyleEditor } from "../interaction/encoding/NodeStyleEditor";
-import { TemporalRangeFilter, DerivedPropertyPanel } from "@g3t/react";
+import { TemporalRangeFilter, DerivedPropertyPanel } from "@g3-toolkit/react";
 import { ShaclShapeBrowser } from "../views/schema/ShaclShapeBrowser";
-import { createCountByType, createPropertyCorrelation } from "@g3t/core";
-import { validateShacl, type ShaclShape } from "@g3t/core";
-import { DerivedPropertyEngine } from "@g3t/core";
+import { createCountByType, createPropertyCorrelation } from "@g3-toolkit/core";
+import { validateShacl, type ShaclShape } from "@g3-toolkit/core";
+import { DerivedPropertyEngine } from "@g3-toolkit/core";
 
 // ── Shared fixture ──────────────────────────────────────────────────
 

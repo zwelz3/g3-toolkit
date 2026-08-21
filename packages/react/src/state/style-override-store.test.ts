@@ -3,12 +3,12 @@
  *
  * Moved from packages/core/src/style-override/m12.test.tsx during
  * Phase 4: useStyleOverrideStore is a Zustand store that lives in
- * @g3t/react/state/, so its tests belong here, not in @g3t/core's
+ * @g3-toolkit/react/state/, so its tests belong here, not in @g3-toolkit/core's
  * test suite.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import type { NodeStyleOverride } from "@g3t/core";
+import type { NodeStyleOverride } from "@g3-toolkit/core";
 import { useStyleOverrideStore } from "./style-override-store";
 
 beforeEach(() => {

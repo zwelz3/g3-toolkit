@@ -18,7 +18,7 @@
  * graph: the caller supplies the chain (see a builder such as the
  * host's chain builder) and decides what a hop means. Tokens follow
  * the inline-style + CSS-custom-property convention used across
- * @g3t/react.
+ * @g3-toolkit/react.
  */
 
 /** One node in a provenance trail. */

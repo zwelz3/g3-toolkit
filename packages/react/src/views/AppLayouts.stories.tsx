@@ -7,7 +7,7 @@
  */
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { TableView } from "./table";
 import { DetailInspector } from "./inspector";
 import { TreeView } from "./tree";

@@ -1,10 +1,10 @@
 export { useSelectionStore } from "./selection-store";
 export type { SelectionState } from "./selection-store";
 
-// UndoRedoStack moved to @g3t/core in P3.2; re-exported here for backwards
-// compatibility. Prefer importing directly from @g3t/core in new code.
-export { UndoRedoStack } from "@g3t/core";
-export type { UndoRedoOptions } from "@g3t/core";
+// UndoRedoStack moved to @g3-toolkit/core in P3.2; re-exported here for backwards
+// compatibility. Prefer importing directly from @g3-toolkit/core in new code.
+export { UndoRedoStack } from "@g3-toolkit/core";
+export type { UndoRedoOptions } from "@g3-toolkit/core";
 
 // Every store's state type is exported. Four of the seven were not,
 // so a host could subscribe to those stores but could not TYPE a

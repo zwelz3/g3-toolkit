@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import type { Core } from "cytoscape";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { CytoscapeCanvas } from "../../views/canvas/CytoscapeCanvas";
 import { Minimap } from "./Minimap";
 

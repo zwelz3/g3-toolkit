@@ -1,25 +1,25 @@
 /**
  * Source-level architectural boundary enforcement (P4).
  *
- * @g3t/core is D6 (framework-agnostic). Its source files MUST NOT
+ * @g3-toolkit/core is D6 (framework-agnostic). Its source files MUST NOT
  * import from:
- *   - @g3t/react       (D13: React layer)
- *   - @g3t/charts      (charts package)
+ *   - @g3-toolkit/react       (D13: React layer)
+ *   - @g3-toolkit/charts      (charts package)
  *   - react / react-dom (the framework itself)
- *   - zustand          (state library used by @g3t/react)
- *   - cytoscape        (graph runtime; usage belongs in @g3t/react)
- *   - echarts          (chart runtime; usage belongs in @g3t/charts)
+ *   - zustand          (state library used by @g3-toolkit/react)
+ *   - cytoscape        (graph runtime; usage belongs in @g3-toolkit/react)
+ *   - echarts          (chart runtime; usage belongs in @g3-toolkit/charts)
  *
  * Applies to ALL files including tests: integration tests that need
- * @g3t/react components live in @g3t/react's test suite, not here.
+ * @g3-toolkit/react components live in @g3-toolkit/react's test suite, not here.
  * Phase 4 moved the four pre-existing offenders (adapter.test.ts,
  * style-override/m12.test.tsx, combo/f1-f8.test.tsx, shacl/shacl.test.tsx)
- * into @g3t/react/ alongside the components they exercise.
+ * into @g3-toolkit/react/ alongside the components they exercise.
  *
  * If this test fails, the offending file should either:
- *   (a) move out of @g3t/core (it's not D6), or
+ *   (a) move out of @g3-toolkit/core (it's not D6), or
  *   (b) refactor away the forbidden import (often: invert the
- *       dependency so the @g3t/react side does the wiring).
+ *       dependency so the @g3-toolkit/react side does the wiring).
  */
 
 import { describe, it, expect } from "vitest";
@@ -28,8 +28,8 @@ import { join, relative, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const FORBIDDEN_IMPORTS = [
-  "@g3t/react",
-  "@g3t/charts",
+  "@g3-toolkit/react",
+  "@g3-toolkit/charts",
   "react",
   "react-dom",
   "zustand",
@@ -97,7 +97,7 @@ function topLevelPackageName(spec: string): string {
   return spec.split("/")[0] ?? "";
 }
 
-describe("@g3t/core source-level boundary (P4)", () => {
+describe("@g3-toolkit/core source-level boundary (P4)", () => {
   const files = walk(CORE_SRC);
 
   it(`scans non-test core source files (sanity: found ${files.length} files)`, () => {
@@ -105,7 +105,7 @@ describe("@g3t/core source-level boundary (P4)", () => {
   });
 
   for (const forbidden of FORBIDDEN_IMPORTS) {
-    it(`no @g3t/core production source imports "${forbidden}"`, () => {
+    it(`no @g3-toolkit/core production source imports "${forbidden}"`, () => {
       const violators: Array<{ file: string; from: string }> = [];
       for (const file of files) {
         for (const spec of importsIn(file)) {
@@ -123,7 +123,7 @@ describe("@g3t/core source-level boundary (P4)", () => {
           .map((v) => `  ${v.file} imports "${v.from}"`)
           .join("\n");
         throw new Error(
-          `Boundary violation: @g3t/core source must not import "${forbidden}".\n${lines}`,
+          `Boundary violation: @g3-toolkit/core source must not import "${forbidden}".\n${lines}`,
         );
       }
       expect(violators).toEqual([]);

@@ -2,7 +2,7 @@
  * Workspace shell tests (M6.E1.T2, M6.E1.T3).
  *
  * Extracted from packages/react/src/views/schema/schema.test.tsx during
- * Phase 3.3 when WorkspaceShell moved out of @g3t/react into examples/.
+ * Phase 3.3 when WorkspaceShell moved out of @g3-toolkit/react into examples/.
  */
 
 import { describe, it, expect } from "vitest";

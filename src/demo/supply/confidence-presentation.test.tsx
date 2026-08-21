@@ -9,8 +9,8 @@ import { describe, it, expect } from "vitest";
 import cytoscape from "cytoscape";
 import { composeCanvasStylesheet } from "../../../packages/react/src/views/canvas/CytoscapeCanvas";
 import { DARK_THEME } from "../../../packages/react/src/theme/ThemeManager";
-import { ugmToCytoscapeElements, applyEncodingSpec } from "@g3t/react";
-import type { EncodingSpec } from "@g3t/react";
+import { ugmToCytoscapeElements, applyEncodingSpec } from "@g3-toolkit/react";
+import type { EncodingSpec } from "@g3-toolkit/react";
 import { buildDigitalThread } from "./model";
 
 describe("VR-2: color-by-confidence PRESENTATION (real merge, computed styles)", () => {

@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 import React from "react";
-import type { VisualAttributes } from "@g3t/core";
+import type { VisualAttributes } from "@g3-toolkit/core";
 import {
   donutArcs,
   SvgAdapter,

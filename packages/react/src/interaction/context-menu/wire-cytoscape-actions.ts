@@ -23,8 +23,8 @@
  */
 
 import type { Core } from "cytoscape";
-import type { G3tEventBus } from "@g3t/core";
-import type { UGM } from "@g3t/core";
+import type { G3tEventBus } from "@g3-toolkit/core";
+import type { UGM } from "@g3-toolkit/core";
 import { buildNeighborhoodUGM } from "./toolkit-actions";
 
 export interface WireCytoscapeContextActionsOptions {

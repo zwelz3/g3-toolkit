@@ -1,5 +1,5 @@
 {
-  "name": "@g3t/core",
+  "name": "@g3-toolkit/core",
   "version": "1.0.0",
   "description": "Framework-agnostic graph data model, adapters, and algorithms for the g3-toolkit.",
   "type": "module",

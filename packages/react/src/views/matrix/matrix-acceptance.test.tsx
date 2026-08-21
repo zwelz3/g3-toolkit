@@ -22,7 +22,7 @@
 
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { UGM, SEQUENTIAL_SCALE } from "@g3t/core";
+import { UGM, SEQUENTIAL_SCALE } from "@g3-toolkit/core";
 
 /** jsdom normalizes hex backgrounds to rgb(); compare in that space. */
 function hexToRgb(hex: string): string {

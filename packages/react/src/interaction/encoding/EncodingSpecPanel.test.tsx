@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { EncodingSpecPanel, EncodingPreview } from "./EncodingSpecPanel";
 import { DEFAULT_SPEC, type EncodingSpec } from "./encoding-spec";
 import { CANVAS_CATEGORICAL } from "./palette-bridge";

@@ -13,7 +13,7 @@
  * unbound OPTIONALs), so the registry's insertion order, and
  * therefore the column order, is the SELECT clause order.
  */
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { termText, type SparqlResult } from "../bio/sparql";
 
 export function sparqlResultUgm(result: SparqlResult): UGM {

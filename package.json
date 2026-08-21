@@ -46,9 +46,9 @@
     "verify:typeref": "node scripts/check-type-reachability.mjs"
   },
   "dependencies": {
-    "@g3t/charts": "workspace:*",
-    "@g3t/core": "workspace:*",
-    "@g3t/react": "workspace:*",
+    "@g3-toolkit/charts": "workspace:*",
+    "@g3-toolkit/core": "workspace:*",
+    "@g3-toolkit/react": "workspace:*",
     "@types/jsonld": "^1.5.15",
     "@types/n3": "^1.26.1",
     "jsonld": "^9.0.0",

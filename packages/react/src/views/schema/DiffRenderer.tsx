@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from "react";
-import type { DiffResult } from "@g3t/core";
+import type { DiffResult } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
 
 export interface DiffRendererProps {

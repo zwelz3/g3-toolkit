@@ -7,7 +7,7 @@ queued work)
 
 ## Items (priority order)
 
-1. **RESOLVED 2026-08-16: published ESM only.** `require("@g3t/*")`
+1. **RESOLVED 2026-08-16: published ESM only.** `require("@g3-toolkit/*")`
    from a TS `.cts` raised TS1479 because each entry shipped one
    ESM-flavored `.d.ts`. The fix considered here was paired
    `.d.ts`/`.d.cts` emission via api-extractor or vite-plugin-dts.

@@ -32,7 +32,7 @@ import {
   type UGM,
   G3tEventBus,
   allShortestPaths,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import {
   makeColorResolver,
   CoverageMeter,
@@ -54,8 +54,8 @@ import {
   SankeyView,
   GraphToolbar,
   categoricalColorMap,
-} from "@g3t/react";
-import { LinkedChart } from "@g3t/charts";
+} from "@g3-toolkit/react";
+import { LinkedChart } from "@g3-toolkit/charts";
 import { buildSupplyNetwork, originCoverageByTier } from "./supply-data";
 
 type Tab = "degree" | "scatter" | "stats" | "sankey";

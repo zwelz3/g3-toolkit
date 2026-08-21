@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { layoutStructural } from "@g3t/core";
+import { layoutStructural } from "@g3-toolkit/core";
 import { satelliteModel } from "./model";
 import { projectDiagram } from "./diagrams";
 

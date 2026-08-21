@@ -15,10 +15,10 @@ import {
   CytoscapeCanvas,
   useSelectionStore,
   categoricalColorMap,
-} from "@g3t/react";
-import type { EncodingSpec } from "@g3t/react";
+} from "@g3-toolkit/react";
+import type { EncodingSpec } from "@g3-toolkit/react";
 import { bioGraph, rdfToUgm, rawTripleUgm, shorten } from "./rdf";
-import { createPresetPipeline } from "@g3t/core";
+import { createPresetPipeline } from "@g3-toolkit/core";
 import {
   executeSparql,
   termText,
@@ -58,7 +58,7 @@ export function BioShell({ onBack }: { onBack: () => void }) {
   // Raw renders the dataset as triples (literals and rdf:type as
   // first-class nodes); Projected is the LPG view every panel binds to.
   // The caption lists the standard preset's steps via the live pipeline
-  // API, so the collapse names on screen come from @g3t/core, not copy.
+  // API, so the collapse names on screen come from @g3-toolkit/core, not copy.
   const [canvasView, setCanvasView] = useState<"projected" | "raw">(
     "projected",
   );

@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { UGM, khopNeighborhood } from "@g3t/core";
+import { UGM, khopNeighborhood } from "@g3-toolkit/core";
 
 const captured = vi.hoisted(() => ({
   mounts: [] as Array<{ nodes: number; layout: string | undefined }>,

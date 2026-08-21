@@ -20,7 +20,7 @@
  *   taxonomy noise (review finding).
  * - neighborhoodUgm: k-hop BFS subgraph around a focus node.
  */
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import {
   NS,
   RDF_TYPE,

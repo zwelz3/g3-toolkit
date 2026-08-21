@@ -2,13 +2,13 @@
  * NodeStyleEditor UI tests (M12.E2.T1).
  *
  * Moved from packages/core/src/style-override/m12.test.tsx during
- * Phase 4: NodeStyleEditor is a React component in @g3t/react, so
- * its tests belong here, not in @g3t/core's test suite.
+ * Phase 4: NodeStyleEditor is a React component in @g3-toolkit/react, so
+ * its tests belong here, not in @g3-toolkit/core's test suite.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { NodeStyleEditor } from "./NodeStyleEditor";
 import { useStyleOverrideStore } from "../../state/style-override-store";
 

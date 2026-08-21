@@ -1,4 +1,4 @@
-# @g3t/core
+# @g3-toolkit/core
 
 Framework-agnostic data model, adapters, projection pipeline, and
 algorithms for the g3-toolkit. Zero React dependency; usable from
@@ -12,15 +12,15 @@ Live: [playground](https://zwelz3.github.io/g3-toolkit/playground/) ·
 ## Install
 
 ```bash
-npm install @g3t/core
+npm install @g3-toolkit/core
 # or
-pnpm add @g3t/core
+pnpm add @g3-toolkit/core
 ```
 
 ## Quick start
 
 ```ts
-import { SparqlAdapter } from "@g3t/core";
+import { SparqlAdapter } from "@g3-toolkit/core";
 
 const ugm = await new SparqlAdapter("https://example.org/sparql").query(
   "SELECT * WHERE { ?s ?p ?o } LIMIT 200",
@@ -31,13 +31,13 @@ console.log(`Graph has ${ugm.nodeCount} nodes, ${ugm.edgeCount} edges.`);
 
 ## Subpath imports
 
-`@g3t/core` ships subpath exports so consumers can pull only what they
+`@g3-toolkit/core` ships subpath exports so consumers can pull only what they
 need:
 
 ```ts
-import { ForceLayout } from "@g3t/core/layout";
-import { ShaclValidator } from "@g3t/core/shacl";
-import { ProjectionPipeline } from "@g3t/core/projection";
+import { ForceLayout } from "@g3-toolkit/core/layout";
+import { ShaclValidator } from "@g3-toolkit/core/shacl";
+import { ProjectionPipeline } from "@g3-toolkit/core/projection";
 ```
 
 Available subpaths: `adapters`, `middleware`, `events`, `projection`,
@@ -50,7 +50,7 @@ Every remote adapter times out after 30 seconds by default. Override it
 per adapter, or pass `0` to turn it off:
 
 ```ts
-import { SparqlAdapter, RestAdapter } from "@g3t/core";
+import { SparqlAdapter, RestAdapter } from "@g3-toolkit/core";
 
 const sparql = new SparqlAdapter("https://example.org/sparql", undefined, {
   timeoutMs: 60_000,
@@ -69,9 +69,9 @@ Failures arrive as named errors rather than as bare strings, so a host
 can branch on them:
 
 ```ts
-import { SparqlAdapter } from "@g3t/core";
-import { AdapterHttpError, AdapterArgumentError } from "@g3t/core/adapters";
-import { AdapterTimeoutError } from "@g3t/core/middleware";
+import { SparqlAdapter } from "@g3-toolkit/core";
+import { AdapterHttpError, AdapterArgumentError } from "@g3-toolkit/core/adapters";
+import { AdapterTimeoutError } from "@g3-toolkit/core/middleware";
 
 const adapter = new SparqlAdapter("https://example.org/sparql");
 
@@ -103,7 +103,7 @@ import {
   createDefaultFetch,
   bearerAuth,
   DEFAULT_TIMEOUT_MS,
-} from "@g3t/core/middleware";
+} from "@g3-toolkit/core/middleware";
 
 const fetcher = composeMiddleware(
   [bearerAuth(() => sessionStorage.getItem("token") ?? "")],

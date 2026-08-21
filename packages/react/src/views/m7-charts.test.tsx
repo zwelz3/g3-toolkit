@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { stubChartDims } from "../../../../tests/chart-dims";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../state/selection-store";
 import { MatrixView } from "../views/matrix";
 

@@ -11,7 +11,7 @@
  *   - Mismatch between `package.json` `exports.import` and the
  *     actual files Vite emits
  *
- * The Phase 2A audit flagged that `@g3t/react` and `@g3t/charts`
+ * The Phase 2A audit flagged that `@g3-toolkit/react` and `@g3-toolkit/charts`
  * could NOT resolve from a Node script because `WorkspaceShell.tsx`
  * did `import "flexlayout-react/style/light.css"`. Phase 3.3 moved
  * WorkspaceShell out to examples/, which unblocked this test.
@@ -45,7 +45,9 @@ for (const pkg of PACKAGES) {
 
     const absPath = resolve(dirname(pkgJsonPath), importTarget);
     const label =
-      subpath === "." ? `@g3t/${pkg}` : `@g3t/${pkg}/${subpath.slice(2)}`;
+      subpath === "."
+        ? `@g3-toolkit/${pkg}`
+        : `@g3-toolkit/${pkg}/${subpath.slice(2)}`;
 
     try {
       // pathToFileURL: dynamic import() requires a file:// URL for

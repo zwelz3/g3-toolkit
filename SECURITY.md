@@ -56,7 +56,7 @@ Out of scope, because the library never had the property:
 ## Credentials in the browser
 
 **Anything your bundle can read, your user can read.** `bearerAuth` and
-`apiKeyHeader` in `@g3t/core` attach a credential to an adapter request
+`apiKeyHeader` in `@g3-toolkit/core` attach a credential to an adapter request
 from code running in the page. That credential is visible in devtools,
 in the network tab, in the bundle if it was hardcoded, and to any script
 already running in the origin. No amount of care inside this library

@@ -8,7 +8,7 @@
  * it. Rebuilt from that documented contract:
  *
  *   1. Every exports-map resolution target (types / import / require)
- *      of every @g3t package exists on disk after build:packages.
+ *      of every @g3-toolkit package exists on disk after build:packages.
  *   2. Every built ESM entry re-exports the named symbols its source
  *      barrel exports (the root barrel is compared exhaustively; a
  *      built subpath entry must be a superset of nothing, it is only
@@ -45,7 +45,7 @@ function readManifest(pkg: string): {
 
 describe("exports-map targets exist on disk", () => {
   for (const pkg of PACKAGES) {
-    it(`@g3t/${pkg}: every types/import/require target exists`, () => {
+    it(`@g3-toolkit/${pkg}: every types/import/require target exists`, () => {
       const { dir, exports } = readManifest(pkg);
       const missing: string[] = [];
       for (const [subpath, entry] of Object.entries(exports)) {
@@ -74,7 +74,7 @@ describe("the published format is ESM only", () => {
   // with nothing in a stack trace. That is not fixable from inside the
   // library while both formats ship, so it is fixed here.
   for (const pkg of PACKAGES) {
-    it(`@g3t/${pkg}: no require condition, no main, no .cjs on disk`, () => {
+    it(`@g3-toolkit/${pkg}: no require condition, no main, no .cjs on disk`, () => {
       const { dir, exports } = readManifest(pkg);
       const manifest = JSON.parse(
         readFileSync(resolve(dir, "package.json"), "utf8"),
@@ -100,7 +100,7 @@ describe("the published format is ESM only", () => {
 
 describe("built root entries re-export the source barrel", () => {
   for (const pkg of PACKAGES) {
-    it(`@g3t/${pkg}: dist/index.mjs exposes every source-barrel named export`, async () => {
+    it(`@g3-toolkit/${pkg}: dist/index.mjs exposes every source-barrel named export`, async () => {
       const { dir, exports } = readManifest(pkg);
       const rootEntry = exports["."];
       expect(rootEntry).toBeDefined();
@@ -129,7 +129,7 @@ describe("built root entries re-export the source barrel", () => {
 
 describe("built subpath entries load", () => {
   for (const pkg of PACKAGES) {
-    it(`@g3t/${pkg}: every ESM subpath entry imports and is non-empty`, async () => {
+    it(`@g3-toolkit/${pkg}: every ESM subpath entry imports and is non-empty`, async () => {
       const { dir, exports } = readManifest(pkg);
       for (const [subpath, entry] of Object.entries(exports)) {
         if (subpath === "." || subpath === "./package.json") continue;

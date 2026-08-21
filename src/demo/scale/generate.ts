@@ -5,7 +5,7 @@
  * meaningfully. Deterministic (mulberry32 over SCALE_SEED): every
  * visitor, test run, and screenshot sees the same graph.
  */
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 
 export const SCALE_SEED = 20260704;
 export const COMMUNITIES = 40;

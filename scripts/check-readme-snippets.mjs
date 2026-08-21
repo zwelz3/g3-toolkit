@@ -9,7 +9,7 @@
  * typecheck against the real package types.
  *
  * Resolution: snippets are written into a scratch dir inside the repo
- * so @g3t/* resolve through the pnpm workspace links (the same path
+ * so @g3-toolkit/* resolve through the pnpm workspace links (the same path
  * an external consumer exercises via the exports map). Requires
  * build:packages to have run; `verify` orders this correctly.
  *
@@ -152,7 +152,7 @@ if (files.length === 0) {
 writeFileSync(
   resolve(dir, "_placeholders.d.ts"),
   [
-    'import type { UGM } from "@g3t/core";',
+    'import type { UGM } from "@g3-toolkit/core";',
     "declare global {",
     ...Object.entries(PLACEHOLDERS).map(
       ([name, type]) => `  const ${name}: ${type};`,

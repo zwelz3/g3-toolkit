@@ -10,7 +10,7 @@
     "sourceMap": true,
     "types": ["node", "vite/client"],
     "paths": {
-      "@g3t/core": ["../core/src/index.ts"]
+      "@g3-toolkit/core": ["../core/src/index.ts"]
     },
     "emitDeclarationOnly": true
   },

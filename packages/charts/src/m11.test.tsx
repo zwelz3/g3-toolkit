@@ -6,7 +6,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import {
   evaluateFilter,
   createViewFilter,
@@ -14,11 +14,11 @@ import {
   showOnlySelected,
   hideSelected,
   expandToNHops,
-} from "@g3t/core";
-import type { FilterGroup, ViewFilter } from "@g3t/core";
+} from "@g3-toolkit/core";
+import type { FilterGroup, ViewFilter } from "@g3-toolkit/core";
 import { LinkedChart } from "./LinkedChart";
-import { FilterBuilder } from "@g3t/react";
-import { createCountByType, createPropertyCorrelation } from "@g3t/core";
+import { FilterBuilder } from "@g3-toolkit/react";
+import { createCountByType, createPropertyCorrelation } from "@g3-toolkit/core";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

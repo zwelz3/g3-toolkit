@@ -12,7 +12,7 @@
  * are the adapters' documented honesty gap, not this harvester's.
  */
 import type { Core, EdgeSingular, NodeSingular } from "cytoscape";
-import type { VisualAttributes } from "@g3t/core";
+import type { VisualAttributes } from "@g3-toolkit/core";
 import type { SvgSceneEdge, SvgSceneNode } from "../svg/svg-adapter";
 
 export interface HarvestedScene {

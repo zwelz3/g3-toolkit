@@ -10,7 +10,7 @@
  */
 
 import { useRef, useCallback, useState, useMemo } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../state/selection-store";
 
 export interface AriaCompanionProps {

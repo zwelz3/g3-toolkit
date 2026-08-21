@@ -1,4 +1,4 @@
-// Side-effect CSS entry point (@g3t/react/style.css).
+// Side-effect CSS entry point (@g3-toolkit/react/style.css).
 //
 // Under node16/nodenext resolution TypeScript rejects a side-effect
 // import whose specifier has no declaration (TS2882), so a consumer

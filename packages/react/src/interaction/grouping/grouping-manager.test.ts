@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { GroupingManager } from "./grouping-manager";
 
 function createTestUGM(): UGM {

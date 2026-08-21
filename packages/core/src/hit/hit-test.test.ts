@@ -5,7 +5,7 @@
  * ports, routed segments.
  */
 import { describe, expect, it } from "vitest";
-import type { VisualAttributes } from "@g3t/core";
+import type { VisualAttributes } from "@g3-toolkit/core";
 import { hitTestScene, hitTestStructural } from "./hit-test";
 import type {
   StructuralGeometry,

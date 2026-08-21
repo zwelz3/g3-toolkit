@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useMemo, useState } from "react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { CytoscapeCanvas } from "../canvas/CytoscapeCanvas";
 import { useSelectionStore } from "../../state/selection-store";
 import { NodeEditorModal } from "./NodeEditorModal";

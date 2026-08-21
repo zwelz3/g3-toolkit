@@ -6,8 +6,8 @@
     "noEmit": true,
     "types": ["node", "vite/client"],
     "paths": {
-      "@g3t/core": ["../../packages/core/src/index.ts"],
-      "@g3t/react": ["../../packages/react/src/index.ts"]
+      "@g3-toolkit/core": ["../../packages/core/src/index.ts"],
+      "@g3-toolkit/react": ["../../packages/react/src/index.ts"]
     }
   },
   "references": [

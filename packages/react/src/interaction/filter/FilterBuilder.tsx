@@ -7,12 +7,12 @@
  */
 
 import { useState, useCallback } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import {
   evaluateFilter,
   type FilterGroup,
   type PropertyFilter,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 
 // ── FilterBuilder (M11.E3.T2) ───────────────────────────────────────
 

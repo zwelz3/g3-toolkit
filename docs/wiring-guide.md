@@ -54,7 +54,7 @@ store or function call in an `onClick`.
 ### Pin / unpin everything
 
 ```tsx
-import { usePositionPinStore } from "@g3t/react";
+import { usePositionPinStore } from "@g3-toolkit/react";
 
 function PinAllButton() {
   const allPinned = usePositionPinStore((s) => s.allPinned);
@@ -79,7 +79,7 @@ the context menu.
 ```tsx
 import { useRef } from "react";
 import type { Core } from "cytoscape";
-import { useSelectionStore, CytoscapeCanvas } from "@g3t/react";
+import { useSelectionStore, CytoscapeCanvas } from "@g3-toolkit/react";
 
 function FocusButton({ cy, nodeId }: { cy: Core | null; nodeId: string }) {
   return (
@@ -110,7 +110,7 @@ fcose to end-mode animation (`animate: "end"`) when per-tick
 rendering is too heavy.
 
 ```tsx
-import { runGraphLayout, DEFAULT_LAYOUT_OPTIONS } from "@g3t/react";
+import { runGraphLayout, DEFAULT_LAYOUT_OPTIONS } from "@g3-toolkit/react";
 
 <button
   className="g3t-btn"
@@ -124,7 +124,7 @@ import { runGraphLayout, DEFAULT_LAYOUT_OPTIONS } from "@g3t/react";
 ### Theme from your app's settings
 
 ```tsx
-import { useThemeStore } from "@g3t/react";
+import { useThemeStore } from "@g3-toolkit/react";
 useThemeStore.getState().setTheme(orgSettings.darkMode ? "dark" : "light");
 ```
 
@@ -139,7 +139,7 @@ import {
   EncodingSpecPanel,
   SpecLegend,
   type EncodingSpec,
-} from "@g3t/react";
+} from "@g3-toolkit/react";
 
 const [spec, setSpec] = useState<EncodingSpec>(initialSpec);
 
@@ -167,7 +167,7 @@ toggle.
 
 ```tsx
 import { useMemo, useState } from "react";
-import { CytoscapeCanvas, FacetFilter } from "@g3t/react";
+import { CytoscapeCanvas, FacetFilter } from "@g3-toolkit/react";
 
 const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
@@ -197,8 +197,8 @@ import {
   applyAlgorithmResult,
   ingestAlgorithmResults,
   type UGM,
-} from "@g3t/core";
-import { useOverlayStore } from "@g3t/react";
+} from "@g3-toolkit/core";
+import { useOverlayStore } from "@g3-toolkit/react";
 
 async function showCommunities(ugm: UGM) {
   const json = await fetch("/api/algorithms/louvain").then((r) => r.text());
@@ -220,7 +220,7 @@ case; "Copy ID" otherwise). "Inspect properties" appears only when
 you wire it, because only the host app knows its detail surface:
 
 ```tsx
-import { createDefaultMenuManager, useSelectionStore } from "@g3t/react";
+import { createDefaultMenuManager, useSelectionStore } from "@g3-toolkit/react";
 
 const manager = createDefaultMenuManager({
   // Selection IS the inspect surface in most g3t apps: the inspector,
@@ -238,7 +238,7 @@ Register app-specific actions on the same manager (the playground's
 Scale surface does this live with "Drill into cluster"):
 
 ```tsx
-import { ContextMenuManager } from "@g3t/react";
+import { ContextMenuManager } from "@g3-toolkit/react";
 
 const manager = new ContextMenuManager();
 manager.register("my-app", [
@@ -263,8 +263,8 @@ consumes all seven (CI-tested there); the pattern:
 
 ```tsx
 import { useEffect } from "react";
-import { ContextMenuManager, registerToolkitActions } from "@g3t/react";
-import { G3tEventBus } from "@g3t/core";
+import { ContextMenuManager, registerToolkitActions } from "@g3-toolkit/react";
+import { G3tEventBus } from "@g3-toolkit/core";
 
 const bus = new G3tEventBus();
 const manager = new ContextMenuManager();
@@ -294,7 +294,7 @@ elements, so selection, overlays, and badges apply to them like any
 node:
 
 ```tsx
-import { layoutStructural, isChainEdgeId } from "@g3t/core";
+import { layoutStructural, isChainEdgeId } from "@g3-toolkit/core";
 
 const geometry = await layoutStructural({
   nodes: [
@@ -353,8 +353,8 @@ import {
   shaclRowSeverities,
   closedShapeIds,
   layoutStructural,
-} from "@g3t/core";
-import { CytoscapeCanvas } from "@g3t/react";
+} from "@g3-toolkit/core";
+import { CytoscapeCanvas } from "@g3-toolkit/react";
 
 const input = shaclShapesToStructural(shapes, {
   references: { "PersonShape::worksFor": "OrgShape" }, // sh:node edges
@@ -385,8 +385,8 @@ import {
   severityOverlays,
   shaclResultDrivers,
   ingestAlgorithmResults,
-} from "@g3t/core";
-import { useOverlayStore } from "@g3t/react";
+} from "@g3-toolkit/core";
+import { useOverlayStore } from "@g3-toolkit/react";
 
 const report = reportFromValidationResults(validateShacl(ugm, shapes));
 // (or parseShaclReport(externalPyshaclReport) for an external engine)
@@ -409,8 +409,8 @@ node (data canvas) and the source shape's container plus the
 offending property row (shape canvas) at once. No new machinery:
 
 ```tsx
-import { resultSelectionIds, resultDetail } from "@g3t/core";
-import { useSelectionStore } from "@g3t/react";
+import { resultSelectionIds, resultDetail } from "@g3-toolkit/core";
+import { useSelectionStore } from "@g3-toolkit/react";
 
 // On clicking a result in your report list:
 useSelectionStore.getState().selectNodes(resultSelectionIds(result));
@@ -434,7 +434,7 @@ app derives; the auditor shell walks PROV-O edges) with tiers, edge
 details, and ABSENCE hops for evidence that should exist and does not:
 
 ```tsx
-import { ProvenanceTrace, type ProvenanceChain } from "@g3t/react";
+import { ProvenanceTrace, type ProvenanceChain } from "@g3-toolkit/react";
 
 const chain: ProvenanceChain = [
   { id: "rel", tier: "entity", label: "Release 1.2", depth: 0 },
@@ -483,7 +483,7 @@ The "Patterns/Coordinated Selection" story demonstrates it live.
 Subscribe to stores from anything:
 
 ```tsx
-import { useSelectionStore } from "@g3t/react";
+import { useSelectionStore } from "@g3-toolkit/react";
 
 // React: your detail pane follows the toolkit selection
 function MyDossierPane() {
@@ -506,7 +506,7 @@ import {
   applyWorkspace,
   serializeWorkspace,
   parseWorkspace,
-} from "@g3t/react";
+} from "@g3-toolkit/react";
 const snapshot = captureWorkspace({ cy, spec });
 await saveToCase(caseId, serializeWorkspace(snapshot)); // your storage
 // later, possibly another session:
@@ -523,7 +523,7 @@ node's type, literals become properties, blank nodes and RDF lists
 resolve into the structures they encode).
 
 ```ts
-import { createPresetPipeline } from "@g3t/core";
+import { createPresetPipeline } from "@g3-toolkit/core";
 const ugm = createPresetPipeline("standard").project(rdfGraph);
 // rdf:type -> node.types; literals -> node.properties; blank-node and
 // list structures resolved. Presets: "standard", "ontology",
@@ -533,7 +533,7 @@ const ugm = createPresetPipeline("standard").project(rdfGraph);
 Compose your own step set when the presets don't fit:
 
 ```ts
-import { ProjectionPipeline, typeCollapse } from "@g3t/core";
+import { ProjectionPipeline, typeCollapse } from "@g3-toolkit/core";
 const p = new ProjectionPipeline();
 p.addStep({ name: "Type Collapse", transform: typeCollapse, enabled: true });
 const ugm = p.project(rdfGraph);
@@ -554,7 +554,7 @@ The playground's Scale surface runs this live over 8,000 nodes with
 the measured timings on screen.
 
 ```ts
-import { collapseByCluster, buildSubgraph } from "@g3t/core";
+import { collapseByCluster, buildSubgraph } from "@g3-toolkit/core";
 
 const {
   ugm: clustered,
@@ -587,7 +587,7 @@ message, no reload, nothing to act on. There is no hook form of an
 error boundary, so the toolkit ships the component.
 
 ```tsx
-import { ViewErrorBoundary, CytoscapeCanvas } from "@g3t/react";
+import { ViewErrorBoundary, CytoscapeCanvas } from "@g3-toolkit/react";
 
 export function Panel() {
   return (
@@ -621,8 +621,8 @@ leave `structural` null and a host that only checks for null spins a
 loading state forever:
 
 ```tsx
-import type { StructuralGraphInput } from "@g3t/core";
-import { useStructuralLayout } from "@g3t/react";
+import type { StructuralGraphInput } from "@g3-toolkit/core";
+import { useStructuralLayout } from "@g3-toolkit/react";
 
 export function StructuralPanel({ input }: { input: StructuralGraphInput }) {
   const { structural, error } = useStructuralLayout(input);
@@ -646,7 +646,7 @@ from their own handlers rather than mounting as components.
 ### Path analysis
 
 ```ts
-import { findShortestPath, allShortestPaths } from "@g3t/core";
+import { findShortestPath, allShortestPaths } from "@g3-toolkit/core";
 const path = findShortestPath(ugm, "a", "c");
 // path.found, path.nodeIds (["a","b","c"]), path.edgeIds, path.length
 
@@ -660,7 +660,7 @@ const all = allShortestPaths(ugm, "a", "c");
 ### Subgraph export
 
 ```ts
-import { exportSubgraphJson, exportSubgraphCsv } from "@g3t/core";
+import { exportSubgraphJson, exportSubgraphCsv } from "@g3-toolkit/core";
 const json = exportSubgraphJson(ugm); // whole graph
 const csv = exportSubgraphCsv(ugm, selection); // or a selection
 ```
@@ -671,7 +671,7 @@ Turtle export (`exportSubgraphTurtle`) is demonstrated in
 ### Applying an encoding spec without the panel
 
 ```ts
-import { applyEncodingSpec } from "@g3t/react";
+import { applyEncodingSpec } from "@g3-toolkit/react";
 const patch = applyEncodingSpec(spec, ugm);
 // patch.nodes / patch.edges: Maps of materialized visual channels
 // (_color, _size, _icon, _shape, label) keyed by element id.
@@ -680,7 +680,7 @@ const patch = applyEncodingSpec(spec, ugm);
 ### Themes, programmatically
 
 ```ts
-import { createTheme } from "@g3t/react";
+import { createTheme } from "@g3-toolkit/react";
 const theme = createTheme({ id: "acme", name: "Acme", accentPrimary: "#0af" });
 // Derives from LIGHT_THEME and warns when a chosen color fails WCAG
 // contrast against its background.
@@ -689,7 +689,7 @@ const theme = createTheme({ id: "acme", name: "Acme", accentPrimary: "#0af" });
 ### Camera control
 
 ```ts
-import { createCameraController } from "@g3t/react";
+import { createCameraController } from "@g3-toolkit/react";
 const camera = createCameraController(cy, { padding: 48 });
 camera.focusNodes(selectedIds); // zoom-to-subgraph
 camera.frameAll(); // fit everything

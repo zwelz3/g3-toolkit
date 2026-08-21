@@ -6,8 +6,8 @@
  * literals (molecular weight, approval year, prevalence) exist so the linked
  * analytics panels have something to scatter and bar.
  */
-import { UGM } from "@g3t/core";
-import type { RDFTriple, RDFGraph } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
+import type { RDFTriple, RDFGraph } from "@g3-toolkit/core";
 
 export const EX = "http://example.org/bio#";
 export const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";

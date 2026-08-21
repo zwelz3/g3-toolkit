@@ -4,8 +4,8 @@
 
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { UGM } from "@g3t/core";
-import { ComboManager } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
+import { ComboManager } from "@g3-toolkit/core";
 import {
   AnnotationPanel,
   createLocalAnnotationStore,

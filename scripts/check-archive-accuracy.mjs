@@ -5,7 +5,7 @@
  * ARCHIVE.md records symbols removed from the ROOT barrel
  * (`packages/core/src/index.ts`) under an "archive, don't delete"
  * ruling. For a year that was read as "removed from the API", and it is
- * not the same thing: `@g3t/core` publishes thirteen subpaths, and a
+ * not the same thing: `@g3-toolkit/core` publishes thirteen subpaths, and a
  * symbol dropped from the root barrel is still public if any subpath
  * barrel exports it. When this check was first written, 27 of the 38
  * listed symbols shipped from a subpath, including every one of the
@@ -72,7 +72,7 @@ for (const line of md.split("\n")) {
   const status = cells[2].toUpperCase();
   if (status !== "SHIPS" && status !== "ABSENT") continue;
   // Split into a SET rather than substring-matching the cell. Entry
-  // names nest (`@g3t/core` is a prefix of `@g3t/core/adapters`), so
+  // names nest (`@g3-toolkit/core` is a prefix of `@g3-toolkit/core/adapters`), so
   // `cell.includes(entry)` reports a row listing only the subpath as
   // covering the root too. That bug shipped in the first draft of this
   // script and was caught by negative-testing the row that has both.

@@ -15,7 +15,7 @@ import {
   cleanup,
   act,
 } from "@testing-library/react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 
 const captured = vi.hoisted(() => ({
   hidden: [] as Array<ReadonlySet<string> | undefined>,
@@ -35,8 +35,8 @@ const captured = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock("@g3t/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/react")>();
+vi.mock("@g3-toolkit/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/react")>();
   return {
     ...actual,
     CytoscapeCanvas: (props: {
@@ -54,7 +54,7 @@ vi.mock("@g3t/react", async (importOriginal) => {
 import { AuditShell } from "./AuditShell";
 import { buildProvenance } from "./model";
 import { provenanceEvents, timeBounds, hiddenForRange } from "./timeline";
-import { useSelectionStore, useOverlayStore } from "@g3t/react";
+import { useSelectionStore, useOverlayStore } from "@g3-toolkit/react";
 
 beforeEach(() => {
   captured.hidden.length = 0;

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { EncodingPanel, CanvasLegend, DEFAULT_ENCODING } from "./index";
 import type { EncodingConfig } from "./index";
 

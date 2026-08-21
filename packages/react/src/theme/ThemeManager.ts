@@ -9,7 +9,7 @@
  */
 
 import { create } from "zustand";
-import { prefersReducedMotion, DESIGN_TOKENS } from "@g3t/core";
+import { prefersReducedMotion, DESIGN_TOKENS } from "@g3-toolkit/core";
 
 // ── Theme Definition ────────────────────────────────────────────────
 
@@ -266,7 +266,7 @@ function relativeLuminance(hex: string): number | null {
  * WCAG contrast ratio between two hex colors (1..21); null if either
  * color is not plain hex (e.g. rgba() strings are skipped, not failed).
  *
- * Named for the null, because `@g3t/core` exports a `contrastRatio`
+ * Named for the null, because `@g3-toolkit/core` exports a `contrastRatio`
  * that returns a plain `number` and the two used to share that name
  * across the two packages. They are not interchangeable: this one is
  * what `createTheme` needs, since a theme may legitimately carry an

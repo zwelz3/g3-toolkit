@@ -11,7 +11,7 @@
  * symbol ARRIVING, so the namespace could only ever widen.
  *
  * Note that the star-export mechanism usually blamed for this holds
- * for @g3t/react but NOT for @g3t/core. Core's sub-barrels are
+ * for @g3-toolkit/react but NOT for @g3-toolkit/core. Core's sub-barrels are
  * explicit named lists, so helpers
  * like `localPart`, `cardinalitySuffix` and `estimateTextSize` were
  * typed into an export list by hand: deliberate keystrokes whose intent
@@ -74,7 +74,9 @@ async function collectSurface() {
 
       const absPath = resolve(dirname(pkgJsonPath), importTarget);
       const label =
-        subpath === "." ? `@g3t/${pkg}` : `@g3t/${pkg}/${subpath.slice(2)}`;
+        subpath === "."
+          ? `@g3-toolkit/${pkg}`
+          : `@g3-toolkit/${pkg}/${subpath.slice(2)}`;
 
       try {
         // pathToFileURL for the same reason smoke-test.mjs uses it: a

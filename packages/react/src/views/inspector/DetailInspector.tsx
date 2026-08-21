@@ -10,7 +10,7 @@
 // Implements: R1.14 (community overlay), R5.7 (holonic layer display).
 
 import { useState } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 
 export interface DetailInspectorProps {

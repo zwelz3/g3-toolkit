@@ -5,7 +5,7 @@
  * `attributed` flag). Activities must record a start (violation) and should
  * record an end (warning if the record was never closed out).
  */
-import type { ShaclShape } from "@g3t/core";
+import type { ShaclShape } from "@g3-toolkit/core";
 
 export const SHAPE_ENTITY = "shape:entity";
 export const SHAPE_ACTIVITY = "shape:activity";

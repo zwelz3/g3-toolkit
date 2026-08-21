@@ -19,7 +19,7 @@
  *   R5.2 (holarchy topology rendering) — implemented here
  *   R5.3 (project_to_lpg as default rendering path) — implemented here
  *   R5.4 (portal context-menu surfacing) — data side implemented here;
- *        menu wiring in @g3t/react holonic-portal-menu
+ *        menu wiring in @g3-toolkit/react holonic-portal-menu
  *   R5.1 (backend transparency) — NOT met; in-memory only
  */
 

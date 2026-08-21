@@ -10,7 +10,7 @@
  */
 
 import { useMemo, useState } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 import { shapeForIndex } from "../../views/canvas/palette";
 import {

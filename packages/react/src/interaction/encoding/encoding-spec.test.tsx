@@ -4,7 +4,7 @@
  * acceptance list.
  */
 import { describe, it, expect, vi } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import {
   applyIconMappings,
   categoricalColorMap,

@@ -22,7 +22,7 @@
  *
  * Every declared type entry is walked, not just the root one, and each
  * is judged against its OWN namespace. An adopter importing
- * `@g3t/react/timeline` sees that entry's exports; a prop type of
+ * `@g3-toolkit/react/timeline` sees that entry's exports; a prop type of
  * theirs that is only nameable from the root barrel is the same hole
  * this gate exists to catch.
  */
@@ -114,7 +114,7 @@ for (const dir of readdirSync(packagesDir)) {
   if (pkg.private === true || !pkg.types) continue;
 
   // Every declared type entry, not just the root one. A symbol that
-  // ships only on a subpath (`@g3t/react/timeline`) is still public
+  // ships only on a subpath (`@g3-toolkit/react/timeline`) is still public
   // surface, and walking only pkg.types silently drops it from this
   // gate the moment a component moves off the root barrel.
   const entryPaths = [
@@ -139,7 +139,7 @@ for (const dir of readdirSync(packagesDir)) {
   // so a gate that ignores them reports false positives.
   //
   // Computed PER ENTRY, not once for the union. An adopter who imports
-  // `@g3t/react/timeline` gets that entry's namespace; a prop type of
+  // `@g3-toolkit/react/timeline` gets that entry's namespace; a prop type of
   // theirs that is only nameable from the root barrel is still a hole.
   const checkedInPkg = new Set();
   for (const entryPath of entryPaths) {

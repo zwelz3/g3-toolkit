@@ -12,7 +12,7 @@
 import { useMemo, useCallback, useRef } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import type {
   DataPipeline,
   CategoricalData,
@@ -20,9 +20,9 @@ import type {
   TimeSeriesData,
   CategoricalSelection,
   PointSetSelection,
-} from "@g3t/core";
-import { useSelectionStore } from "@g3t/react";
-import { useThemeStore } from "@g3t/react";
+} from "@g3-toolkit/core";
+import { useSelectionStore } from "@g3-toolkit/react";
+import { useThemeStore } from "@g3-toolkit/react";
 
 // ── Chart Types ─────────────────────────────────────────────────────
 

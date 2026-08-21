@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { SankeyView } from "./SankeyView";
 import { stubChartDims } from "../../../../../tests/chart-dims";
 

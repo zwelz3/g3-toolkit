@@ -10,8 +10,8 @@
  */
 
 import { useState, useMemo } from "react";
-import type { ShaclShape, ShaclValidationResult } from "@g3t/core";
-import { summarizeValidation } from "@g3t/core";
+import type { ShaclShape, ShaclValidationResult } from "@g3-toolkit/core";
+import { summarizeValidation } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { Icon } from "../../icons";
 

@@ -30,8 +30,8 @@
 
 import { useEffect, useMemo } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { UGM, createCountByType } from "@g3t/core";
-import { LinkedChart } from "@g3t/charts";
+import { UGM, createCountByType } from "@g3-toolkit/core";
+import { LinkedChart } from "@g3-toolkit/charts";
 import { CytoscapeCanvas } from "./canvas/CytoscapeCanvas";
 import { TableView } from "./table";
 import { useSelectionStore } from "../state/selection-store";

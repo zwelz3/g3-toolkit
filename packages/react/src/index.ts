@@ -1,12 +1,12 @@
 /**
- * @g3t/react public API.
+ * @g3-toolkit/react public API.
  *
  * React 19 components, Zustand stores, and CSS for the toolkit's UI layer (D13).
- * Peer deps: react, react-dom, cytoscape, zustand, @tanstack/react-table, @g3t/core.
+ * Peer deps: react, react-dom, cytoscape, zustand, @tanstack/react-table, @g3-toolkit/core.
  *
- * Architectural boundary: this package may consume @g3t/core but must not
- * import from @g3t/charts. The reverse direction (@g3t/core consuming
- * @g3t/react) is forbidden and verified by packages/core/src/module-boundary.test.ts.
+ * Architectural boundary: this package may consume @g3-toolkit/core but must not
+ * import from @g3-toolkit/charts. The reverse direction (@g3-toolkit/core consuming
+ * @g3-toolkit/react) is forbidden and verified by packages/core/src/module-boundary.test.ts.
  */
 
 // CSS side-effect import. Marked sideEffects: ["*.css"] in package.json so this
@@ -54,9 +54,9 @@ export * from "./views/inspector";
 // vis-timeline and vis-data, which package.json declares OPTIONAL peers, so
 // a package manager does not install them. Module resolution runs before
 // tree-shaking, which means a re-export from this barrel makes the very
-// first `import { CytoscapeCanvas } from "@g3t/react"` fail to resolve for
+// first `import { CytoscapeCanvas } from "@g3-toolkit/react"` fail to resolve for
 // every consumer who took the documented install. TimelineView ships on its
-// own subpath instead: `@g3t/react/timeline`. Enforced by
+// own subpath instead: `@g3-toolkit/react/timeline`. Enforced by
 // scripts/check-optional-peers.mjs.
 export * from "./views/map";
 export * from "./views/tree";
@@ -81,7 +81,7 @@ export type { ShaclShapeBrowserProps } from "./views/schema/ShaclShapeBrowser";
 // ShaclShape and built an array for ShaclShapeBrowser got a type the
 // component rejected. That type is now SchemaViewShape, and SchemaView
 // accepts either form.
-export type { ShaclShape } from "@g3t/core";
+export type { ShaclShape } from "@g3-toolkit/core";
 export * from "./views/matrix";
 export * from "./views/sankey";
 export * from "./views/query";
@@ -131,10 +131,10 @@ export * from "./interaction/annotations";
 export * from "./interaction/workspace/workspace";
 export * from "./interaction/algorithms/AlgorithmPanel";
 
-// path-analysis is D6 and was moved to @g3t/core in P3.x. Re-exported
-// here for backwards compatibility. Prefer importing from @g3t/core directly.
-export { findShortestPath } from "@g3t/core";
-export type { PathResult, PathOptions } from "@g3t/core";
+// path-analysis is D6 and was moved to @g3-toolkit/core in P3.x. Re-exported
+// here for backwards compatibility. Prefer importing from @g3-toolkit/core directly.
+export { findShortestPath } from "@g3-toolkit/core";
+export type { PathResult, PathOptions } from "@g3-toolkit/core";
 
 // Loose files in interaction/ (not in a subdir)
 export { expandNeighbors } from "./interaction/neighbors";
@@ -158,25 +158,25 @@ export * from "./a11y";
 // (WorkspaceShell, saveWorkspace, loadWorkspace, getDefaultLayoutForRole
 //  moved to examples/full-workspace/ in P3.3. WorkspaceShell was always
 //  intended as a reference implementation rather than a published part
-//  of @g3t/react; consumers wanting that shape can copy from the example
-//  or pull it directly via the @g3t/example-full-workspace package.)
+//  of @g3-toolkit/react; consumers wanting that shape can copy from the example
+//  or pull it directly via the @g3-toolkit/example-full-workspace package.)
 
-// ── Re-exports from @g3t/core (convenience for existing consumers) ─────
-// These can also be imported directly from @g3t/core; either form works.
+// ── Re-exports from @g3-toolkit/core (convenience for existing consumers) ─────
+// These can also be imported directly from @g3-toolkit/core; either form works.
 export {
   ForceLayout,
   HierarchyLayout,
   DagreLayout,
   G3tLayeredLayout,
   WorkingSetManager,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 // The engines' option bag, re-exported alongside them so `LayoutOptions`
 // on this entry means the thing the engines actually accept. The
 // LayoutManager panel's UI state used to own this name here, which
 // type-checked against ForceLayout.compute() and silently discarded
 // every force-tuning field (audit 2026-08); that type is now
 // LayoutPanelOptions.
-export type { LayoutOptions } from "@g3t/core";
+export type { LayoutOptions } from "@g3-toolkit/core";
 export * from "./icons";
 
 // ── VisualAttributes -> Cytoscape projection (G3L:ARC-008 posture):

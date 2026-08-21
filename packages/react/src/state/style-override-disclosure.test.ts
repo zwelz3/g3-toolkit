@@ -3,7 +3,7 @@
 // and there was no supported way to ask which nodes carry manual
 // styling. These are the selectors that make it askable.
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import {
   overriddenNodeIds,
   overrideScopeSummary,

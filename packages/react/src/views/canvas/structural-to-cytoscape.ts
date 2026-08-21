@@ -2,7 +2,7 @@
  * Structural scene -> Cytoscape elements (Group A slice A2, round 32).
  *
  * Consumes the renderer-neutral StructuralGeometry document from
- * @g3t/core and produces preset-positioned Cytoscape elements:
+ * @g3-toolkit/core and produces preset-positioned Cytoscape elements:
  *
  * - CONTAINERS become compound parents with NO position (Cytoscape
  *   derives parent bounds from children) and NO label of their own:
@@ -36,10 +36,13 @@
  */
 
 import type { Core, ElementDefinition } from "cytoscape";
-import { edgePortId, isEdgePortId } from "@g3t/core";
-import { polylineIntersectsBoxes, routeOrthogonal } from "@g3t/core";
-import type { RouteBox } from "@g3t/core";
-import type { StructuralGraphInput, StructuralGeometry } from "@g3t/core";
+import { edgePortId, isEdgePortId } from "@g3-toolkit/core";
+import { polylineIntersectsBoxes, routeOrthogonal } from "@g3-toolkit/core";
+import type { RouteBox } from "@g3-toolkit/core";
+import type {
+  StructuralGraphInput,
+  StructuralGeometry,
+} from "@g3-toolkit/core";
 
 type CyStylesheet = {
   selector: string;

@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { NodeStyleEditor } from "../../interaction/encoding/NodeStyleEditor";
 import { NodePropertyInspector } from "./NodePropertyInspector";
 import type { PropertyInspectorSpec } from "./property-spec";

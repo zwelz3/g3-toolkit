@@ -18,7 +18,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { act, render, screen, fireEvent, within } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { TableView } from "./table";
 import { useSelectionStore } from "../state/selection-store";
 

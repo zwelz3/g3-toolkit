@@ -5,7 +5,7 @@
  * results carry `inferred` flags so the UI can chip them and the
  * Asserted|Inferred toggle can filter.
  */
-import type { RDFGraph, RDFTriple } from "@g3t/core";
+import type { RDFGraph, RDFTriple } from "@g3-toolkit/core";
 import {
   NS,
   RDF_TYPE,

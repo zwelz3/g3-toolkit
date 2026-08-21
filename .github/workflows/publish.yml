@@ -80,14 +80,14 @@ jobs:
       # rewritten to actual versions automatically. Each package's
       # `prepack` runs scripts/check-dist-fresh.mjs, so a missing or
       # stale dist fails at the tarball rather than shipping hollow.
-      - run: pnpm --filter @g3t/core publish $PUBLISH_FLAGS
+      - run: pnpm --filter @g3-toolkit/core publish $PUBLISH_FLAGS
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - run: pnpm --filter @g3t/react publish $PUBLISH_FLAGS
+      - run: pnpm --filter @g3-toolkit/react publish $PUBLISH_FLAGS
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - run: pnpm --filter @g3t/charts publish $PUBLISH_FLAGS
+      - run: pnpm --filter @g3-toolkit/charts publish $PUBLISH_FLAGS
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

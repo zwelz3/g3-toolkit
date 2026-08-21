@@ -1,8 +1,8 @@
-# @g3t/charts
+# @g3-toolkit/charts
 
 Linked statistical charts (bar, scatter, line, pie, parallel
 coordinates, sankey) for the g3-toolkit. Charts synchronize selection
-with the graph canvas and table via the `@g3t/core` `DataPipeline`
+with the graph canvas and table via the `@g3-toolkit/core` `DataPipeline`
 abstraction.
 
 Install only if you need non-graph visualizations alongside your
@@ -16,17 +16,17 @@ Live: [playground](https://zwelz3.github.io/g3-toolkit/playground/) ·
 ## Install
 
 ```bash
-npm install @g3t/core @g3t/react @g3t/charts react echarts
+npm install @g3-toolkit/core @g3-toolkit/react @g3-toolkit/charts react echarts
 ```
 
 `echarts-for-react` is pulled in transitively (regular dep of
-`@g3t/charts`).
+`@g3-toolkit/charts`).
 
 ## Quick start
 
 ```tsx
-import { UGM, createDegreeDistribution } from "@g3t/core";
-import { LinkedChart } from "@g3t/charts";
+import { UGM, createDegreeDistribution } from "@g3-toolkit/core";
+import { LinkedChart } from "@g3-toolkit/charts";
 
 const degreePipeline = createDegreeDistribution();
 
@@ -50,8 +50,8 @@ import {
   type DataPipeline,
   type ScatterData,
   type PointSetSelection,
-} from "@g3t/core";
-import { LinkedChart } from "@g3t/charts";
+} from "@g3-toolkit/core";
+import { LinkedChart } from "@g3-toolkit/charts";
 
 const embeddingProjection: DataPipeline<ScatterData, PointSetSelection> = {
   id: "embedding-2d",

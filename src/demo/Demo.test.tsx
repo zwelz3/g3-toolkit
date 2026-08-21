@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 
 // echarts never worked in jsdom (no 2D canvas context); with STATIC
 // shell imports its init errors passed as console noise, but LAZY
@@ -26,8 +26,8 @@ vi.mock("echarts", () => {
   return { ...api, default: api };
 });
 
-vi.mock("@g3t/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/react")>();
+vi.mock("@g3-toolkit/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/react")>();
   return {
     ...actual,
     CytoscapeCanvas: (_props: { ugm: UGM }) => (
@@ -42,7 +42,7 @@ vi.mock("@g3t/react", async (importOriginal) => {
   };
 });
 
-vi.mock("@g3t/charts", () => ({
+vi.mock("@g3-toolkit/charts", () => ({
   LinkedChart: () => <div data-testid="linked-chart-stub" />,
 }));
 

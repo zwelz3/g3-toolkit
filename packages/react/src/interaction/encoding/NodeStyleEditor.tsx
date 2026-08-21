@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, type ReactNode } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import {
   ICONS,
   ICON_NAMES,
@@ -15,7 +15,7 @@ import {
   STRUCTURAL_STYLE_CHANNELS,
   CANVAS_STYLE_CHANNELS,
   type StyleChannel,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import { useStyleOverrideStore } from "../../state/style-override-store";
 
 // ── Props ───────────────────────────────────────────────────────────

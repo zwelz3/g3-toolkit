@@ -1,5 +1,5 @@
 {
-  "name": "@g3t/example-decision-dashboards",
+  "name": "@g3-toolkit/example-decision-dashboards",
   "version": "0.0.0",
   "description": "Reference dashboards showing graph visualization wired into a decision workflow across two domains: systems-engineering conformance review and supply-chain impact analysis.",
   "private": true,
@@ -9,11 +9,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@g3t/core": "workspace:*",
-    "@g3t/react": "workspace:*",
+    "@g3-toolkit/core": "workspace:*",
+    "@g3-toolkit/react": "workspace:*",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0",
-    "@g3t/charts": "workspace:*"
+    "@g3-toolkit/charts": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",

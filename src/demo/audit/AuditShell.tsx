@@ -20,9 +20,9 @@ import {
   NodePropertyInspector,
   FloatingPanel,
   categoricalColorMap,
-} from "@g3t/react";
-import type { EncodingSpec } from "@g3t/react";
-import type { StructuralOverlay } from "@g3t/core";
+} from "@g3-toolkit/react";
+import type { EncodingSpec } from "@g3-toolkit/react";
+import type { StructuralOverlay } from "@g3-toolkit/core";
 import { buildProvenance } from "./model";
 import { provenanceShapes } from "./shapes";
 import {
@@ -37,7 +37,7 @@ import { AUDIT_STYLES } from "./audit-styles";
 import { CapabilityBubble } from "../components/CapabilityCallout";
 import { usePrefersReducedMotion } from "../components/usePrefersReducedMotion";
 import { provenanceChainFor } from "./chain";
-import { createDefaultMenuManager } from "@g3t/react";
+import { createDefaultMenuManager } from "@g3-toolkit/react";
 
 const SPEC: EncodingSpec = {
   version: 1,

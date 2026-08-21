@@ -42,9 +42,9 @@
  *   1  any package exceeded its budget
  *
  * Sizes recorded against Phase 5/6 baseline of g3-toolkit:
- *   @g3t/core   ≈ 96 KB
- *   @g3t/react  ≈ 165 KB
- *   @g3t/charts ≈ 5.8 KB
+ *   @g3-toolkit/core   ≈ 96 KB
+ *   @g3-toolkit/react  ≈ 165 KB
+ *   @g3-toolkit/charts ≈ 5.8 KB
  */
 
 import { readdirSync, statSync } from "node:fs";
@@ -65,7 +65,7 @@ const BUDGETS = {
   // obstacle router (B4, ~6.4 KB) landed in core, where route
   // ownership belongs (RTE-005). SECOND raise for the style/route
   // program; the standing recommendation holds: when WS-D (internal
-  // layout engine) lands, extract @g3t/layout (ARC-009), move the
+  // layout engine) lands, extract @g3-toolkit/layout (ARC-009), move the
   // router with it, and bring core back under its original envelope
   // rather than raising a third time.
   // Owner batch + directives 2026-07-28: +1.0 KB across the VR-9
@@ -78,13 +78,13 @@ const BUDGETS = {
   // (R-12a), the renderer-neutral counterpart of the cytoscape one.
   core: 169.0 * 1024,
   // Core ledger:
-  // - NO RAISE, 2026-08-15 (the @g3t/layout recommendation is RETIRED,
+  // - NO RAISE, 2026-08-15 (the @g3-toolkit/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against
   //   the unchanged 169.0 cap, so headroom went 1.4 -> 5.0 KB. Two
   //   things happened and neither was a raise.
   //
   //   FIRST: the standing recommendation carried by the four entries
-  //   below, "extract @g3t/layout (ARC-009) and bring core back under
+  //   below, "extract @g3-toolkit/layout (ARC-009) and bring core back under
   //   its original envelope", IS WITHDRAWN. It was chasing THIS number,
   //   and this number is publish weight. Every package declares
   //   `sideEffects: false`, so a consumer downloads what it references.
@@ -123,7 +123,7 @@ const BUDGETS = {
   //   bytes would reintroduce half the problem. Headroom is 1.4 KB,
   //   held tight on purpose. FOURTH raise this session, all four
   //   hardening rather than feature work. The standing recommendation
-  //   is unchanged and is now overdue: extract @g3t/layout (ARC-009)
+  //   is unchanged and is now overdue: extract @g3-toolkit/layout (ARC-009)
   //   and bring core back under its original envelope instead of
   //   raising a fifth time.
   // - 162 -> 166 KB, 2026-08-15 (adapter request hygiene): measured
@@ -144,7 +144,7 @@ const BUDGETS = {
   //   deliberate policy, and "why 30 seconds" and "why aborts are
   //   never retried" are exactly what a future reader needs. New
   //   headroom is 1.4 KB, deliberately tight, because the standing
-  //   recommendation is still to extract @g3t/layout (ARC-009) and
+  //   recommendation is still to extract @g3-toolkit/layout (ARC-009) and
   //   bring core back under its original envelope rather than keep
   //   raising. This is the third raise this session and the third
   //   that is hardening rather than feature work.
@@ -166,7 +166,7 @@ const BUDGETS = {
   //   measured 157.1 KB. This is the raise the previous entry warned
   //   was coming; it is a security fix, not the style/route program,
   //   so it does not renegotiate that program's standing
-  //   recommendation (extract @g3t/layout, ARC-009, and bring core
+  //   recommendation (extract @g3-toolkit/layout, ARC-009, and bring core
   //   back under its original envelope). Sourcemap audit run first,
   //   as that entry requires: ZERO node_modules source bytes in
   //   core's dist, so all 1.9 KB is first-party. Most of it is the
@@ -310,14 +310,14 @@ const BUDGETS = {
   // per the ledger doctrine (same commit, with rationale) rather
   // than holding the flip hostage; flagged to the owner for a
   // one-word ratification or veto (revert is one line). D3b removes
-  // elkjs AND extracts @g3t/layout out of core, returning core far
+  // elkjs AND extracts @g3-toolkit/layout out of core, returning core far
   // under its original envelope; like the react 440, this is the
   // bridge, not the new normal.
   // React ledger, 2026-07-18 (OWNER-APPROVED raise): 420 -> 440.
   // Growth is the F1/F2/INT-001 feature surface (SVG + Canvas
   // adapters, structural SVG view, uniform pointer events), not
   // waste; the dead-code round measured the tree clean. The ARC-009
-  // extraction moves the render adapters out of @g3t/react and
+  // extraction moves the render adapters out of @g3-toolkit/react and
   // returns this budget under its original envelope; this raise is
   // the bridge, not the new normal.
   // React ledger (revival entry; older ratchets above):
@@ -355,7 +355,7 @@ const BUDGETS = {
   //   statically imports the two OPTIONAL peers, and rollup had hoisted
   //   it into a chunk the root barrel imported, so the documented
   //   install produced an unresolvable `import { CytoscapeCanvas } from
-  //   "@g3t/react"`. Splitting it to its own entry costs one 2.5 KB
+  //   "@g3-toolkit/react"`. Splitting it to its own entry costs one 2.5 KB
   //   entry file and returns most of that from the chunk it left; it
   //   still shares EmptyState and selection-store. Recorded here rather
   //   than passed over because the previous entry set this headroom
@@ -426,7 +426,7 @@ for (const [pkg, budget] of Object.entries(BUDGETS)) {
     total = dirSize(dist, [".mjs", ".js"]);
   } catch {
     console.error(
-      `  @g3t/${pkg}: dist/ missing; run pnpm run build:packages first`,
+      `  @g3-toolkit/${pkg}: dist/ missing; run pnpm run build:packages first`,
     );
     failures++;
     continue;
@@ -435,7 +435,7 @@ for (const [pkg, budget] of Object.entries(BUDGETS)) {
   const within = total <= budget;
   const symbol = within ? "✓" : "✗";
   console.log(
-    `  ${symbol} @g3t/${pkg}: ${fmt(total)} / ${fmt(budget)} (${pct}%)`,
+    `  ${symbol} @g3-toolkit/${pkg}: ${fmt(total)} / ${fmt(budget)} (${pct}%)`,
   );
   if (!within) failures++;
 }

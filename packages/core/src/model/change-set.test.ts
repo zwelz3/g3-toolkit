@@ -5,7 +5,7 @@
  * LAY-020 locality seed, and the versioned wire format.
  */
 import { describe, expect, it } from "vitest";
-import type { StructuralGraphInput } from "@g3t/core";
+import type { StructuralGraphInput } from "@g3-toolkit/core";
 import {
   affectedRegion,
   applyChangeSet,

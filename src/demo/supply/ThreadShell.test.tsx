@@ -15,7 +15,7 @@ import {
   cleanup,
   act,
 } from "@testing-library/react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 
 interface SpecShape {
   node?: {
@@ -53,8 +53,8 @@ const captured = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock("@g3t/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/react")>();
+vi.mock("@g3-toolkit/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/react")>();
   return {
     ...actual,
     CytoscapeCanvas: (props: {
@@ -166,7 +166,7 @@ import {
   useOverlayStore,
   useEmphasisStore,
   useSelectionStore,
-} from "@g3t/react";
+} from "@g3-toolkit/react";
 
 beforeEach(() => {
   captured.calls.length = 0;

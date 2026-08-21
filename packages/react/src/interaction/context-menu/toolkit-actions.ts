@@ -11,8 +11,8 @@
  */
 
 import type { ContextMenuManager } from "../../interaction/context-menu";
-import { UGM } from "@g3t/core";
-import type { G3tEventBus } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
+import type { G3tEventBus } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { usePositionPinStore } from "../../state/position-pin-store";
 import { useStyleOverrideStore } from "../../state/style-override-store";
