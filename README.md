@@ -1,4 +1,10 @@
-# g3-toolkit (v1.0.0)
+# g3-toolkit
+
+[![@g3-toolkit/core](https://img.shields.io/npm/v/@g3-toolkit/core?label=%40g3-toolkit%2Fcore)](https://www.npmjs.com/package/@g3-toolkit/core)
+[![@g3-toolkit/react](https://img.shields.io/npm/v/@g3-toolkit/react?label=%40g3-toolkit%2Freact)](https://www.npmjs.com/package/@g3-toolkit/react)
+[![@g3-toolkit/charts](https://img.shields.io/npm/v/@g3-toolkit/charts?label=%40g3-toolkit%2Fcharts)](https://www.npmjs.com/package/@g3-toolkit/charts)
+[![CI](https://github.com/zwelz3/g3-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/zwelz3/g3-toolkit/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 Composable graph visualization components for RDF, LPG, and Holonic architectures.
 

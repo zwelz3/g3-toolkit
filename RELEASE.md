@@ -70,7 +70,19 @@ checked.
 
 1. Versions agree. Root and all three packages carry the release
    version; `pnpm install --lockfile-only` has been run so the
-   lockfile matches. The README title states the same version.
+   lockfile matches. `pixi.toml` and `docs/source/conf.py` carry it
+   too: the preflight compares only the four manifests, so those two
+   are on you, and both had drifted before 1.0.0.
+
+   The README no longer states a version. It carries npm badges that
+   read the live registry instead, which is deliberate: a
+   hand-maintained version string in a title is a drift source that
+   nothing gates. Do not reintroduce one.
+
+   Between releases, the manifests stay equal to what is published.
+   The bump happens in the release PR, not immediately after the
+   previous release, so `main` never claims a version that does not
+   exist on the registry.
 2. `pnpm run gates` is green: typecheck, lint, verify, test, and
    the spec gates. `verify` includes `verify:package` (every entry
    point in every package's exports map exists after a build, and

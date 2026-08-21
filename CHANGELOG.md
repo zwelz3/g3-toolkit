@@ -1,5 +1,74 @@
 # Changelog
 
+## 1.0.0 PUBLISHED: 2026-08-21 (first release to npm, with a postmortem)
+
+- **`@g3-toolkit/core`, `@g3-toolkit/react` and `@g3-toolkit/charts`
+  are live on npm at 1.0.0**, tagged `v1.0.0`. This was the debut run
+  of `publish.yml`; before it, zero tags existed in the repository and
+  no step in that workflow had ever executed.
+
+- **Verified against the registry after the fact, not assumed.** All
+  three report `1.0.0`; `latest` resolves to it; `@g3-toolkit/charts`
+  published its sibling peers as `^1.0.0` and `@g3-toolkit/react`
+  published its core dependency as `^1.0.0`, which confirms the
+  `workspace:^` change reached the artifact rather than only the
+  source; and `@g3-toolkit/core` carries a SLSA v1 provenance
+  attestation, so `--provenance` worked from the tag context.
+
+- **Postmortem: what the process got right.** Moving every failable
+  check in front of the first publish was the correct shape. Three
+  sequential publishes have two windows in which a failure strands a
+  partial version triple repairable only by a version bump, and the
+  window stayed narrow. Rehearsing before tagging was worth it for a
+  path that had never run.
+
+- **Postmortem: `--dry-run` does NOT authenticate.** The rehearsal was
+  briefly described in-session as exercising real auth. It does not:
+  `pnpm publish --dry-run` never uploads, so it never presents the
+  token. Token validity is proven only by the real publish. Worth
+  stating because the rehearsal otherwise reads as a full end-to-end
+  proof and is not one.
+
+- **Postmortem: the tag-agreement check runs for the first time on the
+  one run that cannot be undone.** `check-release-preflight.mjs` skips
+  it when `GITHUB_REF` holds no tag, which is every `workflow_dispatch`.
+  So the rehearsal structurally cannot exercise it. It passed, but it
+  passed untested.
+
+- **Postmortem: version drift outside the four manifests is still
+  ungated.** `pixi.toml` and `docs/source/conf.py` had drifted to
+  `1.0.0-rc.2` and `0.1.0`/`0.8.5` while RELEASE.md step 1 required
+  agreement. They were fixed by hand this round and RELEASE.md now
+  names them explicitly, but nothing asserts it. Extending the
+  preflight to cover both is a small change and the obvious next
+  hardening.
+
+- **Postmortem: an npm scope is not yours until you own the org.** The
+  `g3t` org was taken, which was discovered only when the org was
+  created, after the packages had carried `@g3t` through their entire
+  development history. Checking scope availability belongs at the
+  START of packaging work, not at release time. The rename itself was
+  cheap; discovering it late was the expensive part.
+
+- **Between releases the manifests now stay equal to what is
+  published.** The bump belongs in the release PR, so `main` never
+  claims a version absent from the registry. Recorded in RELEASE.md.
+
+- **README carries npm version badges** reading the live registry, and
+  its title no longer hand-asserts a version. RELEASE.md step 1 was
+  updated to match and to say plainly not to reintroduce one: a
+  hand-maintained version in a title is a drift source nothing gates,
+  and it drifted twice before 1.0.0.
+
+- **Known gate noise, filed rather than silenced.** Two pre-existing
+  items were found while reading release-run logs and are backlog, not
+  blockers: `act()` warnings from unwrapped `onReady` calls in
+  `StyleLabShell.test.tsx` (test-only, no artifact impact), and the
+  absence of any automated coverage for `CanvasAdapter`'s
+  rasterization path, since jsdom returns a null 2D context and
+  `paint()` is never reached. The display-list layer above it IS
+  conformance-tested; the gap is the op-to-context translation.
+
 ## 1.0.0 (continued): 2026-08-21 (npm scope is @g3-toolkit; sibling ranges loosened; version drift closed)
 
 - **The published scope is now `@g3-toolkit`, not `@g3t`.** The npm
