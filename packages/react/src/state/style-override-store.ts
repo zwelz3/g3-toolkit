@@ -6,7 +6,7 @@
  */
 
 import { create } from "zustand";
-import type { NodeStyleOverride } from "@g3t/core";
+import type { NodeStyleOverride } from "@g3-toolkit/core";
 
 export interface StyleOverrideState {
   overrides: NodeStyleOverride[];

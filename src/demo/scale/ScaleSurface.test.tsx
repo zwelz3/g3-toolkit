@@ -1,6 +1,6 @@
 /**
  * ScaleSurface contract test (canvas stubbed; the pure stages carry
- * their own budgets in @g3t/core). Pins: the canvas receives the
+ * their own budgets in @g3-toolkit/core). Pins: the canvas receives the
  * supernode graph first (small), drilling via the rail swaps it for
  * the induced member subgraph (exactly the community size), selecting
  * a supernode on the canvas drills the same way, and back restores
@@ -14,7 +14,7 @@ import {
   act,
   cleanup,
 } from "@testing-library/react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 
 type CapturedMenu = {
   resolve: (t: {
@@ -38,8 +38,8 @@ const captured = vi.hoisted(() => ({
   layoutOptions: [] as Array<Record<string, unknown> | undefined>,
 }));
 
-vi.mock("@g3t/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/react")>();
+vi.mock("@g3-toolkit/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/react")>();
   return {
     ...actual,
     CytoscapeCanvas: (props: {
@@ -61,7 +61,7 @@ vi.mock("@g3t/react", async (importOriginal) => {
 
 import { ScaleSurface } from "./ScaleSurface";
 import { COMMUNITIES, COMMUNITY_SIZE } from "./generate";
-import { useSelectionStore } from "@g3t/react";
+import { useSelectionStore } from "@g3-toolkit/react";
 
 afterEach(() => {
   useSelectionStore.getState().selectNodes([]);

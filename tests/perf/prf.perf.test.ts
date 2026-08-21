@@ -32,8 +32,8 @@ import {
   routeOrthogonal,
   StyleEngine,
   type StyleEngineConfig,
-} from "@g3t/core";
-import { resolveDragAttachment } from "@g3t/react";
+} from "@g3-toolkit/core";
+import { resolveDragAttachment } from "@g3-toolkit/react";
 import { mkR1, mkR1Boxes, mkR2Style, rng } from "./fixtures";
 
 const ENABLED = process.env.G3T_PERF === "1";

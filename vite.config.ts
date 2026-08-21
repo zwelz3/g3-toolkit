@@ -11,9 +11,9 @@ export default defineConfig({
   preview: { headers: { "Document-Policy": "js-profiling" } },
   resolve: {
     alias: {
-      "@g3t/core": resolve(__dirname, "packages/core/src"),
-      "@g3t/react": resolve(__dirname, "packages/react/src"),
-      "@g3t/charts": resolve(__dirname, "packages/charts/src"),
+      "@g3-toolkit/core": resolve(__dirname, "packages/core/src"),
+      "@g3-toolkit/react": resolve(__dirname, "packages/react/src"),
+      "@g3-toolkit/charts": resolve(__dirname, "packages/charts/src"),
     },
   },
 });

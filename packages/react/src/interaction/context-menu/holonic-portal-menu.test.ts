@@ -3,12 +3,12 @@
  *
  * Extracted from packages/core/src/adapter/adapter.test.ts during
  * Phase 4: this is an integration test between the HolonicAdapter
- * (in @g3t/core) and the context-menu plumbing (in @g3t/react), so
- * structurally it belongs in @g3t/react's test suite, not core's.
+ * (in @g3-toolkit/core) and the context-menu plumbing (in @g3-toolkit/react), so
+ * structurally it belongs in @g3-toolkit/react's test suite, not core's.
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { HolonicAdapter, type HolonicDataset } from "@g3t/core";
+import { HolonicAdapter, type HolonicDataset } from "@g3-toolkit/core";
 import { ContextMenuManager } from "./ContextMenuManager";
 import { registerPortalMenuItems } from "./holonic-portal-menu";
 

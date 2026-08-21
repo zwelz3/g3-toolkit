@@ -10,7 +10,7 @@
  * via WASM, or a remote endpoint via the toolkit's SparqlAdapter) rather than
  * rely on this. Keeping it small and pure also makes it fully testable.
  */
-import type { RDFTriple, RDFGraph } from "@g3t/core";
+import type { RDFTriple, RDFGraph } from "@g3-toolkit/core";
 
 export type Term =
   | { kind: "var"; name: string }

@@ -9,7 +9,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { renderHook, act } from "@testing-library/react";
 import { LayoutSwitcher, usePinState } from "./LayoutSwitcher";
-import type { LayoutEngine } from "@g3t/core";
+import type { LayoutEngine } from "@g3-toolkit/core";
 
 const mockEngines: LayoutEngine[] = [
   {

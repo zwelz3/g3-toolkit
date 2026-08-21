@@ -50,10 +50,10 @@ disable, or replace it?"
 Every module follows one of two rules:
 
 **D6 (Framework-Agnostic):** Pure TypeScript, no React, no JSX.
-Goes in `@g3t/core`. Usable from Vue, Angular, Svelte, or Node.js.
+Goes in `@g3-toolkit/core`. Usable from Vue, Angular, Svelte, or Node.js.
 
-**D13 (React):** React components with hooks. Goes in `@g3t/react`
-or `@g3t/charts`. Peer-depends on React.
+**D13 (React):** React components with hooks. Goes in `@g3-toolkit/react`
+or `@g3-toolkit/charts`. Peer-depends on React.
 
 Rule: if it CAN be pure TypeScript, it MUST go in core.
 
@@ -66,7 +66,7 @@ for the rest.
 
 ```
 packages/
-├── core/src/                ← @g3t/core (D6, zero React)
+├── core/src/                ← @g3-toolkit/core (D6, zero React)
 │   ├── ugm/                 ← Universal Graph Model
 │   ├── model/               ← Graph document + snapshot schemas
 │   ├── adapter/             ← SPARQL, Cypher, REST, Holonic adapters
@@ -84,14 +84,14 @@ packages/
 │   ├── event-bus/           ← Framework-agnostic pub/sub
 │   ├── working-set-manager/ ← Node count limits
 │   └── internal/            ← Deliberate second entry point, not public API
-├── react/src/               ← @g3t/react (D13)
+├── react/src/               ← @g3-toolkit/react (D13)
 │   ├── views/               ← Canvas, table, timeline, map, schema, ...
 │   ├── interaction/         ← Controls (toolbar, filter, search, camera, ...)
 │   ├── state/               ← Zustand stores
 │   ├── theme/               ← Theming (tokens + store)
 │   ├── a11y/                ← Accessibility
 │   └── stories/             ← Storybook
-└── charts/src/              ← @g3t/charts (D13, peer-depends on core + react)
+└── charts/src/              ← @g3-toolkit/charts (D13, peer-depends on core + react)
 
 src/demo/                    ← Dev-server showcase (NOT published)
 examples/                    ← Reference apps + the wiring-guide twins

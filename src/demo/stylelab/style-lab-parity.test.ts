@@ -15,15 +15,15 @@
  */
 import { describe, expect, it } from "vitest";
 import cytoscape, { type Core } from "cytoscape";
-import { StyleEngine } from "@g3t/core";
+import { StyleEngine } from "@g3-toolkit/core";
 import {
   applyVisualAttributes,
   DEFAULT_STYLESHEET,
   edgeAttributesToCy,
   nodeAttributesToCy,
   themeColorRules,
-} from "@g3t/react";
-import { useThemeStore } from "@g3t/react";
+} from "@g3-toolkit/react";
+import { useThemeStore } from "@g3-toolkit/react";
 import {
   MUTED_IDS,
   PARITY_KEYS,

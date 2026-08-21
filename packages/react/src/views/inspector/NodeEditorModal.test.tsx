@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { NodeEditorModal } from "./NodeEditorModal";
 
 function ugmFixture(): UGM {

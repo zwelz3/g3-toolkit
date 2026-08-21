@@ -20,7 +20,10 @@
  * copy.
  */
 import type { Core } from "cytoscape";
-import type { StructuralGeometry, StructuralGraphInput } from "@g3t/core";
+import type {
+  StructuralGeometry,
+  StructuralGraphInput,
+} from "@g3-toolkit/core";
 
 export interface E2eScene {
   input: StructuralGraphInput;

@@ -1,5 +1,57 @@
 # Changelog
 
+## 1.0.0 (continued): 2026-08-21 (npm scope is @g3-toolkit; sibling ranges loosened; version drift closed)
+
+- **The published scope is now `@g3-toolkit`, not `@g3t`.** The npm
+  org `g3t` was already taken, and a scope has to match an org you
+  own, so the three packages are `@g3-toolkit/core`,
+  `@g3-toolkit/react` and `@g3-toolkit/charts`. 778 references were
+  rewritten across 268 files: manifests, exports maps, every import in
+  `packages/`, `src/`, `examples/` and `tests/`, the tsconfig and
+  vite path aliases, `api-surface.json`, the bundle and consumer-cost
+  ledgers, the publish workflow filters, and every adopter-facing doc.
+  Nothing had been published under the old scope, so there is no
+  deprecation to file and no consumer to migrate. Entries below this
+  one predate the rename and still name `@g3t/`; they are the record
+  of what was true when written and were deliberately left alone.
+  The `g3t-*` CSS token namespace, the `g3t-ov-*` overlay classes,
+  `G3T_PERF` and `g3tLayoutStructural` are NOT the scope and did not
+  move. The rename anchored on `@g3t/` WITH the slash for exactly that
+  reason, which also means it could not see the two escaped regex
+  literals in `scripts/check-consumer-cost.mjs` (`/^@g3t\/core$/`);
+  those aliases are functional, and a silent miss there would have
+  measured the wrong thing rather than failing. They were fixed by
+  hand. This is the anchor-assert lesson in CLAUDE.md arriving from a
+  new direction: the assert has to match the form the string actually
+  takes in the file.
+
+- **Sibling dependency ranges are `workspace:^`, not `workspace:*`.**
+  pnpm rewrites `workspace:*` to an EXACT version at publish time, so
+  `@g3-toolkit/react@1.0.0` would have shipped demanding precisely
+  `@g3-toolkit/core@1.0.0`, and `@g3-toolkit/charts` would have
+  demanded exact peers on both siblings. An adopter who depends on
+  core directly and takes a later patch would then resolve two core
+  instances, one hoisted and one nested under react. Core exports
+  zustand store SINGLETONS, so two instances is two stores, and
+  selection silently stops propagating between views with nothing in
+  a stack trace. That is the dual-package hazard the ESM-only ruling
+  closed, reached by a different route. `workspace:^` publishes as
+  `^1.0.0` and dedupes. No upper bound is pinned yet; add one only
+  when a real incompatibility justifies it.
+
+- **Version drift closed.** `pixi.toml` read `1.0.0-rc.2` and
+  `docs/source/conf.py` read `version 0.1.0` / `release 0.8.5`
+  against manifests at `1.0.0`, which RELEASE.md step 1 requires to
+  agree before tagging. Both now read `1.0.0`. The preflight only
+  compares the four manifests, so neither would have blocked a tag.
+  `STATUS.md`'s remaining `1.0.0-rc.2` strings sit under PRIOR
+  SNAPSHOT headers and were left as history.
+
+- **RELEASE.md** gained the scope note, the `workspace:^` rationale,
+  and an `NPM_TOKEN` prerequisite: a granular token has to select all
+  packages in the org, because the three packages do not exist on the
+  registry yet and a per-package token has nothing to point at.
+
 ## 1.0.0 (continued): 2026-08-16 (ESM-only publishing, e2e retargeted to the SVG renderer)
 
 - **The packages publish ESM only. The `require` condition and the cjs

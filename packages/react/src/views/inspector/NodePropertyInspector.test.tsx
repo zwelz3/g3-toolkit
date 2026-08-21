@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { NodePropertyInspector } from "./NodePropertyInspector";
 import type { PropertyInspectorSpec } from "./property-spec";
 import { useInspectorSectionStore } from "../../state/inspector-section-store";

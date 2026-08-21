@@ -10,7 +10,7 @@
  * approval with no generation time, an activity that never recorded an end,
  * and a legacy spec with no provenance at all.
  */
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 
 interface AgentRec {
   id: string;

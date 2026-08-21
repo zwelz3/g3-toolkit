@@ -24,14 +24,14 @@ g3t is a **component library**, not an application framework. You install it, im
 
 | Package       | What it is                                                        | Peer dependencies           |
 | ------------- | ----------------------------------------------------------------- | --------------------------- |
-| `@g3t/core`   | Data model, adapters, projection pipeline, algorithms, theming    | graphology                  |
-| `@g3t/react`  | View components and controls (graph canvas, structural SVG, table, matrix, map, tree, timeline, sankey, schema, stats) | react, @g3t/core, cytoscape |
-| `@g3t/charts` | Linked statistical charts (bar, scatter, line, pie)               | react, @g3t/core, echarts   |
+| `@g3-toolkit/core`   | Data model, adapters, projection pipeline, algorithms, theming    | graphology                  |
+| `@g3-toolkit/react`  | View components and controls (graph canvas, structural SVG, table, matrix, map, tree, timeline, sankey, schema, stats) | react, @g3-toolkit/core, cytoscape |
+| `@g3-toolkit/charts` | Linked statistical charts (bar, scatter, line, pie)               | react, @g3-toolkit/core, echarts   |
 
 ## Install
 
 ```bash
-pnpm add @g3t/core @g3t/react
+pnpm add @g3-toolkit/core @g3-toolkit/react
 ```
 
 Peer dependencies are not installed for you; see
@@ -45,16 +45,16 @@ strict CSP and server rendering). Without this line every view
 renders unstyled, with no error:
 
 ```ts
-import "@g3t/react/style.css";
+import "@g3-toolkit/react/style.css";
 ```
 
 ## Minimal Integration
 
 ```tsx
 import { useEffect, useState } from "react";
-import { UGM, SparqlAdapter } from "@g3t/core";
-import { CytoscapeCanvas, TableView } from "@g3t/react";
-import "@g3t/react/style.css";
+import { UGM, SparqlAdapter } from "@g3-toolkit/core";
+import { CytoscapeCanvas, TableView } from "@g3-toolkit/react";
+import "@g3-toolkit/react/style.css";
 
 function MyGraphPage() {
   const [ugm, setUgm] = useState<UGM | null>(null);
@@ -96,14 +96,14 @@ g3t does **not** provide a complete application shell, workflow engine, or sessi
 
 ## Components
 
-### Views (@g3t/react)
+### Views (@g3-toolkit/react)
 
 | Component           | Description                                                                                                            |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `CytoscapeCanvas`   | Graph layout (7 engines) with animated transitions, edge styles (bezier/straight/taxi), selection, context menu, lasso |
 | `TableView`         | Sortable, paginated data table with multi-select (ctrl+click, shift+click)                                             |
 | `DetailInspector`   | Property panel for selected node/edge                                                                                  |
-| `TimelineView`      | Temporal visualization. Ships on `@g3t/react/timeline`, not the root barrel: it needs the optional peers `vis-timeline` and `vis-data` |
+| `TimelineView`      | Temporal visualization. Ships on `@g3-toolkit/react/timeline`, not the root barrel: it needs the optional peers `vis-timeline` and `vis-data` |
 | `MapView`           | Geographic markers with edges between geo-positioned nodes                                                             |
 | `TreeView`          | Expandable containment hierarchy with breadcrumb                                                                       |
 | `SchemaView`        | Ontology class hierarchy with SHACL constraint badges                                                                  |
@@ -113,7 +113,7 @@ g3t does **not** provide a complete application shell, workflow engine, or sessi
 | `SankeyView`        | Flow/chord visualization between types                                                                                 |
 | `QueryEditor`       | SPARQL/Cypher/GQL input with execute                                                                                   |
 
-### Controls (@g3t/react)
+### Controls (@g3-toolkit/react)
 
 | Component               | Description                                                                                                      |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -133,7 +133,7 @@ g3t does **not** provide a complete application shell, workflow engine, or sessi
 | `KeyboardShortcutModal` | Shortcut reference ("?" key)                                                                                     |
 | `AriaCompanion`         | Hidden focusable node list for screen readers                                                                    |
 
-### Data Layer (@g3t/core)
+### Data Layer (@g3-toolkit/core)
 
 | Module                  | Description                                                                  |
 | ----------------------- | ---------------------------------------------------------------------------- |
@@ -159,7 +159,7 @@ All toolkit behavior is drivable from your components through
 exported stores and functions; for example a pin-all button:
 
 ```tsx
-import { usePositionPinStore } from "@g3t/react";
+import { usePositionPinStore } from "@g3-toolkit/react";
 
 <button onClick={() => usePositionPinStore.getState().setAllPinned(true)}>
   Pin all positions
@@ -202,7 +202,7 @@ demo, a wiring recipe, and a component story.
 - **Application-shell example** (`examples/full-workspace`): the
   multi-pane workspace pattern (flexlayout) that the published
   packages deliberately do NOT include; source reference plus tests
-  (`pnpm --filter @g3t/example-full-workspace test`), not a hosted app.
+  (`pnpm --filter @g3-toolkit/example-full-workspace test`), not a hosted app.
 - **Executable wiring snippets** (`examples/wiring`): the CI-run twins
   of every wiring-guide recipe and of the README quickstart above.
 
@@ -249,7 +249,7 @@ internal accounting is in
 CSS custom properties (`--g3t-*`) for colors, typography, spacing, shadows. Three built-in presets (light, dark, high-contrast). Components adapt automatically when the theme changes.
 
 ```typescript
-import { useThemeStore } from "@g3t/react/state";
+import { useThemeStore } from "@g3-toolkit/react/state";
 useThemeStore.getState().setTheme("dark");
 ```
 
@@ -271,9 +271,9 @@ pnpm lint
 
 ```
 packages/           ← Published npm packages
-  core/             ← @g3t/core (framework-agnostic)
-  react/            ← @g3t/react (React components)
-  charts/           ← @g3t/charts (linked ECharts)
+  core/             ← @g3-toolkit/core (framework-agnostic)
+  react/            ← @g3-toolkit/react (React components)
+  charts/           ← @g3-toolkit/charts (linked ECharts)
 examples/           ← Reference integrations (NOT published)
   full-workspace/   ← Multi-pane workspace shell with flexlayout-react
                       and role-based layouts

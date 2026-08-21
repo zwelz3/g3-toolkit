@@ -5,7 +5,7 @@
  * colors.
  */
 import { describe, expect, it } from "vitest";
-import { resolveStyles } from "@g3t/core";
+import { resolveStyles } from "@g3-toolkit/core";
 import { DARK_THEME, LIGHT_THEME } from "./ThemeManager";
 import {
   styleThemeFromG3tTheme,

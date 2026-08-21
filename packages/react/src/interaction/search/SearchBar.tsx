@@ -9,7 +9,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import Fuse from "fuse.js";
 import type { FuseResult } from "fuse.js";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { Icon } from "../../icons";
 

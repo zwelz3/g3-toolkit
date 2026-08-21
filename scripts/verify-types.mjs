@@ -2,13 +2,13 @@
  * Verify that external TypeScript consumers can resolve type
  * declarations for every published package through the exports map.
  *
- * The repo's own typecheck resolves @g3t/* through tsconfig path
+ * The repo's own typecheck resolves @g3-toolkit/* through tsconfig path
  * aliases and verify:smoke only exercises runtime resolution, so
  * neither catches declaration breakage that only consumers see
  * (the v1.0.0-rc audit found exactly that: `types` conditions that
  * never matched, and a build that deleted its own .d.ts output).
  *
- * Strategy: write a scratch consumer inside the repo (so @g3t/*
+ * Strategy: write a scratch consumer inside the repo (so @g3-toolkit/*
  * resolve via the pnpm workspace links in node_modules) and
  * typecheck it under the two supported resolution modes:
  *   - node16  (Node ESM consumers)
@@ -36,12 +36,12 @@ mkdirSync(dir, { recursive: true });
 // subpath types target fails the gate even when the root entry works.
 writeFileSync(
   resolve(dir, "consumer.tsx"),
-  `import { UGM } from "@g3t/core";
-import { SparqlAdapter } from "@g3t/core/adapters";
-import { ProjectionPipeline } from "@g3t/core/projection";
-import { CytoscapeCanvas, TableView } from "@g3t/react";
-import { useSelectionStore } from "@g3t/react/state";
-import { LinkedChart } from "@g3t/charts";
+  `import { UGM } from "@g3-toolkit/core";
+import { SparqlAdapter } from "@g3-toolkit/core/adapters";
+import { ProjectionPipeline } from "@g3-toolkit/core/projection";
+import { CytoscapeCanvas, TableView } from "@g3-toolkit/react";
+import { useSelectionStore } from "@g3-toolkit/react/state";
+import { LinkedChart } from "@g3-toolkit/charts";
 
 const ugm: UGM = new UGM();
 const adapter = new SparqlAdapter("https://example.org/sparql");

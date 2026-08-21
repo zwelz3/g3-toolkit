@@ -1,5 +1,5 @@
 /**
- * @g3t/core/internal: shipped, importable, and explicitly OUTSIDE the
+ * @g3-toolkit/core/internal: shipped, importable, and explicitly OUTSIDE the
  * semver contract.
  *
  * Everything on this subpath may change shape or disappear in any
@@ -9,7 +9,7 @@
  *
  * WHY THIS EXISTS
  *
- * The 2026-08 audit flagged nine helpers reachable from @g3t/core
+ * The 2026-08 audit flagged nine helpers reachable from @g3-toolkit/core
  * subpaths that read as internals. Four of them are the label
  * formatters behind the SHACL shape browser: they turn one
  * sh:PropertyShape into the row text a reader sees. A host building
@@ -52,6 +52,6 @@ export { severityOverlayId } from "../shacl/shacl-report";
 
 // The input types, re-exported so a consumer of the four functions
 // above can NAME what they accept without also depending on the
-// stable @g3t/core/shacl entry for a type they only need here.
+// stable @g3-toolkit/core/shacl entry for a type they only need here.
 export type { ShaclPropertyConstraint } from "../shacl/shacl-validator";
 export type { ShaclSeverity } from "../shacl/shacl-report";

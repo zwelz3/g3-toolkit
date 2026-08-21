@@ -2,13 +2,13 @@
  * PropertyEditor tests (F5).
  *
  * Moved from packages/core/src/combo/f1-f8.test.tsx during Phase 4:
- * PropertyEditor is a React component in @g3t/react, so its tests
- * belong here, not in @g3t/core's test suite.
+ * PropertyEditor is a React component in @g3-toolkit/react, so its tests
+ * belong here, not in @g3-toolkit/core's test suite.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { PropertyEditor } from "./PropertyEditor";
 
 function makeUGM(): UGM {

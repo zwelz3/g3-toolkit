@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { TableView } from "./TableView";
 
 function smallGraph(): UGM {

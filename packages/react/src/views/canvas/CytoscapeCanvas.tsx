@@ -19,7 +19,7 @@ import {
 import cytoscape, { type Core } from "cytoscape";
 import { registerBoxSelectionSync } from "./box-selection-sync";
 import fcose from "cytoscape-fcose";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { applyEncodingSpec } from "../../interaction/encoding/spec-apply";
 import { useStyleOverrideStore } from "../../state/style-override-store";
 import {
@@ -114,7 +114,7 @@ export function pinBadgeUri(theme: G3tTheme): string {
 }
 import { useThemeStore, type G3tTheme } from "../../theme/ThemeManager";
 import { StructuralEdgeOverlay } from "./structural-edge-overlay";
-import { overridesToCytoscapeStyles } from "@g3t/core";
+import { overridesToCytoscapeStyles } from "@g3-toolkit/core";
 import type { EncodingSpec } from "../../interaction/encoding/encoding-spec";
 import {
   ContextMenuManager,
@@ -139,8 +139,11 @@ import {
   wireStructuralPortDrag,
 } from "./structural-to-cytoscape";
 import type { StructuralDecorations } from "./structural-to-cytoscape";
-import type { StructuralGraphInput, StructuralGeometry } from "@g3t/core";
-import { prefersReducedMotion } from "@g3t/core";
+import type {
+  StructuralGraphInput,
+  StructuralGeometry,
+} from "@g3-toolkit/core";
+import { prefersReducedMotion } from "@g3-toolkit/core";
 
 export type CyStylesheet = cytoscape.StylesheetCSS | cytoscape.StylesheetStyle;
 
@@ -1145,7 +1148,7 @@ export function CytoscapeCanvas({
       if (probe === "") {
         stylesheetWarnedRef.current = true;
         console.warn(
-          '[g3t] design tokens not found on :root. Did you forget `import "@g3t/react/style.css"`? Components will render unstyled without it.',
+          '[g3t] design tokens not found on :root. Did you forget `import "@g3-toolkit/react/style.css"`? Components will render unstyled without it.',
         );
       }
     }

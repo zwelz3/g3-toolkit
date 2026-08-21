@@ -2,14 +2,14 @@
  * Derived property definition UI (M13.E3.T2).
  *
  * Lets the user define and remove computed properties that are evaluated
- * on UGM nodes via the DerivedPropertyEngine (from @g3t/core).
+ * on UGM nodes via the DerivedPropertyEngine (from @g3-toolkit/core).
  *
  * Extracted from interaction/remaining-tickets.tsx during P3.5.
  */
 
 import { useState, useCallback } from "react";
-import type { UGM } from "@g3t/core";
-import { type DerivedPropertyEngine } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
+import { type DerivedPropertyEngine } from "@g3-toolkit/core";
 
 export interface DerivedPropertyPanelProps {
   ugm: UGM;

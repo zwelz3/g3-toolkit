@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { UGM, DerivedPropertyEngine } from "@g3t/core";
+import { UGM, DerivedPropertyEngine } from "@g3-toolkit/core";
 import { DerivedPropertyPanel } from "./DerivedPropertyPanel";
 
 function makeUGM(): UGM {

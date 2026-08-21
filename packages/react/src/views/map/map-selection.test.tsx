@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { MapView } from "./MapView";
 import { useSelectionStore } from "../../state/selection-store";
 

@@ -8,7 +8,7 @@
  * Extracted from interaction/remaining-tickets.tsx during P3.5.
  */
 
-import type { NodeStyleOverride } from "@g3t/core";
+import type { NodeStyleOverride } from "@g3-toolkit/core";
 import type { ContextMenuManager } from "./ContextMenuManager";
 import type { MenuTarget } from "./types";
 import { useStyleOverrideStore } from "../../state/style-override-store";

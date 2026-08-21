@@ -8,7 +8,7 @@ so the code cannot rot silently.
 
 ## Read this before citing anything below as "not shipped"
 
-**Leaving the root barrel is not leaving the API.** `@g3t/core`
+**Leaving the root barrel is not leaving the API.** `@g3-toolkit/core`
 publishes thirteen subpaths, and a symbol dropped from `src/index.ts`
 is still public if any subpath barrel exports it. This document said
 "they no longer ship in dist or appear in the API", and that was wrong
@@ -54,33 +54,33 @@ which row to update. Nothing else is required; no files moved.
 
 | Symbol                           | Cluster | Status | Exported from                 |
 | -------------------------------- | --- | ------ | ----------------------------- |
-| `GremlinAdapter`                 | T2a | SHIPS  | @g3t/core/adapters            |
-| `RestAdapter`                    | T2a | SHIPS  | @g3t/core, @g3t/core/adapters |
-| `composeMiddleware`              | T2a | SHIPS  | @g3t/core/middleware          |
+| `GremlinAdapter`                 | T2a | SHIPS  | @g3-toolkit/core/adapters            |
+| `RestAdapter`                    | T2a | SHIPS  | @g3-toolkit/core, @g3-toolkit/core/adapters |
+| `composeMiddleware`              | T2a | SHIPS  | @g3-toolkit/core/middleware          |
 | `defaultFetch`                   | T2a | ABSENT | -                             |
-| `bearerAuth`                     | T2a | SHIPS  | @g3t/core/middleware          |
-| `apiKeyHeader`                   | T2a | SHIPS  | @g3t/core/middleware          |
+| `bearerAuth`                     | T2a | SHIPS  | @g3-toolkit/core/middleware          |
+| `apiKeyHeader`                   | T2a | SHIPS  | @g3-toolkit/core/middleware          |
 | `retryOnError`                   | T2a | ABSENT | -                             |
 | `requestLogger`                  | T2a | ABSENT | -                             |
-| `parseShaclReport`               | T2b | SHIPS  | @g3t/core/shacl               |
+| `parseShaclReport`               | T2b | SHIPS  | @g3-toolkit/core/shacl               |
 | `resultsForShape`                | T2b | ABSENT | -                             |
 | `resultTargets`                  | T2b | ABSENT | -                             |
 | `resultsForFocusNode`            | T2b | ABSENT | -                             |
 | `extractProvOProperties`         | T2c | ABSENT | -                             |
 | `PROVO_MAPPINGS`                 | T2c | ABSENT | -                             |
-| `literalCollapse`                | T2c | SHIPS  | @g3t/core/projection          |
-| `blankNodeCollapse`              | T2c | SHIPS  | @g3t/core/projection          |
-| `listCollapse`                   | T2c | SHIPS  | @g3t/core/projection          |
-| `reificationCollapse`            | T2c | SHIPS  | @g3t/core/projection          |
+| `literalCollapse`                | T2c | SHIPS  | @g3-toolkit/core/projection          |
+| `blankNodeCollapse`              | T2c | SHIPS  | @g3-toolkit/core/projection          |
+| `listCollapse`                   | T2c | SHIPS  | @g3-toolkit/core/projection          |
+| `reificationCollapse`            | T2c | SHIPS  | @g3-toolkit/core/projection          |
 | `overlayFromDocument`            | T2c | ABSENT | -                             |
 | `PipelineRegistry`               | T2d | ABSENT | -                             |
 | `createCountByProperty`          | T2d | ABSENT | -                             |
 | `createEdgeTypeBreakdown`        | T2d | ABSENT | -                             |
 | `createActivityTimeline`         | T2d | ABSENT | -                             |
 | `createCommunityBreakdown`       | T2d | ABSENT | -                             |
-| `IncrementalLayout`              | T2e | SHIPS  | @g3t/core/layout              |
-| `applyIncrementalLayout`         | T2e | SHIPS  | @g3t/core/layout              |
-| `computeIncrementalUpdate`       | T2e | SHIPS  | @g3t/core/layout              |
+| `IncrementalLayout`              | T2e | SHIPS  | @g3-toolkit/core/layout              |
+| `applyIncrementalLayout`         | T2e | SHIPS  | @g3-toolkit/core/layout              |
+| `computeIncrementalUpdate`       | T2e | SHIPS  | @g3-toolkit/core/layout              |
 | `ingestEdgeAlgorithmResults`     | T2e | ABSENT | -                             |
 | `parseStyleConfig`               | T2f | ABSENT | -                             |
 | `serializeStyleConfig`           | T2f | ABSENT | -                             |

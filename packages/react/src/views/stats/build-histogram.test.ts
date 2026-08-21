@@ -7,7 +7,7 @@
  * every value lands in exactly one bin.
  */
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { buildHistogram } from "./StatsPanel";
 
 function ugmWithValues(values: number[]): UGM {

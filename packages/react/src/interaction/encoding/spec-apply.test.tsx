@@ -2,7 +2,7 @@
  * Spec -> canvas patch tests (the application milestone).
  */
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { applyEncodingSpec, glyphStrokeFor } from "./spec-apply";
 import type { EncodingSpec } from "./encoding-spec";
 import { CANVAS_CATEGORICAL } from "./palette-bridge";

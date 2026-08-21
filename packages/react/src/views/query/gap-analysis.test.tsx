@@ -7,9 +7,9 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { UGM } from "@g3t/core";
-import { findShortestPath } from "@g3t/core";
-import { UndoRedoStack } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
+import { findShortestPath } from "@g3-toolkit/core";
+import { UndoRedoStack } from "@g3-toolkit/core";
 import { QueryEditor } from "../../views/query";
 
 // ── Path Analysis (R2.13) ──────────────────────────────────────────

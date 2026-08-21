@@ -25,7 +25,7 @@ active plan is planning/demo-adoption-plan.md.
 ## What this is
 
 A composable graph-visualization component LIBRARY (not a framework):
-@g3t/core (zero React), @g3t/react, @g3t/charts. Hosts integrate via
+@g3-toolkit/core (zero React), @g3-toolkit/react, @g3-toolkit/charts. Hosts integrate via
 three channels only: exported zustand stores, props/callbacks, and
 versioned JSON documents (encoding spec, workspace snapshots,
 algorithm results). New capability = expose through one of these +
@@ -34,7 +34,7 @@ TypeScript, React 19, Vite 8, pnpm (enforced), Cytoscape + Graphology,
 Zustand, Vitest + RTL.
 
 THREE channels, and the count is a ruling rather than an omission:
-`@g3t/core/events` was assessed 2026-08-16 and ruled a context-action
+`@g3-toolkit/core/events` was assessed 2026-08-16 and ruled a context-action
 COMMAND BUS, not a fourth integration channel. 13 of its 21 declared
 event types were emitted by nothing and were deleted; the `eventBus`
 singleton is deprecated (it carries the cross-instance identity hazard
@@ -147,7 +147,7 @@ or a route has no interior bend; declared-port edges keep the taxi exit on
 purpose (the port fixes a perpendicular the projection would fight). Edge
 rendering is NOT headlessly verifiable: IMMEDIATE NEXT is Zach's review via
 the Pages playground (the visual-acceptance surface is retired), then A3 polish.
-ALSO landed 2026-06-22: a Minimap component (@g3t/react interaction/camera;
+ALSO landed 2026-06-22: a Minimap component (@g3-toolkit/react interaction/camera;
 Molecules/Minimap) wired into the gallery and the standalone demo, which
 also gained a Graph/Structural view-switch. ALSO active: the Storybook
 atomic-design reshape (Atoms/Molecules titled, Minimap included; Toolbar

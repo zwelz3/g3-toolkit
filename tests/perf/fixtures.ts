@@ -13,7 +13,7 @@ import type {
   StructuralGraphInput,
   StyleElement,
   StyleGraph,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 
 /** mulberry32: tiny seeded PRNG, deterministic across platforms. */
 export function rng(seed: number): () => number {

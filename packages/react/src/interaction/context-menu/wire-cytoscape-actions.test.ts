@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { UGM, G3tEventBus } from "@g3t/core";
+import { UGM, G3tEventBus } from "@g3-toolkit/core";
 import type { Core } from "cytoscape";
 import { wireCytoscapeContextActions } from "./wire-cytoscape-actions";
 

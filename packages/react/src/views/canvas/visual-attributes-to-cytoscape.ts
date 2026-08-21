@@ -22,7 +22,7 @@ import type {
   NodeShape,
   VisualAttributeKey,
   VisualAttributes,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 
 export interface CyProjection {
   /** Cytoscape style bypass object for element.style(...). */

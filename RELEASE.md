@@ -6,8 +6,28 @@
 frozen, runs the FULL `pnpm run gates` (typecheck, lint, verify, test,
 and the three Python spec gates), runs the release preflight, then
 publishes in peer-dependency order (core, react, charts) with npm
-provenance. `pnpm --filter ... publish` rewrites `workspace:*` ranges
-to real versions, so nothing needs hand-editing before the tag.
+provenance. `pnpm --filter ... publish` rewrites the `workspace:`
+ranges to real versions, so nothing needs hand-editing before the tag.
+
+The sibling ranges are `workspace:^`, not `workspace:*`, and the
+difference is load-bearing. `workspace:*` publishes as an EXACT
+version, so `@g3-toolkit/react@1.0.0` would demand precisely
+`@g3-toolkit/core@1.0.0`; an adopter who also depends on core directly
+and takes a later patch then resolves TWO core instances, one hoisted
+and one nested. Core exports zustand store SINGLETONS, so two
+instances means two stores, and selection silently stops propagating
+between views. That is the same hazard the ESM-only ruling was made to
+close, reached by a different route. `workspace:^` publishes as
+`^1.0.0` and dedupes to one instance.
+
+## The npm scope
+
+The published scope is `@g3-toolkit` (npm org `g3-toolkit`). The
+shorter `g3t` org name was already taken on npmjs.com, so the scope
+does NOT match the `g3t-*` CSS token namespace, the `g3t-ov-*` overlay
+classes, or the `G3T_PERF` env var, none of which were renamed. When
+searching or scripting a rename, anchor on `@g3-toolkit/` with the
+slash: those other tokens are unrelated and must not move.
 
 ## Rehearse it first
 
@@ -22,8 +42,8 @@ the first tag of any version.
 
 npm has no transactions and does not allow republishing a version.
 Three sequential publishes therefore have two windows in which a
-failure leaves a partial version triple: `@g3t/core` out at 1.2.3,
-`@g3t/react` not, and no way to complete the set under that number.
+failure leaves a partial version triple: `@g3-toolkit/core` out at 1.2.3,
+`@g3-toolkit/react` not, and no way to complete the set under that number.
 The only repair is to bump all four manifests and re-tag.
 
 There is no rollback to add, so the mitigation is to move every check
@@ -64,7 +84,11 @@ checked.
    peer is statically reachable from an entry point that is not
    documented as requiring it), and `verify:snippets` (every README
    code block typechecks as written).
-3. `NPM_TOKEN` is present in repository secrets.
+3. `NPM_TOKEN` is present in repository secrets, and it grants write
+   on the `@g3-toolkit` scope. A granular token must select "all
+   packages in the org": the three packages do not exist yet, so a
+   per-package token has nothing to point at and the first publish
+   fails on a 404 after the whole gate has already run.
 4. CHANGELOG has an entry for the version.
 5. `node scripts/check-release-preflight.mjs` is green locally. It is
    the same script the workflow runs, so a failure here is a failure
@@ -79,7 +103,7 @@ than trusting the build:
 
 ```bash
 mkdir /tmp/g3t-consumer && cd /tmp/g3t-consumer
-pnpm init && pnpm add @g3t/core @g3t/react react react-dom \
+pnpm init && pnpm add @g3-toolkit/core @g3-toolkit/react react react-dom \
   cytoscape cytoscape-fcose zustand graphology echarts
 ```
 
@@ -93,14 +117,14 @@ them.
 
 Then confirm, in a scratch file:
 
-- `import "@g3t/react/style.css"` compiles and the tokens land on
+- `import "@g3-toolkit/react/style.css"` compiles and the tokens land on
   `:root` (the canvas warns in dev when they do not).
-- `import { CytoscapeCanvas } from "@g3t/react"` resolves with
+- `import { CytoscapeCanvas } from "@g3-toolkit/react"` resolves with
   types under the consumer's own `moduleResolution`.
-- Every other subpath resolves too: `@g3t/react/views`, `/controls`,
+- Every other subpath resolves too: `@g3-toolkit/react/views`, `/controls`,
   `/state`, `/theme`, `/a11y`, `/icons`. None of them may need an
   optional peer.
-- `import { TimelineView } from "@g3t/react/timeline"` fails with
+- `import { TimelineView } from "@g3-toolkit/react/timeline"` fails with
   `ERR_MODULE_NOT_FOUND` for `vis-timeline`, then succeeds after
   `pnpm add vis-timeline vis-data`. Both directions matter: the
   first proves the optional peers are still isolated, the second

@@ -11,7 +11,7 @@ import {
   reportFromValidationResults,
   reportFocusNodes,
   degreeCentrality,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import {
   buildSatelliteModel,
   designRules,

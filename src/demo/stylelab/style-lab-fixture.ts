@@ -26,7 +26,7 @@ import {
   UGM,
   type StyleEngineConfig,
   type StyleElement,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 
 export const SHARED_VALUES = {
   baseNodeFill: LIGHT_TOKENS.color.surface,

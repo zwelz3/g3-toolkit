@@ -6,7 +6,7 @@
  * thread is built, then this shape simply checks the derived flag. The
  * provenance shape catches records a source system left incomplete.
  */
-import type { ShaclShape } from "@g3t/core";
+import type { ShaclShape } from "@g3-toolkit/core";
 
 export const SHAPE_CERT = "shape.part.cert";
 export const SHAPE_PROVENANCE = "shape.supplier.provenance";

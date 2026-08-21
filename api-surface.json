@@ -1,5 +1,5 @@
 {
-  "@g3t/core": [
+  "@g3-toolkit/core": [
     "CANVAS_STYLE_CHANNELS",
     "ComboManager",
     "CypherAdapter",
@@ -113,7 +113,7 @@
     "validateShacl",
     "virtualizeRelationalData"
   ],
-  "@g3t/core/adapters": [
+  "@g3-toolkit/core/adapters": [
     "AdapterArgumentError",
     "AdapterHttpError",
     "CypherAdapter",
@@ -128,7 +128,7 @@
     "assertSafeIri",
     "coerceDepth"
   ],
-  "@g3t/core/middleware": [
+  "@g3-toolkit/core/middleware": [
     "AdapterTimeoutError",
     "DEFAULT_TIMEOUT_MS",
     "apiKeyHeader",
@@ -136,11 +136,11 @@
     "composeMiddleware",
     "createDefaultFetch"
   ],
-  "@g3t/core/events": [
+  "@g3-toolkit/core/events": [
     "G3tEventBus",
     "eventBus"
   ],
-  "@g3t/core/projection": [
+  "@g3-toolkit/core/projection": [
     "ProjectionPipeline",
     "RDF",
     "blankNodeCollapse",
@@ -150,13 +150,13 @@
     "reificationCollapse",
     "typeCollapse"
   ],
-  "@g3t/core/pipeline": [
+  "@g3-toolkit/core/pipeline": [
     "createCentralityVsProperty",
     "createCountByType",
     "createDegreeDistribution",
     "createPropertyCorrelation"
   ],
-  "@g3t/core/shacl": [
+  "@g3-toolkit/core/shacl": [
     "ShaclValidator",
     "closedShapeIds",
     "parseShaclReport",
@@ -172,11 +172,11 @@
     "summarizeValidation",
     "validateShacl"
   ],
-  "@g3t/core/diff": [
+  "@g3-toolkit/core/diff": [
     "computeSchemaHash",
     "diffGraphs"
   ],
-  "@g3t/core/layout": [
+  "@g3-toolkit/core/layout": [
     "DagreLayout",
     "ForceLayout",
     "G3tLayeredLayout",
@@ -191,7 +191,7 @@
     "layoutStructural",
     "routeStructuralEdges"
   ],
-  "@g3t/core/algorithms": [
+  "@g3-toolkit/core/algorithms": [
     "applyAlgorithmResult",
     "connectedComponents",
     "degreeCentrality",
@@ -199,10 +199,10 @@
     "overlayFromPath",
     "parseAlgorithmResult"
   ],
-  "@g3t/core/undo-redo": [
+  "@g3-toolkit/core/undo-redo": [
     "UndoRedoStack"
   ],
-  "@g3t/core/theme": [
+  "@g3-toolkit/core/theme": [
     "DARK_SHADOWS",
     "DESIGN_TOKENS",
     "DIVERGING_SCALE",
@@ -211,17 +211,17 @@
     "prefersReducedMotion",
     "scaleColor"
   ],
-  "@g3t/core/path-analysis": [
+  "@g3-toolkit/core/path-analysis": [
     "allShortestPaths",
     "findShortestPath"
   ],
-  "@g3t/core/internal": [
+  "@g3-toolkit/core/internal": [
     "cardinalitySuffix",
     "propertyRowText",
     "severityOverlayId",
     "valueConstraintCount"
   ],
-  "@g3t/react": [
+  "@g3-toolkit/react": [
     "AlgorithmPanel",
     "AnnotationPanel",
     "AriaCompanion",
@@ -401,7 +401,7 @@
     "wireCytoscapeContextActions",
     "wireStructuralPortDrag"
   ],
-  "@g3t/react/views": [
+  "@g3-toolkit/react/views": [
     "CytoscapeCanvas",
     "DetailInspector",
     "DiffRenderer",
@@ -434,7 +434,7 @@
     "ugmToCytoscapeElements",
     "wireStructuralPortDrag"
   ],
-  "@g3t/react/controls": [
+  "@g3-toolkit/react/controls": [
     "AlgorithmPanel",
     "AnnotationPanel",
     "CanvasLegend",
@@ -507,7 +507,7 @@
     "warnOnCustomPalette",
     "wireCytoscapeContextActions"
   ],
-  "@g3t/react/state": [
+  "@g3-toolkit/react/state": [
     "EMPHASIS_DIM_CLASS",
     "EMPHASIS_EDGE_CLASS",
     "UndoRedoStack",
@@ -523,7 +523,7 @@
     "useSelectionStore",
     "useStyleOverrideStore"
   ],
-  "@g3t/react/theme": [
+  "@g3-toolkit/react/theme": [
     "DARK_SHADOWS",
     "DARK_THEME",
     "DESIGN_TOKENS",
@@ -545,13 +545,13 @@
     "tokensFromG3tTheme",
     "useThemeStore"
   ],
-  "@g3t/react/a11y": [
+  "@g3-toolkit/react/a11y": [
     "AriaCompanion",
     "HIGH_CONTRAST_DEFAULTS",
     "HIGH_CONTRAST_ON",
     "useAnnounce"
   ],
-  "@g3t/react/icons": [
+  "@g3-toolkit/react/icons": [
     "DEFAULT_ICON_PATHS",
     "Icon",
     "getIcon",
@@ -560,10 +560,10 @@
     "registerIconSet",
     "sanitizeIconMarkup"
   ],
-  "@g3t/react/timeline": [
+  "@g3-toolkit/react/timeline": [
     "TimelineView"
   ],
-  "@g3t/charts": [
+  "@g3-toolkit/charts": [
     "LinkedChart"
   ]
 }

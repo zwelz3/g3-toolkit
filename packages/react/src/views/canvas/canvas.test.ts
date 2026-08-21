@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import cytoscape from "cytoscape";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { ugmToCytoscapeElements } from "./ugm-to-cytoscape";
 
 // ── T4: UGM-to-Cytoscape element conversion ────────────────────────

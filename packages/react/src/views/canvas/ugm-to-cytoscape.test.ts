@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { ugmToCytoscapeElements } from "./ugm-to-cytoscape";
 
 describe("compound containment mapping (slice 1, round 17)", () => {

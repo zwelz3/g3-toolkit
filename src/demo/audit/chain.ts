@@ -1,7 +1,7 @@
 /**
  * Provenance chain derivation for the auditor shell.
  *
- * Builds the ProvenanceChain (pre-order hop list) the @g3t/react
+ * Builds the ProvenanceChain (pre-order hop list) the @g3-toolkit/react
  * ProvenanceTrace component renders for a selected node: the node
  * itself at depth 0, then a bounded pre-order descent along outgoing
  * PROV-O edges (wasGeneratedBy, wasDerivedFrom, used,
@@ -10,8 +10,8 @@
  * in the documented lack of proof, which is the same fact the SHACL
  * report flags. Pure; tested headlessly in chain.test.ts.
  */
-import type { UGM } from "@g3t/core";
-import type { ProvenanceChain, ProvenanceHop } from "@g3t/react";
+import type { UGM } from "@g3-toolkit/core";
+import type { ProvenanceChain, ProvenanceHop } from "@g3-toolkit/react";
 
 const PROV_EDGES = new Set([
   "wasGeneratedBy",

@@ -19,9 +19,9 @@
 
 import { lazy, Suspense, useState, useEffect, useMemo } from "react";
 import { DemoLanding, type Scenario } from "./DemoLanding";
-import { useThemeStore, ViewErrorBoundary } from "@g3t/react";
-import { injectDesignTokens } from "@g3t/react";
-import "@g3t/react";
+import { useThemeStore, ViewErrorBoundary } from "@g3-toolkit/react";
+import { injectDesignTokens } from "@g3-toolkit/react";
+import "@g3-toolkit/react";
 
 type ShellLoader = () => Promise<{
   default: React.ComponentType<{ onBack: () => void }>;

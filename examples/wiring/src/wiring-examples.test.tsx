@@ -40,7 +40,7 @@ import {
   buildSubgraph,
   G3tEventBus,
   type RDFGraph,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import {
   usePositionPinStore,
   useSelectionStore,
@@ -64,7 +64,7 @@ import {
   registerToolkitActions,
   ViewErrorBoundary,
   type ProvenanceChain,
-} from "@g3t/react";
+} from "@g3-toolkit/react";
 
 beforeEach(() => {
   usePositionPinStore.setState({ pinnedIds: [], allPinned: false });

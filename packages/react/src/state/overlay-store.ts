@@ -12,7 +12,7 @@
  */
 
 import { create } from "zustand";
-import type { StructuralOverlay } from "@g3t/core";
+import type { StructuralOverlay } from "@g3-toolkit/core";
 
 export interface OverlayState {
   overlays: StructuralOverlay[];

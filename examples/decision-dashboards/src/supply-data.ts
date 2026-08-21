@@ -15,7 +15,7 @@
  * @see examples/decision-dashboards/README.md (architecture)
  */
 
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 
 export type Tier = "Supplier" | "Part" | "Assembly" | "Product" | "Channel";
 

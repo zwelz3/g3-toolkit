@@ -7,7 +7,7 @@
  */
 
 import type { ElementDefinition } from "cytoscape";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { buildTypeVisualMap } from "./palette";
 
 /**

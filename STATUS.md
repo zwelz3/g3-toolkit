@@ -1,5 +1,36 @@
 # g3-toolkit Status
 
+**As of:** 2026-08-21 (active: **v1.0.0 RELEASE PREP.** The published
+scope is `@g3-toolkit`, NOT `@g3t`: the short org name was already
+taken on npmjs.com, so all three packages were renamed (778 references
+across 268 files, plus the publish-workflow filters, the tsconfig and
+vite aliases, `api-surface.json`, and both size ledgers). The `g3t-*`
+CSS tokens, `g3t-ov-*` overlay classes and `G3T_PERF` are NOT the
+scope and did not move. Sibling ranges went `workspace:*` ->
+`workspace:^`, because `*` publishes as an EXACT version and would
+have let an adopter resolve two core instances, which is two store
+singletons and silent selection breakage. Version drift closed in
+`pixi.toml` (was 1.0.0-rc.2) and `docs/source/conf.py` (was
+0.1.0/0.8.5). GATE STATE, stated precisely: typecheck, lint, all 15
+`verify` steps, and the three Python spec gates are GREEN under the
+new scope, including `verify:surface`, `verify:smoke` (23 subpaths),
+`verify:types` (node16 + bundler) and `verify:consumer-cost`. **The
+unit suite could NOT be run to completion in this container**: 157
+vitest worker-startup timeouts on this filesystem meant only 15 of
+~167 files ever started, and the one reported failure was a 5s
+timeout on a test that takes 172s here. The rename-sensitive files
+(`cross-package-names`, both `source-boundary`, `coverage-gaps`) were
+run separately on the threads pool: 34 passed; the single straggler
+(`no react entry point exports OKABE_ITO`) also timed out at the pool
+handshake and was verified directly against the built dist instead.
+CI on a native runner is the authority for the suite. v1.0.0 still
+UNTAGGED. REMAINING BEFORE TAG: `NPM_TOKEN` scoped to the
+`g3-toolkit` org in repository secrets; the dry-run rehearsal from
+the Actions tab, which has still never been executed against any
+version; then the tag.)
+
+## PRIOR SNAPSHOT (2026-08-16 ESM-only, e2e green)
+
 **As of:** 2026-08-16 (active: **audit remediation CLOSED except 23.**
 Item 19 ruled branch A: the packages publish ESM ONLY. The `require`
 condition is gone from all 23 exports entries, `main` is gone from all

@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { ContextMenuManager } from "../../interaction/context-menu";
-import { G3tEventBus } from "@g3t/core";
+import { G3tEventBus } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { useStyleOverrideStore } from "../../state/style-override-store";
 import { usePositionPinStore } from "../../state/position-pin-store";

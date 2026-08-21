@@ -16,7 +16,7 @@
  * caching, snapshot transforms, interaction simplification, full
  * HiDPI story per RND-004) builds on this op stream.
  */
-import type { VisualAttributes } from "@g3t/core";
+import type { VisualAttributes } from "@g3-toolkit/core";
 import {
   donutArcs,
   taperPolygon,

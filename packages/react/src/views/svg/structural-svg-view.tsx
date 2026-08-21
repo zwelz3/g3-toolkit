@@ -19,14 +19,14 @@
  * cannot drift apart on relationship semantics.
  */
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { routeStructuralEdges, hitTestStructural } from "@g3t/core";
+import { routeStructuralEdges, hitTestStructural } from "@g3-toolkit/core";
 import type {
   StructuralGeometry,
   StructuralGraphInput,
   StructuralHit,
   GlyphSlot,
   StructuralNodeStyle,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import {
   useElementPointerEvents,
   type ElementPointerHandlers,

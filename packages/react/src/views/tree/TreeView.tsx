@@ -10,9 +10,9 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
-import type { WorkingSetManager } from "@g3t/core";
+import type { WorkingSetManager } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 import { EmptyState } from "../../interaction/feedback";
 

@@ -16,7 +16,7 @@
  * asserted graph and each other, so callers can flag them as
  * inferred.
  */
-import type { RDFGraph, RDFTriple } from "@g3t/core";
+import type { RDFGraph, RDFTriple } from "@g3-toolkit/core";
 import {
   RDF_TYPE,
   RDFS_SUBCLASS,

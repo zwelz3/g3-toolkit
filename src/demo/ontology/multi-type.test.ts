@@ -6,7 +6,7 @@
  * the legend); per-slice stylesheet rules are attribute-guarded.
  */
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import {
   stampMultiTypePies,
   MULTI_TYPE_PIE_RULES,

@@ -55,8 +55,8 @@ vi.mock("cytoscape", () => {
 
 // ── The README snippet, verbatim ─────────────────────────────────────
 import { useEffect, useState } from "react";
-import { UGM, SparqlAdapter } from "@g3t/core";
-import { CytoscapeCanvas, TableView } from "@g3t/react";
+import { UGM, SparqlAdapter } from "@g3-toolkit/core";
+import { CytoscapeCanvas, TableView } from "@g3-toolkit/react";
 
 function MyGraphPage() {
   const [ugm, setUgm] = useState<UGM | null>(null);

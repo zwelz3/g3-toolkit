@@ -22,7 +22,7 @@ import { DataSet } from "vis-data/standalone";
 // vis-timeline upgrade fails loudly instead of drifting.
 import "./vis-timeline-vendor.css";
 import "./TimelineView.css";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { EmptyState } from "../../interaction/feedback";
 

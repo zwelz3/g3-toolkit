@@ -3,9 +3,9 @@
 // owner saw no color in preview, which localizes any failure to
 // the presentation layer; the e2e spec covers that half.
 import { describe, it, expect } from "vitest";
-import { applyEncodingSpec } from "@g3t/react";
+import { applyEncodingSpec } from "@g3-toolkit/react";
 import { buildDigitalThread } from "./model";
-import type { EncodingSpec } from "@g3t/react";
+import type { EncodingSpec } from "@g3-toolkit/react";
 
 describe("VR-2: color-by-confidence pipeline", () => {
   it("produces _ecolor patches for confBand edges", () => {

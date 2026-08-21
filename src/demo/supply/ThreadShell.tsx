@@ -28,10 +28,10 @@ import {
   categoricalColorMap,
   registerIcon,
   FloatingLegend,
-} from "@g3t/react";
-import type { EncodingSpec } from "@g3t/react";
+} from "@g3-toolkit/react";
+import type { EncodingSpec } from "@g3-toolkit/react";
 import type { Core } from "cytoscape";
-import { ingestAlgorithmResults, findShortestPath } from "@g3t/core";
+import { ingestAlgorithmResults, findShortestPath } from "@g3-toolkit/core";
 import { buildDigitalThread } from "./model";
 import { supplyShapes } from "./shapes";
 import {

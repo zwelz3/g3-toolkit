@@ -231,7 +231,7 @@
       <h3>Packages</h3>
       <div class="packages">
         <div class="pkg">
-          <div class="name">@g3t/core</div>
+          <div class="name">@g3-toolkit/core</div>
           <div class="desc">
             UGM, adapters, projection pipeline, algorithm result interchange
             (networkx/GraphBLAS documents), event bus, SHACL, theming. Zero
@@ -239,7 +239,7 @@
           </div>
         </div>
         <div class="pkg">
-          <div class="name">@g3t/react</div>
+          <div class="name">@g3-toolkit/react</div>
           <div class="desc">
             Views and controls: the encoding-spec grammar (panel, legend, JSON
             port), graph toolbar with force controls, algorithm overlays,
@@ -248,7 +248,7 @@
           </div>
         </div>
         <div class="pkg">
-          <div class="name">@g3t/charts</div>
+          <div class="name">@g3-toolkit/charts</div>
           <div class="desc">
             LinkedChart with ECharts. Cross-filtered with the graph canvas.
           </div>
@@ -257,16 +257,16 @@
 
       <h3>Quick Start</h3>
       <pre><span style="color:var(--muted)"># Install (pnpm required)</span>
-pnpm add @g3t/core @g3t/react react react-dom \
+pnpm add @g3-toolkit/core @g3-toolkit/react react react-dom \
   cytoscape cytoscape-fcose zustand echarts</pre>
 
       <pre data-snippet="tsx"><span style="color:var(--muted)">// Minimal graph render</span>
-import { UGM } from "@g3t/core";
-import { CytoscapeCanvas } from "@g3t/react";
+import { UGM } from "@g3-toolkit/core";
+import { CytoscapeCanvas } from "@g3-toolkit/react";
 <span style="color:var(--muted)">// Required: the packages ship CSS as a separate file and do not
 // import it for you. Without this line every view renders
 // unstyled, with no error and no warning.</span>
-import "@g3t/react/style.css";
+import "@g3-toolkit/react/style.css";
 
 const ugm = new UGM();
 ugm.addNode("alice", { types: ["Person"], properties: { name: "Alice" } });
@@ -279,8 +279,8 @@ function App() {
 
       <h3>Architecture</h3>
       <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 12px">
-        <code class="inline-code">@g3t/core</code> is framework-agnostic (no
-        React imports). <code class="inline-code">@g3t/react</code> wraps it for
+        <code class="inline-code">@g3-toolkit/core</code> is framework-agnostic (no
+        React imports). <code class="inline-code">@g3-toolkit/react</code> wraps it for
         React consumers. Source-boundary tests enforce this at build time. Read
         <a
           href="https://github.com/zwelz3/g3-toolkit/blob/main/ARCHITECTURE.md"

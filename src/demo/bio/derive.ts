@@ -6,7 +6,7 @@
  * properties) for the explorer. Both are pure so they can be tested without a
  * browser.
  */
-import type { RDFGraph } from "@g3t/core";
+import type { RDFGraph } from "@g3-toolkit/core";
 import { RDF_TYPE, RDFS_LABEL, RDFS_SUBCLASS, shorten, localName } from "./rdf";
 import { termText, termNumber, type SparqlResult } from "./sparql";
 import type { NamedQuery } from "./queries";

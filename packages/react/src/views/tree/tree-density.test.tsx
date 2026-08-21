@@ -1,7 +1,7 @@
 /** B3 density on TreeView. */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { TreeView } from "./TreeView";
 
 function containmentGraph(): UGM {

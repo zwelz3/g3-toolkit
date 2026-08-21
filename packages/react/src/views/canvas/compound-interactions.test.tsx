@@ -6,7 +6,7 @@
 // and stays with the e2e layer.)
 import { describe, it, expect } from "vitest";
 import cytoscape from "cytoscape";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { ugmToCytoscapeElements } from "./ugm-to-cytoscape";
 
 function compoundUgm(): UGM {

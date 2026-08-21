@@ -14,7 +14,7 @@
  */
 
 import { useState } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import {
   parseAlgorithmResult,
   applyAlgorithmResult,
@@ -23,7 +23,7 @@ import {
   findShortestPath,
   connectedComponents,
   degreeCentrality,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import { useOverlayStore } from "../../state/overlay-store";
 
 export interface AlgorithmPanelProps {

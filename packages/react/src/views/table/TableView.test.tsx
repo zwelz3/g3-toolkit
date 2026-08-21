@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { createDefaultMenuManager } from "../../interaction/context-menu";
 import { TableView } from "./TableView";

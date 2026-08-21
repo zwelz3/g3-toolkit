@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback } from "react";
-import type { LayoutEngine, Position } from "@g3t/core";
+import type { LayoutEngine, Position } from "@g3-toolkit/core";
 
 export interface PinState {
   /** Pinned node positions. */

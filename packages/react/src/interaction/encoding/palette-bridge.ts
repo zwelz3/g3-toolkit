@@ -8,7 +8,11 @@
 // the two differ in their last entry (grey versus black), so the name
 // hid a value difference rather than a spelling one.
 export { OKABE_ITO_COLORS as CANVAS_CATEGORICAL } from "../../views/canvas/palette";
-export { SEQUENTIAL_SCALE, DIVERGING_SCALE, scaleColor } from "@g3t/core";
+export {
+  SEQUENTIAL_SCALE,
+  DIVERGING_SCALE,
+  scaleColor,
+} from "@g3-toolkit/core";
 // NOT core's. This alias said "Core" while re-exporting the REACT
 // implementation, which is the null-returning one. Exported under its
 // real name now; the encoding warning wants the null-tolerant behavior

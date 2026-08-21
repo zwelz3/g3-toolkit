@@ -7,17 +7,17 @@ rounds to each item below.
 ## Install
 
 ```bash
-pnpm add @g3t/core @g3t/react
+pnpm add @g3-toolkit/core @g3-toolkit/react
 # charts are optional
-pnpm add @g3t/charts
+pnpm add @g3-toolkit/charts
 ```
 
-Peer dependencies are NOT installed for you. `@g3t/react` peers:
+Peer dependencies are NOT installed for you. `@g3-toolkit/react` peers:
 `react`, `react-dom`, `cytoscape`, `cytoscape-fcose`, `zustand`,
-`echarts`. `@g3t/charts` peers: `react`, `echarts`. `@g3t/core`
+`echarts`. `@g3-toolkit/charts` peers: `react`, `echarts`. `@g3-toolkit/core`
 peers: `graphology`.
 
-`@g3t/react` also declares two OPTIONAL peers, `vis-timeline` and
+`@g3-toolkit/react` also declares two OPTIONAL peers, `vis-timeline` and
 `vis-data`. Install them only if you use `TimelineView`, which is
 the sole consumer:
 
@@ -25,16 +25,16 @@ the sole consumer:
 pnpm add vis-timeline vis-data
 ```
 
-`TimelineView` is reachable exclusively from `@g3t/react/timeline`
+`TimelineView` is reachable exclusively from `@g3-toolkit/react/timeline`
 for this reason. Importing it from the root barrel or from
-`@g3t/react/views` will not work, by design: those barrels are
+`@g3-toolkit/react/views` will not work, by design: those barrels are
 resolvable without the optional peers installed, and they can only
 stay that way by not referencing the component that needs them.
 
 ## Import the stylesheet, first
 
 ```ts
-import "@g3t/react/style.css";
+import "@g3-toolkit/react/style.css";
 ```
 
 The packages ship CSS as a separate file (standard Vite
@@ -210,15 +210,15 @@ If you are consuming tarballs rather than the registry:
 pnpm pack   # in each package directory
 ```
 
-`pnpm pack` rewrites `workspace:*` ranges. Because `@g3t/react`
-depends on `@g3t/core`, pin both to the same instance in the host's
+`pnpm pack` rewrites `workspace:*` ranges. Because `@g3-toolkit/react`
+depends on `@g3-toolkit/core`, pin both to the same instance in the host's
 manifest, or the two packages resolve to different copies and the
 theme store silently splits:
 
 ```json
 {
   "overrides": {
-    "@g3t/core": "file:./vendor/g3t-core-1.0.0.tgz"
+    "@g3-toolkit/core": "file:./vendor/g3t-core-1.0.0.tgz"
   }
 }
 ```
@@ -228,7 +228,7 @@ theme store silently splits:
 - **The packages are ESM only** as of 2026-08-16. There is no `require`
   condition and no `.cjs` in `dist`. `import` works from every bundler
   (Vite, webpack 5, Rollup, esbuild, Next) and from Node with ESM. A
-  Node script using `require("@g3t/core")` must switch to `import` or
+  Node script using `require("@g3-toolkit/core")` must switch to `import` or
   a dynamic `import()`, and Jest running in default CommonJS mode
   needs transform configuration.
 
@@ -243,6 +243,6 @@ theme store silently splits:
   to, selection stops propagating, and nothing appears in a stack
   trace. It cannot be fixed from inside the library while both formats
   ship.
-- `TimelineView` is only importable from `@g3t/react/timeline`, and
+- `TimelineView` is only importable from `@g3-toolkit/react/timeline`, and
   that subpath requires the optional peers `vis-timeline` and
   `vis-data`. Every other entry point resolves without them.

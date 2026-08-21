@@ -12,7 +12,7 @@ import {
   layoutStructural,
   edgePortId,
   type StructuralGraphInput,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import {
   canonicalSide,
   distributeFaceAnchors,

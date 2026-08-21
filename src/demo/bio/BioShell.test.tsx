@@ -9,12 +9,12 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 
 const canvasCalls = vi.hoisted(() => ({ nodeCounts: [] as number[] }));
 
-vi.mock("@g3t/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/react")>();
+vi.mock("@g3-toolkit/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/react")>();
   return {
     ...actual,
     CytoscapeCanvas: (props: { ugm: UGM }) => {
@@ -25,7 +25,7 @@ vi.mock("@g3t/react", async (importOriginal) => {
 });
 
 import { BioShell } from "./BioShell";
-import { useSelectionStore } from "@g3t/react";
+import { useSelectionStore } from "@g3-toolkit/react";
 
 afterEach(() => {
   useSelectionStore.getState().selectNodes([]);

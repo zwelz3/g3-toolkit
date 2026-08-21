@@ -6,9 +6,9 @@
  *   1. The ESM bundle (`dist/index.mjs`) exists and is non-empty.
  *   2. It uses named exports (treeshakable form).
  *   3. The package.json `sideEffects` field is set explicitly:
- *      - `false` for pure-code packages (@g3t/core, @g3t/charts)
+ *      - `false` for pure-code packages (@g3-toolkit/core, @g3-toolkit/charts)
  *      - the doubled-star css glob for packages that ship CSS as a
- *        side-effect (@g3t/react). The bare `*.css` glob matched
+ *        side-effect (@g3-toolkit/react). The bare `*.css` glob matched
  *        only ROOT-level files and licensed the round-50 prod
  *        tree-shake of g3t-base.css: subdirectory css needs the
  *        recursive form (spelled in EXPECTED below; not spelled
@@ -50,7 +50,7 @@ console.log("Treeshaking Verification (per-package)");
 console.log("=======================================\n");
 
 for (const [pkg, rules] of Object.entries(PACKAGE_RULES)) {
-  console.log(`@g3t/${pkg}:`);
+  console.log(`@g3-toolkit/${pkg}:`);
 
   const pkgJsonPath = resolve(ROOT, "packages", pkg, "package.json");
   const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));

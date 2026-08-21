@@ -25,8 +25,8 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
-import { layoutStructural } from "@g3t/core";
-import type { StructuralLayoutOptions } from "@g3t/core";
+import { layoutStructural } from "@g3-toolkit/core";
+import type { StructuralLayoutOptions } from "@g3-toolkit/core";
 import { buildStructuralElkGraph } from "../../packages/core/src/layout/structural";
 import { mkR1 } from "./fixtures";
 

@@ -7,8 +7,8 @@
  * graph and not just the timeline. provenanceReport groups the SHACL results
  * into violations and warnings for the report panel.
  */
-import { UGM, validateShacl } from "@g3t/core";
-import type { ShaclShape } from "@g3t/core";
+import { UGM, validateShacl } from "@g3-toolkit/core";
+import type { ShaclShape } from "@g3-toolkit/core";
 
 export type EventKind = "generated" | "started" | "ended";
 

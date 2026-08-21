@@ -41,7 +41,7 @@ import {
   useStructuralLayout,
   type EncodingSpec,
   FloatingLegend,
-} from "@g3t/react";
+} from "@g3-toolkit/react";
 import {
   type StructuralGraphInput,
   type StructuralGeometry,
@@ -50,7 +50,7 @@ import {
   shaclShapesToStructural,
   closedShapeIds,
   shaclRowSeverities,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import type { Core } from "cytoscape";
 import { executeSparql, type SparqlResult } from "../bio/sparql";
 import { SurfaceFrame } from "../surfaces/DashboardSurfaces";

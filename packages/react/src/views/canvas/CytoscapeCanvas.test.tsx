@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 
 // Mock cytoscape before importing the component
@@ -260,7 +260,7 @@ describe("encoding spec edge rules", () => {
 describe("structural scene rendering (slice A2, round 32)", () => {
   // @see specs/01-functional-views.md R1.18
   async function renderStructural() {
-    const { layoutStructural } = await import("@g3t/core");
+    const { layoutStructural } = await import("@g3-toolkit/core");
     const input = {
       nodes: [
         {
@@ -353,7 +353,7 @@ describe("structural camera preservation across rebuilds (round 56)", () => {
   });
 
   it("restores pan/zoom on a same-graph rebuild instead of refitting", async () => {
-    const { layoutStructural } = await import("@g3t/core");
+    const { layoutStructural } = await import("@g3-toolkit/core");
     const input = sensorInput();
     const ugm = new UGM();
     ugm.addNode("sensor.cal", { types: ["PropertyShape"] });
@@ -403,7 +403,7 @@ describe("structural camera preservation across rebuilds (round 56)", () => {
   });
 
   it("fits when a genuinely different graph loads", async () => {
-    const { layoutStructural } = await import("@g3t/core");
+    const { layoutStructural } = await import("@g3-toolkit/core");
     const inputA = sensorInput();
     const inputB = {
       nodes: [
@@ -450,7 +450,7 @@ describe("structural decoration churn does not recreate the instance (round 57)"
   // CONTENT (a selection or hover) must not tear down and recreate the
   // instance, which would reset the camera and any manual node positions.
   const sensorScene = async () => {
-    const { layoutStructural } = await import("@g3t/core");
+    const { layoutStructural } = await import("@g3-toolkit/core");
     const input = {
       nodes: [
         {

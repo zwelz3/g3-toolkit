@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { DetailInspector } from "./DetailInspector";
 
 function createTestUGM(): UGM {

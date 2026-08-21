@@ -15,7 +15,7 @@
  * The domain is a defense airframe program: critical parts, tiered suppliers
  * across regions, and credentials like AS9100 / NADCAP / ITAR.
  */
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 
 export type SourceSystem =
   | "ERP"

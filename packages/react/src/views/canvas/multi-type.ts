@@ -21,7 +21,7 @@
  * details rail still lists them all); four slices is the legibility
  * ceiling at demo node sizes.
  */
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 // Promoted from src/demo/ontology (upstream round-6 P2, 2026-07-28):
 // consumers were copying this verbatim; it is library surface now.
 

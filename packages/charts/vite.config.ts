@@ -9,8 +9,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@g3t/core": resolve(__dirname, "../core/src"),
-      "@g3t/react": resolve(__dirname, "../react/src"),
+      "@g3-toolkit/core": resolve(__dirname, "../core/src"),
+      "@g3-toolkit/react": resolve(__dirname, "../react/src"),
     },
   },
   build: {
@@ -29,7 +29,7 @@ export default defineConfig({
       // while both formats ship. Typed CJS never worked anyway (one
       // ESM-flavored .d.ts per entry, so `require` from a .cts raised
       // TS1479), and no consumer, example, doc snippet or test in this
-      // repository requires a @g3t package. Dropping it also removes
+      // repository requires a @g3-toolkit package. Dropping it also removes
       // 44% of emitted runtime JS.
       formats: ["es"],
       fileName: () => "index.mjs",

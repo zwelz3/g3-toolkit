@@ -16,7 +16,7 @@
 // user actually imports a file, so they stay out of the initial
 // playground chunk.
 import type { Quad } from "n3";
-import type { RDFTriple } from "@g3t/core";
+import type { RDFTriple } from "@g3-toolkit/core";
 
 export interface ImportResult {
   triples: RDFTriple[];

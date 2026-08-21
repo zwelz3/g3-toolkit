@@ -18,7 +18,7 @@
  * @see examples/decision-dashboards/README.md (architecture)
  */
 
-import { UGM, type ShaclShape } from "@g3t/core";
+import { UGM, type ShaclShape } from "@g3-toolkit/core";
 
 export interface ComponentRow {
   id: string;

@@ -7,7 +7,7 @@
  * sides) so host containers that stretch children via `inset: 0`
  * cannot deform it.
  */
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { SpecLegend } from "../../interaction/encoding/SpecLegend";
 import type { EncodingSpec } from "../../interaction/encoding/encoding-spec";
 import type { LegendElement } from "../../interaction/encoding/SpecLegend";

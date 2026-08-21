@@ -8,13 +8,13 @@ importers:
 
   .:
     dependencies:
-      '@g3t/charts':
+      '@g3-toolkit/charts':
         specifier: workspace:*
         version: link:packages/charts
-      '@g3t/core':
+      '@g3-toolkit/core':
         specifier: workspace:*
         version: link:packages/core
-      '@g3t/react':
+      '@g3-toolkit/react':
         specifier: workspace:*
         version: link:packages/react
       '@types/jsonld':
@@ -180,13 +180,13 @@ importers:
 
   examples/decision-dashboards:
     dependencies:
-      '@g3t/charts':
+      '@g3-toolkit/charts':
         specifier: workspace:*
         version: link:../../packages/charts
-      '@g3t/core':
+      '@g3-toolkit/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@g3t/react':
+      '@g3-toolkit/react':
         specifier: workspace:*
         version: link:../../packages/react
       react:
@@ -205,10 +205,10 @@ importers:
 
   examples/full-workspace:
     dependencies:
-      '@g3t/core':
+      '@g3-toolkit/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@g3t/react':
+      '@g3-toolkit/react':
         specifier: workspace:*
         version: link:../../packages/react
       flexlayout-react:
@@ -230,11 +230,11 @@ importers:
 
   packages/charts:
     dependencies:
-      '@g3t/core':
-        specifier: workspace:*
+      '@g3-toolkit/core':
+        specifier: workspace:^
         version: link:../core
-      '@g3t/react':
-        specifier: workspace:*
+      '@g3-toolkit/react':
+        specifier: workspace:^
         version: link:../react
       echarts:
         specifier: '>=5.0.0'
@@ -289,8 +289,8 @@ importers:
 
   packages/react:
     dependencies:
-      '@g3t/core':
-        specifier: workspace:*
+      '@g3-toolkit/core':
+        specifier: workspace:^
         version: link:../core
       '@tanstack/react-table':
         specifier: ^8.0.0

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { TagManager } from "./tag-manager";
 
 function createTestUGM(): UGM {

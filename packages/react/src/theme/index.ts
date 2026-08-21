@@ -13,11 +13,11 @@ export type { G3tTheme } from "./ThemeManager";
 // Core's WCAG helper, re-exported so `contrastRatio` on this entry
 // means one function. The null-returning variant next to it is
 // contrastRatioOrNull; pick that one when a color may not be plain hex.
-export { contrastRatio } from "@g3t/core";
+export { contrastRatio } from "@g3-toolkit/core";
 export { ThemeSwitcher } from "./ThemeSwitcher";
 export type { ThemeSwitcherProps } from "./ThemeSwitcher";
 
-// Design tokens moved to @g3t/core in P3.2 (they're pure data, framework-
+// Design tokens moved to @g3-toolkit/core in P3.2 (they're pure data, framework-
 // agnostic). Re-exported here for backwards compatibility.
 export {
   DESIGN_TOKENS,
@@ -27,7 +27,7 @@ export {
   scaleColor,
   prefersReducedMotion,
   injectDesignTokens,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 export {
   styleThemeFromG3tTheme,
   tokensFromG3tTheme,

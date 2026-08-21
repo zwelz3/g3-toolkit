@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { MapView } from "../../views/map";
 import { TemporalSlider } from "../../interaction/temporal";
 import { LayoutManager } from "../../interaction/layout-manager/LayoutManager";

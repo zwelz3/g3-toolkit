@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { UGM } from "@g3t/core";
-import { WorkingSetManager } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
+import { WorkingSetManager } from "@g3-toolkit/core";
 import { expandNeighbors } from "./neighbors";
 
 function createStarGraph(centerDegree: number): UGM {

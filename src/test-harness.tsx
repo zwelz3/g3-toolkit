@@ -12,24 +12,27 @@
  */
 
 import { useState, useCallback } from "react";
-import { UGM } from "@g3t/core";
-import { CytoscapeCanvas } from "@g3t/react";
-import { TableView } from "@g3t/react";
-import { DetailInspector } from "@g3t/react";
-import { FacetFilter } from "@g3t/react";
-import { SearchBar } from "@g3t/react";
-import { TagManager } from "@g3t/react";
-import { GroupingManager } from "@g3t/react";
-import { LayoutSwitcher } from "@g3t/react";
-import { createDefaultMenuManager, type ContextMenuManager } from "@g3t/react";
-import { useSelectionStore, useThemeStore } from "@g3t/react";
+import { UGM } from "@g3-toolkit/core";
+import { CytoscapeCanvas } from "@g3-toolkit/react";
+import { TableView } from "@g3-toolkit/react";
+import { DetailInspector } from "@g3-toolkit/react";
+import { FacetFilter } from "@g3-toolkit/react";
+import { SearchBar } from "@g3-toolkit/react";
+import { TagManager } from "@g3-toolkit/react";
+import { GroupingManager } from "@g3-toolkit/react";
+import { LayoutSwitcher } from "@g3-toolkit/react";
+import {
+  createDefaultMenuManager,
+  type ContextMenuManager,
+} from "@g3-toolkit/react";
+import { useSelectionStore, useThemeStore } from "@g3-toolkit/react";
 import {
   ForceLayout,
   HierarchyLayout,
   DagreLayout,
   G3tLayeredLayout,
-} from "@g3t/core";
-import type { LayoutEngine } from "@g3t/core";
+} from "@g3-toolkit/core";
+import type { LayoutEngine } from "@g3-toolkit/core";
 
 // ── Deterministic test data ─────────────────────────────────────────
 

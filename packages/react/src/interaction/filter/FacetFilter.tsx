@@ -9,7 +9,7 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { OKABE_ITO_COLORS } from "../../views/canvas/palette";
 
 export interface FacetFilterProps {

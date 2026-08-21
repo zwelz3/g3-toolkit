@@ -8,7 +8,7 @@
  * duplicates) on gsBravo and polluted table columns with IRIs.
  */
 import { describe, it, expect } from "vitest";
-import { validateShacl } from "@g3t/core";
+import { validateShacl } from "@g3-toolkit/core";
 import { buildOntologyGraph, buildShapes, NS } from "./model";
 import { materializeInferences } from "./reasoner";
 import { OntologyStore } from "./store";

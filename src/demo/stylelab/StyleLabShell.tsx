@@ -28,15 +28,15 @@ import {
   resolveLod,
   StyleEngine,
   type VisualAttributes,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import {
   applyVisualAttributes,
   CanvasAdapter,
   CytoscapeCanvas,
   SvgAdapter,
-} from "@g3t/react";
-import type { SvgSceneEdge, SvgSceneNode } from "@g3t/react";
-import type { CyStylesheet } from "@g3t/react";
+} from "@g3-toolkit/react";
+import type { SvgSceneEdge, SvgSceneNode } from "@g3-toolkit/react";
+import type { CyStylesheet } from "@g3-toolkit/react";
 import {
   buildStyleLabUgm,
   MUTED_IDS,

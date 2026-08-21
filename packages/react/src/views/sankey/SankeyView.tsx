@@ -9,7 +9,7 @@
 
 import { useRef, useEffect, useMemo, useState } from "react";
 import * as echarts from "echarts";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
 
 export type FlowMode = "sankey" | "chord";

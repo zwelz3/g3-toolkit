@@ -5,7 +5,7 @@
 // The broken discriminator dropped NODES (sup.eta, fac.munich) and
 // then their edges as a downstream symptom.
 import { describe, it, expect } from "vitest";
-import { ugmToCytoscapeElements } from "@g3t/react";
+import { ugmToCytoscapeElements } from "@g3-toolkit/react";
 import { buildDigitalThread } from "./model";
 
 describe("element validation guard vs node data named 'source'", () => {

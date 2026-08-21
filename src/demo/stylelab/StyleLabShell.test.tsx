@@ -28,8 +28,8 @@ const captured = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock("@g3t/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@g3t/react")>();
+vi.mock("@g3-toolkit/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@g3-toolkit/react")>();
   return {
     ...actual,
     CytoscapeCanvas: (props: {
@@ -52,7 +52,10 @@ import { styleLabRawCyElements } from "./style-lab-fixture";
 // headless instances see the same stylesheet environment the browser
 // does (the MR-7 oracle blind spot, closed here too).
 async function canvasBaseStack(): Promise<object[]> {
-  const mod = await vi.importActual<typeof import("@g3t/react")>("@g3t/react");
+  const mod =
+    await vi.importActual<typeof import("@g3-toolkit/react")>(
+      "@g3-toolkit/react",
+    );
   const theme = mod.useThemeStore.getState().theme;
   return [...mod.DEFAULT_STYLESHEET, ...mod.themeColorRules(theme)] as object[];
 }

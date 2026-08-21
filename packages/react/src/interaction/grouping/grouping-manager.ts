@@ -10,7 +10,7 @@
  * @see specs/02-functional-interaction.md R2.6, R2.8
  */
 
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 
 export interface GroupInfo {
   groupId: string;

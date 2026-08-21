@@ -22,7 +22,7 @@ const external = externalsFromPackageJson(resolve(__dirname, "package.json"));
  * vis-data, which are OPTIONAL peers, and rollup will hoist a module
  * shared by two entries into a common chunk. While it was reachable from
  * both `index` and `views` it landed in a chunk both of those imported,
- * so `import "@g3t/react"` failed to resolve for anyone who took the
+ * so `import "@g3-toolkit/react"` failed to resolve for anyone who took the
  * documented install. A dedicated entry keeps the bare specifiers behind
  * a subpath nobody reaches by accident. scripts/check-optional-peers.mjs
  * fails the build if they leak back out.
@@ -39,7 +39,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@g3t/core": resolve(__dirname, "../core/src"),
+      "@g3-toolkit/core": resolve(__dirname, "../core/src"),
     },
   },
   build: {
@@ -66,7 +66,7 @@ export default defineConfig({
       // while both formats ship. Typed CJS never worked anyway (one
       // ESM-flavored .d.ts per entry, so `require` from a .cts raised
       // TS1479), and no consumer, example, doc snippet or test in this
-      // repository requires a @g3t package. Dropping it also removes
+      // repository requires a @g3-toolkit package. Dropping it also removes
       // 44% of emitted runtime JS.
       formats: ["es"],
       fileName: (_format, entryName) => `${entryName}.mjs`,

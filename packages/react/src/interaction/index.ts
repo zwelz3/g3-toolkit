@@ -1,5 +1,5 @@
 /**
- * @g3t/react/controls subpath barrel.
+ * @g3-toolkit/react/controls subpath barrel.
  *
  * Interactive controls: encoding panels, filtering, search, toolbar,
  * context menus, tag/group managers, layout switching, etc.
@@ -33,11 +33,11 @@ export * from "./temporal";
 export * from "./property-editor";
 export * from "./annotations";
 
-// path-analysis is D6 (per its own header) and was moved to @g3t/core
+// path-analysis is D6 (per its own header) and was moved to @g3-toolkit/core
 // in P3.x. Re-exported here for backwards compatibility. Prefer importing
-// directly from @g3t/core in new code.
-export { findShortestPath } from "@g3t/core";
-export type { PathResult, PathOptions } from "@g3t/core";
+// directly from @g3-toolkit/core in new code.
+export { findShortestPath } from "@g3-toolkit/core";
+export type { PathResult, PathOptions } from "@g3-toolkit/core";
 
 // Type-only re-exports so this subpath is self-sufficient: both name a
 // prop type of a component this barrel already exports, and both were

@@ -1,5 +1,5 @@
 /**
- * @g3t/core public API.
+ * @g3-toolkit/core public API.
  *
  * Framework-agnostic (D6): zero React, zero Zustand, zero Cytoscape imports.
  *
@@ -19,7 +19,7 @@
 // DEMOTED FROM THE PUBLIC BARREL (2026-07-11 dead-code round):
 // twenty internal helpers (text sizing, ELK graph assembly, QLT
 // metric internals, SHACL row formatting, RDF term utilities) had no
-// consumer outside @g3t/core; their tests import relatively and
+// consumer outside @g3-toolkit/core; their tests import relatively and
 // still run. Full analysis and the T2 ruling table (tested feature
 // surface, NOT removed): planning/g3l/dead-code-analysis.md.
 export { UGM } from "./ugm";
@@ -118,7 +118,7 @@ export type {
   ShaclResultDetail,
 } from "./shacl";
 
-// ── Style override (models only; React store is in @g3t/react/state) ──
+// ── Style override (models only; React store is in @g3-toolkit/react/state) ──
 export {
   overridesToStructuralStyles,
   STRUCTURAL_STYLE_CHANNELS,
@@ -283,11 +283,11 @@ export type { Combo } from "./combo";
 export { WorkingSetManager } from "./working-set-manager";
 export type { ViewType, LimitCheckResult } from "./working-set-manager";
 
-// ── Undo/redo stack (D6 pure logic; reclassified from @g3t/react in P3.2) ──
+// ── Undo/redo stack (D6 pure logic; reclassified from @g3-toolkit/react in P3.2) ──
 export { UndoRedoStack } from "./undo-redo";
 export type { UndoRedoOptions } from "./undo-redo";
 
-// ── Design tokens (D6 data; reclassified from @g3t/react in P3.2) ──
+// ── Design tokens (D6 data; reclassified from @g3-toolkit/react in P3.2) ──
 // `injectDesignTokens` writes CSS custom properties to documentElement and
 // thus touches the DOM, but the values themselves are pure data.
 export {
@@ -300,7 +300,7 @@ export {
   injectDesignTokens,
 } from "./theme";
 
-// ── Path analysis (D6; reclassified from @g3t/react in P3.2) ────────
+// ── Path analysis (D6; reclassified from @g3-toolkit/react in P3.2) ────────
 export { findShortestPath, allShortestPaths } from "./path-analysis";
 export { khopNeighborhood } from "./path-analysis/khop";
 export type { KhopOptions } from "./path-analysis/khop";

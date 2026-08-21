@@ -146,7 +146,7 @@ export class G3tEventBus {
  * the next major.
  *
  * THE HAZARD. A module-level instance is only a singleton within one
- * module instance. Two copies of `@g3t/core` in a dependency tree, or
+ * module instance. Two copies of `@g3-toolkit/core` in a dependency tree, or
  * one host reaching it through `import` while another path reaches it
  * through `require`, produce two buses. The emitter holds one and the
  * subscriber holds the other, so menu items go dead with no error and

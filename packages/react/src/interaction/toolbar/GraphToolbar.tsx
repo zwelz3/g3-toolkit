@@ -24,14 +24,14 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import type { Core } from "cytoscape";
-import type { UGM } from "@g3t/core";
-import { prefersReducedMotion } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
+import { prefersReducedMotion } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 import {
   exportSubgraphTurtle,
   exportSubgraphJson,
   exportSubgraphCsv,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { SearchBar } from "../search/SearchBar";
 import { usePositionPinStore } from "../../state/position-pin-store";

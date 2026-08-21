@@ -1,8 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { injectDesignTokens } from "@g3t/react";
-import "@g3t/react";
+import { injectDesignTokens } from "@g3-toolkit/react";
+import "@g3-toolkit/react";
 // PROD-ONLY BUG FIX (G3L Round 50, owner report "almost seems like
 // a css thing"): the barrel's g3t-base.css side-effect import was
 // TREE-SHAKEN out of production builds (dev serves it, so only
@@ -10,7 +10,7 @@ import "@g3t/react";
 // sideEffects glob did not restore it under rolldown-vite, so the
 // stylesheet is imported EXPLICITLY at the app entry: an app-level
 // css import is not shakeable.
-import "@g3t/react/theme/g3t-base.css";
+import "@g3-toolkit/react/theme/g3t-base.css";
 
 // Inject design tokens at startup
 injectDesignTokens();

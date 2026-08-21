@@ -3,8 +3,8 @@
  *
  * Moved from packages/core/src/combo/f1-f8.test.tsx during Phase 4:
  * AnnotationPanel and createLocalAnnotationStore both live in
- * @g3t/react/interaction/annotations/, so their tests belong here,
- * not in @g3t/core's test suite.
+ * @g3-toolkit/react/interaction/annotations/, so their tests belong here,
+ * not in @g3-toolkit/core's test suite.
  */
 
 import { describe, it, expect } from "vitest";

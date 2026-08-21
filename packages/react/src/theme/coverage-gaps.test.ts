@@ -4,10 +4,14 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { injectDesignTokens, DESIGN_TOKENS, DARK_SHADOWS } from "@g3t/core";
-import { SparqlAdapter } from "@g3t/core";
-import { CypherAdapter } from "@g3t/core";
-import type { Middleware } from "@g3t/core";
+import {
+  injectDesignTokens,
+  DESIGN_TOKENS,
+  DARK_SHADOWS,
+} from "@g3-toolkit/core";
+import { SparqlAdapter } from "@g3-toolkit/core";
+import { CypherAdapter } from "@g3-toolkit/core";
+import type { Middleware } from "@g3-toolkit/core";
 
 // ── Design Tokens (M8.5) ───────────────────────────────────────────
 
@@ -204,7 +208,11 @@ describe("Canvas selection uses .g3t-selected CSS class", () => {
 
 // ── Design-system quality floor (design-system roadmap, A-tier) ─────
 
-import { SEQUENTIAL_SCALE, DIVERGING_SCALE, scaleColor } from "@g3t/core";
+import {
+  SEQUENTIAL_SCALE,
+  DIVERGING_SCALE,
+  scaleColor,
+} from "@g3-toolkit/core";
 
 describe("data scale tokens", () => {
   it("injects sequential and diverging scale variables", () => {
@@ -233,7 +241,7 @@ describe("data scale tokens", () => {
 
 // ── A2: reduced motion reaches JS-driven animation ──────────────────
 
-import { prefersReducedMotion } from "@g3t/core";
+import { prefersReducedMotion } from "@g3-toolkit/core";
 import { deriveEChartsTheme, LIGHT_THEME } from "./ThemeManager";
 
 describe("prefersReducedMotion", () => {

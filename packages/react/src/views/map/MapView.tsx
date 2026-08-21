@@ -13,8 +13,8 @@
  */
 
 import { useMemo, useCallback, useRef } from "react";
-import type { UGM } from "@g3t/core";
-import { DESIGN_TOKENS } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
+import { DESIGN_TOKENS } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { EmptyState } from "../../interaction/feedback";
 

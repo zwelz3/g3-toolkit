@@ -22,7 +22,7 @@
  */
 
 import { useMemo, type CSSProperties, type ReactNode } from "react";
-import type { UGM } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
 import { useThemeStore } from "../../theme/ThemeManager";
 import { useInspectorSectionStore } from "../../state/inspector-section-store";
 import { resolveFields, type PropertyInspectorSpec } from "./property-spec";

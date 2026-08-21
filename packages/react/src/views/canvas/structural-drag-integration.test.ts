@@ -12,7 +12,7 @@
  * through a non-endpoint top-level box.
  */
 import { describe, expect, it } from "vitest";
-import { layoutStructural } from "@g3t/core";
+import { layoutStructural } from "@g3-toolkit/core";
 import { projectDiagram } from "../../../../../src/demo/mbse/diagrams";
 import { satelliteModel } from "../../../../../src/demo/mbse/model";
 import {

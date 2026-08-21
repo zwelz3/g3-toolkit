@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateShacl } from "@g3t/core";
+import { validateShacl } from "@g3-toolkit/core";
 import { buildDigitalThread } from "./model";
 import { supplyShapes, SHAPE_CERT } from "./shapes";
 import {

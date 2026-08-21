@@ -10,8 +10,8 @@
  * @see specs/02-functional-interaction.md R2.4
  */
 
-import type { UGM } from "@g3t/core";
-import type { WorkingSetManager } from "@g3t/core";
+import type { UGM } from "@g3-toolkit/core";
+import type { WorkingSetManager } from "@g3-toolkit/core";
 
 export interface ExpandResult {
   /** Node IDs discovered at all depths up to N. */

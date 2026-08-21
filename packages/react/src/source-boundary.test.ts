@@ -1,16 +1,16 @@
 /**
- * Source-level architectural boundary enforcement for @g3t/react (P4).
+ * Source-level architectural boundary enforcement for @g3-toolkit/react (P4).
  *
- * @g3t/react is the UI layer (D13). It may consume @g3t/core but must
- * NOT import from @g3t/charts (which is downstream of @g3t/react).
+ * @g3-toolkit/react is the UI layer (D13). It may consume @g3-toolkit/core but must
+ * NOT import from @g3-toolkit/charts (which is downstream of @g3-toolkit/react).
  *
  * Storybook story files (*.stories.tsx) are exempt: stories are
  * documentation/demos that can show how the layered packages compose,
- * even when that means a story in @g3t/react demonstrates @g3t/charts
+ * even when that means a story in @g3-toolkit/react demonstrates @g3-toolkit/charts
  * usage.
  *
  * Test files (*.test.ts, *.test.tsx) are also exempt for the same
- * reason as the @g3t/core boundary test (see source-boundary.test.ts).
+ * reason as the @g3-toolkit/core boundary test (see source-boundary.test.ts).
  */
 
 import { describe, it, expect } from "vitest";
@@ -18,7 +18,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const FORBIDDEN_IMPORTS = ["@g3t/charts"];
+const FORBIDDEN_IMPORTS = ["@g3-toolkit/charts"];
 
 function findWorkspaceRoot(): string {
   let dir = dirname(fileURLToPath(import.meta.url));
@@ -74,7 +74,7 @@ function topLevelPackageName(spec: string): string {
   return spec.split("/")[0] ?? "";
 }
 
-describe("@g3t/react source-level boundary (P4)", () => {
+describe("@g3-toolkit/react source-level boundary (P4)", () => {
   const files = walk(REACT_SRC);
 
   it(`scans non-test, non-story react source files (sanity: found ${files.length} files)`, () => {
@@ -82,7 +82,7 @@ describe("@g3t/react source-level boundary (P4)", () => {
   });
 
   for (const forbidden of FORBIDDEN_IMPORTS) {
-    it(`no @g3t/react production source imports "${forbidden}"`, () => {
+    it(`no @g3-toolkit/react production source imports "${forbidden}"`, () => {
       const violators: Array<{ file: string; from: string }> = [];
       for (const file of files) {
         for (const spec of importsIn(file)) {
@@ -99,7 +99,7 @@ describe("@g3t/react source-level boundary (P4)", () => {
           .map((v) => `  ${v.file} imports "${v.from}"`)
           .join("\n");
         throw new Error(
-          `Boundary violation: @g3t/react production source must not import "${forbidden}".\n${lines}`,
+          `Boundary violation: @g3-toolkit/react production source must not import "${forbidden}".\n${lines}`,
         );
       }
       expect(violators).toEqual([]);

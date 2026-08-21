@@ -26,7 +26,7 @@ as plain strings.
    viewing is R6.3's territory.
 3. **P2: Inline previews (R6.3).** Embedded PDF viewer opening at the
    referenced page/span, image-region previews. Renderer dependency
-   (pdf.js or equivalent) enters as an optional peer of @g3t/react,
+   (pdf.js or equivalent) enters as an optional peer of @g3-toolkit/react,
    consistent with the each-view-brings-its-runtime posture; a
    deployment without it degrades to R3.8's link-out.
 

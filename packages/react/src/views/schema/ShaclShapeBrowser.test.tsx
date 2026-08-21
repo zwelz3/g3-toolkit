@@ -2,14 +2,14 @@
  * ShaclShapeBrowser tests (DE.2).
  *
  * Extracted from packages/core/src/shacl/shacl.test.tsx during Phase 4:
- * the ShaclShapeBrowser is a @g3t/react UI component, so its tests
- * belong here, not in @g3t/core's test suite.
+ * the ShaclShapeBrowser is a @g3-toolkit/react UI component, so its tests
+ * belong here, not in @g3-toolkit/core's test suite.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { UGM } from "@g3t/core";
-import { validateShacl, type ShaclShape } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
+import { validateShacl, type ShaclShape } from "@g3-toolkit/core";
 import { ShaclShapeBrowser } from "./ShaclShapeBrowser";
 
 function makeUGM(): UGM {

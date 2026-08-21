@@ -14,13 +14,13 @@ import {
   StructuralSvgView,
   ContextMenuManager,
   useStructuralLayout,
-} from "@g3t/react";
+} from "@g3-toolkit/react";
 import { publishCanvas, publishScene } from "../testing/e2e-hooks";
 import {
   UGM,
   type StructuralGeometry,
   type StructuralGraphInput,
-} from "@g3t/core";
+} from "@g3-toolkit/core";
 import { satelliteModel } from "./model";
 import { projectDiagram } from "./diagrams";
 import { ContainmentTree } from "./ContainmentTree";

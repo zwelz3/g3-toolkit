@@ -7,7 +7,11 @@
  * Okabe-Ito based) carries through as the categorical palette.
  */
 import type { G3tTheme } from "./ThemeManager";
-import { themeFromTokens, type DesignTokens, type StyleTheme } from "@g3t/core";
+import {
+  themeFromTokens,
+  type DesignTokens,
+  type StyleTheme,
+} from "@g3-toolkit/core";
 
 /** Project a G3tTheme into design tokens (pure). */
 export function tokensFromG3tTheme(theme: G3tTheme): DesignTokens {

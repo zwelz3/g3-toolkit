@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { TableView } from "./table";
 import { DetailInspector } from "./inspector";
 import { SchemaView } from "./schema";
@@ -9,7 +9,7 @@ import { TreeView } from "./tree";
 import { QueryEditor } from "./query";
 import { MatrixView } from "./matrix";
 import type { SchemaViewShape } from "./schema";
-import type { DiffResult } from "@g3t/core";
+import type { DiffResult } from "@g3-toolkit/core";
 
 function makeUGM() {
   const ugm = new UGM();

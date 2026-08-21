@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { UGM } from "@g3t/core";
+import { UGM } from "@g3-toolkit/core";
 import { SpecLegend } from "./SpecLegend";
 import type { EncodingSpec } from "./encoding-spec";
 import { CANVAS_CATEGORICAL } from "./palette-bridge";
