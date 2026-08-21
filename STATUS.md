@@ -1,5 +1,35 @@
 # g3-toolkit Status
 
+**As of:** 2026-08-21 late (active: **v1.0.0 IS PUBLISHED.**
+`@g3-toolkit/core`, `@g3-toolkit/react` and `@g3-toolkit/charts` are
+live on npm at 1.0.0 under tag `v1.0.0`, the debut run of
+`publish.yml`. Confirmed against the registry rather than assumed:
+`latest` resolves to 1.0.0 on all three, charts published its sibling
+peers as `^1.0.0` and react its core dependency as `^1.0.0` (so the
+`workspace:^` change reached the ARTIFACT, not just the source), and
+core carries a SLSA v1 provenance attestation. Manifests deliberately
+STAY at 1.0.0 between releases; the bump belongs in the next release
+PR, so main never claims a version absent from the registry. README
+now carries npm version badges reading the live registry and its title
+no longer hand-asserts a version; RELEASE.md step 1 updated to match,
+to name `pixi.toml` and `docs/source/conf.py` as hand-checked, and to
+forbid reintroducing a version string in the title. POSTMORTEM in the
+CHANGELOG; the four items worth carrying forward are that
+`--dry-run` never authenticates (so a rehearsal cannot validate the
+token), that the preflight's tag-agreement check is skipped on every
+`workflow_dispatch` and therefore first executed on the one run that
+cannot be undone, that drift in `pixi.toml`/`conf.py` is still ungated
+and extending the preflight is the obvious next hardening, and that
+scope availability should be checked at the START of packaging work
+rather than at release time. OPEN (backlog, non-blocking, both
+pre-existing and found while reading release-run logs): `act()`
+warnings from unwrapped `onReady` calls in `StyleLabShell.test.tsx`,
+and no automated coverage of `CanvasAdapter`'s rasterization path
+(jsdom returns a null 2D context, so `paint()` is never reached; the
+display-list layer above it IS conformance-tested).)
+
+## PRIOR SNAPSHOT (2026-08-21 release prep)
+
 **As of:** 2026-08-21 (active: **v1.0.0 RELEASE PREP.** The published
 scope is `@g3-toolkit`, NOT `@g3t`: the short org name was already
 taken on npmjs.com, so all three packages were renamed (778 references
