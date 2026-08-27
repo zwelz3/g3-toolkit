@@ -20,6 +20,20 @@ export interface StatsPanelProps {
   propertyKey: string;
   /** Number of histogram bins (default 20). */
   bins?: number;
+  /** Chart title. Defaults to `Distribution: {propertyKey}`, which
+   *  names the raw key rather than anything a reader recognizes. For
+   *  a DERIVED property the key is an implementation detail
+   *  ("_shacl_maxSeverity"), so the host is the only party that can
+   *  say what it means. */
+  title?: string;
+  /** Unit for the measured value, appended to the x-axis label and
+   *  the tooltip ("ms", "kg", "%"). A bare histogram states a
+   *  magnitude with no dimension. */
+  unit?: string;
+  /** One line under the title saying what a bar COUNTS. The y axis
+   *  says "Count"; it does not say count of what, and for a derived
+   *  property that is not recoverable from the chart. */
+  description?: string;
   className?: string;
 }
 
@@ -128,6 +142,9 @@ export function StatsPanel({
   ugm,
   propertyKey,
   bins: binCount = 20,
+  title,
+  unit,
+  description,
   className,
 }: StatsPanelProps) {
   const { theme } = useThemeStore();
@@ -163,19 +180,33 @@ export function StatsPanel({
     // the dark background. Every text surface now takes theme ink.
     chart.setOption({
       title: {
-        text: `Distribution: ${propertyKey}`,
+        text: title ?? `Distribution: ${propertyKey}`,
+        subtext: description,
         textStyle: { fontSize: 13, color: theme.textPrimary },
+        subtextStyle: { fontSize: 11, color: theme.textMuted },
       },
-      tooltip: { trigger: "axis" },
+      tooltip: {
+        trigger: "axis",
+        valueFormatter: (v: unknown) => `${v} node${v === 1 ? "" : "s"}`,
+      },
+      // The rotated bin labels plus the new axis name need reserved
+      // room; without this the name renders under the plot edge.
+      grid: { containLabel: true, bottom: 28, top: description ? 64 : 48 },
       xAxis: {
         type: "category",
         data: histogram.map((b) => b.label),
+        // The x axis previously carried bin ranges and nothing saying
+        // what they were ranges OF.
+        name: unit ? `${propertyKey} (${unit})` : propertyKey,
+        nameLocation: "middle",
+        nameGap: 42,
+        nameTextStyle: { color: theme.textPrimary, fontWeight: 600 },
         axisLabel: { rotate: 45, fontSize: 10, color: theme.textPrimary },
         axisLine: { lineStyle: { color: theme.border } },
       },
       yAxis: {
         type: "value",
-        name: "Count",
+        name: "Nodes",
         nameTextStyle: { color: theme.textPrimary, fontWeight: 600 },
         axisLabel: { color: theme.textPrimary },
         splitLine: { lineStyle: { color: theme.border, opacity: 0.5 } },
@@ -206,7 +237,7 @@ export function StatsPanel({
       chart.dispose();
       echartsRef.current = null;
     };
-  }, [histogram, propertyKey, handleBrush, theme]);
+  }, [histogram, propertyKey, handleBrush, theme, title, unit, description]);
 
   return (
     <div

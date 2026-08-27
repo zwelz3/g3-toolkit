@@ -12,7 +12,10 @@
  */
 
 import type { ShaclValidationResult } from "./shacl-validator";
-import type { StructuralOverlay } from "../algorithm-adapter/algorithm-results";
+import type {
+  StructuralOverlay,
+  OverlayTone,
+} from "../algorithm-adapter/algorithm-results";
 import {
   MalformedDocumentError,
   requireVersion,
@@ -121,6 +124,16 @@ const SEVERITY_LABEL: Record<ShaclSeverity, string> = {
   info: "Info",
 };
 
+/** SHACL severity -> the generic overlay tone the canvas renders.
+ *  Overlays are algorithm-neutral, so the severity does not travel to
+ *  the canvas; the tone does. Before 2026-08-27 nothing carried it and
+ *  all three tiers drew identically. */
+const SEVERITY_TONE: Record<ShaclSeverity, OverlayTone> = {
+  violation: "danger",
+  warning: "warning",
+  info: "info",
+};
+
 /**
  * Derive up to three severity-tier overlays from a report, over the
  * FOCUS NODES (and, where a result path names a direct property, the
@@ -160,6 +173,7 @@ export function severityOverlays(
       label: SEVERITY_LABEL[severity],
       nodeIds: [...tier.nodes],
       edgeIds: [...tier.edges],
+      tone: SEVERITY_TONE[severity],
     });
   }
   return overlays;

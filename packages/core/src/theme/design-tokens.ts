@@ -78,9 +78,16 @@ export const DESIGN_TOKENS = {
   deemphasizedOpacity: "0.25",
   selectionFillAlpha: "0.10",
 
-  // Z-index scale (replaces ad hoc literals)
+  // Z-index scale (replaces ad hoc literals). zPopover sits between
+  // dropdown and overlay: a context menu must clear a select popup
+  // but stay under an overlay pass. Added 2026-08-27 after the
+  // design-token gate found ContextMenu and g3t-base.css both
+  // referencing a --g3t-z-popover nothing emitted; each fell back to
+  // a different literal (9999 and 50), which is the drift the scale
+  // exists to prevent.
   zSticky: "100",
   zDropdown: "400",
+  zPopover: "600",
   zOverlay: "800",
   zModal: "1000",
   zTooltip: "1200",
@@ -219,6 +226,7 @@ export function injectDesignTokens(isDark = false): void {
   );
   root.style.setProperty("--g3t-z-sticky", DESIGN_TOKENS.zSticky);
   root.style.setProperty("--g3t-z-dropdown", DESIGN_TOKENS.zDropdown);
+  root.style.setProperty("--g3t-z-popover", DESIGN_TOKENS.zPopover);
   root.style.setProperty("--g3t-z-overlay", DESIGN_TOKENS.zOverlay);
   root.style.setProperty("--g3t-z-modal", DESIGN_TOKENS.zModal);
   root.style.setProperty("--g3t-z-tooltip", DESIGN_TOKENS.zTooltip);

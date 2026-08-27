@@ -21,6 +21,8 @@ export function FloatingLegend({
   labelFor,
   title = "Legend",
   corner = "bottom-left",
+  collapsible = true,
+  defaultCollapsed = false,
   testId = "g3t-floating-legend",
 }: {
   /** R-17 (register, 2026-08-06): optional, matching SpecLegend.
@@ -35,6 +37,15 @@ export function FloatingLegend({
   labelFor?: (value: string) => string;
   title?: string;
   corner?: "bottom-left" | "bottom-right" | "top-left" | "top-right";
+  /** Forwarded to SpecLegend. Default true, which is what this
+   *  component hard-coded before 2026-08-27. */
+  collapsible?: boolean;
+  /** Forwarded to SpecLegend. A floating legend sits OVER the canvas
+   *  at up to 240px wide, so a dense scene often wants it to arrive
+   *  collapsed and open on demand. Previously unreachable: the prop
+   *  was dropped here, and the only workaround was to abandon
+   *  FloatingLegend and position a SpecLegend by hand. */
+  defaultCollapsed?: boolean;
   testId?: string;
 }) {
   // LR-26 (owner review 2026-07-22): top corners added so shells can
@@ -70,7 +81,8 @@ export function FloatingLegend({
         spec={spec}
         overrides={overrides}
         onResetOverrides={onResetOverrides}
-        collapsible
+        collapsible={collapsible}
+        defaultCollapsed={defaultCollapsed}
         title={title}
         labelFor={labelFor}
       />

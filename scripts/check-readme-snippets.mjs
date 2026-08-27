@@ -44,6 +44,12 @@ const READMES = [
   // snippet added without one was unchecked. This gate covers the
   // fences themselves.
   "docs/wiring-guide.md",
+  // Added 2026-08-27. The consuming guide carries the import-path and
+  // re-layout rules, which is exactly where a wrong signature costs an
+  // adopter the most, and it was outside the gate: its incremental
+  // layout recipe was drafted against an invented (ugm, ugm) shape
+  // when the real functions take a Cytoscape core.
+  "docs/consuming-g3t.md",
 ];
 
 const FENCE = /```(tsx?)([^\n`]*)\n([\s\S]*?)```/g;
@@ -89,6 +95,8 @@ const PLACEHOLDERS = {
   initialSpec: "any",
   logError: "any",
   navigate: "any",
+  nextNodeIds: "any",
+  openYourDetailPanel: "any",
   orgSettings: "any",
   processEngine: "any",
   rdfGraph: "any",

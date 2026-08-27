@@ -237,6 +237,52 @@ export const OVERLAY_RULES: CyStylesheet[] = [
 
     style: { opacity: 0.2 } as any,
   },
+  // Tone rules (2026-08-27). Members previously carried ONE class, so
+  // a SHACL violation tier and a warning tier were pixel-identical:
+  // the surface could say "something is wrong somewhere" but never
+  // "these two objects are broken". A toned member keeps
+  // g3t-ov-member for geometry (border width, line width) and takes
+  // its color from the tone class, which is declared after the member
+  // rules above so it wins on equal specificity.
+  {
+    selector: "node.g3t-ov-danger",
+
+    style: { "border-color": "#c62828" } as any,
+  },
+  {
+    selector: "edge.g3t-ov-danger",
+
+    style: {
+      "line-color": "#c62828",
+      "target-arrow-color": "#c62828",
+    } as any,
+  },
+  {
+    selector: "node.g3t-ov-warning",
+
+    style: { "border-color": "#b45309" } as any,
+  },
+  {
+    selector: "edge.g3t-ov-warning",
+
+    style: {
+      "line-color": "#b45309",
+      "target-arrow-color": "#b45309",
+    } as any,
+  },
+  {
+    selector: "node.g3t-ov-info",
+
+    style: { "border-color": "#1971c2" } as any,
+  },
+  {
+    selector: "edge.g3t-ov-info",
+
+    style: {
+      "line-color": "#1971c2",
+      "target-arrow-color": "#1971c2",
+    } as any,
+  },
 ];
 
 /** Theme-resolved canvas colors (round 20: the theme->canvas wiring,
@@ -318,6 +364,48 @@ export function themeColorRules(theme: G3tTheme): CyStylesheet[] {
       style: {
         "line-color": theme.success,
         "target-arrow-color": theme.success,
+      } as any,
+    },
+    // Tone overrides, theme-driven (2026-08-27). Declared after the
+    // member rules so an equally specific tone wins the color while
+    // the member rule keeps supplying the geometry.
+    {
+      selector: "node.g3t-ov-danger",
+
+      style: { "border-color": theme.error } as any,
+    },
+    {
+      selector: "edge.g3t-ov-danger",
+
+      style: {
+        "line-color": theme.error,
+        "target-arrow-color": theme.error,
+      } as any,
+    },
+    {
+      selector: "node.g3t-ov-warning",
+
+      style: { "border-color": theme.warning } as any,
+    },
+    {
+      selector: "edge.g3t-ov-warning",
+
+      style: {
+        "line-color": theme.warning,
+        "target-arrow-color": theme.warning,
+      } as any,
+    },
+    {
+      selector: "node.g3t-ov-info",
+
+      style: { "border-color": theme.accentPrimary } as any,
+    },
+    {
+      selector: "edge.g3t-ov-info",
+
+      style: {
+        "line-color": theme.accentPrimary,
+        "target-arrow-color": theme.accentPrimary,
       } as any,
     },
   ];
@@ -1757,10 +1845,8 @@ export function CytoscapeCanvas({
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
-    const { anyActive, memberNodes, memberEdges } = computeOverlayMembership(
-      overlays,
-      overlayActiveIds,
-    );
+    const { anyActive, memberNodes, memberEdges, nodeTones, edgeTones } =
+      computeOverlayMembership(overlays, overlayActiveIds);
     // Scope to THIS canvas (round 40): the overlay store is a global
     // singleton, so on a page with several canvases an overlay
     // registered for one canvas's nodes would otherwise fire every
@@ -1790,18 +1876,28 @@ export function CytoscapeCanvas({
     const effectiveActive = anyActive && touchesThisCanvas;
     if (!effectiveActive && !overlayTouchedRef.current) return;
     overlayTouchedRef.current = effectiveActive;
+    // Every tone class is stripped alongside the member class, so
+    // deactivation still restores by construction (the round-21
+    // property this effect is built on).
+    const TONE_CLASSES = "g3t-ov-danger g3t-ov-warning g3t-ov-info";
     cy.batch(() => {
       cy.nodes().forEach((n) => {
-        n.removeClass("g3t-ov-member g3t-ov-dim");
+        n.removeClass(`g3t-ov-member g3t-ov-dim ${TONE_CLASSES}`);
         if (!effectiveActive) return;
-        if (memberNodes.has(n.id())) n.addClass("g3t-ov-member");
-        else n.addClass("g3t-ov-dim");
+        if (memberNodes.has(n.id())) {
+          n.addClass("g3t-ov-member");
+          const tone = nodeTones.get(n.id());
+          if (tone) n.addClass(`g3t-ov-${tone}`);
+        } else n.addClass("g3t-ov-dim");
       });
       cy.edges().forEach((e) => {
-        e.removeClass("g3t-ov-member g3t-ov-dim");
+        e.removeClass(`g3t-ov-member g3t-ov-dim ${TONE_CLASSES}`);
         if (!effectiveActive) return;
-        if (memberEdges.has(e.id())) e.addClass("g3t-ov-member");
-        else e.addClass("g3t-ov-dim");
+        if (memberEdges.has(e.id())) {
+          e.addClass("g3t-ov-member");
+          const tone = edgeTones.get(e.id());
+          if (tone) e.addClass(`g3t-ov-${tone}`);
+        } else e.addClass("g3t-ov-dim");
       });
     });
   }, [overlays, overlayActiveIds, ugm]);

@@ -70,6 +70,74 @@ describe("overlay membership (round 21)", () => {
     expect(computeOverlayMembership([a, b], []).anyActive).toBe(false);
   });
 
+  // Overlay tones (2026-08-27). Before this, membership was the only
+  // thing that reached the canvas, so a violation tier and a warning
+  // tier were drawn identically.
+  it("carries a tone per member, and omits neutral entirely", () => {
+    const danger = {
+      id: "v",
+      label: "Violations",
+      nodeIds: ["n1"],
+      edgeIds: ["e1"],
+      tone: "danger" as const,
+    };
+    const plain = { id: "p", label: "Plain", nodeIds: ["n2"], edgeIds: [] };
+    const m = computeOverlayMembership([danger, plain], ["v", "p"]);
+    expect(m.nodeTones.get("n1")).toBe("danger");
+    expect(m.edgeTones.get("e1")).toBe("danger");
+    // A toneless overlay is a member with no tone treatment, not a
+    // member tagged "neutral": callers test has() for "wants a tone".
+    expect(m.memberNodes.has("n2")).toBe(true);
+    expect(m.nodeTones.has("n2")).toBe(false);
+  });
+
+  it("resolves the strongest tone when overlays overlap, in either order", () => {
+    const info = {
+      id: "i",
+      label: "Info",
+      nodeIds: ["shared"],
+      edgeIds: [],
+      tone: "info" as const,
+    };
+    const danger = {
+      id: "v",
+      label: "Violations",
+      nodeIds: ["shared"],
+      edgeIds: [],
+      tone: "danger" as const,
+    };
+    // Worst news wins regardless of registration or activation order.
+    expect(
+      computeOverlayMembership([info, danger], ["i", "v"]).nodeTones.get(
+        "shared",
+      ),
+    ).toBe("danger");
+    expect(
+      computeOverlayMembership([danger, info], ["v", "i"]).nodeTones.get(
+        "shared",
+      ),
+    ).toBe("danger");
+  });
+
+  it("ignores the tone of an inactive overlay", () => {
+    const danger = {
+      id: "v",
+      label: "Violations",
+      nodeIds: ["shared"],
+      edgeIds: [],
+      tone: "danger" as const,
+    };
+    const warning = {
+      id: "w",
+      label: "Warnings",
+      nodeIds: ["shared"],
+      edgeIds: [],
+      tone: "warning" as const,
+    };
+    const m = computeOverlayMembership([danger, warning], ["w"]);
+    expect(m.nodeTones.get("shared")).toBe("warning");
+  });
+
   it("register replaces by id and activates; toggle flips independently", () => {
     const s = useOverlayStore.getState();
     s.register({ id: "x", label: "X", nodeIds: ["n"], edgeIds: [] });

@@ -66,6 +66,14 @@ __pycache__/
 *.swp
 *.swo
 
+# === Dot-prefixed docs subfolders (scratch drops) ===
+# docs/.downstream/ and friends are inbound working material: adopter
+# filings, review notes, drafts that arrive from outside the repo and
+# get triaged into planning/ or an issue. The triaged OUTPUT is what
+# belongs in history; the raw drop is not. Explicit path per the
+# root-anchoring rule at the top of this file, not a bare glob.
+docs/.*/
+
 # Generated docs (TypeDoc + Storybook build)
 docs-out/
 .verify-types

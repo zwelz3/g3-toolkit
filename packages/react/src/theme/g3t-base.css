@@ -431,7 +431,7 @@ body {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: var(--g3t-z-popover, 50);
+  z-index: var(--g3t-z-popover, 600);
   background: var(--g3t-bg-primary);
   border: 1px solid var(--g3t-border);
   border-radius: var(--g3t-radius-md, 6px);

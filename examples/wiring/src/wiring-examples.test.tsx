@@ -404,11 +404,25 @@ describe("wiring guide: SHACL validation report over the data graph", () => {
     // c1 lacks partNumber -> a violation; c2 conforms.
     expect(report.conforms).toBe(false);
 
-    // Severity overlays register and activate:
+    // Severity overlays register INACTIVE, matching the guide and the
+    // Auditor shell: active-at-mount dims every non-finding node and
+    // the surface reads as broken rather than filtered.
     for (const overlay of severityOverlays(report)) {
-      useOverlayStore.getState().register(overlay, true);
+      useOverlayStore.getState().register(overlay, false);
     }
     expect(useOverlayStore.getState().overlays.length).toBeGreaterThan(0);
+    expect(useOverlayStore.getState().activeIds).not.toContain(
+      "shacl-violation",
+    );
+    // Each tier carries its tone, so activating violations draws them
+    // in the danger treatment rather than the generic emphasis.
+    expect(
+      useOverlayStore
+        .getState()
+        .overlays.find((o) => o.id === "shacl-violation")?.tone,
+    ).toBe("danger");
+    // Toggling is the reviewer's act:
+    useOverlayStore.getState().toggle("shacl-violation");
     expect(useOverlayStore.getState().activeIds).toContain("shacl-violation");
 
     // Drivers ingest onto the failing node:

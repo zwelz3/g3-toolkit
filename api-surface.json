@@ -22,6 +22,7 @@
     "LIGHT_TOKENS",
     "MalformedDocumentError",
     "OKABE_ITO",
+    "OVERLAY_TONE_ORDER",
     "ProjectionPipeline",
     "RDF",
     "RestAdapter",
@@ -72,6 +73,7 @@
     "invertChangeSet",
     "isChainEdgeId",
     "isEdgePortId",
+    "isOverlayTone",
     "khopNeighborhood",
     "layoutStructural",
     "layoutStructuralWithChangeSet",
@@ -192,10 +194,12 @@
     "routeStructuralEdges"
   ],
   "@g3-toolkit/core/algorithms": [
+    "OVERLAY_TONE_ORDER",
     "applyAlgorithmResult",
     "connectedComponents",
     "degreeCentrality",
     "ingestAlgorithmResults",
+    "isOverlayTone",
     "overlayFromPath",
     "parseAlgorithmResult"
   ],

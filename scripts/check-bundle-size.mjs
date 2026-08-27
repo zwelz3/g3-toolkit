@@ -348,8 +348,26 @@ const BUDGETS = {
   // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
   // styles, controlled drag offsets, the renderer-neutral editor
   // target) and R-13.3 (one legend serving both renderers).
-  react: 390 * 1024,
+  react: 395 * 1024,
   // React ledger:
+  // - 390 -> 395 KB, 2026-08-27 (downstream issue triage): measured
+  //   391.8 KB, +1.8 KB over the old cap. Four items, none optional:
+  //   (D) overlay TONE rules, the largest share. Members carried one
+  //   class, so a SHACL violation tier and a warning tier rendered
+  //   identically; the canvas now applies a tone class and BOTH
+  //   stylesheets (static OVERLAY_RULES and the theme-derived
+  //   builder) carry six rules each. Stylesheet literals do not
+  //   tree-shake out of the canvas, so a host that never registers a
+  //   toned overlay still pays this. Accepted: a validation surface
+  //   that cannot distinguish severities is not doing its job.
+  //   (J) StatsPanel title/unit/description plus axis naming.
+  //   (C) FloatingLegend collapsible/defaultCollapsed forwarding.
+  //   (A) the muted semantic trio in the three theme presets.
+  //   Sourcemap audit run first as the 2026-07-03 core entry
+  //   requires: ZERO node_modules source bytes across react's dist
+  //   maps (765,575 bytes, all first-party), so none of this is
+  //   vendored weight. New headroom is 3.2 KB, set modestly: the next
+  //   round should measure, not assume it can spend it.
   // - NO RAISE, 2026-08-14 (timeline moved to its own subpath):
   //   387.2 -> 387.7 KB, +0.5 KB, headroom 2.8 -> 2.3 KB. TimelineView
   //   statically imports the two OPTIONAL peers, and rollup had hoisted
