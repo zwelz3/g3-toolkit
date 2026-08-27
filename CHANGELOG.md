@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.0.0 (continued): 2026-08-27 (version-drift gate)
+
+- **`scripts/check-version-sync.mjs` closes the third of the four
+  postmortem items.** The root `package.json` version is the source of
+  truth; the script asserts that every other file carrying a version
+  agrees with it. That is seven fields across six files: the three
+  publishable manifests, `pixi.toml`, and both `version` and `release`
+  in `docs/source/conf.py`. Before 1.0.0 those last two read
+  `1.0.0-rc.2` and `0.1.0`/`0.8.5`, the latter pair not even agreeing
+  with each other, which is what a field nothing reads decays to.
+
+- **It runs continuously, not only at release.** `verify:versions` is
+  the FIRST step of `verify`, ahead of `build:packages`: it needs no
+  build, so drift fails in milliseconds on the PR that introduces it
+  rather than after fifteen build-dependent steps, or at tag time.
+  `check-release-preflight.mjs` calls the same exported
+  `checkVersionSync` instead of keeping its own manifest loop, so the
+  release path stays self-contained (it does not assume `verify` ran)
+  while remaining unable to disagree with `verify` about which files
+  are in the set. The preflight's own three checks, tag agreement,
+  registry state, and a clean tree, are unchanged.
+
+- **No vacuous pass, and no vacuous sweep.** A registered file whose
+  version field cannot be located is a FAILURE, not a skip: deleting
+  the `version` line from `pixi.toml` turns the gate red rather than
+  green, because a check that silently stops checking has also
+  displaced the human check it replaced. The same reasoning applies one
+  level up, to the registry itself: a sweep over tracked `.toml`,
+  `.cff`, `conf.py` and `.zenodo.json` files fails on any that carries
+  a version assignment and is not registered, so a future `CITATION.cff`
+  cannot join the set unnoticed the way these two files drifted. If
+  `git ls-files` cannot be run, that is a failure too, for the same
+  reason the preflight treats an unanswered registry as a failure.
+
+- **`--write` removes the hand-edit that introduced the drift.** The
+  release bump is now: edit the root manifest, run
+  `node scripts/check-version-sync.mjs --write`, run
+  `pnpm install --lockfile-only`. The rewrite splices the captured value
+  only, so it cannot reformat the surrounding line, and it refuses to
+  run at all if an anchor is missing. RELEASE.md step 1 documents this
+  and no longer tells the releaser that two of the files are on them.
+
+- Verified by deliberate red: drifting `pixi.toml`, drifting
+  `conf.py`'s `release` alone, deleting the `pixi.toml` version line,
+  and adding an unregistered tracked `CITATION.cff` each fail the gate
+  with a message naming the file, the field, the found value and the
+  expected one. `--write` was exercised against a bumped root and
+  reverted.
+
 ## 1.0.0 PUBLISHED: 2026-08-21 (first release to npm, with a postmortem)
 
 - **`@g3-toolkit/core`, `@g3-toolkit/react` and `@g3-toolkit/charts`
@@ -36,12 +85,13 @@
   passed untested.
 
 - **Postmortem: version drift outside the four manifests is still
-  ungated.** `pixi.toml` and `docs/source/conf.py` had drifted to
-  `1.0.0-rc.2` and `0.1.0`/`0.8.5` while RELEASE.md step 1 required
-  agreement. They were fixed by hand this round and RELEASE.md now
-  names them explicitly, but nothing asserts it. Extending the
-  preflight to cover both is a small change and the obvious next
-  hardening.
+  ungated.** (CLOSED 2026-08-27 by `scripts/check-version-sync.mjs`;
+  see the entry at the top of this file.) `pixi.toml` and
+  `docs/source/conf.py` had drifted to `1.0.0-rc.2` and
+  `0.1.0`/`0.8.5` while RELEASE.md step 1 required agreement. They were
+  fixed by hand this round and RELEASE.md now names them explicitly,
+  but nothing asserts it. Extending the preflight to cover both is a
+  small change and the obvious next hardening.
 
 - **Postmortem: an npm scope is not yours until you own the org.** The
   `g3t` org was taken, which was discovered only when the org was
