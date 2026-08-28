@@ -6,6 +6,34 @@ Everything in this section is on the `version-gates` branch and is NOT
 in a published package. 1.0.0 remains the released version on npm; the
 next tag is what moves these entries under a version heading.
 
+### 2026-08-28 (dev-mode shells opened unfitted and unlaid-out)
+
+- **Every ugm-backed shell opened under `vite dev` with its graph
+  scattered and its camera at identity.** Reported against the
+  Cytoscape shells (Provenance Auditor, Supply Chain, Biomedical);
+  measured on the live dev server as zoom 1 / pan (0,0) with the node
+  bounding box sitting inside the component's own pre-layout random
+  scatter range, so the fcose pass was not merely unfitted, it was
+  discarded. Root cause is LR-45's same-graph position replay meeting
+  React StrictMode. StrictMode mounts, unmounts, and remounts in dev,
+  so the first Cytoscape instance is destroyed while its ASYNCHRONOUS
+  fcose pass is still running. The teardown captured that instance's
+  camera and node positions unconditionally, which meant it captured
+  the identity viewport and the random scatter; the remount then
+  recognized a same-graph rebuild, ran `preset` with `fit: false` over
+  the scattered positions, and restored the identity camera. Neither
+  layout nor fit ever happened. `CytoscapeCanvas` now tracks whether
+  the current instance's initial layout SETTLED (`preset` is settled on
+  arrival, everything else at `layoutstop`) and captures the camera and
+  positions only then. An unsettled teardown captures nothing, leaving
+  the previous known-good values in place, so the remount lays out and
+  fits normally. The LR-45 fast path is unchanged once a layout has
+  settled. Production builds did not double-invoke and were not
+  affected, but the same hazard applied to any remount landing
+  mid-layout. Regression tests pin both halves: a StrictMode mount must
+  leave the remount a real fitting layout, and a settled teardown must
+  still replay positions and camera.
+
 ### 2026-08-28 (toolchain pins, e2e browsers, and a sibling that stopped being external)
 
 - **The pixi environment pins the toolchain it actually runs.** `nodejs`

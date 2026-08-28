@@ -7,7 +7,10 @@ export default defineConfig({
   // JS Self-Profiling (G3L scale diagnosis): the scale surface
   // samples the main thread during view switches and prints the top
   // self-time functions; the API requires this document policy.
-  server: { headers: { "Document-Policy": "js-profiling" } },
+  server: {
+    host: true,        // 0.0.0.0, reachable from the forwarder
+    headers: { "Document-Policy": "js-profiling" },
+  },
   preview: { headers: { "Document-Policy": "js-profiling" } },
   resolve: {
     alias: {
