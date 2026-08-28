@@ -28,6 +28,7 @@ test       = { cmd = "pnpm run test", depends-on = ["install"], description = "R
 test-e2e   = { cmd = "pnpm run test:e2e", depends-on = ["install", "install-browsers"], description = "Run Playwright e2e tests" }
 typecheck  = { cmd = "pnpm run typecheck", depends-on = ["install"], description = "Run tsc --noEmit" }
 lint       = { cmd = "pnpm run lint", depends-on = ["install"], description = "Run ESLint + Prettier check" }
+lint-fix   = { cmd = "pnpm run lint:fix", depends-on = ["install"], description = "Apply ESLint --fix and rewrite formatting with Prettier" }
 # Documentation tasks
 docs       = { cmd = "python scripts/build_docs.py -b html docs/source docs/build/html", description = "Build HTML documentation" }
 docs-clean = { cmd = "python -c \"import shutil; shutil.rmtree('docs/build', ignore_errors=True)\"", description = "Clean built docs" }

@@ -657,7 +657,6 @@ export function composeCanvasStylesheet(
   merged.push({
     selector: ".g3t-hidden",
     style: { display: "none" },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
   return merged;
 }

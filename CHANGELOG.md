@@ -6,6 +6,42 @@ Everything in this section is on the `version-gates` branch and is NOT
 in a published package. 1.0.0 remains the released version on npm; the
 next tag is what moves these entries under a version heading.
 
+### 2026-08-28 (two defects found hiding in the lint warning list)
+
+- **`SpecLegend` stopped tracking its input on the ugm-less path.** The
+  four row memos (shape, default-shape, color, icon) read the `elements`
+  prop through `distinctValues` but omitted it from their dependencies.
+  With a UGM that is harmless, since `ugm` is listed; on the R-13.3 path
+  a structural scene has no UGM and `elements` is the ONLY data source,
+  so the legend computed once at mount and then described a scene that
+  no longer existed. `FloatingLegend` forwards `elements` untouched, so
+  both components were affected. The dependency is now declared, and the
+  prop carries an explicit referential-stability contract (hold it in a
+  `useMemo`, the same contract fixture graphs already carry). A rerender
+  test covers it; the previous test rendered once, which is exactly why
+  this shipped.
+
+- **Wheel zoom in `StructuralSvgView` composed from a stale controlled
+  view.** The wheel listener is native and non-passive (it must
+  `preventDefault`, or the page scrolls while the graph zooms), so it
+  binds once with empty dependencies and held the first render's
+  `setView`. `setView` is `useCallback([viewProp])` and resolves its base
+  as `viewProp ?? prev`, so in CONTROLLED mode the handler zoomed from a
+  view the host had already replaced, corrupting the internal transform
+  that goes live the moment the host releases control. Fixed with the ref
+  indirection this file already uses for its drag handlers, which keeps
+  the listener bound once rather than re-registering it on every
+  controlled view change.
+
+- **`react-hooks/exhaustive-deps` is now an error.** Both defects above
+  had been sitting in the warning list. Two remaining sites were
+  genuinely fine and are now explicit rather than merely quiet:
+  `StyleLabShell` lists its stable `withLabelText`, and `ThreadShell`'s
+  harvest memo keeps `hiddenIds` and `confMode` behind a disable with the
+  reason written out (they are re-run triggers for a read of mutable live
+  Cytoscape state, invisible to the rule; removing them would stale the
+  SVG pane whenever a supplier is hidden or the confidence mode changes).
+
 ### 2026-08-28 (dev-mode shells opened unfitted and unlaid-out)
 
 - **Every ugm-backed shell opened under `vite dev` with its graph

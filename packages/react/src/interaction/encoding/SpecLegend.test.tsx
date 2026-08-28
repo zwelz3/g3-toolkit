@@ -187,4 +187,36 @@ describe("R-13.3 (round 21): one legend serves both renderers", () => {
     expect(legend.textContent).toContain("Block");
     expect(legend.textContent).toContain("Port");
   });
+
+  // The elements path had a single-render test only, and that gap let a
+  // real staleness defect ship: the row memos read `elements` but omitted
+  // it from their dependencies, so on the ugm-less path (where `elements`
+  // is the ONLY data source) the legend computed once and then described
+  // a scene that no longer existed. A legend that silently stops tracking
+  // its input is worse than no legend.
+  it("recomputes rows when the element list changes", () => {
+    const spec: EncodingSpec = {
+      version: 1,
+      node: {
+        color: {
+          driver: "type",
+          scale: {
+            kind: "categorical",
+            overrides: { Block: "#ff0000", Port: "#00ff00", Bus: "#0000ff" },
+          },
+        },
+      },
+      edge: {},
+    };
+    const { rerender } = render(
+      <SpecLegend spec={spec} elements={[{ id: "a", type: "Block" }]} />,
+    );
+    expect(screen.getByTestId("g3t-spec-legend").textContent).toContain(
+      "Block",
+    );
+    rerender(<SpecLegend spec={spec} elements={[{ id: "b", type: "Bus" }]} />);
+    const legend = screen.getByTestId("g3t-spec-legend");
+    expect(legend.textContent).toContain("Bus");
+    expect(legend.textContent).not.toContain("Block");
+  });
 });

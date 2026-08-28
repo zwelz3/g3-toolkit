@@ -549,6 +549,37 @@ describe("R-9/R-10: touch zoom, controlled view, affordance presses", () => {
     expect(onViewChange).toHaveBeenCalled();
   });
 
+  // The wheel listener is NATIVE and non-passive (MR-11 round-4), so it
+  // binds once with [] deps and must not be re-bound per controlled view
+  // change. That made it hold the first render's `setView`, which is
+  // useCallback([viewProp]) and resolves its base as `viewProp ?? prev`:
+  // a zoom composed against a viewProp the host had already replaced.
+  // Invisible while the host keeps control (the rendered view is
+  // viewProp), so this asserts on the internal transform the moment the
+  // host RELEASES control, which is when the corrupted state goes live.
+  it("wheel zoom composes from the latest controlled view, not the first", () => {
+    const props = {
+      input: inp,
+      geometry: geo as never,
+      width: 400,
+      height: 300,
+    };
+    const { container, rerender } = render(
+      <StructuralSvgView {...props} view={{ k: 1, tx: 0, ty: 0 }} />,
+    );
+    // k=2, not 4: zoomAbout clamps k to 4, and a base already at the
+    // ceiling makes the stale and fresh results identical.
+    rerender(<StructuralSvgView {...props} view={{ k: 2, tx: 0, ty: 0 }} />);
+    const svg = container.querySelector("svg")!;
+    fireEvent.wheel(svg, { deltaY: -100, clientX: 0, clientY: 0 });
+    // Releasing control surfaces the internal transform the gesture built.
+    rerender(<StructuralSvgView {...props} />);
+    const k = Number(/scale\(([\d.]+)\)/.exec(sceneTransform(container))?.[1]);
+    // deltaY -100 is one 1.1x step, so k=2 composes to 2.2 and the stale
+    // k=1 base would land at 1.1.
+    expect(k).toBeCloseTo(2.2, 5);
+  });
+
   it("R-10: pressing a glyph does not pan the scene", () => {
     const { container } = render(
       <StructuralSvgView

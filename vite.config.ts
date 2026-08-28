@@ -8,7 +8,7 @@ export default defineConfig({
   // samples the main thread during view switches and prints the top
   // self-time functions; the API requires this document policy.
   server: {
-    host: true,        // 0.0.0.0, reachable from the forwarder
+    host: true, // 0.0.0.0, reachable from the forwarder
     headers: { "Document-Policy": "js-profiling" },
   },
   preview: { headers: { "Document-Policy": "js-profiling" } },
