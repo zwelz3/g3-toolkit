@@ -1,7 +1,7 @@
-[project]
+[workspace]
 name = "g3-toolkit"
 version = "1.0.0"
-description = "Graph visualization toolkit specifications and documentation"
+description = "Graph visualization toolkit"
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 
@@ -23,10 +23,14 @@ docs-clean = { cmd = "python -c \"import shutil; shutil.rmtree('docs/build', ign
 docs-serve = { cmd = "python -m http.server 8000 -d docs/build/html", depends-on = ["docs"], description = "Build and serve docs locally" }
 lint-specs = { cmd = "python scripts/lint_specs.py specs/", description = "Lint specl markdown files" }
 
+# Node and pnpm are pinned to bounded majors rather than open floors: an
+# unbounded ">=20" resolved to nodejs 26 on a fresh solve. 22 matches the Node
+# in the devcontainer image, so `pixi run` and a plain shell agree.
 [dependencies]
 python = ">=3.11"
-nodejs = ">=20"
-sphinx = ">=7.0"
+nodejs = ">=22,<23"
+sphinx = ">=7,<9"
 myst-parser = ">=3.0"
 furo = ">=2024.0"
 pyyaml = ">=6.0"
+pnpm = ">=9.0.0,<12"
