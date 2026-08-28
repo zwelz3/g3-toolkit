@@ -8,13 +8,24 @@ platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 [tasks]
 # Bootstrap
 install    = { cmd = "pnpm install", description = "Install Node.js dependencies" }
+# `pnpm install` brings in the Playwright RUNNER but never a browser: the
+# chromium build and the shared libraries it links against (libglib,
+# libnss, libgbm, ...) are fetched out of band, so a fresh container fails
+# at launch with "Executable doesn't exist at .../chrome-headless-shell".
+# Downloading the browser alone is NOT enough on linux-64; without the apt
+# half the binary dies with "error while loading shared libraries:
+# libglib-2.0.so.0". Hence --with-deps, which is also the exact command
+# ci.yml runs. The apt half needs root and shells out to sudo as a normal
+# user; on osx/win Playwright skips it. Both halves are near no-ops once
+# satisfied (~5s), which is why test-e2e can depend on this every run.
+install-browsers = { cmd = "pnpm run e2e:install", depends-on = ["install"], description = "Install the Playwright chromium browser and its system libraries" }
 # Application tasks (delegate to pnpm scripts; depend on install)
 # NOTE: These wrappers are scheduled for removal in Phase 5 (P5.6). pnpm should
 # be invoked directly from the repo root; pixi keeps only the Python tooling.
 dev        = { cmd = "pnpm run dev", depends-on = ["install"], description = "Start Vite dev server" }
 build      = { cmd = "pnpm run build", depends-on = ["install"], description = "Production build" }
 test       = { cmd = "pnpm run test", depends-on = ["install"], description = "Run Vitest unit + component tests" }
-test-e2e   = { cmd = "pnpm run test:e2e", depends-on = ["install"], description = "Run Playwright e2e tests" }
+test-e2e   = { cmd = "pnpm run test:e2e", depends-on = ["install", "install-browsers"], description = "Run Playwright e2e tests" }
 typecheck  = { cmd = "pnpm run typecheck", depends-on = ["install"], description = "Run tsc --noEmit" }
 lint       = { cmd = "pnpm run lint", depends-on = ["install"], description = "Run ESLint + Prettier check" }
 # Documentation tasks
