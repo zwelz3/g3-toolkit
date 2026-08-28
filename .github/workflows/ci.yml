@@ -109,7 +109,12 @@ jobs:
       # pnpm version from the packageManager field; do NOT set `version:`
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      # Single-sourced in package.json as `e2e:install` so this runner and
+      # the local `pixi run test-e2e` path install the same browser and the
+      # same system libraries. Inlining the playwright command here again
+      # would let the two drift, which is how a green CI can sit next to a
+      # local box that cannot launch chromium at all.
+      - run: pnpm run e2e:install
         # Snapshot policy lives in playwright.config.ts
         # (ignoreSnapshots, opt-in via PW_SNAPSHOTS until Linux
         # baselines are committed; the enablement flip is documented

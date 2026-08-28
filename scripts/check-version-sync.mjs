@@ -87,7 +87,21 @@ const TARGETS = [
   },
   // pixi is the Python-side entry point and the first file a
   // contributor arriving through the docs toolchain reads.
-  { file: "pixi.toml", field: "version", kind: "toml", section: "project" },
+  //
+  // TWO section names, because pixi renamed the table: `[project]` in
+  // pixi < 0.41, `[workspace]` after, and the tool still accepts both.
+  // Registering only one is what broke here: 683e40e renamed the table
+  // and this extractor kept looking for `[project]`, so `verify` failed
+  // at its first step with "the file's shape changed". That is the
+  // intended behaviour (property 1, no vacuous pass) but it fires on a
+  // rename that is not drift. The alternation is TWO KNOWN TABLE NAMES,
+  // not a wildcard: a version under any third table still fails.
+  {
+    file: "pixi.toml",
+    field: "version",
+    kind: "toml",
+    sections: ["workspace", "project"],
+  },
   // Sphinx renders `release` into the page furniture of a public
   // artifact. Both fields are checked; they had disagreed.
   { file: "docs/source/conf.py", field: "version", kind: "python" },
@@ -145,15 +159,19 @@ function matcherFor(target) {
       // repository's prettier config, so a nested `"version"` inside
       // dependencies cannot be matched first.
       return new RegExp(`(^  "${target.field}": ")([^"]*)(")`, "m");
-    case "toml":
-      // Scoped to `target.section`: the table header is consumed, and
-      // `(?!^\[)` stops the scan at the next one. Without that, deleting
-      // `[project].version` would silently start matching a `version`
-      // key in some later table instead of failing.
+    case "toml": {
+      // Scoped to `target.sections`: one of those table headers is
+      // consumed, and `(?!^\[)` stops the scan at the next one. Without
+      // that, deleting `[workspace].version` would silently start
+      // matching a `version` key in some later table instead of failing.
+      // The alternation is non-capturing so `--write` still splices
+      // group 2.
+      const header = target.sections.map((s) => `\\[${s}\\]`).join("|");
       return new RegExp(
-        `(\\[${target.section}\\]\\n(?:(?!^\\[)[\\s\\S])*?^${target.field}[ \\t]*=[ \\t]*")([^"]*)(")`,
+        `((?:${header})\\n(?:(?!^\\[)[\\s\\S])*?^${target.field}[ \\t]*=[ \\t]*")([^"]*)(")`,
         "m",
       );
+    }
     case "python":
       return new RegExp(
         `(^${target.field}[ \\t]*=[ \\t]*["'])([^"']*)(["'])`,

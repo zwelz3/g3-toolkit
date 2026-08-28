@@ -1,6 +1,99 @@
 # Changelog
 
-## 1.0.0 (continued): 2026-08-27 (version-drift gate)
+## Unreleased
+
+Everything in this section is on the `version-gates` branch and is NOT
+in a published package. 1.0.0 remains the released version on npm; the
+next tag is what moves these entries under a version heading.
+
+### 2026-08-28 (toolchain pins, e2e browsers, and a sibling that stopped being external)
+
+- **The pixi environment pins the toolchain it actually runs.** `nodejs`
+  moved from an unbounded `>=20`, which resolved to nodejs 26 on a fresh
+  solve, to `>=22,<23`, matching the devcontainer image so `pixi run` and
+  a plain shell agree; `sphinx` to `>=7,<9`; `pnpm` added at
+  `>=9.0.0,<12`; the root `packageManager` corrected to `pnpm@10.33.2`;
+  and `pixi.lock` committed so the solve is reproducible rather than
+  re-derived per machine. `[project]` became `[workspace]`, the table
+  name pixi has used since 0.41.
+
+- **`@g3-toolkit/core` had stopped being an external of
+  `@g3-toolkit/react`, and was being compiled into it.** The pin commit
+  reordered `packages/react/package.json` and dropped one line,
+  `"@g3-toolkit/core": "workspace:^"`, from `dependencies`. No build file
+  names that entry, because `scripts/vite-externals.mjs` DERIVES the
+  rollup externals from the manifest, so removing it un-externalized
+  core; the `resolve.alias` pointing `@g3-toolkit/core` at `../core/src`
+  then pulled all of core into react's dist. React measured 651.7 KB
+  against a 390 KB budget. Nothing else went red: the alias resolves
+  without the workspace link, so typecheck, the unit suite, the export
+  gates and the smoke test all stayed green. Weight was the symptom. The
+  defect is that a host installing both packages would have received two
+  copies of the exported zustand store singletons, so the canvas
+  subscribes to one while the table writes to the other and selection
+  silently stops propagating, which is the two-instance hazard the
+  ESM-only ruling exists to prevent, arriving by a different route.
+  Restoring the one line returns the measurement to 388.5 KB.
+
+- **The bundle budget was NOT raised, and the ledger says why.** 390 KB
+  stands. Sourcemap attribution over the three largest chunks (StatsPanel
+  144 KB, neighbors 136 KB, ugm 84 KB) returned sources of the form
+  `../../core/src/**`, exactly one node_modules source in the whole set
+  (graphology, reached through `core/src/ugm/ugm.ts`), and no react-only
+  growth, so there was no growth to ratify. `check-bundle-size.mjs` was
+  the only gate that noticed the regression, and it noticed on the first
+  run that reached it.
+
+- **`verify:externals` makes the next occurrence loud.**
+  `scripts/check-sibling-externals.mjs` runs two checks, because they
+  fail at different times. ALIAS IMPLIES DECLARATION is static and needs
+  no build: every `@g3-toolkit/*` alias key in a package's vite config
+  must appear in that package's dependencies, peerDependencies or
+  optionalDependencies, which catches the exact edit that caused this at
+  the manifest rather than 260 KB later. NO SIBLING SOURCE IN DIST is
+  empirical: no emitted sourcemap may carry a source resolving inside
+  another workspace package, which catches inlining however it arrives
+  and covers every chunk rather than one entry. Both were verified by
+  re-breaking the manifest, rebuilding, and confirming each fires.
+  Neither can pass vacuously: a dist with no sourcemaps fails as
+  unverifiable, and an `alias` block yielding no extractable keys fails
+  as a stale extractor. `charts` carries the same alias shape as react,
+  where the same slip would have moved a much smaller number and gone
+  unnoticed; check one covers all three packages regardless of weight.
+
+- **`pixi run test-e2e` installs the browser it needs.** `pnpm install`
+  brings in the Playwright runner but never a browser, so a fresh
+  container failed with "Executable doesn't exist at
+  .../chrome-headless-shell". Downloading the browser alone is not
+  enough on linux-64 either: without the apt half the binary dies with
+  "error while loading shared libraries: libglib-2.0.so.0". A new
+  `install-browsers` pixi task runs `pnpm run e2e:install`
+  (`playwright install --with-deps chromium`) and `test-e2e` depends on
+  it. Repeat runs cost about 5 seconds once satisfied, which is why the
+  dependency is unconditional rather than guarded by a stamp file. CI
+  calls the same script instead of repeating the command inline, so the
+  runner and the local path cannot drift.
+
+- **The version-sync extractor follows pixi's table rename.**
+  `check-version-sync.mjs` registered `pixi.toml` under `[project]` and
+  failed the moment the table became `[workspace]`, which is the gate
+  behaving as designed (a field that cannot be located is a failure, not
+  a skip) firing on a rename that is not drift. It now accepts either
+  spelling, since pixi still takes both. The alternation is two known
+  table names, not a wildcard: a version under any third table still
+  fails.
+
+- **Two local/CI divergences closed.** `.pixi/` was in `.prettierignore`
+  but not in the eslint ignores, and flat config does not read
+  `.gitignore`, so `pnpm run lint` was green in CI (no `.pixi` there) and
+  produced 692 errors for anyone who had run `pixi install`. Separately,
+  `testTimeout` is now 6000 rather than vitest's 5000 default, set
+  globally rather than behind `process.env.CI`: the timeout that
+  surfaced it (ScaleSurface drill-in, which passes in isolation with the
+  whole file at 7.15s) happened on a dev box, not in CI, and a CI-only
+  value would rebuild the divergence the other two items just removed.
+
+### 2026-08-27 (version-drift gate)
 
 - **`scripts/check-version-sync.mjs` closes the third of the four
   postmortem items.** The root `package.json` version is the source of
@@ -86,7 +179,8 @@
 
 - **Postmortem: version drift outside the four manifests is still
   ungated.** (CLOSED 2026-08-27 by `scripts/check-version-sync.mjs`;
-  see the entry at the top of this file.) `pixi.toml` and
+  see the Unreleased entry for that date. Closed, not yet released.)
+  `pixi.toml` and
   `docs/source/conf.py` had drifted to `1.0.0-rc.2` and
   `0.1.0`/`0.8.5` while RELEASE.md step 1 required agreement. They were
   fixed by hand this round and RELEASE.md now names them explicitly,

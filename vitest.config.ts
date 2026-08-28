@@ -18,6 +18,18 @@ export default mergeConfig(
       // as a pass. A run with no tests is a broken invocation.
       globals: true,
       environment: "jsdom",
+      // 6000, up from vitest's 5000 default (2026-08-28). ScaleSurface's
+      // "drills into a cluster from the rail and returns" timed out at
+      // 5000ms in a full-suite run and passed in isolation at 7.15s for
+      // the whole file, so it sits just under the ceiling when the suite
+      // is competing for the machine. Set GLOBALLY rather than behind
+      // `process.env.CI`: the flake surfaced on a dev box, not in CI,
+      // and a CI-only value reintroduces exactly the local/CI
+      // divergence that .pixi lint scope and the playwright browser
+      // install each cost a round to remove. If a test needs more than
+      // this, the test is doing too much and gets its own timeout
+      // argument.
+      testTimeout: 6000,
       setupFiles: ["./tests/setup.ts"],
       // tests/component/** was in this list and the directory has never
       // existed. Component tests live beside their source under

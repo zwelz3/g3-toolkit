@@ -23,6 +23,12 @@ export default tseslint.config(
       "docs-out/",
       "storybook-static/",
       "coverage/",
+      // Materialized conda environment: vendored code by any measure,
+      // and ~700 lint errors when present. .prettierignore already had
+      // it; this list did not, and flat config does not read
+      // .gitignore, so `pnpm run lint` was green in CI (no .pixi there)
+      // and red for anyone who had run `pixi install`.
+      ".pixi/",
     ],
   },
   js.configs.recommended,
