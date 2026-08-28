@@ -7,14 +7,23 @@
  * Playwright (tests/e2e/).
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { StrictMode } from "react";
 import { render, screen, act } from "@testing-library/react";
 import { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 
 // Mock cytoscape before importing the component
+// Layout-settlement handles (see layoutSettledRef in the component):
+// `one("layoutstop")` is how the canvas learns an asynchronous fcose/cose
+// pass finished. Tests that want a SETTLED instance call the captured
+// handlers; leaving them uncalled models a teardown mid-layout.
+const layoutStopHandlers: Array<() => void> = [];
 const mockCy = {
   on: vi.fn(),
+  one: vi.fn((evt: string, fn: () => void) => {
+    if (evt === "layoutstop") layoutStopHandlers.push(fn);
+  }),
   removeListener: vi.fn(),
   destroy: vi.fn(),
   nodes: vi.fn(() => ({ length: 2, forEach: vi.fn() })),
@@ -661,5 +670,112 @@ describe("LR-37: icon overrides travel as _icon data, never a flat bypass", () =
     const { style, iconUri } = splitIconFromOverrideStyle({ shape: "hexagon" });
     expect(iconUri).toBeUndefined();
     expect(style.shape).toBe("hexagon");
+  });
+});
+
+describe("layout settlement gates the same-graph camera replay", () => {
+  type InitCall = [{ layout: { name: string; fit?: boolean } }];
+  const initCalls = async (): Promise<InitCall[]> => {
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: { calls: InitCall[] };
+    };
+    return cytoscape.mock.calls;
+  };
+  const graph = (): UGM => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["T"], properties: {} });
+    ugm.addNode("b", { types: ["T"], properties: {} });
+    ugm.addEdge("a", "b", { type: "rel" });
+    return ugm;
+  };
+
+  // The shared mock's nodes().forEach is a no-op, so the LR-45 teardown
+  // capture always built an EMPTY position map and the preset replay path
+  // could never engage. Scope a genuinely iterable collection to this
+  // describe rather than perturbing the sixteen tests above it.
+  const iterableNodes = () => ({
+    length: 2,
+    forEach: (f: (n: Record<string, () => unknown>) => void) => {
+      for (const [id, x, y] of [
+        ["a", 10, 20],
+        ["b", 30, 40],
+      ] as Array<[string, number, number]>) {
+        f({
+          id: () => id,
+          position: () => ({ x, y }),
+          addClass: () => undefined,
+          removeClass: () => undefined,
+        });
+      }
+    },
+  });
+  const defaultNodes = mockCy.nodes.getMockImplementation()!;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    layoutStopHandlers.length = 0;
+    mockCy.nodes.mockImplementation(
+      iterableNodes as unknown as typeof defaultNodes,
+    );
+  });
+
+  afterEach(() => {
+    mockCy.nodes.mockImplementation(defaultNodes);
+  });
+
+  // The dev-mode "shells open unfitted" report: StrictMode mounts,
+  // unmounts, and remounts, so the first instance is destroyed while its
+  // asynchronous fcose pass is still running. Capturing that instance's
+  // pre-layout node positions and identity camera turned the remount into
+  // a same-graph rebuild (preset, fit:false) over the random scatter, so
+  // the graph was never laid out OR fit. An unsettled teardown must
+  // capture nothing.
+  it("a teardown before layoutstop leaves the remount a fitting fcose pass", () => {
+    const ugm = graph();
+    render(
+      <StrictMode>
+        <CytoscapeCanvas ugm={ugm} />
+      </StrictMode>,
+    );
+    // StrictMode double-invoked the init effect on the same component
+    // instance; without that the regression cannot reproduce (refs reset).
+    return initCalls().then((calls) => {
+      expect(calls.length).toBeGreaterThan(1);
+      const last = calls.at(-1)![0].layout;
+      // cose, not fcose: cytoscape-fcose is mocked here, so registration
+      // never happens and the component takes its documented fallback.
+      // What matters is that it is a real layout, not the preset replay.
+      expect(last.name).toBe("cose");
+      expect(last.fit).not.toBe(false);
+      // No camera restore: the identity viewport must not be replayed.
+      expect(mockCy.viewport).not.toHaveBeenCalled();
+    });
+  });
+
+  // The LR-45 behavior this gate must not break: once the layout HAS
+  // settled, a same-graph rebuild still replays positions and camera
+  // (that is what keeps the ontology inferred-toggle from relaying out).
+  it("a teardown after layoutstop still replays positions and camera", async () => {
+    const ugm = graph();
+    const { rerender } = render(<CytoscapeCanvas ugm={ugm} animate={false} />);
+    expect(layoutStopHandlers.length).toBe(1);
+    act(() => {
+      layoutStopHandlers.forEach((f) => f());
+    });
+    // Same graph, but a layoutOptions CONTENT change re-runs the init
+    // effect on the same component instance (the props path that models
+    // a legitimate same-graph rebuild).
+    rerender(
+      <CytoscapeCanvas
+        ugm={ugm}
+        animate={false}
+        layoutOptions={{ padding: 12 }}
+      />,
+    );
+    const calls = await initCalls();
+    const last = calls.at(-1)![0].layout;
+    expect(last.name).toBe("preset");
+    expect(last.fit).toBe(false);
+    expect(mockCy.viewport).toHaveBeenCalled();
   });
 });

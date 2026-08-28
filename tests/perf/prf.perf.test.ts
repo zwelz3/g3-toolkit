@@ -144,7 +144,7 @@ const results: Record<string, number | string> = {
 function record(key: string, ms: number, budgets: BudgetsFile): void {
   results[key] = Math.round(ms * 100) / 100;
   const budget = budgets.budgets[key];
-  // eslint-disable-next-line no-console
+
   console.log(
     `${key}: ${ms.toFixed(1)} ms (budget ${budget?.ms ?? "?"} ms, ${budgets.status}, asserts ${budget?.asserts ?? "?"})`,
   );
@@ -182,7 +182,7 @@ describe.skipIf(!ENABLED)("PRF benchmarks (spec section 14)", () => {
     const t0 = performance.now();
     await layoutStructural(flat());
     const g3tMs = performance.now() - t0;
-    // eslint-disable-next-line no-console
+
     console.log(`PRF-001b-R1flat-g3t: ${g3tMs.toFixed(1)} ms (report)`);
     results["PRF-001b-R1flat-g3t"] = Math.round(g3tMs);
   });
@@ -241,7 +241,7 @@ describe.skipIf(!ENABLED)("PRF benchmarks (spec section 14)", () => {
       results["PRF-002-R1-routing-extrapolated"] = Math.round(estimate);
       results["PRF-002-R1-routing-finding"] =
         "over budget as-implemented; from-scratch scene routing belongs to the channel-router milestone (PRF-003 component); the sparse-grid router is the interactive router";
-      // eslint-disable-next-line no-console
+
       console.log(
         `PRF-002-R1-routing: sample(8)=${sampled.toFixed(0)} ms, extrapolated=${estimate.toFixed(0)} ms (budget ${budgets.budgets["PRF-002-R1-routing"]?.ms} ms, ${budgets.status}; see finding)`,
       );

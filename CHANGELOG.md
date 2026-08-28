@@ -1,6 +1,164 @@
 # Changelog
 
-## Unreleased: downstream issue triage (2026-08-27)
+## Unreleased
+
+Everything in this section is merged to `main` or sits on the
+`downstream-issues-reccs` branch, and NONE of it is in a published
+package. 1.0.0 remains the released version on npm; the next tag is
+what moves these entries under a version heading.
+
+### 2026-08-28 (two defects found hiding in the lint warning list)
+
+- **`SpecLegend` stopped tracking its input on the ugm-less path.** The
+  four row memos (shape, default-shape, color, icon) read the `elements`
+  prop through `distinctValues` but omitted it from their dependencies.
+  With a UGM that is harmless, since `ugm` is listed; on the R-13.3 path
+  a structural scene has no UGM and `elements` is the ONLY data source,
+  so the legend computed once at mount and then described a scene that
+  no longer existed. `FloatingLegend` forwards `elements` untouched, so
+  both components were affected. The dependency is now declared, and the
+  prop carries an explicit referential-stability contract (hold it in a
+  `useMemo`, the same contract fixture graphs already carry). A rerender
+  test covers it; the previous test rendered once, which is exactly why
+  this shipped.
+
+- **Wheel zoom in `StructuralSvgView` composed from a stale controlled
+  view.** The wheel listener is native and non-passive (it must
+  `preventDefault`, or the page scrolls while the graph zooms), so it
+  binds once with empty dependencies and held the first render's
+  `setView`. `setView` is `useCallback([viewProp])` and resolves its base
+  as `viewProp ?? prev`, so in CONTROLLED mode the handler zoomed from a
+  view the host had already replaced, corrupting the internal transform
+  that goes live the moment the host releases control. Fixed with the ref
+  indirection this file already uses for its drag handlers, which keeps
+  the listener bound once rather than re-registering it on every
+  controlled view change.
+
+- **`react-hooks/exhaustive-deps` is now an error.** Both defects above
+  had been sitting in the warning list. Two remaining sites were
+  genuinely fine and are now explicit rather than merely quiet:
+  `StyleLabShell` lists its stable `withLabelText`, and `ThreadShell`'s
+  harvest memo keeps `hiddenIds` and `confMode` behind a disable with the
+  reason written out (they are re-run triggers for a read of mutable live
+  Cytoscape state, invisible to the rule; removing them would stale the
+  SVG pane whenever a supplier is hidden or the confidence mode changes).
+
+### 2026-08-28 (dev-mode shells opened unfitted and unlaid-out)
+
+- **Every ugm-backed shell opened under `vite dev` with its graph
+  scattered and its camera at identity.** Reported against the
+  Cytoscape shells (Provenance Auditor, Supply Chain, Biomedical);
+  measured on the live dev server as zoom 1 / pan (0,0) with the node
+  bounding box sitting inside the component's own pre-layout random
+  scatter range, so the fcose pass was not merely unfitted, it was
+  discarded. Root cause is LR-45's same-graph position replay meeting
+  React StrictMode. StrictMode mounts, unmounts, and remounts in dev,
+  so the first Cytoscape instance is destroyed while its ASYNCHRONOUS
+  fcose pass is still running. The teardown captured that instance's
+  camera and node positions unconditionally, which meant it captured
+  the identity viewport and the random scatter; the remount then
+  recognized a same-graph rebuild, ran `preset` with `fit: false` over
+  the scattered positions, and restored the identity camera. Neither
+  layout nor fit ever happened. `CytoscapeCanvas` now tracks whether
+  the current instance's initial layout SETTLED (`preset` is settled on
+  arrival, everything else at `layoutstop`) and captures the camera and
+  positions only then. An unsettled teardown captures nothing, leaving
+  the previous known-good values in place, so the remount lays out and
+  fits normally. The LR-45 fast path is unchanged once a layout has
+  settled. Production builds did not double-invoke and were not
+  affected, but the same hazard applied to any remount landing
+  mid-layout. Regression tests pin both halves: a StrictMode mount must
+  leave the remount a real fitting layout, and a settled teardown must
+  still replay positions and camera.
+
+### 2026-08-28 (toolchain pins, e2e browsers, and a sibling that stopped being external)
+
+- **The pixi environment pins the toolchain it actually runs.** `nodejs`
+  moved from an unbounded `>=20`, which resolved to nodejs 26 on a fresh
+  solve, to `>=22,<23`, matching the devcontainer image so `pixi run` and
+  a plain shell agree; `sphinx` to `>=7,<9`; `pnpm` added at
+  `>=9.0.0,<12`; the root `packageManager` corrected to `pnpm@10.33.2`;
+  and `pixi.lock` committed so the solve is reproducible rather than
+  re-derived per machine. `[project]` became `[workspace]`, the table
+  name pixi has used since 0.41.
+
+- **`@g3-toolkit/core` had stopped being an external of
+  `@g3-toolkit/react`, and was being compiled into it.** The pin commit
+  reordered `packages/react/package.json` and dropped one line,
+  `"@g3-toolkit/core": "workspace:^"`, from `dependencies`. No build file
+  names that entry, because `scripts/vite-externals.mjs` DERIVES the
+  rollup externals from the manifest, so removing it un-externalized
+  core; the `resolve.alias` pointing `@g3-toolkit/core` at `../core/src`
+  then pulled all of core into react's dist. React measured 651.7 KB
+  against a 390 KB budget. Nothing else went red: the alias resolves
+  without the workspace link, so typecheck, the unit suite, the export
+  gates and the smoke test all stayed green. Weight was the symptom. The
+  defect is that a host installing both packages would have received two
+  copies of the exported zustand store singletons, so the canvas
+  subscribes to one while the table writes to the other and selection
+  silently stops propagating, which is the two-instance hazard the
+  ESM-only ruling exists to prevent, arriving by a different route.
+  Restoring the one line returns the measurement to 388.5 KB.
+
+- **The bundle budget was NOT raised, and the ledger says why.** 390 KB
+  stands. Sourcemap attribution over the three largest chunks (StatsPanel
+  144 KB, neighbors 136 KB, ugm 84 KB) returned sources of the form
+  `../../core/src/**`, exactly one node_modules source in the whole set
+  (graphology, reached through `core/src/ugm/ugm.ts`), and no react-only
+  growth, so there was no growth to ratify. `check-bundle-size.mjs` was
+  the only gate that noticed the regression, and it noticed on the first
+  run that reached it.
+
+- **`verify:externals` makes the next occurrence loud.**
+  `scripts/check-sibling-externals.mjs` runs two checks, because they
+  fail at different times. ALIAS IMPLIES DECLARATION is static and needs
+  no build: every `@g3-toolkit/*` alias key in a package's vite config
+  must appear in that package's dependencies, peerDependencies or
+  optionalDependencies, which catches the exact edit that caused this at
+  the manifest rather than 260 KB later. NO SIBLING SOURCE IN DIST is
+  empirical: no emitted sourcemap may carry a source resolving inside
+  another workspace package, which catches inlining however it arrives
+  and covers every chunk rather than one entry. Both were verified by
+  re-breaking the manifest, rebuilding, and confirming each fires.
+  Neither can pass vacuously: a dist with no sourcemaps fails as
+  unverifiable, and an `alias` block yielding no extractable keys fails
+  as a stale extractor. `charts` carries the same alias shape as react,
+  where the same slip would have moved a much smaller number and gone
+  unnoticed; check one covers all three packages regardless of weight.
+
+- **`pixi run test-e2e` installs the browser it needs.** `pnpm install`
+  brings in the Playwright runner but never a browser, so a fresh
+  container failed with "Executable doesn't exist at
+  .../chrome-headless-shell". Downloading the browser alone is not
+  enough on linux-64 either: without the apt half the binary dies with
+  "error while loading shared libraries: libglib-2.0.so.0". A new
+  `install-browsers` pixi task runs `pnpm run e2e:install`
+  (`playwright install --with-deps chromium`) and `test-e2e` depends on
+  it. Repeat runs cost about 5 seconds once satisfied, which is why the
+  dependency is unconditional rather than guarded by a stamp file. CI
+  calls the same script instead of repeating the command inline, so the
+  runner and the local path cannot drift.
+
+- **The version-sync extractor follows pixi's table rename.**
+  `check-version-sync.mjs` registered `pixi.toml` under `[project]` and
+  failed the moment the table became `[workspace]`, which is the gate
+  behaving as designed (a field that cannot be located is a failure, not
+  a skip) firing on a rename that is not drift. It now accepts either
+  spelling, since pixi still takes both. The alternation is two known
+  table names, not a wildcard: a version under any third table still
+  fails.
+
+- **Two local/CI divergences closed.** `.pixi/` was in `.prettierignore`
+  but not in the eslint ignores, and flat config does not read
+  `.gitignore`, so `pnpm run lint` was green in CI (no `.pixi` there) and
+  produced 692 errors for anyone who had run `pixi install`. Separately,
+  `testTimeout` is now 6000 rather than vitest's 5000 default, set
+  globally rather than behind `process.env.CI`: the timeout that
+  surfaced it (ScaleSurface drill-in, which passes in isolation with the
+  whole file at 7.15s) happened on a dev box, not in CI, and a CI-only
+  value would rebuild the divergence the other two items just removed.
+
+### 2026-08-27 (downstream issue triage)
 
 Fifteen issues filed by a downstream adopter against 1.0.0
 (`planning/downstream-issues-triage.md` records the per-item verdict).
@@ -77,7 +235,59 @@ for a maintainer ruling rather than landed.
   Cytoscape core. Now correct and typechecked.
 
 - Bundle budget for `@g3-toolkit/react` raised 390 -> 395 KB, measured
-  391.8 KB, rationale and sourcemap audit in the ledger.
+  391.8 KB on this branch and 392.0 KB once main merged in, rationale
+  and sourcemap audit in the ledger. The raise and the same-day NO RAISE
+  entry above it are about different things: this one ratifies real
+  growth, that one refused to ratify core being inlined.
+
+### 2026-08-27 (version-drift gate)
+
+- **`scripts/check-version-sync.mjs` closes the third of the four
+  postmortem items.** The root `package.json` version is the source of
+  truth; the script asserts that every other file carrying a version
+  agrees with it. That is seven fields across six files: the three
+  publishable manifests, `pixi.toml`, and both `version` and `release`
+  in `docs/source/conf.py`. Before 1.0.0 those last two read
+  `1.0.0-rc.2` and `0.1.0`/`0.8.5`, the latter pair not even agreeing
+  with each other, which is what a field nothing reads decays to.
+
+- **It runs continuously, not only at release.** `verify:versions` is
+  the FIRST step of `verify`, ahead of `build:packages`: it needs no
+  build, so drift fails in milliseconds on the PR that introduces it
+  rather than after fifteen build-dependent steps, or at tag time.
+  `check-release-preflight.mjs` calls the same exported
+  `checkVersionSync` instead of keeping its own manifest loop, so the
+  release path stays self-contained (it does not assume `verify` ran)
+  while remaining unable to disagree with `verify` about which files
+  are in the set. The preflight's own three checks, tag agreement,
+  registry state, and a clean tree, are unchanged.
+
+- **No vacuous pass, and no vacuous sweep.** A registered file whose
+  version field cannot be located is a FAILURE, not a skip: deleting
+  the `version` line from `pixi.toml` turns the gate red rather than
+  green, because a check that silently stops checking has also
+  displaced the human check it replaced. The same reasoning applies one
+  level up, to the registry itself: a sweep over tracked `.toml`,
+  `.cff`, `conf.py` and `.zenodo.json` files fails on any that carries
+  a version assignment and is not registered, so a future `CITATION.cff`
+  cannot join the set unnoticed the way these two files drifted. If
+  `git ls-files` cannot be run, that is a failure too, for the same
+  reason the preflight treats an unanswered registry as a failure.
+
+- **`--write` removes the hand-edit that introduced the drift.** The
+  release bump is now: edit the root manifest, run
+  `node scripts/check-version-sync.mjs --write`, run
+  `pnpm install --lockfile-only`. The rewrite splices the captured value
+  only, so it cannot reformat the surrounding line, and it refuses to
+  run at all if an anchor is missing. RELEASE.md step 1 documents this
+  and no longer tells the releaser that two of the files are on them.
+
+- Verified by deliberate red: drifting `pixi.toml`, drifting
+  `conf.py`'s `release` alone, deleting the `pixi.toml` version line,
+  and adding an unregistered tracked `CITATION.cff` each fail the gate
+  with a message naming the file, the field, the found value and the
+  expected one. `--write` was exercised against a bumped root and
+  reverted.
 
 ## 1.0.0 PUBLISHED: 2026-08-21 (first release to npm, with a postmortem)
 
@@ -115,12 +325,14 @@ for a maintainer ruling rather than landed.
   passed untested.
 
 - **Postmortem: version drift outside the four manifests is still
-  ungated.** `pixi.toml` and `docs/source/conf.py` had drifted to
-  `1.0.0-rc.2` and `0.1.0`/`0.8.5` while RELEASE.md step 1 required
-  agreement. They were fixed by hand this round and RELEASE.md now
-  names them explicitly, but nothing asserts it. Extending the
-  preflight to cover both is a small change and the obvious next
-  hardening.
+  ungated.** (CLOSED 2026-08-27 by `scripts/check-version-sync.mjs`;
+  see the Unreleased entry for that date. Closed, not yet released.)
+  `pixi.toml` and
+  `docs/source/conf.py` had drifted to `1.0.0-rc.2` and
+  `0.1.0`/`0.8.5` while RELEASE.md step 1 required agreement. They were
+  fixed by hand this round and RELEASE.md now names them explicitly,
+  but nothing asserts it. Extending the preflight to cover both is a
+  small change and the obvious next hardening.
 
 - **Postmortem: an npm scope is not yours until you own the org.** The
   `g3t` org was taken, which was discovered only when the org was

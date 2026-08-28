@@ -32,6 +32,50 @@ ruled consequence of a FAIL. Priorities use P0/P1/P2; no dates.
 | MR-9 | CLOSED (owner: "largely stable") | Round-trip idempotence; residual polish lives in MR-10 |
 | MR-10 | FLAGGED, P2 | During-drag endpoint tracking (live-feel notes) |
 | MR-11 | RE-REVIEW (background fixed) | F1 pane now inherits the dark shell like the cy panes |
+| MR-12 | OPEN, P0 | Cytoscape shells opened unfitted under `vite dev`; StrictMode + LR-45 replay root-caused and gated |
+
+## MR-12 (OPEN, P0): dev-mode initial fit on the Cytoscape shells
+
+**Owner report (2026-08-28), on `pixi run dev`:** the Cytoscape shells
+(Provenance Auditor, Supply Chain, and siblings) do not render the
+graph initially fit or centered on the canvas.
+
+**Root cause (measured, not inferred).** A Playwright probe against the
+running dev server read the live camera as zoom 1 / pan (0,0) on every
+ugm shell, with the element bounding box inside the component's own
+pre-layout random-scatter range: the fcose pass had been discarded, not
+merely left unfitted. Instrumenting `initCytoscape` showed two inits per
+mount, the second reporting `sameGraphRebuild: true`, a prior camera of
+zoom 1 / pan (0,0), and 21 replayed positions. React StrictMode mounts,
+unmounts, and remounts in dev; fcose is ASYNCHRONOUS, so the first
+instance was destroyed mid-layout and LR-45's teardown captured its
+identity camera and scattered positions unconditionally. The remount
+then took the same-graph fast path: `preset` with `fit: false` over the
+scatter, camera restored to identity.
+
+**Fix.** `CytoscapeCanvas` tracks layout SETTLEMENT (`preset` is settled
+on arrival, everything else at `layoutstop`) and captures camera and
+positions only from a settled instance. An unsettled teardown captures
+nothing, so the remount lays out and fits normally; the LR-45 fast path
+is untouched once a layout has settled. Two regression tests pin both
+halves, and the first reproduces the exact defect (`preset` instead of a
+real layout) when the gate is removed.
+
+**Procedure:** run `pixi run dev`, open each Cytoscape shell from the
+landing, and judge the FIRST paint without touching the camera.
+
+**Accept criteria:** each shell opens with the whole graph laid out
+(fcose spread, not a scatter) and fit within the canvas with margin, on
+first load and on re-entry from the landing. Panning or zooming and
+then leaving and re-entering the shell must still open fit.
+
+**Verifies:** the camera/position stability doctrine in
+specs/09-design-decisions.md (fit on first mount or a genuinely
+different graph).
+
+**On FAIL:** settlement is not the only unconditional capture on the
+teardown path; instrument `initCytoscape` again and record what the
+second init reports before changing anything.
 
 ## MR-1 (CLOSED: FEATURE REMOVED BY RULING 2026-07-10): Collapse/expand stability, as seen live
 

@@ -48,7 +48,7 @@ describe.skipIf(!ENABLED)("PRF-001 sharpening matrix", () => {
       const out: Record<string, number> = {};
       const log = (k: string, ms: number) => {
         out[k] = Math.round(ms * 10) / 10;
-        // eslint-disable-next-line no-console
+
         console.log(`${k}: ${ms.toFixed(1)} ms`);
       };
 

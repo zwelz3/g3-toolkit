@@ -1,5 +1,36 @@
 # g3-toolkit Status
 
+**As of:** 2026-08-27 (active: **VERSION-DRIFT GATE.** Postmortem item
+3 of 4 from the 1.0.0 release is CLOSED. `scripts/check-version-sync.mjs`
+takes the root `package.json` version as the source of truth and
+asserts that every other version-bearing file agrees: seven fields
+across six files (the three publishable manifests, `pixi.toml`, and
+both `version` and `release` in `docs/source/conf.py`, the last two
+being the pair that had drifted to `1.0.0-rc.2` and `0.1.0`/`0.8.5`
+before the release). It is wired in TWO places on purpose:
+`verify:versions` is the first step of `verify`, ahead of
+`build:packages`, so drift fails in milliseconds on the PR that
+introduces it; and `check-release-preflight.mjs` imports
+`checkVersionSync` in place of its old four-manifest loop, so the
+release path does not assume `verify` ran and the two callers cannot
+disagree about the file set. A missing version field is a FAILURE
+rather than a skip, and a sweep over tracked `.toml`/`.cff`/`conf.py`/
+`.zenodo.json` files fails on any unregistered file carrying a version
+assignment, which is what keeps the registry (and RELEASE.md step 1
+beside it) from going stale. `--write` propagates a root bump to the
+other six fields, so the hand-edit that produced the original drift is
+gone from the release procedure. Self-tested red on five injected
+faults; details in planning/version-drift-gate.md. STILL OPEN from the
+postmortem: `--dry-run` never authenticates so a rehearsal cannot
+validate the token; the preflight's tag-agreement check is skipped on
+every `workflow_dispatch` and so is first executed on the one run that
+cannot be undone; and scope availability should be checked at the START
+of packaging work. Also still open, unchanged: `act()` warnings from
+unwrapped `onReady` calls in `StyleLabShell.test.tsx`, and no automated
+coverage of `CanvasAdapter`'s rasterization path.)
+
+## PRIOR SNAPSHOT (2026-08-21 late, v1.0.0 published)
+
 **As of:** 2026-08-21 late (active: **v1.0.0 IS PUBLISHED.**
 `@g3-toolkit/core`, `@g3-toolkit/react` and `@g3-toolkit/charts` are
 live on npm at 1.0.0 under tag `v1.0.0`, the debut run of

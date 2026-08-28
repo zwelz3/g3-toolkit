@@ -27,6 +27,10 @@ function fakeNode(id: string): FakeNode {
 let nodeList: FakeNode[] = [];
 const cy = {
   on: vi.fn(),
+  // Layout-settlement handle: the canvas subscribes once to layoutstop to
+  // learn an asynchronous layout finished. Never fired here; these tests
+  // only exercise the visibility filter.
+  one: vi.fn(),
   removeListener: vi.fn(),
   destroy: vi.fn(),
   nodes: vi.fn(() => ({

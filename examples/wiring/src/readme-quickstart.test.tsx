@@ -27,6 +27,10 @@ vi.mock("cytoscape", () => {
   const cy = {
     layout: vi.fn(() => ({ run: vi.fn() })),
     on: vi.fn(),
+    // The canvas subscribes once to layoutstop to learn an asynchronous
+    // layout settled (only then is its camera worth preserving). Never
+    // fired here; this twin only checks the quickstart renders.
+    one: vi.fn(),
     off: vi.fn(),
     destroy: vi.fn(),
     batch: vi.fn((fn: () => void) => fn()),

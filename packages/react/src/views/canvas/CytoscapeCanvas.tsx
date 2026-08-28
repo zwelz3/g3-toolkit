@@ -745,7 +745,6 @@ export function composeCanvasStylesheet(
   merged.push({
     selector: ".g3t-hidden",
     style: { display: "none" },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
   return merged;
 }
@@ -1041,6 +1040,20 @@ export function CytoscapeCanvas({
   const lastPositionsRef = useRef<Map<string, { x: number; y: number }> | null>(
     null,
   );
+  // Has the CURRENT instance's initial layout finished? Both the camera
+  // and the position replay above are only meaningful once it has.
+  // fcose/cose are ASYNCHRONOUS (and animated by default), so an instance
+  // torn down before layoutstop still holds the pre-layout random scatter
+  // and the identity camera (zoom 1, pan 0,0). Capturing that at teardown
+  // and replaying it made the next init a "same-graph rebuild": preset
+  // layout with fit:false over scattered positions, camera restored to
+  // identity. React StrictMode's mount/unmount/remount hits this on EVERY
+  // dev mount, which is why every ugm shell opened unfitted and unlaid-out
+  // under `vite dev` while the production build was fine. Gate the capture
+  // on settlement; an unsettled teardown leaves the last KNOWN-GOOD camera
+  // and positions in place (null on first mount, so init 2 lays out and
+  // fits normally).
+  const layoutSettledRef = useRef(false);
   const stylesheetRef = useRef(stylesheet);
   // eslint-disable-next-line react-hooks/refs
   stylesheetRef.current = stylesheet;
@@ -1300,6 +1313,19 @@ export function CytoscapeCanvas({
         ...(layoutName === "preset" ? { fit: false } : {}),
       } as cytoscape.LayoutOptions,
     });
+
+    // Layout settlement (see layoutSettledRef). A preset layout places
+    // every node from geometry we already hold and finishes inside the
+    // constructor above, so it is settled on arrival; anything else runs
+    // asynchronously and is settled at layoutstop. `one` is deliberate:
+    // the first completion is what makes the camera meaningful, and
+    // later reheats keep it settled.
+    layoutSettledRef.current = layoutName === "preset";
+    if (!layoutSettledRef.current) {
+      cy.one("layoutstop", () => {
+        layoutSettledRef.current = true;
+      });
+    }
 
     // Structural camera policy: restore the preserved camera on a collapse
     // rebuild, otherwise fit the fresh scene. The preset layout ran with
@@ -1605,7 +1631,12 @@ export function CytoscapeCanvas({
       setOverlayCy(null);
       // Capture the live camera before teardown so the next same-graph
       // rebuild (e.g. a compartment collapse) restores it instead of fitting.
-      if (cyRef.current) {
+      // ONLY once the initial layout settled: an instance torn down mid-layout
+      // holds the pre-layout scatter and the identity camera, and replaying
+      // those is what left every dev-mode shell unfitted (see
+      // layoutSettledRef). Skipping the capture keeps the previous
+      // known-good values, so the next init lays out and fits normally.
+      if (cyRef.current && layoutSettledRef.current) {
         lastCameraRef.current = {
           pan: { ...cyRef.current.pan() },
           zoom: cyRef.current.zoom(),

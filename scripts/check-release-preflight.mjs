@@ -18,9 +18,15 @@
  *    `v1.0.1` against manifests reading `1.0.0` publishes 1.0.0 a
  *    second time, which npm rejects on the FIRST package, or worse
  *    succeeds because 1.0.0 was never published and now the tag lies.
- * 2. Every publishable manifest carries the same version as the root.
- *    They are published as a set and their `workspace:*` ranges are
- *    rewritten to each other at publish time.
+ * 2. Every version-bearing file agrees with the root manifest. The
+ *    three publishable manifests matter because they are published as a
+ *    set and their `workspace:^` ranges are rewritten to each other at
+ *    publish time. `pixi.toml` and `docs/source/conf.py` matter because
+ *    they describe the project to humans and had both drifted, silently,
+ *    by the time 1.0.0 was tagged. Delegated to
+ *    scripts/check-version-sync.mjs, which also runs first in `verify`:
+ *    the release path should not depend on that having happened, and the
+ *    two callers should not be able to disagree about the file set.
  * 3. No package@version already exists on the registry. This is the
  *    check that turns a mid-run failure into a pre-run failure: if a
  *    previous attempt got two of three out, this fails before the
@@ -35,9 +41,10 @@
  * Run from the repo root. Set SKIP_REGISTRY=1 to run checks 1, 2 and 4
  * offline (check 3 needs the network).
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { checkVersionSync } from "./check-version-sync.mjs";
 
 const root = process.cwd();
 const PUBLISHABLE = ["core", "react", "charts"];
@@ -71,25 +78,17 @@ if (tagMatch) {
   notes.push("no tag in GITHUB_REF, skipping the tag-agreement check");
 }
 
-// 2. All four manifests agree.
-const targets = [];
-for (const dir of PUBLISHABLE) {
-  const path = join(root, "packages", dir, "package.json");
-  if (!existsSync(path)) {
-    failures.push(`packages/${dir}/package.json does not exist`);
-    continue;
-  }
-  const pkg = readManifest(path);
-  if (pkg.version !== version) {
-    failures.push(
-      `${pkg.name} is at ${pkg.version} but the root manifest is at ${version}. ` +
-        `The three packages are published as a set and cross-depend by version.`,
-    );
-  }
-  targets.push({ name: pkg.name, version: pkg.version });
-}
-if (targets.length === PUBLISHABLE.length) {
-  notes.push(`${targets.length} manifests at ${version}`);
+// 2. Every version-bearing file agrees, not only the four manifests.
+const sync = checkVersionSync({ root });
+failures.push(...sync.failures);
+notes.push(...sync.notes);
+const targets = sync.publishable;
+if (targets.length !== PUBLISHABLE.length) {
+  failures.push(
+    `expected ${PUBLISHABLE.length} publishable manifests, found ` +
+      `${targets.length}. The registry in scripts/check-version-sync.mjs and ` +
+      `the publish order in .github/workflows/publish.yml have diverged.`,
+  );
 }
 
 // 3. Nothing is already on the registry.
