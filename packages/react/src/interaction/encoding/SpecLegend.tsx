@@ -99,7 +99,15 @@ export interface SpecLegendProps {
   /** Omit when rendering for a structural scene and pass
    *  `elements` instead (R-13.3). */
   ugm?: UGM;
-  /** R-13.3: element descriptors for renderers without a UGM. */
+  /** R-13.3: element descriptors for renderers without a UGM.
+   *
+   *  REFERENTIAL STABILITY CONTRACT (same one the fixture graphs
+   *  carry): the row memos depend on this array's IDENTITY, because on
+   *  the ugm-less path it is the only thing they can key on. Hold it in
+   *  a `useMemo` or module constant. A fresh literal per render is
+   *  correct but recomputes the rows every render; the alternative,
+   *  omitting it from the dependencies, froze the legend at its first
+   *  render and is the defect this contract replaces. */
   elements?: readonly LegendElement[];
   spec: EncodingSpec;
   /** When true, render a header with a collapse/expand toggle so the
@@ -217,7 +225,7 @@ export function SpecLegend({
     return [...types]
       .sort()
       .map((value, i) => ({ value, shape: shapeForIndex(i) as string }));
-  }, [shapeEnc, ugm]);
+  }, [shapeEnc, ugm, elements]);
 
   const shapeRows = useMemo(() => {
     if (shapeEnc?.scale.kind !== "categorical") return [];
@@ -230,7 +238,7 @@ export function SpecLegend({
       .filter(
         (r): r is { value: string; shape: string } => r.shape !== undefined,
       );
-  }, [shapeEnc, ugm]);
+  }, [shapeEnc, ugm, elements]);
 
   const colorRows = useMemo(() => {
     if (colorEnc?.scale.kind !== "categorical") return [];
@@ -245,7 +253,7 @@ export function SpecLegend({
       value: v,
       color: resolve(sampleFor(colorEnc.driver, v)),
     }));
-  }, [colorEnc, ugm]);
+  }, [colorEnc, ugm, elements]);
 
   const iconRows = useMemo(() => {
     if (iconEnc?.scale.kind !== "categorical") return [];
@@ -258,7 +266,7 @@ export function SpecLegend({
       .filter(
         (r): r is { value: string; icon: string } => r.icon !== undefined,
       );
-  }, [iconEnc, ugm]);
+  }, [iconEnc, ugm, elements]);
 
   const sizeRow = useMemo(() => {
     if (sizeEnc?.scale.kind !== "sequential") return null;

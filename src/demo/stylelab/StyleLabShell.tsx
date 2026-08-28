@@ -134,61 +134,68 @@ export function StyleLabShell({
     setLegacyCy(cy);
   }, []);
 
-  const onEngineReady = useCallback((cy: Core) => {
-    for (const id of MUTED_IDS) cy.$id(id).addClass("lab-muted");
-    cy.$id(SELECTED_ID).select();
-    const engine = new StyleEngine(styleLabEngineConfig());
-    const elements = styleElementsFromCy(cy).map((el) => ({
-      ...el,
-      classes: cy.$id(el.id).hasClass("lab-muted") ? ["lab-muted"] : [],
-      states: el.id === SELECTED_ID ? ["selected"] : [],
-    }));
-    const resolved = engine.load({ elements });
-    baseResolvedRef.current = resolved;
-    engineKindsRef.current = new Map(
-      elements.map((el) => [el.id, el.kind] as const),
-    );
-    const report = applyVisualAttributes(cy, resolved);
-    publishCanvas("style-lab-engine")?.(cy);
-    setHonesty(
-      [...report.entries()]
-        .filter(([, r]) => r.unsupported.length > 0)
-        .map(([element, r]) => ({
-          element,
-          unsupported: r.unsupported.join(", "),
+  const onEngineReady = useCallback(
+    (cy: Core) => {
+      for (const id of MUTED_IDS) cy.$id(id).addClass("lab-muted");
+      cy.$id(SELECTED_ID).select();
+      const engine = new StyleEngine(styleLabEngineConfig());
+      const elements = styleElementsFromCy(cy).map((el) => ({
+        ...el,
+        classes: cy.$id(el.id).hasClass("lab-muted") ? ["lab-muted"] : [],
+        states: el.id === SELECTED_ID ? ["selected"] : [],
+      }));
+      const resolved = engine.load({ elements });
+      baseResolvedRef.current = resolved;
+      engineKindsRef.current = new Map(
+        elements.map((el) => [el.id, el.kind] as const),
+      );
+      const report = applyVisualAttributes(cy, resolved);
+      publishCanvas("style-lab-engine")?.(cy);
+      setHonesty(
+        [...report.entries()]
+          .filter(([, r]) => r.unsupported.length > 0)
+          .map(([element, r]) => ({
+            element,
+            unsupported: r.unsupported.join(", "),
+          })),
+      );
+      // Label TEXT rides element data in the cy panes (label:
+      // data(label) in the base stylesheet); the engine's resolved
+      // attributes carry label STYLING channels but not text. The F1
+      // adapter renders attributes only, so the shell harvests the
+      // data-derived text here and merges it into the attribute maps
+      // (the same division of labor cytoscape's data mapping does).
+      labelTextRef.current = new Map(
+        cy
+          .nodes()
+          .map((n) => [n.id(), String(n.data("label") ?? n.id())] as const),
+      );
+      setF1Scene({
+        nodes: cy.nodes().map((n) => {
+          const p = n.position();
+          return {
+            id: n.id(),
+            x: p.x,
+            y: p.y,
+            width: n.width(),
+            height: n.height(),
+          };
+        }),
+        edges: cy.edges().map((e) => ({
+          id: e.id(),
+          source: e.source().id(),
+          target: e.target().id(),
         })),
-    );
-    // Label TEXT rides element data in the cy panes (label:
-    // data(label) in the base stylesheet); the engine's resolved
-    // attributes carry label STYLING channels but not text. The F1
-    // adapter renders attributes only, so the shell harvests the
-    // data-derived text here and merges it into the attribute maps
-    // (the same division of labor cytoscape's data mapping does).
-    labelTextRef.current = new Map(
-      cy
-        .nodes()
-        .map((n) => [n.id(), String(n.data("label") ?? n.id())] as const),
-    );
-    setF1Scene({
-      nodes: cy.nodes().map((n) => {
-        const p = n.position();
-        return {
-          id: n.id(),
-          x: p.x,
-          y: p.y,
-          width: n.width(),
-          height: n.height(),
-        };
-      }),
-      edges: cy.edges().map((e) => ({
-        id: e.id(),
-        source: e.source().id(),
-        target: e.target().id(),
-      })),
-    });
-    setF1Resolved(withLabelText(resolved));
-    setEngineCy(cy);
-  }, []);
+      });
+      setF1Resolved(withLabelText(resolved));
+      setEngineCy(cy);
+      // withLabelText is useCallback([]) reading only labelTextRef, so its
+      // identity never changes and listing it is equivalent to []. Listed
+      // rather than suppressed: if it ever gains a dependency, this
+      // callback should start tracking it.
+    },
+    [withLabelText],
+  );
 
   // The live parity table: same oracle as the headless test, computed
   // once both instances are mounted (a mount-time comparison, not a

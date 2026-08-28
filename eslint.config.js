@@ -23,6 +23,12 @@ export default tseslint.config(
       "docs-out/",
       "storybook-static/",
       "coverage/",
+      // Materialized conda environment: vendored code by any measure,
+      // and ~700 lint errors when present. .prettierignore already had
+      // it; this list did not, and flat config does not read
+      // .gitignore, so `pnpm run lint` was green in CI (no .pixi there)
+      // and red for anyone who had run `pixi install`.
+      ".pixi/",
     ],
   },
   js.configs.recommended,
@@ -31,6 +37,16 @@ export default tseslint.config(
     plugins: { "react-hooks": reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // AFTER the spread, which sets this to "warn". Seven of these
+      // accumulated as warnings and two were real defects by the time
+      // anyone read them: a legend that stopped tracking its input, and
+      // a wheel handler zooming from a stale controlled view. A warning
+      // that nothing fails on is a defect with a comment on it. Genuine
+      // exceptions take an eslint-disable with the reason written out
+      // (see ThreadShell's harvest memo); reportUnusedDisableDirectives
+      // is on by default in flat config, so those surface as stale if
+      // the code they guard is ever restructured.
+      "react-hooks/exhaustive-deps": "error",
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_" },

@@ -48,8 +48,10 @@ The only repair is to bump all four manifests and re-tag.
 
 There is no rollback to add, so the mitigation is to move every check
 that CAN fail in front of the first publish. That is
-`scripts/check-release-preflight.mjs`, which asserts the tag and all
-four manifests name the same version, that none of the three
+`scripts/check-release-preflight.mjs`, which asserts the tag and every
+version-bearing file name the same version (delegated to
+`scripts/check-version-sync.mjs`, so the release path and `verify`
+cannot disagree about which files those are), that none of the three
 `package@version` pairs already exists on the registry, and that the
 working tree is clean. The registry check is the one that matters
 most: after a partial publish it fails BEFORE the first publish
@@ -68,11 +70,26 @@ checked.
 
 ## Before tagging
 
-1. Versions agree. Root and all three packages carry the release
-   version; `pnpm install --lockfile-only` has been run so the
-   lockfile matches. `pixi.toml` and `docs/source/conf.py` carry it
-   too: the preflight compares only the four manifests, so those two
-   are on you, and both had drifted before 1.0.0.
+1. Versions agree. Bump the root `package.json`, which is the source of
+   truth, then run:
+
+   ```bash
+   node scripts/check-version-sync.mjs --write
+   pnpm install --lockfile-only
+   ```
+
+   That writes the release version into every other file that carries
+   one: the three publishable manifests, `pixi.toml`, and both the
+   `version` and `release` fields of `docs/source/conf.py`. Running the
+   script with no flag checks instead of writing, and it is the first
+   step of `verify` and the first check of the preflight, so drift fails
+   on the PR that introduces it rather than at tag time.
+
+   This step used to say the last two files were on you, and both had
+   drifted before 1.0.0 (`pixi.toml` to `1.0.0-rc.2`, `conf.py` to
+   `0.1.0` and `0.8.5`, which did not even agree with each other). Do
+   not hand-edit them; if you add a new file that carries a version, the
+   script's sweep will fail until you register it there.
 
    The README no longer states a version. It carries npm badges that
    read the live registry instead, which is deliberate: a
@@ -84,7 +101,9 @@ checked.
    previous release, so `main` never claims a version that does not
    exist on the registry.
 2. `pnpm run gates` is green: typecheck, lint, verify, test, and
-   the spec gates. `verify` includes `verify:package` (every entry
+   the spec gates. `verify` includes `verify:versions` (step 1's check,
+   run first because it needs no build and so fails in milliseconds),
+   `verify:package` (every entry
    point in every package's exports map exists after a build, and
    files[] claims nothing absent), `verify:types` (consumer type
    resolution under node16 AND bundler), `verify:consumer-cost` (what

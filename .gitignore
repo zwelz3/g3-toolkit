@@ -63,6 +63,7 @@ __pycache__/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.example.json
+*.code-workspace
 *.swp
 *.swo
 

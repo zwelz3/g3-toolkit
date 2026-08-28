@@ -350,6 +350,40 @@ const BUDGETS = {
   // target) and R-13.3 (one legend serving both renderers).
   react: 390 * 1024,
   // React ledger:
+  // - NO RAISE, 2026-08-28 (core stopped being external): measured
+  //   651.7 KB, 167% of this budget. The 261.7 KB over was not growth
+  //   and the correct response was a one-line dependency restore, not a
+  //   raise. 683e40e ("Fix version pins") reordered
+  //   packages/react/package.json and dropped
+  //   `"@g3-toolkit/core": "workspace:^"` from `dependencies`. No build
+  //   file names that entry, because externals are DERIVED from the
+  //   manifest by scripts/vite-externals.mjs, so deleting the line
+  //   silently un-externalized core; the `resolve.alias` in
+  //   packages/react/vite.config.ts, which points @g3-toolkit/core at
+  //   ../core/src, then compiled the whole of core into react's dist.
+  //   Nothing else went red: the alias resolves without the workspace
+  //   link, so typecheck, tests, and the export gates stayed green
+  //   while the published package quietly carried a second copy of
+  //   core.
+  //   WHY IT REACHED A COMMIT: this check is step 15 of `verify`, and
+  //   the SAME commit broke step 1 by renaming pixi's [project] table
+  //   to [workspace] out from under check-version-sync.mjs. The `&&`
+  //   chain short-circuited before any bundle was ever measured. Two
+  //   independent-looking failures, one commit.
+  //   VERIFICATION that the excess was sibling code and not vendor
+  //   weight, per the sourcemap-audit rule the 2026-07-03 core entry
+  //   set: attribution over the three largest chunks (StatsPanel
+  //   144 KB, neighbors 136 KB, ugm 84 KB) returned sources of the form
+  //   ../../core/src/**, exactly ONE node_modules source in the whole
+  //   set (graphology, reached through core/src/ugm/ugm.ts), and no
+  //   react-only growth. Restoring the dependency returns the
+  //   measurement to 388.5 KB against this UNCHANGED 390 KB budget,
+  //   consistent with the 387.7 KB recorded below.
+  //   Weight was the symptom, not the defect: a host installing
+  //   @g3-toolkit/core alongside @g3-toolkit/react would have received
+  //   two copies of the exported zustand store singletons, the same
+  //   two-instance hazard the ESM-only ruling exists to prevent. The
+  //   budget was the only gate that noticed. Leave it where it is.
   // - NO RAISE, 2026-08-14 (timeline moved to its own subpath):
   //   387.2 -> 387.7 KB, +0.5 KB, headroom 2.8 -> 2.3 KB. TimelineView
   //   statically imports the two OPTIONAL peers, and rollup had hoisted

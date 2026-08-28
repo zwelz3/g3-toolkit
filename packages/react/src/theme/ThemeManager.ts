@@ -189,7 +189,6 @@ export const useThemeStore = create<ThemeState>((set) => ({
       // reads as a rendering bug rather than a bad id. Warn rather than
       // throw, matching createTheme's posture: a bad theme id should
       // not take down a host's render.
-      // eslint-disable-next-line no-console
       console.warn(
         `[g3t] setTheme("${themeId}"): unknown theme id, keeping the ` +
           `current theme. Known ids: ${Object.keys(THEME_PRESETS).join(", ")}. ` +
