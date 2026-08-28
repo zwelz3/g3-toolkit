@@ -46,6 +46,13 @@ canvas logs a one-time warning when the design tokens are absent
 from the document, which is the fastest way to spot a missing
 import.
 
+To style your own chrome against ours, read the tokens the
+stylesheet defines. [design-tokens.md](./design-tokens.md) is the
+complete list, generated from the two emitters. Do not guess names:
+CSS custom properties fail silently, so `var(--g3t-color-bg, #fff)`
+against a token that does not exist renders your fallback in every
+theme and looks entirely deliberate.
+
 ## Which props re-run layout
 
 A full re-initialization (layout re-runs; arranged positions are
@@ -65,9 +72,57 @@ inline literal rebuilt each render is safe.
 For scene switches (a different diagram, a different subject),
 prefer a keyed remount over mutating props:
 
-```tsx
+```tsx no-check
 <CytoscapeCanvas key={sceneId} ugm={ugm} />
 ```
+
+### Adding nodes without discarding the arrangement
+
+The rule above means an ADDITIVE change (streaming in ten new nodes,
+expanding a neighborhood) costs you the whole arrangement, because a
+new `ugm` identity is a different graph. That is often not what you
+want.
+
+`@g3-toolkit/core/layout` exports the pieces for the additive case:
+`capturePositions`, `computeIncrementalUpdate` (which partitions a
+change into added, removed, and locked ids), `applyIncrementalLayout`,
+and an `IncrementalLayout` class that holds the previous snapshot for
+you.
+
+These work on the LIVE Cytoscape core, not on a `UGM`: you capture
+positions off the core, then apply a layout that places only the added
+nodes and leaves the rest locked. They are deliberately not wired into
+the canvas, because the canvas cannot tell an additive change from a
+different subject; only you know that your next graph is the previous
+one plus ten nodes.
+
+```tsx
+import { IncrementalLayout } from "@g3-toolkit/core/layout";
+
+// Keep one instance alongside your graph state.
+const layout = new IncrementalLayout({ animationDuration: 300 });
+
+// Before the graph changes, snapshot where everything sits:
+layout.captureFrom(cy);
+
+// After you add nodes to the core, place only the new ones:
+layout.apply(cy, new Set(nextNodeIds));
+
+// apply() does NOT refresh the snapshot; captureFrom(cy) again
+// before the next round.
+```
+
+The three functions underneath are available if you want to own the
+state yourself: `capturePositions(cy)` returns a
+`Map<string, Position>`, `computeIncrementalUpdate(previousPositions,
+currentIds, previousIds)` returns the partition plus a `mode` of
+`"full" | "incremental" | "none"`, and `applyIncrementalLayout(cy,
+update, options)` performs it.
+
+Note the subpath: these are not on the `@g3-toolkit/core` root.
+
+Because this path mutates the core directly, it is subject to the
+`onReady` caveat in the wiring guide.
 
 ## Interaction contracts
 
@@ -107,7 +162,7 @@ on touch devices without configuration. To drive it from the host,
 persist a viewport, or implement a custom gesture, pass `view` with
 `onViewChange`:
 
-```tsx
+```tsx no-check
 const [view, setView] = useState<SvgViewTransform | undefined>(saved);
 
 <StructuralSvgView
@@ -246,3 +301,15 @@ theme store silently splits:
 - `TimelineView` is only importable from `@g3-toolkit/react/timeline`, and
   that subpath requires the optional peers `vis-timeline` and
   `vis-data`. Every other entry point resolves without them.
+- **Some symbols live on a subpath for reasons unrelated to optional
+  peers.** The rule above is about peers; this one is about surface
+  size. `GremlinAdapter`, `parseShaclReport`, `computeIncrementalUpdate`,
+  and `applyIncrementalLayout` are NOT on the package root. Reach them
+  at `@g3-toolkit/core/gremlin`, `@g3-toolkit/core/shacl`, and
+  `@g3-toolkit/core/layout` respectively. `api-surface.json` is the
+  authority on which entry point exports what; a symbol absent from a
+  root import is usually one subpath away, not missing.
+- **`@g3-toolkit/core/internal` is private. Do not import it.** It is a
+  real `exports` entry because the packages consume it across the
+  workspace build, not because it is for you. Nothing in it is covered
+  by semver, and it will change in a patch release without a note.

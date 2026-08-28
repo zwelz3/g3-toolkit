@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-Everything in this section is on the `version-gates` branch and is NOT
-in a published package. 1.0.0 remains the released version on npm; the
-next tag is what moves these entries under a version heading.
+Everything in this section is merged to `main` or sits on the
+`downstream-issues-reccs` branch, and NONE of it is in a published
+package. 1.0.0 remains the released version on npm; the next tag is
+what moves these entries under a version heading.
 
 ### 2026-08-28 (two defects found hiding in the lint warning list)
 
@@ -156,6 +157,88 @@ next tag is what moves these entries under a version heading.
   surfaced it (ScaleSurface drill-in, which passes in isolation with the
   whole file at 7.15s) happened on a dev box, not in CI, and a CI-only
   value would rebuild the divergence the other two items just removed.
+
+### 2026-08-27 (downstream issue triage)
+
+Fifteen issues filed by a downstream adopter against 1.0.0
+(`planning/downstream-issues-triage.md` records the per-item verdict).
+Every claim was reproduced before any change; three items are deferred
+for a maintainer ruling rather than landed.
+
+- **Design tokens: 11 broken references fixed, and a gate so the class
+  cannot recur.** `var(--g3t-*)` on a name nothing emits falls back to
+  its literal, so the component renders, looks deliberate, and ignores
+  the theme in every mode, with typecheck, lint, and tests all green.
+  `scripts/check-design-tokens.mjs` derives the defined set from the
+  two emitters (never a hand-kept list), understands the templated
+  scale families, and treats element-scoped custom properties as real
+  definitions. It runs first in `verify`.
+
+  The report that prompted this listed eight references. It missed
+  three (`--g3t-success-muted` / `--g3t-warning-muted` /
+  `--g3t-error-muted` in `CoverageMeter`) and included one false
+  positive (`--g3t-toggle-accent`, which `PropertyField` sets inline
+  and which resolves correctly). Real figure: 11 references, 9 names.
+
+  Fixes: `zPopover` added to the z-scale between dropdown and overlay,
+  with the two drifted fallbacks (9999 and 50) normalized;
+  `--g3t-color-scheme` emitted from the theme; `successMuted` /
+  `warningMuted` / `errorMuted` added to `G3tTheme` as OPTIONAL fields
+  (required ones would break consumer theme literals at 1.0.0) and
+  defined across all three presets; four references repointed at
+  tokens that exist.
+
+- **The token vocabulary is documented, generated rather than
+  authored.** `docs/design-tokens.md` is emitted by the same script
+  and drift-checked on every run, because a hand-maintained table
+  would diverge from the emitters within a round. Linked from the
+  wiring and consuming guides.
+
+- **Overlay severity now reaches the canvas.** `severityOverlays`
+  produced one overlay per tier, but the canvas applied a single
+  `g3t-ov-member` to every member, so a violation and a warning were
+  pixel-identical. `StructuralOverlay` gains an optional `tone`
+  (`neutral` / `info` / `warning` / `danger`) — a generic tone rather
+  than a SHACL `severity`, since overlays are algorithm-neutral.
+  `computeOverlayMembership` resolves tone strongest-wins across
+  overlapping active overlays. Both stylesheets carry tone rules, and
+  every tone class is stripped alongside the member class so
+  deactivation still restores by construction.
+
+- **`FloatingLegend` forwards `collapsible` and `defaultCollapsed`.**
+  Both were hard-coded, so a floating legend could not start
+  collapsed despite covering up to 240px of canvas on arrival.
+
+- **`ugm-to-cytoscape` stamps `_type`.** `types` is an array and a
+  Cytoscape attribute selector cannot match an array element, so every
+  consumer writing a per-class style rule had to stamp a redundant
+  scalar first. `primaryType` was already computed and discarded.
+
+- **`StatsPanel` gains `title`, `unit`, and `description`**, plus an
+  x-axis name; the y axis now says "Nodes" rather than "Count",
+  which is what it counts.
+
+- **Documentation corrections.** The wiring guide's SHACL recipe
+  suggested `parseShaclReport` inside a root-import block (it is
+  subpath-only) and registered severity overlays active, contradicting
+  both shells; the executable twin now matches the corrected guide. A
+  patterns section records the six component pairings that were only
+  discoverable as comments inside individual demo shells. Added: a
+  double-click recipe, a scoped caveat that `onReady` is load-bearing
+  and renderer-coupled, the note that `GraphToolbar` ALREADY contains
+  a `SearchBar`, the `cy`-vs-`core` naming inconsistency, and that
+  `@g3-toolkit/core/internal` is private.
+
+- **`docs/consuming-g3t.md` joined the snippet gate**, and immediately
+  earned it: the incremental-layout recipe drafted for it invented a
+  `(oldUgm, nextUgm)` signature when the real functions take a
+  Cytoscape core. Now correct and typechecked.
+
+- Bundle budget for `@g3-toolkit/react` raised 390 -> 395 KB, measured
+  391.8 KB on this branch and 392.0 KB once main merged in, rationale
+  and sourcemap audit in the ledger. The raise and the same-day NO RAISE
+  entry above it are about different things: this one ratifies real
+  growth, that one refused to ratify core being inlined.
 
 ### 2026-08-27 (version-drift gate)
 

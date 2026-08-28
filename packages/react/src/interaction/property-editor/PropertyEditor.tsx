@@ -169,7 +169,7 @@ export function PropertyEditor({
                 fontSize: 12,
                 fontFamily: "inherit",
                 padding: "2px 4px",
-                border: "1px solid var(--g3t-accent, #2563eb)",
+                border: "1px solid var(--g3t-accent-primary, #2563eb)",
                 borderRadius: 3,
                 outline: "none",
                 background: "var(--g3t-bg-primary)",

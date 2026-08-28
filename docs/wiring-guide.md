@@ -38,7 +38,10 @@ store or function call in an `onClick`.
 
 - **Atoms**: `Icon`, the `g3t-btn` / `g3t-select` / `g3t-input` CSS
   classes, design tokens (`--g3t-*`). Use these to make YOUR controls
-  look native next to ours.
+  look native next to ours. The complete token vocabulary is in
+  [design-tokens.md](./design-tokens.md); check a name against that
+  table before using it, because a `var()` on a name we do not emit
+  falls back to your literal and silently ignores the theme forever.
 - **Molecules**: `SearchBar`, `ZoomControls`, `SpecPort`,
   `ThemeSwitcher`, `SpecLegend`, `ContextMenu`. Single-purpose,
   callback-driven; compose them into your own bars and panels.
@@ -48,6 +51,58 @@ store or function call in an `onClick`.
   the stores; drop them in whole, or rebuild them from molecules
   using the same stores (GraphToolbar itself is the worked example:
   read its source).
+
+**`GraphToolbar` already contains a `SearchBar`.** Its anatomy is
+`[search (flex)] [layout select] [options popover] [Run]`. Placing
+your own `SearchBar` beside the toolbar ships two search fields that
+both drive the selection store, which is an easy and confusing
+duplicate. Use one or the other.
+
+**Two names for one handle.** `GraphToolbar` takes the Cytoscape
+instance as `cy`; `Minimap` takes the same instance as `core`. Both
+are the value `onReady` hands you. The inconsistency is real and
+frozen for 1.x, since renaming either is a breaking change.
+
+## Patterns (which components pair, and why)
+
+Single components are catalogued in
+[capability-index.md](./capability-index.md). The leverage is in the
+pairings, and each demo shell exercises a near-disjoint slice of
+them, so reading the one shell closest to your domain teaches that
+slice and quietly hides the rest. These six are the ones worth
+knowing before you start.
+
+**Selection is the universal join.** Every view component subscribes
+to `useSelectionStore` itself. There is no selection prop to thread,
+so adding four linked views is four JSX lines over one referentially
+stable `ugm`. This is the single highest-leverage fact in the
+library.
+
+**Emphasis is not selection.** Selection is the user's current focus,
+one store, one treatment. Overlays are computed membership sets
+(algorithm results, SHACL tiers) with their own toggles. Reaching for
+selection to express "these nodes matter" fights the user for the
+cursor; register an overlay instead.
+
+**Register overlays inactive.** `register(overlay, false)`. An
+overlay active at mount de-emphasizes every non-member, and a
+reviewer meeting a mostly-muted graph reads it as a rendering fault
+rather than as a filter. Let activation be their act. Overlays carry
+an optional `tone` (`neutral` / `info` / `warning` / `danger`) so
+distinct tiers stay visually distinct once activated.
+
+**The context menu is a command bus.** `@g3-toolkit/core/events` is a
+context-action command bus, NOT a fourth integration channel. Add
+your verbs as menu actions; do not build a general pub/sub on it.
+
+**Scale is a two-graph pattern.** Large-graph work holds a detail
+graph and a cluster graph, and swaps which one the canvas renders.
+It is not a setting on one graph. See "Scaling: collapse large graphs
+to clusters" below.
+
+**Schema renders through a parallel pipeline.** A shape graph is not
+your data graph with different colors; it projects through its own
+compartment API. See "Render a SHACL shape graph" below.
 
 ## Custom buttons (the core recipes)
 
@@ -155,6 +210,53 @@ const [spec, setSpec] = useState<EncodingSpec>(initialSpec);
 
 `parseEncodingSpec` / `serializeEncodingSpec` round-trip it through
 storage or URLs; reserved-channel violations are rejected by name.
+
+### Double-click a node to open detail
+
+There is no `onNodeDoubleClick` prop. Double-click is a Cytoscape
+gesture (`dbltap`, which also covers touch), so bind it on the core
+`onReady` hands you. `NeighborhoodPopout` is the usual target, but
+any detail surface works:
+
+```tsx
+import { useCallback } from "react";
+import type { Core } from "cytoscape";
+import type { UGM } from "@g3-toolkit/core";
+import { CytoscapeCanvas, useSelectionStore } from "@g3-toolkit/react";
+
+function GraphWithDetail({ ugm }: { ugm: UGM }) {
+  const handleReady = useCallback((cy: Core) => {
+    cy.on("dbltap", "node", (evt) => {
+      const id = evt.target.id();
+      useSelectionStore.getState().selectNodes([id]);
+      openYourDetailPanel(id);
+    });
+    // Background double-click: a conventional "fit to screen".
+    cy.on("dbltap", (evt) => {
+      if (evt.target === cy) {
+        cy.animate(
+          { fit: { eles: cy.elements(), padding: 40 } },
+          { duration: 200 },
+        );
+      }
+    });
+  }, []);
+  return <CytoscapeCanvas ugm={ugm} onReady={handleReady} />;
+}
+```
+
+Bind inside `onReady` rather than in an effect over a stored `cy`: the
+canvas re-initializes on a genuinely different input graph, and
+handlers bound to a destroyed core are silently lost.
+
+> **`onReady` is load-bearing, and that is a known risk.** Gestures,
+> position capture, `cy.fit`, and ad-hoc class application all reach
+> through the raw Cytoscape `Core`. That handle is a renderer
+> implementation detail, so a future move toward renderer
+> independence would break every consumer doing this at once. It is
+> stable for 1.x. If you can express something through a store, a
+> prop, or a document instead, prefer that; treat `onReady` as the
+> escape hatch it is, and keep your uses of it few and centralized.
 
 ### Filter by hiding, not by rebuilding
 
@@ -387,14 +489,23 @@ import {
   ingestAlgorithmResults,
 } from "@g3-toolkit/core";
 import { useOverlayStore } from "@g3-toolkit/react";
+// parseShaclReport is NOT on the root: it lives on the /shacl
+// subpath. Adding it to the import above fails to resolve.
+import { parseShaclReport } from "@g3-toolkit/core/shacl";
 
 const report = reportFromValidationResults(validateShacl(ugm, shapes));
 // (or parseShaclReport(externalPyshaclReport) for an external engine)
 
-// Severity tiers as independently toggleable overlays:
+// Severity tiers as independently toggleable overlays. Register them
+// INACTIVE: activating at mount dims every non-finding node, and a
+// reviewer meeting a mostly-muted graph reads it as broken rather
+// than as filtered. Let the toggle be the reviewer's act.
 for (const overlay of severityOverlays(report)) {
-  useOverlayStore.getState().register(overlay, true);
+  useOverlayStore.getState().register(overlay, false);
 }
+// Each tier carries a tone (violation -> danger, warning -> warning,
+// info -> info), so an activated violation tier draws red and a
+// warning tier amber rather than both drawing the same emphasis.
 // Count + worst-severity as encoding drivers (color/size via the grammar):
 ingestAlgorithmResults(ugm, shaclResultDrivers(report));
 // then point spec.node.color at "_shacl_maxSeverity" and

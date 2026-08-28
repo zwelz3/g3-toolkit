@@ -60,3 +60,38 @@ describe("compound containment mapping (slice 1, round 17)", () => {
     expect(els.every((e) => e.data.parent === undefined)).toBe(true);
   });
 });
+
+describe("scalar type key (_type)", () => {
+  function typedGraph(): UGM {
+    const ugm = new UGM();
+    ugm.addNode("a", {
+      types: ["Asset", "Serviceable"],
+      properties: { name: "Pump" },
+    });
+    ugm.addNode("b", { types: [], properties: { name: "Orphan" } });
+    return ugm;
+  }
+
+  it("stamps the primary type as a scalar an attribute selector can match", () => {
+    const els = ugmToCytoscapeElements(typedGraph());
+    const a = els.find((e) => e.data.id === "a");
+    // `types` stays the full array; _type is the selectable companion.
+    expect(a?.data.types).toEqual(["Asset", "Serviceable"]);
+    expect(a?.data._type).toBe("Asset");
+  });
+
+  it("falls back to _default for an untyped node, matching the visual lookup", () => {
+    const els = ugmToCytoscapeElements(typedGraph());
+    expect(els.find((e) => e.data.id === "b")?.data._type).toBe("_default");
+  });
+
+  it("lets a node property override it, as _color and _shape already allow", () => {
+    const ugm = new UGM();
+    ugm.addNode("x", {
+      types: ["Asset"],
+      properties: { name: "X", _type: "Override" },
+    });
+    const els = ugmToCytoscapeElements(ugm);
+    expect(els.find((e) => e.data.id === "x")?.data._type).toBe("Override");
+  });
+});

@@ -58,7 +58,7 @@ export function ContextMenu({ items, target, onClose }: ContextMenuProps) {
         position: "fixed",
         left: target.position.x,
         top: target.position.y,
-        zIndex: "var(--g3t-z-popover, 9999)" as unknown as number,
+        zIndex: "var(--g3t-z-popover, 600)" as unknown as number,
         background: "var(--g3t-bg-primary, white)",
         border: "1px solid var(--g3t-border, #ccc)",
         borderRadius: 4,

@@ -41,6 +41,15 @@ export interface G3tTheme {
   success: string;
   warning: string;
   error: string;
+  /** Muted (ghost) companions to the semantic trio, mirroring
+   *  accentMuted. Used for track/ghost fills that sit behind a solid
+   *  semantic bar (CoverageMeter). OPTIONAL rather than required:
+   *  G3tTheme is public API at 1.0.0, and a consumer-authored theme
+   *  literal must keep compiling. When absent the emitter skips them
+   *  and the component's own fallback applies. */
+  successMuted?: string;
+  warningMuted?: string;
+  errorMuted?: string;
 
   // Graph canvas
   canvasBg: string;
@@ -73,6 +82,9 @@ export const LIGHT_THEME: G3tTheme = {
   success: "#16a34a",
   warning: "#d97706",
   error: "#dc2626",
+  successMuted: "#dcfce7",
+  warningMuted: "#fef3c7",
+  errorMuted: "#fee2e2",
   canvasBg: "#ffffff",
   nodeStroke: "#495057",
   nodeLabelColor: "#212529",
@@ -108,6 +120,9 @@ export const DARK_THEME: G3tTheme = {
   success: "#2dd4bf",
   warning: "#fbbf24",
   error: "#f87171",
+  successMuted: "#134e4a",
+  warningMuted: "#452c0a",
+  errorMuted: "#4c1d1d",
   canvasBg: "#1a1b1e",
   nodeStroke: "#adb5bd",
   nodeLabelColor: "#e9ecef",
@@ -146,6 +161,9 @@ export const HIGH_CONTRAST_THEME: G3tTheme = {
   success: "#006600",
   warning: "#cc6600",
   error: "#cc0000",
+  successMuted: "#ccffcc",
+  warningMuted: "#ffe0cc",
+  errorMuted: "#ffcccc",
   canvasBg: "#ffffff",
   nodeStroke: "#000000",
   nodeLabelColor: "#000000",
@@ -213,6 +231,10 @@ function injectCssVariables(theme: G3tTheme): void {
   const root = document.documentElement;
 
   root.style.colorScheme = theme.colorScheme;
+  // Also exposed as a token: a component rendering into a portal or a
+  // detached subtree sets its own `color-scheme` and cannot read the
+  // root's inline style property. ContextMenu does exactly this.
+  root.style.setProperty("--g3t-color-scheme", theme.colorScheme);
   root.style.setProperty("--g3t-accent-color-controls", theme.accentPrimary);
   root.style.setProperty("--g3t-bg-primary", theme.bgPrimary);
   root.style.setProperty("--g3t-bg-secondary", theme.bgSecondary);
@@ -227,6 +249,15 @@ function injectCssVariables(theme: G3tTheme): void {
   root.style.setProperty("--g3t-success", theme.success);
   root.style.setProperty("--g3t-warning", theme.warning);
   root.style.setProperty("--g3t-error", theme.error);
+  // Optional on G3tTheme (see the interface): skip rather than emit
+  // "undefined", so a consumer theme that omits them leaves the
+  // component fallback in force instead of blanking the ghost fill.
+  if (theme.successMuted)
+    root.style.setProperty("--g3t-success-muted", theme.successMuted);
+  if (theme.warningMuted)
+    root.style.setProperty("--g3t-warning-muted", theme.warningMuted);
+  if (theme.errorMuted)
+    root.style.setProperty("--g3t-error-muted", theme.errorMuted);
   root.style.setProperty("--g3t-canvas-bg", theme.canvasBg);
   root.style.setProperty("--g3t-node-stroke", theme.nodeStroke);
   root.style.setProperty("--g3t-node-label-color", theme.nodeLabelColor);

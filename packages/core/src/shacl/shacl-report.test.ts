@@ -101,6 +101,27 @@ describe("severityOverlays", () => {
     expect(viol.edgeIds).toContain("edge-name-1");
   });
 
+  // 2026-08-27: tiers previously reached the canvas as one class, so
+  // a violation and a warning were visually identical.
+  it("gives each tier a distinct tone", () => {
+    const report: ShaclReportDocument = {
+      version: 1,
+      conforms: false,
+      results: [
+        { focusNode: "a", severity: "violation" },
+        { focusNode: "b", severity: "warning" },
+        { focusNode: "c", severity: "info" },
+      ],
+    };
+    const toneById = new Map(
+      severityOverlays(report).map((o) => [o.id, o.tone]),
+    );
+    expect(toneById.get(severityOverlayId("violation"))).toBe("danger");
+    expect(toneById.get(severityOverlayId("warning"))).toBe("warning");
+    expect(toneById.get(severityOverlayId("info"))).toBe("info");
+    expect(new Set(toneById.values()).size).toBe(3);
+  });
+
   it("omits tiers with no results", () => {
     const report: ShaclReportDocument = {
       version: 1,

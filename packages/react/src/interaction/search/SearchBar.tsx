@@ -230,8 +230,8 @@ export function SearchBar({
               borderRadius: 3,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--g3t-surface-2, #eee)";
-              e.currentTarget.style.color = "var(--g3t-text, #222)";
+              e.currentTarget.style.background = "var(--g3t-bg-tertiary, #eee)";
+              e.currentTarget.style.color = "var(--g3t-text-primary, #222)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";

@@ -171,11 +171,14 @@ export {
   applyAlgorithmResult,
   connectedComponents,
   degreeCentrality,
+  OVERLAY_TONE_ORDER,
+  isOverlayTone,
 } from "./algorithm-adapter";
 export type {
   AlgorithmResultDocument,
   AlgorithmIngestReport,
   StructuralOverlay,
+  OverlayTone,
 } from "./algorithm-adapter";
 export { virtualizeRelationalData, parseCSV } from "./relational-virtualizer";
 export type { VirtualizeOptions } from "./relational-virtualizer";

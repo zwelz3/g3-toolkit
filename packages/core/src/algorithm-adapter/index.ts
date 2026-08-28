@@ -12,8 +12,11 @@ export {
   applyAlgorithmResult,
   connectedComponents,
   degreeCentrality,
+  OVERLAY_TONE_ORDER,
+  isOverlayTone,
 } from "./algorithm-results";
 export type {
   AlgorithmResultDocument,
   StructuralOverlay,
+  OverlayTone,
 } from "./algorithm-results";

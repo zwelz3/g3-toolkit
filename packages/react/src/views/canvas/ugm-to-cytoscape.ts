@@ -84,6 +84,16 @@ export function ugmToCytoscapeElements(
           ? { _compoundLabel: `\u00AB${primaryType}\u00BB\n${name}` }
           : {}),
         types: attrs.types,
+        // `types` is an array, and a Cytoscape attribute selector
+        // cannot match an element of one: `node[types = "Asset"]`
+        // never fires. Without a scalar companion every consumer
+        // writing a per-class style rule has to stamp its own
+        // redundant property onto every node first. primaryType is
+        // already computed above for the compound label, so this
+        // costs one line and makes `node[_type = "Asset"]` (and the
+        // documented _shape escape hatch) work at the class level
+        // rather than per node. Added 2026-08-27.
+        _type: primaryType,
         _color: visual.color,
         _shape: visual.shape,
         _size:

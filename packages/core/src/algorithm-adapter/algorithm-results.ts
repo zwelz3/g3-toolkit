@@ -50,6 +50,10 @@ export interface AlgorithmResultDocument {
     label?: string;
     nodeIds?: string[];
     edgeIds?: string[];
+    /** Optional rendering hint; see OverlayTone. An unrecognized
+     *  value is dropped rather than rejected, so a document from a
+     *  newer producer still loads with neutral emphasis. */
+    tone?: string;
   };
 }
 
@@ -101,12 +105,47 @@ export function parseAlgorithmResult(json: string): AlgorithmResultDocument {
 
 // ── Structural overlays (the structure-shaped half) ──────────────────
 
+/**
+ * Semantic tone an overlay asks its members to be drawn in.
+ *
+ * A closed vocabulary rather than a color: the toolkit owns the
+ * rendering, so a host that ships a theme keeps control of what
+ * "danger" looks like. Overlays are generic (any algorithm can emit
+ * one), which is why this is a tone and not a SHACL `severity`.
+ *
+ * Precedence when a node belongs to several active overlays is the
+ * declaration order here, strongest last: the worst news wins, so a
+ * node that is both a violation and an info stays red.
+ */
+export type OverlayTone = "neutral" | "info" | "warning" | "danger";
+
+/** Strongest-last, for the multi-overlay precedence rule. */
+export const OVERLAY_TONE_ORDER: readonly OverlayTone[] = [
+  "neutral",
+  "info",
+  "warning",
+  "danger",
+];
+
+export function isOverlayTone(value: unknown): value is OverlayTone {
+  return (
+    typeof value === "string" &&
+    (OVERLAY_TONE_ORDER as readonly string[]).includes(value)
+  );
+}
+
 export interface StructuralOverlay {
   id: string;
   label: string;
   nodeIds: string[];
   edgeIds: string[];
   algorithm?: string;
+  /** Optional rendering hint. Omitted means "neutral", which is the
+   *  single emphasis treatment every overlay got before 2026-08-27.
+   *  Without it, a violation tier and a warning tier are drawn
+   *  identically, which collapses "something is wrong somewhere" and
+   *  "these two objects are broken" into the same picture. */
+  tone?: OverlayTone;
 }
 
 export function overlayFromDocument(
@@ -125,6 +164,7 @@ export function overlayFromDocument(
     nodeIds: doc.overlay.nodeIds ?? [],
     edgeIds: doc.overlay.edgeIds ?? [],
     algorithm: doc.algorithm,
+    ...(isOverlayTone(doc.overlay.tone) ? { tone: doc.overlay.tone } : {}),
   };
 }
 
