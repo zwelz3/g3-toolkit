@@ -135,8 +135,52 @@ export type UGMEventPayload =
   | { type: "edgeAttributesUpdated"; payload: AttributeUpdatePayload }
   | { type: "cleared"; payload: null };
 
-/** Serialized UGM format for save/restore (T4). */
+/**
+ * Provenance stamp for a DERIVED node property value (issue #17).
+ *
+ * Held in a sidecar registry on the UGM, keyed by node id and property
+ * name, never on the node's attributes: a stamp inside `properties`
+ * would itself be a property (a column, an export field, an encoding
+ * driver), which is the laundering the stamp exists to stop. The stamp
+ * names the definition that wrote the value; the value stays a plain
+ * property so every existing reader keeps working.
+ */
+export interface DerivationStamp {
+  /** The definition that produced the value (for
+   *  `DerivedPropertyEngine`, the definition's `name`). */
+  definitionId: string;
+  /** The definition's version when the value was written. A stamp
+   *  whose version is older than the definition's current version is
+   *  STALE: the rule changed and the value has not been recomputed. */
+  version?: number;
+  /** ISO-8601 timestamp of the write. */
+  computedAt: string;
+  /** The expression text at write time, so a reader can see the rule
+   *  even after the definition changed or went away. */
+  expression?: string;
+}
+
+/** One registry entry: which node, which property, which stamp. */
+export interface DerivationRecord {
+  nodeId: string;
+  property: string;
+  stamp: DerivationStamp;
+}
+
+/**
+ * Serialized UGM format for save/restore (T4).
+ *
+ * Version 2 (issue #17) adds the optional `derivations` sidecar. The
+ * field was added under a version bump rather than silently because
+ * this document is read back by `UGM.fromJSON`, and a reader must be
+ * able to tell "no derivations" from "written by a build that did not
+ * know about them". A document with no `version` is the form every
+ * build before 2 wrote; `fromJSON` reads it as 1 and still loads it.
+ */
 export interface SerializedUGM {
+  /** Absent on documents written before the field existed (read as
+   *  1). `toJSON` writes 2. */
+  version?: 1 | 2;
   nodes: Array<{ id: string; attributes: NodeAttributes }>;
   edges: Array<{
     id: string;
@@ -144,4 +188,8 @@ export interface SerializedUGM {
     target: string;
     attributes: EdgeAttributes;
   }>;
+  /** Derivation stamps (version 2). Omitted when the registry is
+   *  empty, so a graph with no derived values serializes as before
+   *  apart from `version`. */
+  derivations?: DerivationRecord[];
 }

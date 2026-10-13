@@ -338,3 +338,27 @@ describe("TableView adapter-support props (reviews 5.18/5.19)", () => {
     expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
   });
 });
+
+describe("TableView: derived cells (issue #17)", () => {
+  it("marks a derived cell with data-derived and the class; source cells carry neither", () => {
+    const ugm = createTestUGM(2);
+    ugm.updateNodeProperties("node-0", { rank: 1 });
+    ugm.setDerivation("node-0", "rank", {
+      definitionId: "rankByScore",
+      computedAt: "2026-10-13T00:00:00.000Z",
+    });
+    render(<TableView ugm={ugm} />);
+    const row = screen.getByTestId("table-row-node-0");
+    const derived = row.querySelector('[data-derived="rankByScore"]');
+    expect(derived).not.toBeNull();
+    expect(derived).toHaveClass("g3t-table-cell-derived");
+    expect(derived).toHaveTextContent("1");
+    // Only the one cell: name/score/id/types are source values.
+    expect(row.querySelectorAll("[data-derived]")).toHaveLength(1);
+    expect(row.querySelectorAll(".g3t-table-cell-derived")).toHaveLength(1);
+    // The other row has the column but no stamp.
+    expect(
+      screen.getByTestId("table-row-node-1").querySelectorAll("[data-derived]"),
+    ).toHaveLength(0);
+  });
+});

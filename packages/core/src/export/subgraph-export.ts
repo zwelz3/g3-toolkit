@@ -21,7 +21,7 @@
  * @see specs/02-functional-interaction.md R2.11
  */
 
-import type { UGM } from "../ugm";
+import type { DerivationStamp, UGM } from "../ugm";
 
 export interface SubgraphSelection {
   /** Node ids to export; empty or omitted exports every node. */
@@ -32,6 +32,12 @@ interface ExportNode {
   id: string;
   types: string[];
   properties: Record<string, unknown>;
+  /** Derivation stamps for this node's DERIVED properties (issue
+   *  #17), keyed by property name; present only when the node has at
+   *  least one. The JSON export is the form that leaves the system
+   *  and gets cited, so a computed value must not read as a measured
+   *  one there. */
+  derivations?: Record<string, DerivationStamp>;
 }
 interface ExportEdge {
   id: string;
@@ -49,11 +55,18 @@ function collect(ugm: UGM, selection?: SubgraphSelection) {
   const nodes: ExportNode[] = [];
   ugm.forEachNode((id, attrs) => {
     if (wanted && !wanted.has(id)) return;
-    nodes.push({
+    const node: ExportNode = {
       id,
       types: [...(attrs.types ?? [])],
       properties: { ...attrs.properties },
-    });
+    };
+    const stamps = ugm.listDerivations(id);
+    if (stamps.length > 0) {
+      node.derivations = Object.fromEntries(
+        stamps.map((r) => [r.property, r.stamp]),
+      );
+    }
+    nodes.push(node);
   });
   const present = new Set(nodes.map((n) => n.id));
   const edges: ExportEdge[] = [];
@@ -175,6 +188,13 @@ export function exportSubgraphTurtle(
 
 // ── JSON ─────────────────────────────────────────────────────────────
 
+/**
+ * The lossless form. Each node carries `derivations` when any of its
+ * properties is a derived value (see `ExportNode`). The document stays
+ * at version 1: the field is optional and additive, and the toolkit has
+ * no reader of this document, so a consumer that ignores unknown keys
+ * reads it exactly as before.
+ */
 export function exportSubgraphJson(
   ugm: UGM,
   selection?: SubgraphSelection,
@@ -215,6 +235,12 @@ function csvCell(value: unknown): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+/**
+ * CSV carries NO derivation stamps (issue #17 ruling). The spreadsheet
+ * path is flat cells; a stamp column per property would double the
+ * width for a marker most rows leave empty. Consumers that need to tell
+ * derived from source use the JSON export.
+ */
 export function exportSubgraphCsv(
   ugm: UGM,
   selection?: SubgraphSelection,
