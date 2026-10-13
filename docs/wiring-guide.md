@@ -134,7 +134,38 @@ applies last, rather than restating `node.g3t-ov-member` in your own
 sheet, where a more specific selector would still lose on order. A
 per-element bypass (`ele.style(...)`) outranks every rule, which is
 why instance pins still shadow the overlay border on the pinned
-element.
+element. When one class of elements must keep its own chrome while
+an overlay is active (a focus ring, a row the user pinned), pass those
+rules through `stylesheetAfterOverlays` (issue #69): they merge after
+the overlay block and before the svg-overlay, label-collision and
+hidden rules, restyle in place like `stylesheet`, and are the only
+rule-based path that wins over an overlay on its members. Keep the
+slot to the deliberate exceptions; ordinary chrome stays in
+`stylesheet`.
+
+```tsx
+import { CytoscapeCanvas, type CyStylesheet } from "@g3-toolkit/react";
+
+// Ordinary chrome: beats the theme and the encoding, loses to an
+// active overlay on its members.
+const chrome: CyStylesheet[] = [
+  { selector: "node", style: { "border-width": 1 } },
+];
+// The deliberate exception: a focused node keeps its ring on an
+// overlay member too.
+const focusRing: CyStylesheet[] = [
+  {
+    selector: "node.host-focus",
+    style: { "border-width": 4, "border-color": "#1c7ed6" },
+  },
+];
+
+<CytoscapeCanvas
+  ugm={ugm}
+  stylesheet={chrome}
+  stylesheetAfterOverlays={focusRing}
+/>;
+```
 
 **The context menu is a command bus.** `@g3-toolkit/core/events` is a
 context-action command bus, NOT a fourth integration channel. Add

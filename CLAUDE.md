@@ -93,7 +93,9 @@ a written rationale in scripts/check-bundle-size.mjs (the ledger).
 - Canvas precedence by mechanism + namespace: theme = generic-selector
   stylesheet colors; spec = element data via attribute mappers
   (out-specifics theme by construction); instance overrides = bypass;
-  overlays = g3t-ov-\* classes; pins = badge rule + node:locked.
+  overlays = g3t-ov-\* classes; host `stylesheetAfterOverlays` = the
+  one rule slot above overlays (#69), still under label-collision and
+  hidden; pins = badge rule + node:locked.
   Instance pins shadow overlay borders BY DECISION.
 - SAME INPUT GRAPH => the camera (pan/zoom) and node positions HOLD.
   Never re-init the canvas, refit, or recenter on a same-graph change

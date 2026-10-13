@@ -701,6 +701,9 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
  *  rules; issue #63 moved the host sheet ahead of this block) ->
  *  OVERLAY theme colors (issue #32: the static overlay literals used
  *  to be the last word, so no theme reached a member) ->
+ *  user stylesheetAfterOverlays (issue #69: the one stylesheet path
+ *  that wins over the overlay on a member, since cytoscape has no
+ *  specificity and the host sheet above cannot) ->
  *  svg-overlay transparency -> label-collision outcomes -> hidden
  *  filter last. */
 /** Upstream P1 (prm-analyzer, 2026-07-28) + the 64b regression it
@@ -748,6 +751,7 @@ export function composeCanvasStylesheet(
     edgeStyle?: "taxi" | "straight" | "bezier";
     structuralEdgeLayer?: string;
     userStylesheet?: readonly CyStylesheet[];
+    userStylesheetAfterOverlays?: readonly CyStylesheet[];
   },
 ): CyStylesheet[] {
   const merged: CyStylesheet[] = [...DEFAULT_STYLESHEET];
@@ -812,6 +816,19 @@ export function composeCanvasStylesheet(
     // win the property (issue #32).
     ...overlayThemeRules(theme),
   );
+  // The host's post-overlay slot (issue #69): the ONE stylesheet path
+  // that beats the overlay on a member. #63 put the host sheet before
+  // the overlay block so ordinary host chrome cannot strip the
+  // emphasis, and because cytoscape has no selector specificity that
+  // left a host no rule-based way to keep, say, a focus class's own
+  // border on an overlay member; the theme recolors every member and
+  // a bypass is per element and outranks everything. Rules here are
+  // the host's deliberate exceptions, so they land after both overlay
+  // blocks and still before the svg-overlay transparency, the
+  // label-collision outcomes and the hidden filter, which stay last.
+  if (opts?.userStylesheetAfterOverlays) {
+    merged.push(...opts.userStylesheetAfterOverlays);
+  }
   // SVG overlay mode (G3L:RND-002): routed structural edges go
   // fully transparent in Cytoscape while STAYING mounted and
   // hit-testable; the overlay draws the visuals. opacity (not
@@ -884,6 +901,15 @@ export interface CytoscapeCanvasProps {
   layoutOptions?: Record<string, unknown>;
   /** Optional additional stylesheet rules to merge. */
   stylesheet?: CyStylesheet[];
+  /** Optional stylesheet rules merged AFTER the overlay block (issue
+   *  #69): the one rule-based path that wins over an active overlay
+   *  on its members, for a host class that must keep its own chrome
+   *  while an overlay is active (a focus ring, a pinned-row border).
+   *  Cytoscape resolves rules by order alone, so a more specific
+   *  selector in `stylesheet` cannot do this. Still before the
+   *  svg-overlay, label-collision and hidden rules. A change restyles
+   *  in place (keyed by content, like `stylesheet`); never a re-init. */
+  stylesheetAfterOverlays?: readonly CyStylesheet[];
   /** Optional ContextMenuManager. If omitted, a default is created
    *  whose base menu is FUNCTIONAL with zero config: one copy item
    *  wired to the clipboard, labeled "Copy IRI" or "Copy ID" from the
@@ -1061,14 +1087,22 @@ function applyHiddenClasses(
   });
 }
 
-/** Content key for the `stylesheet` prop (issue #28). Keyed by CONTENT
- *  like structuralDecorations and layoutOptions: hosts pass inline
- *  literals, so identity churns every render and would restyle every
- *  render. JSON.stringify drops function-valued style entries, so a
+/** Content key for the `stylesheet` and `stylesheetAfterOverlays`
+ *  props (issues #28, #69). Keyed by CONTENT like structuralDecorations
+ *  and layoutOptions: hosts pass inline literals, so identity churns
+ *  every render and would restyle every render. One key for both
+ *  sheets: they ride the same restyle, so a change to either is one
+ *  fromJson. JSON.stringify drops function-valued style entries, so a
  *  change that only swaps a function is not detected (the same limit
  *  layoutOptionsKey has). */
-function stylesheetContentKey(stylesheet: CyStylesheet[] | undefined): string {
-  return stylesheet ? JSON.stringify(stylesheet) : "";
+function stylesheetContentKey(
+  stylesheet: readonly CyStylesheet[] | undefined,
+  afterOverlays?: readonly CyStylesheet[],
+): string {
+  const before = stylesheet ? JSON.stringify(stylesheet) : "";
+  return afterOverlays
+    ? `${before}\u0000${JSON.stringify(afterOverlays)}`
+    : before;
 }
 
 /** Apply an encoding spec to a live instance: batch element-data
@@ -1734,6 +1768,7 @@ export function CytoscapeCanvas({
   layout,
   layoutOptions,
   stylesheet,
+  stylesheetAfterOverlays,
   menuManager,
   onReady,
   className,
@@ -1831,6 +1866,11 @@ export function CytoscapeCanvas({
   const stylesheetRef = useRef(stylesheet);
   // eslint-disable-next-line react-hooks/refs
   stylesheetRef.current = stylesheet;
+  // Issue #69: the post-overlay sheet is read through a ref for the
+  // same reason (an inline literal must not re-create initCytoscape).
+  const stylesheetAfterOverlaysRef = useRef(stylesheetAfterOverlays);
+  // eslint-disable-next-line react-hooks/refs
+  stylesheetAfterOverlaysRef.current = stylesheetAfterOverlays;
   const hiddenRef = useRef(hidden);
   // eslint-disable-next-line react-hooks/refs
   hiddenRef.current = hidden;
@@ -1928,20 +1968,28 @@ export function CytoscapeCanvas({
   // Issue #28: the stylesheet prop restyles by CONTENT (see
   // stylesheetContentKey); the applied key is recorded at init and by
   // the restyle effect so neither applies what the other just did.
-  const stylesheetKey = stylesheetContentKey(stylesheet);
+  // Issue #69: stylesheetAfterOverlays shares the key, so a change to
+  // either sheet is one restyle and never a re-init.
+  const stylesheetKey = stylesheetContentKey(
+    stylesheet,
+    stylesheetAfterOverlays,
+  );
   const stylesheetAppliedKeyRef = useRef(stylesheetKey);
 
   /** One stylesheet assembly for init AND live theme restyles.
    *  Order is the precedence story: structural defaults (fallback
    *  literals) -> theme-resolved colors -> spec-channel rules ->
    *  user stylesheet -> overlay classes (issue #63: the overlay
-   *  emphasis outranks host chrome). */
+   *  emphasis outranks host chrome) -> user stylesheetAfterOverlays
+   *  (issue #69: the host's deliberate exceptions to that). */
   const composeMergedStylesheet = useCallback(
     (theme: G3tTheme): CyStylesheet[] =>
       composeCanvasStylesheet(theme, {
         edgeStyle,
         structuralEdgeLayer,
         userStylesheet: stylesheetRef.current ?? undefined,
+        userStylesheetAfterOverlays:
+          stylesheetAfterOverlaysRef.current ?? undefined,
       }),
     [edgeStyle, structuralEdgeLayer],
   );
@@ -2473,10 +2521,12 @@ export function CytoscapeCanvas({
       false,
     );
     lastOverlaysRef.current = { cy, overlays, activeIds, ugm };
-    // The merged stylesheet composed above read stylesheetRef.current,
-    // which is the stylesheet this key describes (issue #28).
+    // The merged stylesheet composed above read stylesheetRef.current
+    // and stylesheetAfterOverlaysRef.current, which are the sheets this
+    // key describes (issues #28, #69).
     stylesheetAppliedKeyRef.current = stylesheetContentKey(
       stylesheetRef.current,
+      stylesheetAfterOverlaysRef.current,
     );
     // Bugfix 3: read from ref (see comment near onReadyRef above)
     onReadyRef.current?.(cy);

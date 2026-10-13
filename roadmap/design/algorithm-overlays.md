@@ -103,6 +103,18 @@ restyles overlay members through the theme (`overlayColor`, the tone
 colors) or a per-element bypass; a more specific selector in the host
 sheet does not help, because cytoscape has no specificity at all.
 
+Post-overlay slot (2026-10-13, issue #69): with no specificity, #63
+left a host no rule-based way to keep ONE class's own chrome on an
+overlay member (the theme recolors every member; a bypass is per
+element and outranks everything, which is the pin decision above).
+Ruling: a second canvas prop, `stylesheetAfterOverlays`, merges after
+both overlay blocks (static geometry, theme colors) and before the
+svg-overlay transparency, the label-collision outcomes and the hidden
+filter, which stay last; it restyles in place like `stylesheet`. It is
+the host's list of deliberate exceptions, not a second chrome sheet:
+ordinary rules stay in `stylesheet`, where the namespace rule still
+holds against them.
+
 ## Controls
 
 AlgorithmPanel: reference runners, the overlay registry with
