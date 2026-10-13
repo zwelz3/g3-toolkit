@@ -384,7 +384,10 @@ this round: #41 (publishing is the maintainer's), #5, #6, #9, #12,
   target recorder, legend edge rows, the encoding re-apply and
   stylesheet key, overlay theme rules, the SHACL browser, label
   collision, additive updates); budget 395 to 428 with the per-branch
-  attribution in `scripts/check-bundle-size.mjs`. Core
+  attribution in `scripts/check-bundle-size.mjs`. The consumer-cost
+  scenario for a bare `CytoscapeCanvas` import went 84.2 to 95.3 KB
+  (budget 92 to 104 in `scripts/check-consumer-cost.mjs`, with the
+  per-issue attribution and the rejected lazy-load alternative). Core
   166.1 of 169 KB, no raise. `api-surface.json` adds `kShortestPaths`,
   `applyTheme`, `themeFromCssVariables`, `resolveLabelCollisions`,
   `composeLabelPriority`, `shortenLabel` and `DEFAULT_LABEL_MAX_LENGTH`;
