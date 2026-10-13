@@ -38,7 +38,10 @@ import { viewClass } from "../../theme/view-class";
  */
 export interface SchemaViewShape {
   id: string;
-  targetClass: string;
+  /** Optional as on core's `ShaclShape` (#67): absent or `""` means
+   *  the shape names no class target and badges only through
+   *  `targets`. */
+  targetClass?: string;
   /** Further targets, as on core's `ShaclShape`; entries of kind
    *  `class` badge their class too (other kinds are not classes and
    *  are ignored here). Optional so existing values keep working. */
@@ -72,9 +75,9 @@ function constraintsOf(shape: ShaclShape | SchemaViewShape): ViewConstraints {
  * Every class a shape targets directly: `targetClass` plus each
  * `targets` entry of kind `class`, deduplicated so a class named both
  * ways badges once (issue #56: the view used to read `targetClass`
- * alone, so a shape targeting 13 classes badged one). An empty
- * `targetClass` (a shape targeted only by subjects-of or SPARQL, #54)
- * names no class and is dropped.
+ * alone, so a shape targeting 13 classes badged one). An absent (#67)
+ * or empty (#54) `targetClass` (a shape targeted only by subjects-of
+ * or SPARQL) names no class and is dropped.
  */
 function targetClassesOf(shape: ShaclShape | SchemaViewShape): string[] {
   const out: string[] = [];
@@ -84,7 +87,7 @@ function targetClassesOf(shape: ShaclShape | SchemaViewShape): string[] {
     seen.add(name);
     out.push(name);
   };
-  push(shape.targetClass);
+  push(shape.targetClass ?? "");
   for (const t of shape.targets ?? []) {
     if (t.kind === "class") push(t.value);
   }

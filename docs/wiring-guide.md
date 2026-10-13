@@ -767,7 +767,42 @@ const geometry = await layoutStructural(input);
 
 A report renders by reusing the overlay + encoding machinery, no
 SHACL-specific canvas code. Conformance runs wherever (pyshacl, Jena,
-the in-core validator); the toolkit consumes a versioned document:
+the in-core validator); the toolkit consumes a versioned document.
+
+The in-core validator selects a shape's focus nodes from `targetClass`
+and from every `targets` entry: `class` (nodes typed with the class),
+`subjectsOf` (the source of every edge of that type), `objectsOf` (the
+target of every such edge) and `node` (that node id), deduplicated so
+a node reached several ways validates once. A `sparql` target selects
+nothing (the toolkit runs no SPARQL; evaluate it in an external engine
+and hand the report over), and a shape with no target at all validates
+nothing. `targetClass` is optional (#67), so a shape targeted only by
+subjects-of needs no placeholder class:
+
+```tsx
+import { validateShacl, type ShaclShape } from "@g3-toolkit/core";
+
+const shapes: ShaclShape[] = [
+  // A class target, as before.
+  {
+    id: "ComponentShape",
+    targetClass: "Component",
+    properties: [{ path: "name", datatype: "string", minCount: 1 }],
+  },
+  // No targetClass: every node that is the SOURCE of a `partOf` edge
+  // (sh:targetSubjectsOf) must carry a part number.
+  {
+    id: "PartShape",
+    targets: [{ kind: "subjectsOf", value: "partOf" }],
+    properties: [{ path: "partNumber", datatype: "string", minCount: 1 }],
+  },
+];
+const results = validateShacl(ugm, shapes);
+// results[i].targetClass is absent for PartShape (no class to echo).
+```
+
+The report document builds from those results, or from an external
+engine's output:
 
 ```tsx
 import {
@@ -837,8 +872,10 @@ placeholder results. `selectedShape` / `onSelectShape` make the
 selection controlled; the selected shape renders expanded, so a shape
 chosen from the URL opens on load. Leave both props off and the
 browser keeps its own expanded state as before. A shape declares every
-target it has through `targets`; `targetClass` stays the class the
-validator matches:
+target it has through `targets`; `targetClass` is the primary class
+target and is optional (#67), so a shape targeted only by subjects-of
+or SPARQL leaves it out, and the validator reads both (see the
+validation report recipe above):
 
 ```tsx
 import { useState } from "react";
