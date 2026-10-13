@@ -348,7 +348,16 @@ const BUDGETS = {
   // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
   // styles, controlled drag offsets, the renderer-neutral editor
   // target) and R-13.3 (one legend serving both renderers).
-  react: 395 * 1024,
+  // Issues #21/#39 (2026-10-13): 395 -> 402. Measured 392.0 -> 398.2
+  // KB (+6.2 KB), all of it TableView: the rows path (DataGridColumn
+  // columns with text/values/range header filters, the faceted row
+  // model wiring), the table-wide renderCell, host-owned and "none"
+  // selection modes, controlled pagination (the pageSize prop was
+  // inert after mount), and the fill-mode ResizeObserver page-size
+  // derivation. TableView sits in the StatsPanel chunk, so a host
+  // that never references it pays nothing. Headroom stays modest
+  // (3.8 KB) on purpose, as the previous entry set it.
+  react: 402 * 1024,
   // React ledger:
   // - NO RAISE, 2026-08-28 (core stopped being external): measured
   //   651.7 KB, 167% of the 390 KB budget in force at the time. The

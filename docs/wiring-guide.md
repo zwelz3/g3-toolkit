@@ -575,6 +575,86 @@ const chain: ProvenanceChain = [
 />;
 ```
 
+## Table view recipes
+
+Both run under CI in `examples/wiring/src/wiring-examples.test.tsx`
+("table view recipes" describe).
+
+### Table without a UGM
+
+`TableView` is a UGM adapter by default (one row per node, columns
+from the property registry), but tabular data that is not a graph
+(SPARQL SELECT bindings, a named-graph register, a validation-result
+list) does not need converting first. Pass `rows` and `columns`; a
+column names a `value` reader, optionally a `render`, and an inline
+filter kind (`"text"` default, `"values"` for a select over the
+distinct values with counts, `"range"` for a numeric min/max,
+`"none"`). `renderCell` is a table-wide override on either path
+(return `undefined` to fall back to the column). `selection` decides
+where a row click goes: `"store"` (default, the shared selection
+store, right for a view linked to a canvas), `"none"` for a standalone
+register, or `{ selected, onSelect }` to keep it in your own state;
+the host receives the full next set, modifier rules already applied.
+
+```tsx
+import { useState } from "react";
+import { TableView, type DataGridColumn } from "@g3-toolkit/react";
+
+interface Binding {
+  s: string;
+  label: string;
+  count: number;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  { id: "s", header: "Subject", value: (r) => r.s },
+  {
+    id: "label",
+    header: "Label",
+    value: (r) => r.label,
+    render: (v, r) => <a href={r.s}>{String(v)}</a>,
+  },
+  { id: "count", header: "Count", value: (r) => r.count, filter: "range" },
+];
+
+function Register({ rows }: { rows: Binding[] }) {
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  return (
+    <TableView
+      rows={rows}
+      columns={columns}
+      rowId={(r) => r.s}
+      selection={{ selected, onSelect: (ids) => setSelected(new Set(ids)) }}
+    />
+  );
+}
+```
+
+Not in this slice: virtualization past a few hundred rows (pagination
+is the scaling lever) and CSV export of the filtered rows.
+
+### Fill a sized host (dock panel)
+
+By default the table sizes to its CONTENT, which is wrong for a panel
+that has a definite height: rows run off the bottom and take the
+Prev/Next controls with them. `fill` makes the root a flex column at
+100% of the host, the body scrolls under a sticky header, and the
+pagination bar stays pinned (the rules live in
+`@g3-toolkit/react/style.css`; the regions carry stable classes,
+`g3t-table-toolbar`, `g3t-table-scroll`, `g3t-table-pagination`, for
+your own overrides). `pageSize` is live, so a count you compute from
+the host applies on the next render without a remount; or pass
+`rowHeight` with `autoPageSize` and the table measures its scroll
+region itself and re-fits on resize.
+
+```tsx
+import { TableView } from "@g3-toolkit/react";
+
+<div style={{ height: 480 }}>
+  <TableView ugm={ugm} fill rowHeight={28} autoPageSize density="compact" />
+</div>;
+```
+
 ## Box (lasso) selection: the gesture
 
 Box selection is on by default (`boxSelectionEnabled: true`), but with
