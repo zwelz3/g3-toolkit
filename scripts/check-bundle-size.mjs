@@ -76,7 +76,26 @@ const BUDGETS = {
   // oracle-pinned.
   // Round 21 (2026-08-05): +1 KB for the structural style applier
   // (R-12a), the renderer-neutral counterpart of the cytoscape one.
-  core: 169.0 * 1024,
+  // Security fix 2026-10-13 (GHSA-mpfx-v932-r2fv; FOR OWNER
+  // RATIFICATION, revert is this one line): 169 -> 172. Measured
+  // 164.3 KB on main, 171.2 KB with the change (+6.9 KB): the
+  // DerivedPropertyEngine's own numeric expression language
+  // (advanced/expression.ts) replaces expr-eval, which has unpatched
+  // code-execution and prototype-pollution advisories. expr-eval was an
+  // external dependency, so its bytes never counted here; a consumer
+  // that bundles the engine drops about 25 KB of minified expr-eval for
+  // these 6.9 KB, a net decrease of about 18 KB, and every install
+  // sheds the dependency.
+  // Host-integration round 2026-10-13 (issues #29/#30/#31): 172 -> 176.
+  // The round measured 164.3 -> 166.1 KB on its own branch (+1.8 KB:
+  // kShortestPaths, Yen's algorithm over unit-weight BFS, with the
+  // directed and nodeFilter options and the PathGraph read interface;
+  // EdgeInput.key through addEdgeWithKey and fromJSON restoring edge
+  // ids; the optional SHACL target and constraint-id fields). Merged
+  // with the security fix above (+6.9 KB, measured on main the same
+  // day) core is 173.0 KB, so the two raises stack: 176 keeps about
+  // 3 KB of headroom, the posture both entries set.
+  core: 176.0 * 1024,
   // Core ledger:
   // - NO RAISE, 2026-08-15 (the @g3-toolkit/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against

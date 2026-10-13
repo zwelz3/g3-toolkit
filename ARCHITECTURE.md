@@ -48,7 +48,7 @@ algorithm wrappers (graphology-metrics), filter models, encoding
 models, style override models, theme types, diff engine, undo/redo.
 
 Dependencies (regular, installed transitively): `graphology`,
-`@dagrejs/dagre`, `d3-force`, `d3-hierarchy`, `elkjs`, `expr-eval`,
+`@dagrejs/dagre`, `d3-force`, `d3-hierarchy`, `elkjs`,
 `simple-statistics`. No peer dependencies.
 
 ### @g3-toolkit/react

@@ -163,7 +163,7 @@ g3t does **not** provide a complete application shell, workflow engine, or sessi
 | `ComboManager`          | User-driven node grouping with collapse/expand/nest                          |
 | `ShaclValidator`        | Validate UGM nodes against SHACL shapes                                      |
 | `IncrementalLayout`     | Lock existing nodes on small graph changes; minimal-movement updates         |
-| `DerivedPropertyEngine` | Computed properties from expressions (expr-eval)                             |
+| `DerivedPropertyEngine` | Computed properties from numeric expressions                                 |
 | `diffGraphs`            | Structural diff between two UGM instances                                    |
 
 ### Wiring your own controls

@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-Everything in this section is merged to `main` or sits on the
-`downstream-issues-reccs` branch, and NONE of it is in a published
-package. 1.0.0 remains the released version on npm; the next tag is
-what moves these entries under a version heading.
+Everything in this section is merged to `main` and NONE of it is in a
+published package. 1.1.0 (published 2026-10-13, without the entries
+below) is the released version on npm; the next tag is what moves these
+entries under a version heading.
 
 ### 2026-10-13 (host-integration issues #23: seventeen sub-issues plus the older backlog)
 
@@ -388,10 +388,55 @@ this round: #41 (publishing is the maintainer's), #5, #6, #9, #12,
   scenario for a bare `CytoscapeCanvas` import went 84.2 to 95.3 KB
   (budget 92 to 104 in `scripts/check-consumer-cost.mjs`, with the
   per-issue attribution and the rejected lazy-load alternative). Core
-  166.1 of 169 KB, no raise. `api-surface.json` adds `kShortestPaths`,
+  164.3 to 166.1 KB on the round's own branch (Yen, the path options,
+  the edge key); merged onto the 1.1.0 security fix core measures 173.0
+  KB, so its budget goes 172 to 176 (ledger entry). `api-surface.json` adds `kShortestPaths`,
   `applyTheme`, `themeFromCssVariables`, `resolveLabelCollisions`,
   `composeLabelPriority`, `shortenLabel` and `DEFAULT_LABEL_MAX_LENGTH`;
   everything else added is type-only.
+
+## 1.1.0 PUBLISHED: 2026-10-13
+
+Everything in this section is merged to `main` or sits on the
+`downstream-issues-reccs` branch, and NONE of it is in a published
+package. 1.0.0 remains the released version on npm; the next tag is
+what moves these entries under a version heading.
+
+### 2026-10-13 (security: derived-property expressions no longer use expr-eval)
+
+- **`DerivedPropertyEngine` evaluates expressions with the toolkit's own
+  numeric language instead of expr-eval (GHSA-mpfx-v932-r2fv).** expr-eval
+  2.0.2, the latest release, has three unpatched advisories
+  (GHSA-q9v2-7m5w-4693, code execution; GHSA-8gw3-rxh4-v6jx, prototype
+  pollution; GHSA-jc85-fpwf-qm7x, unrestricted functions in the scope).
+  The engine built `new Parser()` with default options, so member access,
+  assignment, and function definition were all live on any expression a
+  user typed into `DerivedPropertyPanel` or a host passed to `define()`,
+  while the class comment called the evaluation safe. The new language
+  (`packages/core/src/advanced/expression.ts`, internal) holds numbers,
+  `PI` and `E`, the node's own numeric properties (looked up in a `Map`,
+  never through a prototype), `+ - * / % ^`, comparison, `and or not`,
+  `a ? b : c`, and calls to an allow-list of Math functions. It has no
+  member access, indexing, assignment, function definition, strings, or
+  call through a variable, and it bounds input at 1,000 characters and
+  64 levels of nesting. The public API is unchanged.
+- **Behavior differences.** Expressions in the documented and tested
+  range (arithmetic over properties, `sqrt`, `min`, `max`, and the like)
+  compute as before. Removed with the dependency: `random()` (a derived
+  property should be deterministic), `!` factorial, `||` concatenation,
+  `in`, string values, and expr-eval's less common functions outside the
+  allow-list; an expression that uses them is now skipped, as an invalid
+  one always was.
+- **Dependency and budget.** `expr-eval` leaves `@g3-toolkit/core`'s
+  dependencies and the root manifest. Core's first-party bundle grows
+  164.3 to 171.2 KB, so its budget rises 169 to 172 KB with a ledger
+  entry for owner ratification; a consumer that bundles the engine drops
+  about 25 KB of minified expr-eval, a net decrease.
+- **Tests.** `expression.test.ts` covers precedence, the operators and
+  functions, and the refusals (member access, indexing, assignment,
+  function definition, strings, unknown functions, prototype names,
+  length and depth limits), plus an engine test that hostile definitions
+  write nothing and pollute no prototype.
 
 ### 2026-08-28 (two defects found hiding in the lint warning list)
 
