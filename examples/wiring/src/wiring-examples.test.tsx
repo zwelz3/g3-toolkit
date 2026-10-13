@@ -26,6 +26,7 @@ import {
   closedShapeIds,
   shaclRowId,
   validateShacl,
+  summarizeValidation,
   reportFromValidationResults,
   severityOverlays,
   shaclResultDrivers,
@@ -99,6 +100,7 @@ import {
   useWorkingSetManager,
   workingSetLimitMessage,
   type EncodingSpec,
+  type CyStylesheet,
   type LegendChannel,
   type LabelCandidate,
   type ProvenanceChain,
@@ -524,6 +526,50 @@ describe("wiring guide: SHACL shape view through the compartment API", () => {
 describe("wiring guide: SHACL validation report over the data graph", () => {
   beforeEach(() => {
     useOverlayStore.getState().clear();
+  });
+
+  it("a shape with `targets` and no `targetClass` validates its focus nodes (#67)", () => {
+    const ugm = new UGM();
+    ugm.addNode("asm", { types: ["Component"], properties: { name: "asm" } });
+    ugm.addNode("p1", {
+      types: ["Component"],
+      properties: { name: "p1", partNumber: "P-1" },
+    });
+    ugm.addNode("p2", { types: ["Component"], properties: { name: "p2" } });
+    ugm.addEdge("p1", "asm", { type: "partOf" });
+    ugm.addEdge("p2", "asm", { type: "partOf" });
+    const shapes: ShaclShape[] = [
+      // A class target, as before.
+      {
+        id: "ComponentShape",
+        targetClass: "Component",
+        properties: [{ path: "name", datatype: "string", minCount: 1 }],
+      },
+      // No targetClass: every node that is the SOURCE of a `partOf`
+      // edge (sh:targetSubjectsOf) must carry a part number.
+      {
+        id: "PartShape",
+        targets: [{ kind: "subjectsOf", value: "partOf" }],
+        properties: [{ path: "partNumber", datatype: "string", minCount: 1 }],
+      },
+    ];
+    const results = validateShacl(ugm, shapes);
+    // The subjects-of shape selected the two parts, not the assembly.
+    const parts = results.filter((r) => r.shapeId === "PartShape");
+    expect(parts.map((r) => r.nodeId).sort()).toEqual(["p1", "p2"]);
+    expect(parts.find((r) => r.nodeId === "p2")?.valid).toBe(false);
+    // No class to echo on a targets-only shape.
+    expect(parts[0]!.targetClass).toBeUndefined();
+    // The class-only shape still covers every Component.
+    expect(results.filter((r) => r.shapeId === "ComponentShape")).toHaveLength(
+      3,
+    );
+    // The report and the browser need nothing new: the summary counts
+    // the subjects-of focus nodes like any other.
+    expect(reportFromValidationResults(results).conforms).toBe(false);
+    expect(
+      summarizeValidation(results).find((s) => s.shapeId === "PartShape"),
+    ).toMatchObject({ totalNodes: 2, failing: 1 });
   });
 
   it("renders a report by registering severity overlays and ingesting drivers", () => {
@@ -1031,6 +1077,10 @@ describe("wiring guide: ontology rails (TreeView filter, group rows, rich labels
       for (const c of copies) {
         expect(c).toHaveAttribute("aria-selected", "true");
       }
+      // The breadcrumb follows the picked copy: the one under Agent.
+      const crumb = screen.getByTestId("tree-breadcrumb").textContent!;
+      expect(crumb).toContain("Agent");
+      expect(crumb).not.toContain("Artifact");
 
       // A group row toggles and never selects; the store stays empty.
       expect(item("ex:props")).not.toHaveAttribute("aria-selected");
@@ -1227,6 +1277,41 @@ describe("wiring guide: grow or shrink a drawn graph without rebuilding it", () 
     expect(empty.nodeCount).toBe(0);
     const el = <CytoscapeCanvas ugm={empty} graphUpdate="rebuild" />;
     expect(el.props.graphUpdate).toBe("rebuild");
+  });
+});
+
+describe("wiring guide: overlays beat your stylesheet (the after-overlays slot)", () => {
+  // The merge order and the computed-style outcome are pinned under
+  // headless cytoscape in packages/react (overlay-theme-color.test.ts,
+  // issues #63 and #69) and the restyle-in-place contract under the
+  // canvas mock (CytoscapeCanvas.encoding.test.tsx). This twin runs the
+  // HOST side of the recipe: both sheets are plain CyStylesheet arrays,
+  // and the exception list is its own prop on the public canvas type.
+  it("ordinary chrome goes in `stylesheet`; the deliberate exceptions in `stylesheetAfterOverlays` (#69)", () => {
+    const chrome: CyStylesheet[] = [
+      { selector: "node", style: { "border-width": 1 } },
+    ];
+    const focusRing: CyStylesheet[] = [
+      {
+        selector: "node.host-focus",
+        style: { "border-width": 4, "border-color": "#1c7ed6" },
+      },
+    ];
+    const el = (
+      <CytoscapeCanvas
+        ugm={graph()}
+        stylesheet={chrome}
+        stylesheetAfterOverlays={focusRing}
+      />
+    );
+    expect(el.props.stylesheet).toBe(chrome);
+    expect(el.props.stylesheetAfterOverlays).toBe(focusRing);
+    // A readonly array is accepted too: the slot never mutates it.
+    const frozen = Object.freeze([...focusRing]) as readonly CyStylesheet[];
+    const el2 = (
+      <CytoscapeCanvas ugm={graph()} stylesheetAfterOverlays={frozen} />
+    );
+    expect(el2.props.stylesheetAfterOverlays).toBe(frozen);
   });
 });
 

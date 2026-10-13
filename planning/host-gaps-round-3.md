@@ -118,3 +118,35 @@ baseline that includes the bar shifts), keyboard sorting with a screen
 reader (#57), a TreeView rail with a two-parent class (#59), and the
 SchemaView cards for a class under two parents (#56). Playwright e2e
 did not run in the agents' worktrees (no browser); CI runs it.
+
+## Follow-ups round (same day, after #66 merged)
+
+The four issues filed from the questions above were ruled on and
+worked as four agents from the merged main, one branch at a time.
+
+| Decision | Ruling |
+| --- | --- |
+| #67 scope | Type change plus validator reads `targets` (class, subjectsOf, objectsOf, node; sparql selects nothing) |
+| #69 slot | Add `stylesheetAfterOverlays` |
+| #68 selection debounce | Keep selection synchronous; do the text-opacity candidacy and rendered-label shorten |
+| #70 reveal | Keep revealing every copy; do the path-aware breadcrumb and a development-only cap warning |
+
+| Issue | Outcome |
+| --- | --- |
+| #67 | Done: `targetClass?` on the shape, result and view types; `focusNodesOf` in the validator; guide fence and twin |
+| #68 | Done: both rules in `applyLabelCollisionPass`; CytoscapeCanvas.tsx untouched |
+| #69 | Done: prop, builder slot, content-keyed restyle, headless tests, guide, consuming doc, design record, CLAUDE.md clause |
+| #70 | Done: `pickedKey` state drives the breadcrumb; `capped` flag plus a once-per-graph warning; test seam `setMaxPathRowsForTests` not re-exported |
+
+Open after this round, recorded only: the validator's `class` targets
+match declared `types` with no subclass closure (the UGM carries no
+hierarchy; SchemaView inherits down a host-supplied one); a `targets`
+entry with an empty value is skipped for every kind; the collision
+pass keeps the data `label` gate first, so an element with no data
+label is never a candidate even if the stylesheet renders another
+field; the cap warning is per tree instance, not per graph across
+instances; the #69 slot's computed-style proof lives in the package
+test because `composeCanvasStylesheet` is not exported; the sibling
+`stylesheet` prop stays a mutable array type where the new slot is
+readonly.
+

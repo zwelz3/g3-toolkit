@@ -289,16 +289,21 @@ so leaving a mode reverts cleanly.
 
 Stylesheet merge order (later rules win the property): defaults,
 curve style, chrome, theme colors, structural theme colors,
-ENCODING rules, YOUR stylesheet, overlay/dim (`g3t-ov-*`), label
-collision outcomes, hidden filter. Your rules beat the theme and the
-encoding; they do not beat an active overlay on its members (issue
-#63; before that fix an ordinary `node { border-width: 1 }` or `edge
-{ width: 1.5 }` stripped the overlay emphasis, because Cytoscape has
-no selector specificity and the later rule wins). To restyle overlay
-members, set the theme's `overlayColor` and semantic tone colors; a
-more specific selector in your sheet does not help, since order alone
-decides, while a per-element bypass (`ele.style(...)`) outranks every
-rule.
+ENCODING rules, YOUR stylesheet, overlay/dim (`g3t-ov-*`), YOUR
+`stylesheetAfterOverlays`, label collision outcomes, hidden filter.
+Your rules beat the theme and the encoding; they do not beat an active
+overlay on its members (issue #63; before that fix an ordinary `node {
+border-width: 1 }` or `edge { width: 1.5 }` stripped the overlay
+emphasis, because Cytoscape has no selector specificity and the later
+rule wins). To restyle overlay members, set the theme's `overlayColor`
+and semantic tone colors; a more specific selector in your sheet does
+not help, since order alone decides, while a per-element bypass
+(`ele.style(...)`) outranks every rule. The one rule-based exception
+is `stylesheetAfterOverlays` (issue #69): rules there merge after the
+overlay block, so a class that must keep its own chrome on an overlay
+member (a focus ring) goes there and nowhere else; they still sit
+under the label-collision outcomes and the hidden filter, and a change
+restyles in place like `stylesheet`.
 
 ## Structural scenes
 

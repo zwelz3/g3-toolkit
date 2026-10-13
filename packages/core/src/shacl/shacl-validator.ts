@@ -3,8 +3,9 @@
  *
  * Lightweight validator that checks property constraints (minCount,
  * maxCount, datatype, pattern, minInclusive, maxInclusive) against
- * a target class. Does not implement the full SHACL specification;
- * covers the constraints most useful for ontology authoring.
+ * the focus nodes a shape's targets select. Does not implement the
+ * full SHACL specification; covers the constraints most useful for
+ * ontology authoring.
  *
  * Framework-agnostic (D6).
  */
@@ -38,7 +39,13 @@ export interface ShaclPropertyConstraint {
 
 /** One SHACL target declaration (sh:targetClass, sh:targetSubjectsOf,
  *  sh:targetObjectsOf, sh:targetNode, sh:target with a SPARQL body).
- *  `value` is the class, predicate, or node IRI, or the SPARQL text. */
+ *  `value` is the class, predicate, or node IRI, or the SPARQL text.
+ *  The validator selects focus nodes by kind: `class` matches nodes
+ *  typed with the class (as `targetClass` does), `subjectsOf` the
+ *  source of every edge of that type, `objectsOf` the target of every
+ *  edge of that type, `node` the node with that id. `sparql` selects
+ *  NOTHING: the toolkit runs no SPARQL, so a SPARQL target is display
+ *  metadata only and an external engine must evaluate it. */
 export interface ShaclShapeTarget {
   kind: "class" | "subjectsOf" | "objectsOf" | "node" | "sparql";
   value: string;
@@ -46,15 +53,20 @@ export interface ShaclShapeTarget {
 
 export interface ShaclShape {
   id: string;
-  /** The class the validator matches nodes against. Required because
-   *  the validator targets by class only; shapes with other target
-   *  kinds still name their primary class here. */
-  targetClass: string;
-  /** Every target the shape declares, when there is more than the one
-   *  class (several classes, subjects-of, objects-of, a node, or a
-   *  SPARQL target). Display metadata today: the validator does not
-   *  resolve these, and the shape browser renders all of them
-   *  alongside `targetClass`. A shapes-graph parser would populate it. */
+  /** The primary class target (sh:targetClass). Optional since 1.2.0
+   *  shipped `targets` (issue #67): a shape targeted only by
+   *  subjects-of, objects-of, a node, or SPARQL has no class to name
+   *  here. Absent and `""` mean the same thing, no class target; the
+   *  `""` form stays accepted because hosts on the required type
+   *  passed it as the placeholder. */
+  targetClass?: string;
+  /** Every target the shape declares (several classes, subjects-of,
+   *  objects-of, a node, a SPARQL target). The validator selects focus
+   *  nodes from the union of `targetClass` and these entries, deduped,
+   *  so a class listed both ways validates once; see
+   *  `ShaclShapeTarget` for what each kind selects. A shape with no
+   *  target at all selects nothing. The shape browser renders all of
+   *  them alongside `targetClass`. */
   targets?: ShaclShapeTarget[];
   name?: string;
   description?: string;
@@ -78,9 +90,68 @@ export interface ShaclValidationResult {
   nodeId: string;
   shapeId: string;
   shapeName: string;
-  targetClass: string;
+  /** Echo of the shape's `targetClass`; absent when the shape has
+   *  none (its focus nodes came from `targets`). */
+  targetClass?: string;
   valid: boolean;
   violations: ShaclViolation[];
+}
+
+/**
+ * The focus nodes one shape's targets select, in the union of
+ * `targetClass` and every `targets` entry, deduplicated by node id.
+ * Resolved once per shape rather than per node because subjects-of
+ * and objects-of are edge-side selections: answering "is this node a
+ * focus node" from the node alone would need an edge scan per node.
+ */
+function focusNodesOf(ugm: UGM, shape: ShaclShape): Set<string> {
+  const classes = new Set<string>();
+  const subjectsOf = new Set<string>();
+  const objectsOf = new Set<string>();
+  const nodeIds = new Set<string>();
+  // "" is the pre-1.2 placeholder for "no class target"; it names no
+  // class, so it must not match a node typed "" by accident either.
+  if (shape.targetClass) classes.add(shape.targetClass);
+  for (const t of shape.targets ?? []) {
+    if (t.value === "") continue;
+    switch (t.kind) {
+      case "class":
+        classes.add(t.value);
+        break;
+      case "subjectsOf":
+        subjectsOf.add(t.value);
+        break;
+      case "objectsOf":
+        objectsOf.add(t.value);
+        break;
+      case "node":
+        nodeIds.add(t.value);
+        break;
+      case "sparql":
+        // Not evaluated: no SPARQL engine in the toolkit.
+        break;
+    }
+  }
+
+  const focus = new Set<string>();
+  if (classes.size > 0) {
+    ugm.forEachNode((id, attrs) => {
+      if (attrs.types.some((type) => classes.has(type))) focus.add(id);
+    });
+  }
+  if (subjectsOf.size > 0 || objectsOf.size > 0) {
+    ugm.forEachEdge((_edgeId, attrs, source, target) => {
+      if (subjectsOf.has(attrs.type)) focus.add(source);
+      if (objectsOf.has(attrs.type)) focus.add(target);
+    });
+  }
+  for (const id of nodeIds) {
+    // A node target naming an id the graph lacks selects nothing; a
+    // result for a node that is not there would have no attributes to
+    // validate against.
+    if (ugm.hasNode(id)) focus.add(id);
+  }
+  return focus;
 }
 
 // ── Validator (function form) ───────────────────────────────────────
@@ -91,12 +162,15 @@ export function validateShacl(
   shapes: ShaclShape[],
 ): ShaclValidationResult[] {
   const results: ShaclValidationResult[] = [];
+  // Node-major, shape-minor iteration, as before `targets` was read:
+  // the result order a class-only host saw is unchanged.
+  const shapeFocus = shapes.map(
+    (shape) => [shape, focusNodesOf(ugm, shape)] as const,
+  );
 
   ugm.forEachNode((nodeId, attrs) => {
-    const nodeTypes = attrs.types;
-
-    for (const shape of shapes) {
-      if (!nodeTypes.includes(shape.targetClass)) continue;
+    for (const [shape, focus] of shapeFocus) {
+      if (!focus.has(nodeId)) continue;
 
       const violations: ShaclViolation[] = [];
 
@@ -219,14 +293,20 @@ export function validateShacl(
         }
       }
 
-      results.push({
+      const result: ShaclValidationResult = {
         nodeId,
         shapeId: shape.id,
         shapeName: shape.name ?? shape.id,
-        targetClass: shape.targetClass,
         valid: violations.length === 0,
         violations,
-      });
+      };
+      // Echo the class only when the shape names one, so a result
+      // from a targets-only shape carries no `targetClass: undefined`
+      // key (toMatchObject and JSON round-trips see the same record).
+      if (shape.targetClass !== undefined) {
+        result.targetClass = shape.targetClass;
+      }
+      results.push(result);
     }
   });
 

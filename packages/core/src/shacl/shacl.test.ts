@@ -181,3 +181,170 @@ describe("sh:closed enforcement", () => {
     expect(results[0]!.valid).toBe(true);
   });
 });
+
+// ── Issue #67: focus nodes from `targets`, `targetClass` optional ───
+
+describe("focus-node selection from targets (#67)", () => {
+  /** A small assembly graph: parts decompose into parts, suppliers
+   *  supply parts, one orphan node with no edges at all. */
+  function assembly(): UGM {
+    const ugm = new UGM();
+    ugm.addNode("whole", { types: ["Part"], properties: { pn: "W-1" } });
+    ugm.addNode("half", { types: ["Part"], properties: { pn: "H-1" } });
+    ugm.addNode("bolt", { types: ["Part"], properties: {} }); // no pn
+    ugm.addNode("acme", { types: ["Supplier"], properties: { name: "Acme" } });
+    ugm.addNode("orphan", { types: ["Note"], properties: {} });
+    ugm.addEdge("whole", "half", { type: "decomposes" });
+    ugm.addEdge("half", "bolt", { type: "decomposes" });
+    ugm.addEdge("acme", "bolt", { type: "supplies" });
+    return ugm;
+  }
+  const pn = { path: "pn", minCount: 1 };
+  const ids = (results: ReturnType<typeof validateShacl>) =>
+    results.map((r) => r.nodeId).sort();
+
+  it("a class-only shape selects instances of the class, as before", () => {
+    const results = validateShacl(assembly(), [
+      { id: "PartShape", targetClass: "Part", properties: [pn] },
+    ]);
+    expect(ids(results)).toEqual(["bolt", "half", "whole"]);
+    expect(results.find((r) => r.nodeId === "bolt")?.valid).toBe(false);
+    // The class echo is unchanged for a class-only shape.
+    expect(results[0]!.targetClass).toBe("Part");
+  });
+
+  it("a subjectsOf-only shape (no targetClass) selects edge sources", () => {
+    const results = validateShacl(assembly(), [
+      {
+        id: "DecomposerShape",
+        targets: [{ kind: "subjectsOf", value: "decomposes" }],
+        properties: [pn],
+      },
+    ]);
+    // whole and half are sources of a decomposes edge; bolt is only a
+    // target of one, acme is the source of a different edge type.
+    expect(ids(results)).toEqual(["half", "whole"]);
+    expect(results.every((r) => r.valid)).toBe(true);
+    // No class to echo: the key is absent, not `undefined`.
+    expect("targetClass" in results[0]!).toBe(false);
+  });
+
+  it("an objectsOf shape selects edge targets", () => {
+    const results = validateShacl(assembly(), [
+      {
+        id: "SuppliedShape",
+        targets: [{ kind: "objectsOf", value: "supplies" }],
+        properties: [pn],
+      },
+    ]);
+    expect(ids(results)).toEqual(["bolt"]);
+    expect(results[0]!.valid).toBe(false);
+    expect(results[0]!.violations[0]!.path).toBe("pn");
+  });
+
+  it("a node target selects that node, and a missing id selects nothing", () => {
+    const results = validateShacl(assembly(), [
+      {
+        id: "OrphanShape",
+        targets: [
+          { kind: "node", value: "orphan" },
+          { kind: "node", value: "not-in-graph" },
+        ],
+        properties: [{ path: "name", minCount: 1 }],
+      },
+    ]);
+    expect(ids(results)).toEqual(["orphan"]);
+    expect(results[0]!.valid).toBe(false);
+  });
+
+  it("a sparql target selects nothing", () => {
+    const results = validateShacl(assembly(), [
+      {
+        id: "SparqlShape",
+        targets: [
+          { kind: "sparql", value: "SELECT ?this WHERE { ?this a ex:Part }" },
+        ],
+        properties: [pn],
+      },
+    ]);
+    expect(results).toHaveLength(0);
+    expect(summarizeValidation(results)).toEqual([]);
+  });
+
+  it("dedupes a node reached by targetClass and again through targets", () => {
+    const results = validateShacl(assembly(), [
+      {
+        id: "PartShape",
+        targetClass: "Part",
+        targets: [
+          { kind: "class", value: "Part" },
+          { kind: "subjectsOf", value: "decomposes" },
+          { kind: "objectsOf", value: "supplies" },
+        ],
+        properties: [pn],
+      },
+    ]);
+    // Every Part is reached two or three ways; one result each.
+    expect(ids(results)).toEqual(["bolt", "half", "whole"]);
+    expect(summarizeValidation(results)[0]).toMatchObject({
+      shapeId: "PartShape",
+      totalNodes: 3,
+      passing: 2,
+      failing: 1,
+    });
+  });
+
+  it("the union of several target kinds is one result per node", () => {
+    const results = validateShacl(assembly(), [
+      {
+        id: "Mixed",
+        targets: [
+          { kind: "class", value: "Supplier" },
+          { kind: "objectsOf", value: "decomposes" },
+          { kind: "node", value: "orphan" },
+        ],
+        properties: [],
+      },
+    ]);
+    expect(ids(results)).toEqual(["acme", "bolt", "half", "orphan"]);
+  });
+
+  it("a shape with no target at all selects nothing", () => {
+    for (const shape of [
+      { id: "None", properties: [pn] },
+      { id: "Empty", targets: [], properties: [pn] },
+      // The pre-#67 placeholder for "no class target" keeps meaning
+      // that: "" is not a class and matches no node.
+      { id: "Placeholder", targetClass: "", properties: [pn] },
+    ] satisfies ShaclShape[]) {
+      expect(validateShacl(assembly(), [shape])).toHaveLength(0);
+    }
+  });
+
+  it("an empty targetClass alongside targets selects only through targets", () => {
+    const ugm = assembly();
+    ugm.addNode("blank", { types: [""], properties: {} });
+    const results = validateShacl(ugm, [
+      {
+        id: "S",
+        targetClass: "",
+        targets: [{ kind: "node", value: "orphan" }],
+        properties: [],
+      },
+    ]);
+    expect(ids(results)).toEqual(["orphan"]);
+    // The host passed "", so the echo is "" as it was before.
+    expect(results[0]!.targetClass).toBe("");
+  });
+
+  it("keeps node-major result order for class-only shapes", () => {
+    const results = validateShacl(makeUGM(), SHAPES);
+    expect(results.map((r) => `${r.nodeId}/${r.shapeId}`)).toEqual([
+      "d1/disease-shape",
+      "d2/disease-shape",
+      "d3/disease-shape",
+      "p1/drug-shape",
+      "p2/drug-shape",
+    ]);
+  });
+});

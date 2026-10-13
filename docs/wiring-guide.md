@@ -134,7 +134,38 @@ applies last, rather than restating `node.g3t-ov-member` in your own
 sheet, where a more specific selector would still lose on order. A
 per-element bypass (`ele.style(...)`) outranks every rule, which is
 why instance pins still shadow the overlay border on the pinned
-element.
+element. When one class of elements must keep its own chrome while
+an overlay is active (a focus ring, a row the user pinned), pass those
+rules through `stylesheetAfterOverlays` (issue #69): they merge after
+the overlay block and before the svg-overlay, label-collision and
+hidden rules, restyle in place like `stylesheet`, and are the only
+rule-based path that wins over an overlay on its members. Keep the
+slot to the deliberate exceptions; ordinary chrome stays in
+`stylesheet`.
+
+```tsx
+import { CytoscapeCanvas, type CyStylesheet } from "@g3-toolkit/react";
+
+// Ordinary chrome: beats the theme and the encoding, loses to an
+// active overlay on its members.
+const chrome: CyStylesheet[] = [
+  { selector: "node", style: { "border-width": 1 } },
+];
+// The deliberate exception: a focused node keeps its ring on an
+// overlay member too.
+const focusRing: CyStylesheet[] = [
+  {
+    selector: "node.host-focus",
+    style: { "border-width": 4, "border-color": "#1c7ed6" },
+  },
+];
+
+<CytoscapeCanvas
+  ugm={ugm}
+  stylesheet={chrome}
+  stylesheetAfterOverlays={focusRing}
+/>;
+```
 
 **The context menu is a command bus.** `@g3-toolkit/core/events` is a
 context-action command bus, NOT a fourth integration channel. Add
@@ -767,7 +798,42 @@ const geometry = await layoutStructural(input);
 
 A report renders by reusing the overlay + encoding machinery, no
 SHACL-specific canvas code. Conformance runs wherever (pyshacl, Jena,
-the in-core validator); the toolkit consumes a versioned document:
+the in-core validator); the toolkit consumes a versioned document.
+
+The in-core validator selects a shape's focus nodes from `targetClass`
+and from every `targets` entry: `class` (nodes typed with the class),
+`subjectsOf` (the source of every edge of that type), `objectsOf` (the
+target of every such edge) and `node` (that node id), deduplicated so
+a node reached several ways validates once. A `sparql` target selects
+nothing (the toolkit runs no SPARQL; evaluate it in an external engine
+and hand the report over), and a shape with no target at all validates
+nothing. `targetClass` is optional (#67), so a shape targeted only by
+subjects-of needs no placeholder class:
+
+```tsx
+import { validateShacl, type ShaclShape } from "@g3-toolkit/core";
+
+const shapes: ShaclShape[] = [
+  // A class target, as before.
+  {
+    id: "ComponentShape",
+    targetClass: "Component",
+    properties: [{ path: "name", datatype: "string", minCount: 1 }],
+  },
+  // No targetClass: every node that is the SOURCE of a `partOf` edge
+  // (sh:targetSubjectsOf) must carry a part number.
+  {
+    id: "PartShape",
+    targets: [{ kind: "subjectsOf", value: "partOf" }],
+    properties: [{ path: "partNumber", datatype: "string", minCount: 1 }],
+  },
+];
+const results = validateShacl(ugm, shapes);
+// results[i].targetClass is absent for PartShape (no class to echo).
+```
+
+The report document builds from those results, or from an external
+engine's output:
 
 ```tsx
 import {
@@ -837,8 +903,10 @@ placeholder results. `selectedShape` / `onSelectShape` make the
 selection controlled; the selected shape renders expanded, so a shape
 chosen from the URL opens on load. Leave both props off and the
 browser keeps its own expanded state as before. A shape declares every
-target it has through `targets`; `targetClass` stays the class the
-validator matches:
+target it has through `targets`; `targetClass` is the primary class
+target and is optional (#67), so a shape targeted only by subjects-of
+or SPARQL leaves it out, and the validator reads both (see the
+validation report recipe above):
 
 ```tsx
 import { useState } from "react";
@@ -970,7 +1038,9 @@ CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. Issue
   `tree-node-<id>` testid repeats), a declared root is still never
   repeated as a descendant, and a cycle is cut where a node is already
   on the current path. The working-set limit counts rows, so a repeated
-  node counts each time.
+  node counts each time. The breadcrumb follows the copy the user
+  picked (a row or a crumb); a selection arriving from outside shows
+  the first copy in placement order, the one the reveal scrolls to.
 
 ```tsx
 import { useState } from "react";

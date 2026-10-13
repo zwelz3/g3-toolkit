@@ -70,7 +70,8 @@ export interface TreeViewProps {
   /** Row density (B3): "comfortable" (default) or "compact". */
   density?: "comfortable" | "compact";
   /** Upstream P3 (prm-analyzer, 2026-07-28): render the breadcrumb
-   *  trail. Default true. */
+   *  trail (the path of the selected node; of the picked copy when the
+   *  node sits under several parents, #70). Default true. */
   showBreadcrumb?: boolean;
   /** Fires with the id when the user picks a row (click, Enter, Space,
    *  a breadcrumb). Uncontrolled it accompanies the store write;
@@ -205,9 +206,20 @@ const PATH_SEP = "\u001f";
  * Ceiling on placed rows. Paths, not nodes, so a dense DAG can place
  * many more rows than the graph has nodes; the working-set limit
  * bounds what RENDERS but the seed, filter and reveal walk the whole
- * hierarchy, and that walk must terminate in bounded time.
+ * hierarchy, and that walk must terminate in bounded time. Hitting it
+ * warns once per graph in development (#70); rows beyond it are not
+ * placed, so they never render, filter or reveal.
  */
 const MAX_PATH_ROWS = 100_000;
+let maxPathRows = MAX_PATH_ROWS;
+/**
+ * Test seam (#70): lower the cap so a small DAG can hit it. Internal:
+ * `index.ts` does not re-export it, so it never reaches the package
+ * entry. `null` restores the default.
+ */
+export function setMaxPathRowsForTests(cap: number | null): void {
+  maxPathRows = cap ?? MAX_PATH_ROWS;
+}
 
 // Store selectors. Controlled, the tree subscribes with the inert one:
 // the hook cannot be skipped, but no store change reaches the tree.
@@ -319,12 +331,18 @@ export function TreeView({
     const rootKeys: string[] = [];
     const rootSet = new Set(roots);
     const onPath = new Set<string>();
+    // An object, not a `let`: the walk is a closure and the React
+    // compiler's lint rejects reassigning a captured binding.
+    const cap = { hit: false };
     const place = (
       id: string,
       parentKey: string | null,
       depth: number,
     ): string | null => {
-      if (rows.size >= MAX_PATH_ROWS) return null;
+      if (rows.size >= maxPathRows) {
+        cap.hit = true;
+        return null;
+      }
       const key = parentKey === null ? id : parentKey + PATH_SEP + id;
       const row: PathRow = { key, id, parentKey, childKeys: [], depth };
       rows.set(key, row);
@@ -344,8 +362,29 @@ export function TreeView({
       const key = place(r, null, 0);
       if (key !== null) rootKeys.push(key);
     }
-    return { rows, keysOf, rootKeys };
+    return { rows, keysOf, rootKeys, capped: cap.hit };
   }, [childrenOf, roots]);
+
+  // Development-only warning when the cap cut the walk (#70): once per
+  // graph, not per render or per root change, since the cut is
+  // otherwise silent (the missing rows look like a shorter hierarchy).
+  // The `typeof process` guard is deliberate: a bundler that leaves
+  // `process` undefined skips the aid instead of throwing.
+  const cappedWarnedForRef = useRef<UGM | null>(null);
+  useEffect(() => {
+    if (
+      !structure.capped ||
+      cappedWarnedForRef.current === ugm ||
+      typeof process === "undefined" ||
+      process.env?.NODE_ENV === "production"
+    ) {
+      return;
+    }
+    cappedWarnedForRef.current = ugm;
+    console.warn(
+      `[g3t] TreeView placed ${maxPathRows} rows (MAX_PATH_ROWS) and stopped: rows beyond the cap are not placed, so they never render, filter or reveal. Rows are paths, so a dense DAG places more rows than it has nodes; narrow the roots or the graph.`,
+    );
+  }, [structure, ugm]);
 
   /** Ancestor keys of a row, nearest first. */
   const ancestorKeysOf = useCallback(
@@ -581,6 +620,10 @@ export function TreeView({
   // since a branch that had to open is only in the DOM after that
   // commit.
   const [internalPick, setInternalPick] = useState<string | null>(null);
+  // The path key of the row (or crumb) the user picked (#70): the copy
+  // the breadcrumb follows. Cleared when a selection arrives from
+  // outside, so that arrival falls back to the first copy.
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
   const [revealedFor, setRevealedFor] = useState<string | null>(selectedId);
   const pendingScrollRef = useRef<string | null>(null);
   if (selectedId !== revealedFor) {
@@ -589,6 +632,7 @@ export function TreeView({
       // Consumed or superseded: the next arrival of this id from
       // outside must reveal again.
       if (internalPick !== null) setInternalPick(null);
+      if (pickedKey !== null) setPickedKey(null);
       const closed = ancestorKeysOfId(selectedId).filter(
         (a) =>
           !(seedKeys.has(a) !== toggledKeys.has(a)) &&
@@ -627,39 +671,46 @@ export function TreeView({
   });
 
   // True breadcrumb: the ancestor PATH (root -> ... -> selected) of
-  // the selected node, derived from containment edges. This replaces
-  // the former click-history trail, which showed an arbitrary sequence
-  // of clicked nodes rather than a hierarchy path and never reset to a
-  // real path when an ancestor was clicked. A node under several
-  // parents shows the path through its first incoming edge.
-  const breadcrumb = useMemo<Array<{ id: string; label: string }>>(() => {
-    if (!selectedId || !ugm.hasNode(selectedId)) return [];
-    const parent = new Map<string, string>();
-    ugm.forEachEdge((_id, _attrs, source, target) => {
-      if (!parent.has(target)) parent.set(target, source);
-    });
-    const labelOf = (id: string): string => {
-      const n = ugm.getNode(id);
-      return typeof n?.properties.name === "string" ? n.properties.name : id;
-    };
-    const path: Array<{ id: string; label: string }> = [];
-    const seen = new Set<string>();
-    let cur: string | undefined = selectedId;
-    while (cur && !seen.has(cur)) {
-      seen.add(cur);
-      path.unshift({ id: cur, label: labelOf(cur) });
-      cur = parent.get(cur);
-    }
+  // the selected node, read from placement. This replaces the former
+  // click-history trail, which showed an arbitrary sequence of clicked
+  // nodes rather than a hierarchy path and never reset to a real path
+  // when an ancestor was clicked. A node under several parents has one
+  // path per copy (#70): a pick made in the tree (a row or a crumb)
+  // records its path key and the crumbs are that path, so picking the
+  // copy under the second parent shows the second parent; a selection
+  // from outside (the store or `selected`) shows the first copy in
+  // placement order, the one the reveal scrolls to. Before #70 the
+  // path came from the first incoming edge per node, whichever copy
+  // was picked. A selected node the roots do not reach has no path.
+  const breadcrumb = useMemo<
+    Array<{ id: string; key: string; label: string }>
+  >(() => {
+    if (selectedId === null) return [];
+    const picked =
+      pickedKey !== null && structure.rows.get(pickedKey)?.id === selectedId
+        ? pickedKey
+        : null;
+    const key = picked ?? structure.keysOf.get(selectedId)?.[0] ?? null;
+    if (key === null) return [];
+    const ids = key.split(PATH_SEP);
     // A lone selected root is not a useful "path"; show nothing.
-    return path.length > 1 ? path : [];
-  }, [ugm, selectedId]);
+    if (ids.length < 2) return [];
+    return ids.map((id, i) => ({
+      id,
+      key: ids.slice(0, i + 1).join(PATH_SEP),
+      label: rowOf(ugm, id).label,
+    }));
+  }, [ugm, structure, selectedId, pickedKey]);
 
   // Select a node id: through the store (uncontrolled) and `onSelect`.
-  // A group is never selected; from the breadcrumb it is a no-op.
+  // A group is never selected; from the breadcrumb it is a no-op. The
+  // key is the picked copy's path (a row's, or a crumb's prefix of the
+  // path it sits on), which the breadcrumb follows.
   const selectId = useCallback(
-    (id: string) => {
+    (id: string, key: string) => {
       if (isGroup?.(rowOf(ugm, id))) return;
       setInternalPick(id);
+      setPickedKey(key);
       if (!controlled) useSelectionStore.getState().selectNodes([id]);
       onSelect?.(id);
     },
@@ -671,7 +722,7 @@ export function TreeView({
       const id = structure.rows.get(key)?.id;
       if (id === undefined) return;
       if (isGroup?.(rowOf(ugm, id))) toggleExpand(key);
-      else selectId(id);
+      else selectId(id, key);
     },
     [structure, isGroup, ugm, toggleExpand, selectId],
   );
@@ -766,7 +817,7 @@ export function TreeView({
                   padding: 0,
                   fontSize: 12,
                 }}
-                onClick={() => selectId(b.id)}
+                onClick={() => selectId(b.id, b.key)}
               >
                 {b.label}
               </button>

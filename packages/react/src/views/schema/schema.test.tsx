@@ -906,3 +906,49 @@ describe("computeSchemaHash: edge cases (audit)", () => {
     expect(hash.length).toBeGreaterThan(0);
   });
 });
+
+// ── Issue #67: an absent targetClass reads like an empty one ────────
+
+describe("SchemaView treats an absent targetClass like an empty one (#67)", () => {
+  const schema = {
+    nodeTypes: ["Person", "Org"],
+    edgeTypes: [],
+    nodeProperties: {},
+    edgeProperties: {},
+  };
+
+  it("badges only the classes named in targets", () => {
+    const shapes: ShaclShape[] = [
+      {
+        id: "OrgOnly",
+        targets: [
+          { kind: "class", value: "Org" },
+          { kind: "subjectsOf", value: "ex:employs" },
+        ],
+        properties: [{ path: "legalName", minCount: 1 }],
+      },
+      // No target at all: badges nothing.
+      { id: "Untargeted", properties: [{ path: "x" }] },
+    ];
+    render(<SchemaView schema={schema} shapes={shapes} />);
+    const badge = screen.getByTestId("shacl-badge-Org");
+    expect(badge).toHaveTextContent("SHACL: 1 constraints");
+    expect(badge).toHaveAttribute("title", "Shapes: OrgOnly");
+    expect(screen.queryByTestId("shacl-badge-Person")).toBeNull();
+  });
+
+  it("the display-only shape form accepts an absent targetClass too", () => {
+    const shapes: SchemaViewShape[] = [
+      {
+        id: "View",
+        targets: [{ kind: "class", value: "Person" }],
+        constraints: [{ path: "name" }],
+      },
+    ];
+    render(<SchemaView schema={schema} shapes={shapes} />);
+    expect(screen.getByTestId("shacl-badge-Person")).toHaveTextContent(
+      "SHACL: 1 constraints",
+    );
+    expect(screen.queryByTestId("shacl-badge-Org")).toBeNull();
+  });
+});

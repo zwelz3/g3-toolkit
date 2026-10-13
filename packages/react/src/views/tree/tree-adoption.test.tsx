@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { UGM } from "@g3-toolkit/core";
-import { TreeView, type TreeRowNode } from "./TreeView";
+import { TreeView, setMaxPathRowsForTests, type TreeRowNode } from "./TreeView";
 import { useSelectionStore } from "../../state/selection-store";
 
 /**
@@ -543,5 +543,79 @@ describe("TreeView: a node under several parents renders under each (#59 item 1)
     expect(screen.getAllByRole("treeitem")).toHaveLength(5);
     expect(screen.getAllByTestId("tree-node-x")).toHaveLength(1);
     expect(screen.getAllByTestId("tree-node-x1")).toHaveLength(1);
+  });
+});
+
+describe("TreeView placement cap warning (#70)", () => {
+  /** root -> a -> x -> x1, root -> b -> x: five rows placed. */
+  function diamond(): UGM {
+    const ugm = new UGM();
+    for (const id of ["root", "a", "b", "x", "x1"]) {
+      ugm.addNode(id, { types: ["T"], properties: { name: id } });
+    }
+    const edge = (p: string, c: string) =>
+      ugm.addEdge(p, c, { type: "c", properties: {} });
+    edge("root", "a");
+    edge("root", "b");
+    edge("a", "x");
+    edge("b", "x");
+    edge("x", "x1");
+    return ugm;
+  }
+  let warn: ReturnType<typeof vi.spyOn>;
+  const capWarnings = () =>
+    warn.mock.calls
+      .map((c: unknown[]) => String(c[0]))
+      .filter((m: string) => m.includes("MAX_PATH_ROWS"));
+
+  beforeEach(() => {
+    useSelectionStore.getState().clear();
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+    setMaxPathRowsForTests(null);
+  });
+
+  it("warns once per graph when the walk hits the cap, naming it, and places nothing beyond it", () => {
+    setMaxPathRowsForTests(4);
+    const ugm = diamond();
+    const { rerender } = render(
+      <TreeView ugm={ugm} rootId="root" initialDepth={9} />,
+    );
+    // Pre-order: root, a, x, x1 fill the cap; b is never placed.
+    expect(screen.queryByTestId("tree-node-b")).toBeNull();
+    expect(screen.getAllByTestId("tree-node-x")).toHaveLength(1);
+    expect(capWarnings()).toHaveLength(1);
+    expect(capWarnings()[0]).toContain("4 rows");
+    expect(capWarnings()[0]).toContain("not placed");
+    // Re-renders and a root change on the same graph do not repeat it.
+    rerender(<TreeView ugm={ugm} rootId="root" initialDepth={1} />);
+    rerender(<TreeView ugm={ugm} rootId="a" initialDepth={9} />);
+    expect(capWarnings()).toHaveLength(1);
+    // A different graph that hits the cap warns again.
+    rerender(<TreeView ugm={diamond()} rootId="root" initialDepth={9} />);
+    expect(capWarnings()).toHaveLength(2);
+  });
+
+  it("stays silent under the cap, including exactly at it", () => {
+    // Seven paths: root, a, x, x1, b, x, x1.
+    setMaxPathRowsForTests(7);
+    render(<TreeView ugm={diamond()} rootId="root" initialDepth={9} />);
+    expect(screen.getAllByTestId("tree-node-x")).toHaveLength(2);
+    expect(capWarnings()).toHaveLength(0);
+  });
+
+  it("stays silent in production", () => {
+    setMaxPathRowsForTests(4);
+    const env = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      render(<TreeView ugm={diamond()} rootId="root" initialDepth={9} />);
+      expect(screen.queryByTestId("tree-node-b")).toBeNull();
+      expect(capWarnings()).toHaveLength(0);
+    } finally {
+      process.env.NODE_ENV = env;
+    }
   });
 });
