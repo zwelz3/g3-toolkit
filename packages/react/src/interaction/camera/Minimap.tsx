@@ -2,8 +2,12 @@
  * Minimap: a compact overview of a Cytoscape graph with a draggable
  * viewport indicator.
  *
- * It paints every node position (and faint edges) scaled to fit a small
- * canvas, then draws the current viewport rectangle from `cy.extent()`.
+ * It paints every visible node position (and faint edges) scaled to fit
+ * a small canvas, then draws the current viewport rectangle from
+ * `cy.extent()`. Elements that are not `visible()` (display: none, the
+ * canvas `hidden` prop's `g3t-hidden` class, a hidden parent) are
+ * skipped, so a filtered graph shows no dots the canvas does not draw
+ * (issue #61).
  * Clicking or dragging inside the minimap recenters the main view on the
  * corresponding model-space point (zoom is preserved) via the camera
  * controller's `panToPoint`. Redraws are coalesced to one per animation
@@ -53,9 +57,13 @@ export interface MinimapProps {
   /** Drawn node dot radius in px. Default 2. */
   nodeRadius?: number;
   /** Optional predicate selecting which TOP-LEVEL nodes are drawn. Use it
-   *  to hide rendering-only nodes (for example structural ports). Children
-   *  of a compound parent are never drawn individually regardless; the
-   *  parent is collapsed to a single rectangle. */
+   *  to hide rendering-only nodes (for example structural ports). It
+   *  composes with the built-in visibility check: nodes that are not
+   *  `visible()` are already skipped, so the predicate only narrows
+   *  further and need not restate visibility. Edges touching a skipped
+   *  node are skipped too. Children of a compound parent are never drawn
+   *  individually regardless; the parent is collapsed to a single
+   *  rectangle. */
   nodeFilter?: (node: NodeSingular) => boolean;
   /** Accessible label for the minimap region. */
   ariaLabel?: string;
@@ -130,7 +138,11 @@ export function Minimap({
       ctx.fillStyle = theme.bgSecondary;
       ctx.fillRect(0, 0, width, height);
 
-      const nodes = cy.nodes();
+      // Issue #61: hidden elements neither draw nor shape the frame. The
+      // `:visible` selector is `ele.visible()`, which is wider than the
+      // display check `boundingBox()` already applies (visibility: hidden,
+      // a hidden parent, zero size), so the frame and the marks agree.
+      const nodes = cy.nodes(":visible");
       if (nodes.length === 0) {
         transformRef.current = null;
         return;
@@ -142,7 +154,7 @@ export function Minimap({
       // Zoomed in (viewport inside the graph) the union is the graph box, so
       // the overview is unchanged. Geometry lives in minimap-frame.ts.
       const frame = computeMinimapFrame(
-        cy.elements().boundingBox(),
+        cy.elements(":visible").boundingBox(),
         cy.extent(),
         width,
         height,
@@ -167,15 +179,32 @@ export function Minimap({
         return cur;
       };
 
-      // Edges between distinct top-level ancestors; an edge wholly inside
-      // one container collapses to a point and is skipped.
+      // The top-level nodes that get a mark: visible, and past the host's
+      // nodeFilter when one is given. Decided before the edge pass so an
+      // edge whose endpoint is skipped (hidden or filtered out) is skipped
+      // with it instead of dangling to a point with no mark.
+      const filter = nodeFilterRef.current;
+      const drawn: NodeSingular[] = [];
+      const drawnIds = new Set<string>();
+      cy.nodes(":orphan").forEach((n) => {
+        if (!n.visible()) return;
+        if (filter && !filter(n)) return;
+        drawn.push(n);
+        drawnIds.add(n.id());
+      });
+
+      // Edges between distinct drawn top-level ancestors; an edge wholly
+      // inside one container collapses to a point and is skipped. An edge
+      // hidden on its own (both endpoints shown) is skipped as well.
       ctx.strokeStyle = theme.edgeColor;
       ctx.globalAlpha = 0.5;
       ctx.lineWidth = 0.5;
       cy.edges().forEach((e) => {
+        if (!e.visible()) return;
         const s = topOf(e.source());
         const t = topOf(e.target());
         if (s.id() === t.id()) return;
+        if (!drawnIds.has(s.id()) || !drawnIds.has(t.id())) return;
         const sp = s.position();
         const tp = t.position();
         ctx.beginPath();
@@ -184,11 +213,10 @@ export function Minimap({
         ctx.stroke();
       });
 
-      // One mark per top-level node: a rectangle for a compound container,
-      // a dot for a leaf. Child rows and ports never draw on their own.
-      const filter = nodeFilterRef.current;
-      cy.nodes(":orphan").forEach((n) => {
-        if (filter && !filter(n)) return;
+      // One mark per drawn top-level node: a rectangle for a compound
+      // container, a dot for a leaf. Child rows and ports never draw on
+      // their own.
+      drawn.forEach((n) => {
         if (n.isParent()) {
           const nb = n.boundingBox();
           const x = tx(nb.x1);
