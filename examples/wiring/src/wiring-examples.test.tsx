@@ -81,6 +81,8 @@ import {
   computeSequenceActiveIds,
   SchemaView,
   TreeView,
+  type TreeRowNode,
+  type TreeLabelContext,
   createDefaultMenuManager,
   registerToolkitActions,
   ViewErrorBoundary,
@@ -865,6 +867,161 @@ describe("wiring guide: class hierarchy (SchemaView nesting, TreeView forests)",
       screen.getByTestId("tree-node-prov:Entity"),
     );
     expect(screen.getByRole("tree")).toBeInTheDocument();
+  });
+});
+
+describe("wiring guide: ontology rails (TreeView filter, group rows, rich labels, controlled selection)", () => {
+  function railGraph(): UGM {
+    const ugm = new UGM();
+    const cls = (id: string, name: string, type = "Class") =>
+      ugm.addNode(id, { types: [type], properties: { name } });
+    cls("owl:Thing", "Thing");
+    cls("ex:Artifact", "Artifact");
+    cls("ex:Requirement", "Requirement");
+    cls("ex:Design", "Design");
+    cls("ex:Agent", "Agent");
+    cls("ex:Deliverable", "Deliverable");
+    cls("ex:props", "Object properties", "Group");
+    cls("ex:satisfies", "satisfies", "Property");
+    const sub = (p: string, c: string) =>
+      ugm.addEdge(p, c, { type: "subClassOf", properties: {} });
+    sub("owl:Thing", "ex:Artifact");
+    sub("ex:Artifact", "ex:Requirement");
+    sub("ex:Artifact", "ex:Design");
+    sub("owl:Thing", "ex:Agent");
+    // Two superclasses: Deliverable shows under Artifact AND Agent.
+    sub("ex:Artifact", "ex:Deliverable");
+    sub("ex:Agent", "ex:Deliverable");
+    sub("owl:Thing", "ex:props");
+    sub("ex:props", "ex:satisfies");
+    return ugm;
+  }
+
+  it("filters with ancestors, toggles group rows, renders rich labels, and keeps the selection in the host", () => {
+    const ugm = railGraph();
+    const navigate = vi.fn();
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    let setFromOutside: (id: string | null) => void = () => {};
+
+    function ClassRail() {
+      const [selectedClass, setSelectedClass] = useState<string | null>(
+        "ex:Requirement",
+      );
+      setFromOutside = setSelectedClass;
+      const [query, setQuery] = useState("");
+      return (
+        <>
+          <input
+            aria-label="Filter classes"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <TreeView
+            ugm={ugm}
+            rootIds={["owl:Thing"]}
+            ariaLabel="Classes"
+            showType={false}
+            initialDepth={1}
+            initialExpanded={["ex:Artifact"]}
+            filter={query}
+            isGroup={(node: TreeRowNode) => node.type === "Group"}
+            renderLabel={(node: TreeRowNode, ctx: TreeLabelContext) => (
+              <span style={{ fontStyle: ctx.group ? "italic" : undefined }}>
+                {node.label}
+                {ctx.childCount > 0 && (
+                  <span title={`${ctx.childCount} subclasses`}>
+                    {" "}
+                    ({ctx.childCount})
+                  </span>
+                )}
+              </span>
+            )}
+            selected={selectedClass}
+            onSelect={(id) => {
+              setSelectedClass(id);
+              navigate(`/classes/${encodeURIComponent(id)}`);
+            }}
+          />
+        </>
+      );
+    }
+
+    try {
+      useSelectionStore.getState().clear();
+      render(<ClassRail />);
+      const item = (id: string) => screen.getByTestId(`tree-node-${id}`);
+      const row = (id: string) => item(id).querySelector(".g3t-tree-row")!;
+
+      // ariaLabel, the controlled selection at mount (highlighted and
+      // scrolled to), initialExpanded, and the rich label with its count.
+      expect(screen.getByRole("tree", { name: "Classes" })).toBeInTheDocument();
+      expect(item("ex:Requirement")).toHaveAttribute("aria-selected", "true");
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+      expect(scrollIntoView.mock.instances[0]).toBe(item("ex:Requirement"));
+      expect(screen.getByTestId("tree-label-ex:Artifact")).toHaveTextContent(
+        "Artifact (3)",
+      );
+      expect(
+        screen.getByTestId("tree-label-ex:Artifact").querySelector("[title]"),
+      ).toHaveAttribute("title", "3 subclasses");
+
+      // A class with two superclasses renders under both; selecting
+      // one copy highlights both.
+      expect(screen.getAllByTestId("tree-node-ex:Deliverable")).toHaveLength(1);
+      fireEvent.click(screen.getByTestId("tree-toggle-ex:Agent"));
+      const copies = screen.getAllByTestId("tree-node-ex:Deliverable");
+      expect(copies).toHaveLength(2);
+      fireEvent.click(copies[1]!.querySelector(".g3t-tree-row")!);
+      for (const c of copies) {
+        expect(c).toHaveAttribute("aria-selected", "true");
+      }
+
+      // A group row toggles and never selects; the store stays empty.
+      expect(item("ex:props")).not.toHaveAttribute("aria-selected");
+      expect(item("ex:props")).toHaveAttribute("data-group", "true");
+      fireEvent.click(row("ex:props"));
+      expect(item("ex:satisfies")).toBeInTheDocument();
+      // Only the Deliverable pick above reached the host.
+      expect(navigate).toHaveBeenCalledTimes(1);
+
+      // A pick stays in the host: onSelect fires, the store is untouched.
+      fireEvent.click(row("ex:Design"));
+      expect(navigate).toHaveBeenCalledWith("/classes/ex%3ADesign");
+      expect(item("ex:Design")).toHaveAttribute("aria-selected", "true");
+      expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
+
+      // The store is ignored on the way in, too.
+      act(() => {
+        useSelectionStore.getState().selectNodes(["ex:Agent"]);
+      });
+      expect(item("ex:Agent")).toHaveAttribute("aria-selected", "false");
+
+      // A selection arriving from outside (the route) scrolls its row.
+      scrollIntoView.mockClear();
+      act(() => setFromOutside("ex:Agent"));
+      expect(item("ex:Agent")).toHaveAttribute("aria-selected", "true");
+      expect(scrollIntoView.mock.instances[0]).toBe(item("ex:Agent"));
+
+      // Filter: matches plus ancestors, ancestors held open.
+      fireEvent.change(screen.getByLabelText("Filter classes"), {
+        target: { value: "req" },
+      });
+      expect(item("ex:Requirement")).toBeInTheDocument();
+      expect(screen.queryByTestId("tree-node-ex:Design")).toBeNull();
+      expect(screen.queryByTestId("tree-node-ex:Agent")).toBeNull();
+      expect(screen.getByTestId("tree-toggle-ex:Artifact")).toBeDisabled();
+      fireEvent.change(screen.getByLabelText("Filter classes"), {
+        target: { value: "nothing here" },
+      });
+      expect(screen.getByTestId("tree-view-filter-empty")).toBeInTheDocument();
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      useSelectionStore.getState().clear();
+    }
   });
 });
 

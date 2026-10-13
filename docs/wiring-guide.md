@@ -876,6 +876,103 @@ import { SchemaView, TreeView } from "@g3-toolkit/react";
 />;
 ```
 
+### Ontology rails: TreeView filter, group rows, rich labels, controlled selection
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. Issue
+#59 added what a host needs to replace its own keyboard tree with
+`TreeView` for a class, property or vocabulary rail:
+
+- `filter` (a string, case-insensitive on the label, or a predicate
+  over the row) keeps the matches plus their ancestors and HOLDS those
+  ancestors open while it is active: their chevron is inert and
+  ArrowLeft climbs instead of closing. Clearing it restores the
+  expansion the user had. No match renders a filter-specific empty
+  state (`tree-view-filter-empty`).
+- `renderLabel(node, ctx)` replaces the label text; `ctx` carries
+  `depth`, `expanded`, `selected`, `group` and `childCount` (children
+  in the hierarchy, filter or not, so a count badge holds still while
+  the host types). The `[type]` prefix and chevron stay around it.
+- `isGroup(node)` marks expand-only rows ("Object properties" over its
+  members): click, Enter and Space toggle instead of selecting, the
+  row carries no `aria-selected`, and `data-group="true"` is there for
+  host CSS. It is a predicate rather than a reserved node property
+  because the UGM data model belongs to the adapter and a host's group
+  rows are usually synthetic nodes it injected itself.
+- `selected` (a string or null) makes the selection CONTROLLED: the
+  tree highlights that id, writes nothing to `useSelectionStore`, and
+  ignores what the store holds, so a URL-driven rail no longer collides
+  with the canvas or table on the same page. `onSelect` is then the
+  only channel. Omit `selected` and the tree reads and writes the store
+  as before (the default path); do not switch between the two after
+  mount.
+- A selection that arrives from OUTSIDE the tree (the store, or
+  `selected`, including the one present at mount) opens the branch
+  holding it and calls `scrollIntoView({ block: "nearest" })` on the
+  row. A pick made in the tree does neither.
+- `initialExpanded` seeds ids open in addition to `initialDepth` (same
+  seed semantics: toggles survive a reseed), and `ariaLabel` names the
+  tree (default "Hierarchy").
+- A node under several parents (a class with two superclasses, a DAG)
+  renders under EACH parent, with its subtree. Row identity is the
+  path (`data-path`; expansion and focus are per copy), selection is
+  the node id (selecting one copy highlights every copy, and the
+  `tree-node-<id>` testid repeats), a declared root is still never
+  repeated as a descendant, and a cycle is cut where a node is already
+  on the current path. The working-set limit counts rows, so a repeated
+  node counts each time.
+
+```tsx
+import { useState } from "react";
+import {
+  TreeView,
+  type TreeRowNode,
+  type TreeLabelContext,
+} from "@g3-toolkit/react";
+
+function ClassRail() {
+  // URL-driven: the route owns the selection, not the shared store.
+  const [selectedClass, setSelectedClass] = useState<string | null>(
+    "ex:Requirement",
+  );
+  const [query, setQuery] = useState("");
+  return (
+    <>
+      <input
+        aria-label="Filter classes"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <TreeView
+        ugm={ugm}
+        rootIds={["owl:Thing"]}
+        ariaLabel="Classes"
+        showType={false}
+        initialDepth={1}
+        initialExpanded={["ex:Artifact"]}
+        filter={query}
+        isGroup={(node: TreeRowNode) => node.type === "Group"}
+        renderLabel={(node: TreeRowNode, ctx: TreeLabelContext) => (
+          <span style={{ fontStyle: ctx.group ? "italic" : undefined }}>
+            {node.label}
+            {ctx.childCount > 0 && (
+              <span title={`${ctx.childCount} subclasses`}>
+                {" "}
+                ({ctx.childCount})
+              </span>
+            )}
+          </span>
+        )}
+        selected={selectedClass}
+        onSelect={(id) => {
+          setSelectedClass(id);
+          navigate(`/classes/${encodeURIComponent(id)}`);
+        }}
+      />
+    </>
+  );
+}
+```
+
 ### Render a provenance trace
 
 CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. The
