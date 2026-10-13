@@ -1,5 +1,18 @@
 # g3-toolkit Status
 
+**As of:** 2026-10-13 (active: **SECURITY FIX, GHSA-mpfx-v932-r2fv.**
+`DerivedPropertyEngine` no longer evaluates through expr-eval, which
+has unpatched code-execution and prototype-pollution advisories; core
+now owns a bounded numeric expression language
+(`packages/core/src/advanced/expression.ts`, internal, public API
+unchanged) and drops the dependency. Gates green; core budget raised
+169 to 172 KB pending owner ratification (ledger entry in
+`scripts/check-bundle-size.mjs`). NEXT: merge from the advisory's
+private fork, release 1.0.1, then publish the advisory with patched
+versions `>= 1.0.1`. Details in planning/derived-expression-evaluator.md.)
+
+## PRIOR SNAPSHOT (2026-08-27 version-drift gate)
+
 **As of:** 2026-08-27 (active: **VERSION-DRIFT GATE.** Postmortem item
 3 of 4 from the 1.0.0 release is CLOSED. `scripts/check-version-sync.mjs`
 takes the root `package.json` version as the source of truth and

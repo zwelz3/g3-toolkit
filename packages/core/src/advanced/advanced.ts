@@ -2,14 +2,18 @@
  * M13 Advanced Features (toolkit layer).
  *
  * E13.2.T1: PROV-O temporal property extraction.
- * E13.3.T1: DerivedPropertyEngine (safe expression evaluation).
+ * E13.3.T1: DerivedPropertyEngine (numeric expression evaluation).
  * E13.4.T3: Subgraph pinning (ViewFilter extension).
  *
  * Framework-agnostic (D6).
  */
 
 import type { UGM } from "../ugm";
-import { Parser } from "expr-eval";
+import {
+  evaluateExpression,
+  parseExpression,
+  type Expression,
+} from "./expression";
 
 // ── PROV-O Property Extraction (M13.E2.T1) ──────────────────────────
 
@@ -59,15 +63,22 @@ export function extractProvOProperties(ugm: UGM): void {
 export interface DerivedProperty {
   /** Property name (added to each node). */
   name: string;
-  /** Expression referencing existing property keys. */
+  /** Numeric expression over existing property keys (see `expression.ts`
+   *  for the language). An expression outside the language is skipped. */
   expression: string;
   /** Recompute when UGM changes. */
   reactive: boolean;
 }
 
 /**
- * Safe expression evaluator for derived properties.
- * Uses expr-eval for safe expression evaluation (no eval, no require).
+ * Computes derived numeric properties from expressions over each node's
+ * numeric properties. Expressions are parsed by the toolkit's own numeric
+ * language (`./expression`), which has no member access, assignment,
+ * function definition, or strings; it replaced expr-eval, whose 2.0.2
+ * release has unpatched code-execution and prototype-pollution advisories
+ * (GHSA-mpfx-v932-r2fv). Treat an expression as code all the same: a host
+ * that stores expressions and shows them to other users should validate
+ * who may write them.
  */
 export class DerivedPropertyEngine {
   private readonly definitions: DerivedProperty[] = [];
@@ -94,30 +105,28 @@ export class DerivedPropertyEngine {
    * Compute all derived properties and add them to UGM nodes.
    */
   compute(ugm: UGM): void {
-    const parser = new Parser();
-
     for (const def of this.definitions) {
-      let parsed: ReturnType<typeof parser.parse>;
+      let parsed: Expression;
       try {
-        parsed = parser.parse(def.expression);
+        parsed = parseExpression(def.expression);
       } catch {
-        continue; // Invalid expression; skip
+        continue; // Outside the expression language; skip
       }
 
       ugm.forEachNode((id, attrs) => {
+        // Own numeric properties only, in a Map: a name such as
+        // "constructor" or "__proto__" never reaches an object prototype.
+        const scope = new Map<string, number>();
+        for (const [key, value] of Object.entries(attrs.properties)) {
+          if (typeof value === "number") scope.set(key, value);
+        }
         try {
-          const scope: Record<string, number> = {};
-          for (const [key, value] of Object.entries(attrs.properties)) {
-            if (typeof value === "number") {
-              scope[key] = value;
-            }
-          }
-          const result = parsed.evaluate(scope);
+          const result = evaluateExpression(parsed, scope);
           if (typeof result === "number" && isFinite(result)) {
             ugm.updateNodeProperties(id, { [def.name]: result });
           }
         } catch {
-          // Expression evaluation failed for this node
+          // A missing variable or a non-numeric operand; no value for this node
         }
       });
     }
