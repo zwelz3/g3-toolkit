@@ -364,8 +364,9 @@ const BUDGETS = {
   // edge rows #38, encoding re-apply and stylesheet restyle #13/#14/
   // #28, overlay theme rules #32, SHACL browser #34/#35), the dist
   // measures 411.5 KB; with wave 2 (#40 label collision +5.7 KB, #26
-  // additive updates) the budget is 425, a few KB of headroom as before.
-  react: 425 * 1024,
+  // additive updates +4.5 KB) it measures about 422 KB, so the budget
+  // is 428, a few KB of headroom as before.
+  react: 428 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the
@@ -407,6 +408,21 @@ const BUDGETS = {
   //   half of the 5.7 KB is the docblocks that explain the overlay
   //   mechanism and why `label` is never written. New headroom is
   //   folded into the integration budget above.
+  // - +4.5 KB, 2026-10-13 (issue #26, additive graph updates), measured
+  //   on its branch against the head it grew from:
+  //   CytoscapeCanvas gained `graphUpdate="additive"` (planner, seed
+  //   placement, the in-place grow with one fcose pass under
+  //   fixedNodeConstraint, and the render-time init-key decision).
+  //   It lives in the canvas rather than a tree-shakeable module
+  //   because it IS the canvas's graph-change detection: an explorer
+  //   that grows a drawn graph one neighborhood at a time lost
+  //   positions and camera on every step, and the host-side
+  //   workaround (`locked` under fcose) does not work. Budgets are
+  //   unminified by policy and roughly half of the growth is the
+  //   docblocks that say why. Sourcemap audit run first as the
+  //   2026-07-03 core entry requires: ZERO node_modules source bytes
+  //   across react's dist maps (803,359 bytes, all first-party). New
+  //   headroom is folded into the integration budget above.
   // - NO RAISE, 2026-08-28 (core stopped being external): measured
   //   651.7 KB, 167% of the 390 KB budget in force at the time. The
   //   261.7 KB over was not growth and the correct response was a

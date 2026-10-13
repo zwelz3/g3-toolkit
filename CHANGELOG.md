@@ -306,6 +306,42 @@ this round: #41 (publishing is the maintainer's), #5, #6, #9, #12,
   test console output in this container, so the before/after counts
   (15 to 0) were taken with `--disableConsoleIntercept`.
 
+- **Additive graph updates (#26).** Growing a drawn graph one
+  neighborhood at a time handed `CytoscapeCanvas` a new `ugm` identity
+  on every step, and a new identity is a different graph: the instance
+  was re-created, every node lost its position and the camera reset.
+  The host workaround (`IncrementalLayout` with the old nodes locked)
+  does not work under fcose, which ignores `locked` while computing.
+  New prop `graphUpdate?: "rebuild" | "additive"` (default `"rebuild"`,
+  unchanged). In additive mode a ugm whose node-id set is a SUPERSET of
+  the drawn one grows the live instance in place: new nodes and edges
+  join (edges the new ugm no longer has leave, since generated edge ids
+  differ per UGM instance and keeping them would draw every edge twice
+  after a step; drawn elements take the new data), new nodes are seeded
+  at the centroid of their placed neighbors with a golden-angle offset,
+  and one fcose pass runs from the current positions with every
+  existing node held by `fixedNodeConstraint`, `fit: false`, honoring
+  `animate` and `animationDuration`. A node removal, a re-parented node
+  or a structural scene falls back to the rebuild. Root cause of the
+  lost arrangement was the init effect keying on `ugm` identity alone;
+  it now keys on the identity the live instance was built from, decided
+  once per ugm in render so a rebuild still lands in the same commit as
+  before (an effect-driven epoch bump would re-order the rebuild after
+  the ugm-keyed pin, override and overlay effects). `computeIncrementalUpdate`
+  was not reused: its 40% change-ratio heuristic returns "full" for
+  the common small expansion. Tests: a mocked-cytoscape suite (superset
+  grows in place with exactly the new elements, `fixedNodeConstraint`
+  over the old nodes, no fit, no new instance; non-superset and default
+  mode rebuild; spec and hidden reach the added elements; stale edges
+  removed; re-parent falls back) and a headless real-fcose test that
+  existing nodes hold within 1e-6. Wiring guide "Grow a drawn graph
+  without rebuilding it" with an executable twin; the consuming guide
+  now states the `locked` versus `fixedNodeConstraint` mechanism
+  honestly. OPEN: the pass runs fcose over the whole instance with all
+  old nodes fixed (a subset pass would be cheaper on very large drawn
+  sets), and no demo shell opts in yet; the seeded placement needs a
+  live look.
+
 - **Labels overprinted in dense graphs with no way to thin them (#40).**
   Cytoscape draws every label at its element and never moves one out
   of another's way, so a layered citation network (59 publications,
@@ -342,15 +378,17 @@ this round: #41 (publishing is the maintainer's), #5, #6, #9, #12,
   real rendered boxes (rotated edge labels, `min-zoomed-font-size`)
   need a look in the playground; no demo shell opts in yet.
 
-- **Bundle ledger.** React publish weight 392.0 to 411.5 KB across the
-  round (TableView rows path and fill mode, TreeView keyboard model and
-  forests, SchemaView nesting and per-shape badges, the theme target
-  recorder, legend edge rows, the encoding re-apply and stylesheet key,
-  overlay theme rules, the SHACL browser); budget 395 to 418 with the
-  per-branch attribution in `scripts/check-bundle-size.mjs`. Core
+- **Bundle ledger.** React publish weight 392.0 to about 422 KB across
+  the round (TableView rows path and fill mode, TreeView keyboard model
+  and forests, SchemaView nesting and per-shape badges, the theme
+  target recorder, legend edge rows, the encoding re-apply and
+  stylesheet key, overlay theme rules, the SHACL browser, label
+  collision, additive updates); budget 395 to 428 with the per-branch
+  attribution in `scripts/check-bundle-size.mjs`. Core
   166.1 of 169 KB, no raise. `api-surface.json` adds `kShortestPaths`,
-  `applyTheme` and `themeFromCssVariables`; everything else added is
-  type-only.
+  `applyTheme`, `themeFromCssVariables`, `resolveLabelCollisions`,
+  `composeLabelPriority`, `shortenLabel` and `DEFAULT_LABEL_MAX_LENGTH`;
+  everything else added is type-only.
 
 ### 2026-08-28 (two defects found hiding in the lint warning list)
 

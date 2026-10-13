@@ -354,7 +354,8 @@ it to the canvas as `hidden`; the canvas hides them with a class
 (`display:none`) in a batched restyle, so node positions and the
 Cytoscape instance survive. Do NOT feed a pre-filtered UGM as `ugm`: a new
 `ugm` reference re-creates the instance and re-runs layout on every
-toggle.
+toggle (additive mode, next section, only ever grows a graph; a filter
+removes, so it would rebuild there too).
 
 ```tsx
 import { useMemo, useState } from "react";
@@ -379,6 +380,51 @@ const hidden = useMemo(() => {
   <CytoscapeCanvas ugm={ugm} hidden={hidden} />
 </>;
 ```
+
+### Grow a drawn graph without rebuilding it
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. An
+explorer that adds one neighborhood at a time hands the canvas a new
+`ugm` on every step, and a new identity is a different graph: the
+instance is re-created, positions and the camera reset. With
+`graphUpdate="additive"` a new ugm whose node-id set is a SUPERSET of
+the drawn one grows the live instance instead: the new nodes and edges
+join in place, only the new nodes are laid out (one fcose pass with
+every existing node held by `fixedNodeConstraint`, seeded next to the
+neighbors they were expanded from), and the camera does not move. The
+host still owns the growth; it just builds each step as a superset.
+
+```tsx
+import { useState } from "react";
+import { UGM } from "@g3-toolkit/core";
+import { CytoscapeCanvas } from "@g3-toolkit/react";
+
+// Each step is a NEW ugm holding every node of the previous one plus
+// the neighborhood. toJSON/fromJSON keeps the edge ids, and `key` names
+// the ones you add, so the diff adds only what is new; generated ids
+// differ per UGM instance and would replace every edge each step.
+const [graph, setGraph] = useState<UGM>(ugm);
+const expand = (nodeId: string) => {
+  const next = UGM.fromJSON(graph.toJSON());
+  for (const n of neighborhood(nodeId)) {
+    if (!next.hasNode(n.id))
+      next.addNode(n.id, { types: n.types, properties: n.properties });
+    next.addEdge(nodeId, n.id, { type: n.relation, key: `${nodeId}->${n.id}` });
+  }
+  setGraph(next);
+};
+
+<>
+  <button onClick={() => expand(selectedIds[0])}>Expand</button>
+  <CytoscapeCanvas ugm={graph} graphUpdate="additive" />
+</>;
+```
+
+A step that REMOVES a node (pruning, a different subject) takes the
+normal rebuild path; so does a containment change that re-parents a
+drawn node. Edges the new ugm no longer has are removed in place, and
+drawn elements take the new ugm's data, so a data-only change is also
+in place. `animate` and `animationDuration` apply to the growth pass.
 
 ### Register an algorithm result from your backend
 
@@ -950,7 +996,10 @@ Supernodes carry `memberCount` (drive the size channel with it),
 edges aggregate into weighted `cluster-link` edges. This is Approach 1
 of planning/large-graph-design.md; Approach 4 (worker layout with
 viewport culling, for drilled sets past ~5k) is designed but not yet
-implemented.
+implemented. To grow a drilled-in set one neighborhood at a time
+without re-laying out what is already drawn, pass each step as a
+superset ugm with `graphUpdate="additive"` ("Grow a drawn graph
+without rebuilding it", above).
 
 ## Dense graphs: let labels yield to each other
 

@@ -86,7 +86,9 @@ preserve positions.
 `ugm` is compared by IDENTITY: a new instance means "different
 graph". Memoize it in the host; do not rebuild it per render. The
 object-valued props above are content-keyed internally, so an
-inline literal rebuilt each render is safe.
+inline literal rebuilt each render is safe. With
+`graphUpdate="additive"` a new identity whose node set only GREW is
+applied in place instead (next section).
 
 For scene switches (a different diagram, a different subject),
 prefer a keyed remount over mutating props:
@@ -102,18 +104,28 @@ expanding a neighborhood) costs you the whole arrangement, because a
 new `ugm` identity is a different graph. That is often not what you
 want.
 
-`@g3-toolkit/core/layout` exports the pieces for the additive case:
-`capturePositions`, `computeIncrementalUpdate` (which partitions a
-change into added, removed, and locked ids), `applyIncrementalLayout`,
-and an `IncrementalLayout` class that holds the previous snapshot for
-you.
+The supported answer is the canvas's own additive mode (issue #26):
+`<CytoscapeCanvas ugm={graph} graphUpdate="additive" />`. When the new
+ugm's node-id set is a superset of the drawn one, the instance is kept,
+the new elements join in place, and ONLY the new nodes are laid out:
+one fcose pass with every existing node held by `fixedNodeConstraint`,
+seeded next to their drawn neighbors, no fit. A node removal or a
+re-parented node falls back to the rebuild. The recipe, with the
+edge-id rule that makes the diff minimal, is in the wiring guide under
+"Grow a drawn graph without rebuilding it".
+
+`@g3-toolkit/core/layout` still exports the lower-level pieces for a
+host that drives the core directly: `capturePositions`,
+`computeIncrementalUpdate` (which partitions a change into added,
+removed, and locked ids), `applyIncrementalLayout`, and an
+`IncrementalLayout` class that holds the previous snapshot for you.
 
 These work on the LIVE Cytoscape core, not on a `UGM`: you capture
 positions off the core, then apply a layout that places only the added
-nodes and leaves the rest locked. They are deliberately not wired into
-the canvas, because the canvas cannot tell an additive change from a
-different subject; only you know that your next graph is the previous
-one plus ten nodes.
+nodes and leaves the rest LOCKED. Note the mechanism: the built-in
+`cose` honors `locked`, fcose does not (it ignores locks while
+computing, which is what issue #26 reported), so under fcose prefer
+the canvas's additive mode, which holds nodes by `fixedNodeConstraint`.
 
 ```tsx
 import { IncrementalLayout } from "@g3-toolkit/core/layout";
@@ -317,6 +329,7 @@ theme store silently splits:
   to, selection stops propagating, and nothing appears in a stack
   trace. It cannot be fixed from inside the library while both formats
   ship.
+
 - `TimelineView` is only importable from `@g3-toolkit/react/timeline`, and
   that subpath requires the optional peers `vis-timeline` and
   `vis-data`. Every other entry point resolves without them.
