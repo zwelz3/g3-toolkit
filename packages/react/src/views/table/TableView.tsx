@@ -800,9 +800,23 @@ export function TableView<T = TableNodeRow>({
                       row: row.original,
                       rowId: id,
                     });
+                    // Issue #17: a derived cell carries the producing
+                    // definition's id, so a reader (and a host style)
+                    // can tell computed from measured. UGM path only;
+                    // the rows path has no registry.
+                    const derivedBy = ugm?.getDerivation(
+                      id,
+                      cell.column.id,
+                    )?.definitionId;
                     return (
                       <td
                         key={cell.id}
+                        className={
+                          derivedBy !== undefined
+                            ? "g3t-table-cell-derived"
+                            : undefined
+                        }
+                        data-derived={derivedBy}
                         style={{
                           padding:
                             density === "compact" ? "2px 6px" : "4px 8px",

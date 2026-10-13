@@ -1202,6 +1202,53 @@ const csv = exportSubgraphCsv(ugm, selection); // or a selection
 Turtle export (`exportSubgraphTurtle`) is demonstrated in
 `examples/decision-dashboards`.
 
+### Derived properties carry their provenance
+
+`DerivedPropertyEngine` writes a computed value as a plain node
+property, so every reader keeps working, and stamps it in a SIDECAR
+registry on the UGM (never on the node's attributes) with the
+definition that produced it, the definition's version, the write time
+and the expression. The stamp survives `toJSON`/`fromJSON` (snapshot
+version 2; an older snapshot without the field still loads) and the
+JSON subgraph export (each node gains `derivations` keyed by property;
+CSV is unchanged). `TableView` marks a derived cell with
+`data-derived="<definitionId>"` and the `g3t-table-cell-derived`
+class, and both inspectors show "derived by <definitionId>" next to
+the value. A plain write to the property through
+`ugm.updateNodeProperties` clears the stamp, since the value is no
+longer derived.
+
+```ts
+import { DerivedPropertyEngine, exportSubgraphJson } from "@g3-toolkit/core";
+
+const engine = new DerivedPropertyEngine();
+engine.define({ name: "riskScore", expression: "risk * 100", reactive: false });
+engine.compute(ugm);
+
+// Where did this value come from?
+const stamp = ugm.getDerivation("pump-1", "riskScore");
+// stamp?.definitionId === "riskScore", stamp?.version === 1,
+// stamp?.expression === "risk * 100", stamp?.computedAt is ISO-8601.
+// A source property has no stamp: ugm.getDerivation("pump-1", "risk")
+// is undefined. ugm.listDerivations() lists every stamp (or one node's).
+
+// Change the rule: the version bumps and the old values become STALE
+// (stamp version older than the definition's current version).
+engine.define({
+  name: "riskScore",
+  expression: "risk * 1000",
+  reactive: false,
+});
+const stale = engine.listStale(ugm); // [{ nodeId, property, stamp }, ...]
+engine.recompute(ugm, "riskScore"); // stale is now []
+
+// The JSON export carries it; a consumer can tell computed from measured.
+const doc = JSON.parse(exportSubgraphJson(ugm)) as {
+  nodes: Array<{ derivations?: Record<string, { definitionId: string }> }>;
+};
+// doc.nodes[i].derivations?.riskScore?.definitionId === "riskScore"
+```
+
 ### Applying an encoding spec without the panel
 
 ```ts

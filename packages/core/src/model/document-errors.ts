@@ -59,6 +59,8 @@
 /** Which versioned document a failure came from. */
 export type DocumentKind =
   | "graph"
+  /** A UGM snapshot (`UGM.toJSON` / `UGM.fromJSON`). */
+  | "ugm"
   | "encoding-spec"
   | "workspace"
   | "algorithm-result"

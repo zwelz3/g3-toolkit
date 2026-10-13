@@ -660,3 +660,126 @@ describe("UGM: host-supplied edge keys (issue #31)", () => {
     expect(restored.edgeCount).toBe(3);
   });
 });
+
+// ── Derivation registry (issue #17) ─────────────────────────────────
+
+describe("UGM: derivation registry (issue #17)", () => {
+  const stamp = {
+    definitionId: "score",
+    version: 1,
+    computedAt: "2026-10-13T00:00:00.000Z",
+    expression: "risk * 100",
+  };
+
+  function stamped(): UGM {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"], properties: { risk: 0.5, score: 50 } });
+    ugm.addNode("b", { types: ["X"], properties: { risk: 0.2 } });
+    ugm.setDerivation("a", "score", stamp);
+    return ugm;
+  }
+
+  it("set / get / list / clear", () => {
+    const ugm = stamped();
+    expect(ugm.getDerivation("a", "score")).toEqual(stamp);
+    expect(ugm.getDerivation("a", "risk")).toBeUndefined();
+    expect(ugm.getDerivation("b", "score")).toBeUndefined();
+    expect(ugm.listDerivations()).toEqual([
+      { nodeId: "a", property: "score", stamp },
+    ]);
+    expect(ugm.listDerivations("b")).toEqual([]);
+    ugm.clearDerivation("a", "score");
+    expect(ugm.getDerivation("a", "score")).toBeUndefined();
+    expect(ugm.listDerivations()).toEqual([]);
+    // The value itself is untouched: only its provenance is gone.
+    expect(ugm.getNode("a")?.properties.score).toBe(50);
+  });
+
+  it("the stamp is a sidecar: node attributes do not change", () => {
+    const ugm = stamped();
+    expect(ugm.getNode("a")?.properties).toEqual({ risk: 0.5, score: 50 });
+    expect(Object.keys(ugm.getNode("a") ?? {})).toEqual([
+      "types",
+      "properties",
+    ]);
+  });
+
+  it("rejects a stamp for a node that does not exist", () => {
+    const ugm = new UGM();
+    expect(() => ugm.setDerivation("ghost", "score", stamp)).toThrow(
+      /does not exist/,
+    );
+  });
+
+  it("a source write to the property clears its stamp; other keys keep theirs", () => {
+    const ugm = stamped();
+    ugm.setDerivation("a", "other", { ...stamp, definitionId: "other" });
+    ugm.updateNodeProperties("a", { score: 99 });
+    expect(ugm.getDerivation("a", "score")).toBeUndefined();
+    expect(ugm.getDerivation("a", "other")?.definitionId).toBe("other");
+    // Writing an unrelated key leaves the remaining stamp alone.
+    ugm.updateNodeProperties("a", { risk: 0.9 });
+    expect(ugm.getDerivation("a", "other")?.definitionId).toBe("other");
+  });
+
+  it("removing the node and clearing the graph drop the stamps", () => {
+    const ugm = stamped();
+    ugm.removeNode("a");
+    expect(ugm.listDerivations()).toEqual([]);
+    const again = stamped();
+    again.clear();
+    expect(again.listDerivations()).toEqual([]);
+  });
+
+  it("survives a snapshot round-trip under version 2", () => {
+    const ugm = stamped();
+    const json = ugm.toJSON();
+    expect(json.version).toBe(2);
+    expect(json.derivations).toEqual([
+      { nodeId: "a", property: "score", stamp },
+    ]);
+    const restored = UGM.fromJSON(JSON.parse(JSON.stringify(json)));
+    expect(restored.getDerivation("a", "score")).toEqual(stamp);
+    expect(restored.getNode("a")?.properties.score).toBe(50);
+  });
+
+  it("omits the field when nothing is derived", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"], properties: { score: 1 } });
+    expect(ugm.toJSON()).toEqual({
+      version: 2,
+      nodes: [
+        { id: "a", attributes: { types: ["X"], properties: { score: 1 } } },
+      ],
+      edges: [],
+    });
+  });
+
+  it("loads a pre-version-2 snapshot (no version field) and an explicit 1", () => {
+    const legacy = {
+      nodes: [{ id: "a", attributes: { types: ["X"], properties: { v: 1 } } }],
+      edges: [],
+    };
+    const restored = UGM.fromJSON(legacy);
+    expect(restored.getNode("a")?.properties.v).toBe(1);
+    expect(restored.listDerivations()).toEqual([]);
+    expect(UGM.fromJSON({ ...legacy, version: 1 }).nodeCount).toBe(1);
+  });
+
+  it("rejects a snapshot version this build does not read", () => {
+    expect(() =>
+      UGM.fromJSON({ version: 3, nodes: [], edges: [] } as never),
+    ).toThrow(/unsupported ugm document version 3; this build reads 1, 2/);
+  });
+
+  it("rejects a stamp naming a node the snapshot does not contain", () => {
+    expect(() =>
+      UGM.fromJSON({
+        version: 2,
+        nodes: [],
+        edges: [],
+        derivations: [{ nodeId: "ghost", property: "score", stamp }],
+      }),
+    ).toThrow(/derivation 0 names node "ghost"/);
+  });
+});

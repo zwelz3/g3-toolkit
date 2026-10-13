@@ -36,6 +36,8 @@ export type {
   AttributeUpdatePayload,
   SerializedUGM,
   PropertyMap,
+  DerivationStamp,
+  DerivationRecord,
 } from "./ugm";
 
 // ── Adapters ────────────────────────────────────────────────────────

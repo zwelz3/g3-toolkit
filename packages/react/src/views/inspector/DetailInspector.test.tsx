@@ -169,3 +169,21 @@ describe("DetailInspector: edge cases (audit)", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("DetailInspector: derived-value marker (issue #17)", () => {
+  it("marks a stamped node property and leaves source properties alone", () => {
+    const ugm = createTestUGM();
+    ugm.updateNodeProperties("bob", { grade: 95 });
+    ugm.setDerivation("bob", "grade", {
+      definitionId: "gradeFromScore",
+      computedAt: "2026-10-13T00:00:00.000Z",
+    });
+    render(
+      <DetailInspector ugm={ugm} selection={{ type: "node", id: "bob" }} />,
+    );
+    expect(screen.getByTestId("prop-grade-derived")).toHaveTextContent(
+      "derived by gradeFromScore",
+    );
+    expect(screen.queryByTestId("prop-name-derived")).not.toBeInTheDocument();
+  });
+});

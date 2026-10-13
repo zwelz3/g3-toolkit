@@ -256,6 +256,14 @@
   z-index: var(--g3t-z-sticky, 100);
   background: var(--g3t-bg-primary);
 }
+/* Issue #17: a cell holding a DERIVED value (data-derived names the
+   definition). A dashed underline marks it without a color a theme
+   would have to own; hosts restyle through the class. */
+.g3t-table-cell-derived {
+  text-decoration: underline dashed;
+  text-decoration-color: var(--g3t-text-muted, #868e96);
+  text-underline-offset: 2px;
+}
 
 /* Tooltip */
 .g3t-tooltip {

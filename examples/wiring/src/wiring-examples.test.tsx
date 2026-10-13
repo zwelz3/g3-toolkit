@@ -37,6 +37,7 @@ import {
   type PathGraph,
   exportSubgraphJson,
   exportSubgraphCsv,
+  DerivedPropertyEngine,
   createPresetPipeline,
   ProjectionPipeline,
   typeCollapse,
@@ -1256,6 +1257,83 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     const header = csv.split("\n")[0] ?? "";
     expect(header).toContain("name");
     expect(csv.split("\n").length).toBeGreaterThan(3);
+  });
+
+  it("derived properties carry their provenance (guide: Derived properties carry their provenance)", () => {
+    const ugm = new UGM();
+    ugm.addNode("pump-1", { types: ["Asset"], properties: { risk: 0.4 } });
+    ugm.addNode("pump-2", { types: ["Asset"], properties: { risk: 0.9 } });
+
+    const engine = new DerivedPropertyEngine();
+    engine.define({
+      name: "riskScore",
+      expression: "risk * 100",
+      reactive: false,
+    });
+    engine.compute(ugm);
+
+    const stamp = ugm.getDerivation("pump-1", "riskScore");
+    expect(stamp).toMatchObject({
+      definitionId: "riskScore",
+      version: 1,
+      expression: "risk * 100",
+    });
+    expect(stamp?.computedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(ugm.getDerivation("pump-1", "risk")).toBeUndefined();
+    expect(ugm.listDerivations()).toHaveLength(2);
+    expect(ugm.listDerivations("pump-2")).toHaveLength(1);
+
+    // The value is a plain property; only the sidecar knows it is derived.
+    expect(ugm.getNode("pump-1")?.properties.riskScore).toBeCloseTo(40);
+
+    // Snapshot round-trip (version 2) keeps the stamp; a pre-2 snapshot loads.
+    const snapshot = ugm.toJSON();
+    expect(snapshot.version).toBe(2);
+    expect(UGM.fromJSON(snapshot).getDerivation("pump-1", "riskScore")).toEqual(
+      stamp,
+    );
+    const legacy = UGM.fromJSON({
+      nodes: snapshot.nodes,
+      edges: snapshot.edges,
+    });
+    expect(legacy.nodeCount).toBe(2);
+    expect(legacy.listDerivations()).toEqual([]);
+
+    // A changed rule leaves the old values stale until recomputed.
+    engine.define({
+      name: "riskScore",
+      expression: "risk * 1000",
+      reactive: false,
+    });
+    expect(
+      engine
+        .listStale(ugm)
+        .map((r) => r.nodeId)
+        .sort(),
+    ).toEqual(["pump-1", "pump-2"]);
+    engine.recompute(ugm, "riskScore");
+    expect(engine.listStale(ugm)).toEqual([]);
+    expect(ugm.getDerivation("pump-1", "riskScore")?.version).toBe(2);
+
+    // A source write clears the stamp.
+    ugm.updateNodeProperties("pump-2", { riskScore: 1 });
+    expect(ugm.getDerivation("pump-2", "riskScore")).toBeUndefined();
+
+    // The JSON export carries it; CSV does not.
+    const doc = JSON.parse(exportSubgraphJson(ugm)) as {
+      nodes: Array<{
+        id: string;
+        derivations?: Record<string, { definitionId: string }>;
+      }>;
+    };
+    expect(
+      doc.nodes.find((n) => n.id === "pump-1")?.derivations?.riskScore
+        ?.definitionId,
+    ).toBe("riskScore");
+    expect(
+      doc.nodes.find((n) => n.id === "pump-2")?.derivations,
+    ).toBeUndefined();
+    expect(exportSubgraphCsv(ugm)).not.toContain("computedAt");
   });
 
   it("applyEncodingSpec resolves a spec into per-element visual patches", () => {
