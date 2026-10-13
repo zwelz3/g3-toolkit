@@ -183,6 +183,40 @@ import { useThemeStore } from "@g3-toolkit/react";
 useThemeStore.getState().setTheme(orgSettings.darkMode ? "dark" : "light");
 ```
 
+By default the store writes `color-scheme` and the `--g3t-*` tokens
+inline on `<html>`, which also flips the host page's scrollbars and
+form controls. If your app owns the page's light/dark/automatic
+scheme, scope the writes to the element that wraps the graph views and
+remove them when the last view unmounts:
+
+```tsx
+import { useEffect, useRef } from "react";
+import { useThemeStore } from "@g3-toolkit/react";
+
+function GraphArea() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const { setThemeTarget, clearTheme } = useThemeStore.getState();
+    setThemeTarget(ref.current!);
+    return () => clearTheme();
+  }, []);
+  return <div ref={ref} className="graph-area" />;
+}
+```
+
+`setThemeTarget` moves the current theme to the element (restoring
+anything the store had written to `<html>`), and later `setTheme`
+calls, `ThemeSwitcher`, and workspace snapshots write there too.
+`clearTheme` removes the inline properties the store set, restoring
+any the host had on the element, and keeps the store's theme and
+target. The target scopes the DOM chrome (panels, search, legend,
+context menu) and `color-scheme`; the Cytoscape canvas and the Minimap
+read the theme object from the store, not CSS variables, so they
+follow the theme wherever the target is. `injectDesignTokens` (the
+spatial and typographic constants from `@g3-toolkit/core`) is separate
+and still writes to `<html>`; nothing in it changes with the theme
+except the dark shadow set.
+
 ### Drive the encoding from app state
 
 The spec is plain serializable state YOU own:
@@ -795,6 +829,39 @@ import { createTheme } from "@g3-toolkit/react";
 const theme = createTheme({ id: "acme", name: "Acme", accentPrimary: "#0af" });
 // Derives from LIGHT_THEME and warns when a chosen color fails WCAG
 // contrast against its background.
+```
+
+To follow your app's own CSS variables, derive the theme from them and
+apply it. `themeFromCssVariables` reads each named variable through
+`getComputedStyle` on the element you pass (so `:root` declarations
+and `var()` chains resolve) and fills the fields you do not map from
+the base preset. The result is a snapshot: re-derive when your app
+switches its theme.
+
+```ts
+import { themeFromCssVariables, applyTheme } from "@g3-toolkit/react";
+
+const theme = themeFromCssVariables(
+  document.body,
+  {
+    bgPrimary: "--app-surface",
+    bgSecondary: "--app-surface-raised",
+    textPrimary: "--app-text",
+    accentPrimary: "--app-accent",
+    border: "--app-border",
+  },
+  {
+    id: "app",
+    name: "App",
+    colorScheme: orgSettings.darkMode ? "dark" : "light",
+  },
+);
+// Store-free: write it to one element and get a dispose back, for a
+// host that applies on mount and removes on unmount without the store.
+const dispose = applyTheme(theme, { target: document.body });
+dispose(); // every property applyTheme set is removed or restored
+// Store-backed instead (ThemeSwitcher, workspace snapshots keep working):
+// useThemeStore.getState().setCustomTheme(theme)
 ```
 
 ### Camera control

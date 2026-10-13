@@ -14,8 +14,12 @@
  *
  *   1. Global emitters. `injectDesignTokens` (core design-tokens.ts)
  *      and `injectCssVariables` (react ThemeManager.ts) are the only
- *      two functions that write tokens to :root. A hand-kept list here
- *      would drift from them within one round.
+ *      two functions that write tokens to :root (or, for the theme
+ *      half, to the host's chosen target element; same vocabulary
+ *      either way). A hand-kept list here would drift from them
+ *      within one round. The theme emitter routes its writes through
+ *      a recorder whose method is also named `setProperty`, so the
+ *      literal regex below still sees every call.
  *   2. Templated families. `--g3t-seq-${i}` / `--g3t-div-${i}` /
  *      `--g3t-type-${i}` are emitted in a loop, so the emitted names
  *      are not literals. Each becomes a `--g3t-seq-*` prefix.
@@ -261,8 +265,12 @@ Two functions emit these, and this table is generated from them:
 
 - \`injectDesignTokens()\` (\`@g3-toolkit/core\`) for the spatial,
   typographic, and scale constants. Call once at startup.
-- \`injectCssVariables()\` (\`@g3-toolkit/react\`, via \`useThemeStore\`)
-  for everything that changes with the active theme.
+- \`injectCssVariables()\` (\`@g3-toolkit/react\`, via \`useThemeStore\`
+  and \`applyTheme\`) for everything that changes with the active
+  theme. These land on \`<html>\` by default, or on the element the
+  host names as the theme target (\`setThemeTarget\`, or
+  \`applyTheme(theme, { target })\`), together with \`color-scheme\`;
+  the vocabulary is the same either way.
 
 Values in the "source" column name the constant or theme field
 supplying them, not the literal, since the theme-driven half changes
