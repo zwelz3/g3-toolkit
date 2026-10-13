@@ -1001,7 +1001,9 @@ CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. Issue
   `tree-node-<id>` testid repeats), a declared root is still never
   repeated as a descendant, and a cycle is cut where a node is already
   on the current path. The working-set limit counts rows, so a repeated
-  node counts each time.
+  node counts each time. The breadcrumb follows the copy the user
+  picked (a row or a crumb); a selection arriving from outside shows
+  the first copy in placement order, the one the reveal scrolls to.
 
 ```tsx
 import { useState } from "react";
