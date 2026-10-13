@@ -129,6 +129,8 @@ import {
 } from "../../state/emphasis-store";
 import {
   ugmToCytoscapeElements,
+  defaultNodeLabel,
+  defaultEdgeLabel,
   type ContainmentOptions,
 } from "./ugm-to-cytoscape";
 import {
@@ -890,6 +892,94 @@ function applyHiddenClasses(
   });
 }
 
+/** Content key for the `stylesheet` prop (issue #28). Keyed by CONTENT
+ *  like structuralDecorations and layoutOptions: hosts pass inline
+ *  literals, so identity churns every render and would restyle every
+ *  render. JSON.stringify drops function-valued style entries, so a
+ *  change that only swaps a function is not detected (the same limit
+ *  layoutOptionsKey has). */
+function stylesheetContentKey(stylesheet: CyStylesheet[] | undefined): string {
+  return stylesheet ? JSON.stringify(stylesheet) : "";
+}
+
+/** Apply an encoding spec to a live instance: batch element-data
+ *  updates and let Cytoscape restyle from its data mappers. Called
+ *  from the init path for every (re)built instance AND from the spec
+ *  effect for spec changes over a live instance (issue #13: the init
+ *  effect rebuilds on layout/edgeStyle changes the spec effect does
+ *  not depend on, so a rebuilt instance never got the patch and every
+ *  icon vanished on a layout toggle; same shape as applyHiddenClasses
+ *  above). Restyle only: no layout, no camera change. */
+function applyEncodingPatch(cy: Core, spec: EncodingSpec, ugm: UGM): void {
+  const patch = applyEncodingSpec(spec, ugm);
+  // VR-2 follow-up (owner verification 2026-07-28): a spec change
+  // that DROPS a channel must also CLEAR that channel's stale data,
+  // or the old attribute-selector rule keeps matching forever
+  // (leaving color-by-confidence left every edge amber: the new
+  // spec wrote no _ecolor, and nothing removed the old one).
+  // Issue #14 (a): _shape was added to NodeVisualPatch after this
+  // list was written and never joined it, so dropping node.shape
+  // left the old shapes rendering. The lists must cover every key
+  // applyEncodingSpec writes EXCEPT label (next comment).
+  const NODE_KEYS = ["_color", "_icon", "_size", "_shape"] as const;
+  const EDGE_KEYS = ["_ecolor", "_ewidth"] as const;
+  // Issue #14 (b): `label` is NOT spec-owned. ugmToCytoscapeElements
+  // stamps it on every node and edge, and the default stylesheet
+  // renders it, so the spec channel OVERRIDES a value that is always
+  // present. Deleting it would blank labels that were never
+  // spec-driven; leaving it (the old behavior) made the channel
+  // impossible to un-set. The correct cleanup is to RESTORE the
+  // converter's own value (one shared rule, so the round trip is
+  // exact). A host that wants NO label uses a stylesheet rule.
+  const restoreLabel = (
+    ele: cytoscape.SingularElementArgument,
+    data: { label?: string } | undefined,
+    fallback: () => unknown,
+  ) => {
+    if (data !== undefined && "label" in data) return;
+    const value = fallback();
+    if (ele.data("label") !== value) ele.data("label", value);
+  };
+  cy.batch(() => {
+    cy.nodes().forEach((ele) => {
+      const data = patch.nodes.get(ele.id());
+      for (const k of NODE_KEYS) {
+        if ((data === undefined || !(k in data)) && ele.data(k) !== undefined) {
+          ele.removeData(k);
+        }
+      }
+      const attrs = ugm.getNode(ele.id());
+      if (attrs)
+        restoreLabel(ele, data, () => defaultNodeLabel(ele.id(), attrs));
+    });
+    cy.edges().forEach((ele) => {
+      const data = patch.edges.get(ele.id());
+      for (const k of EDGE_KEYS) {
+        if ((data === undefined || !(k in data)) && ele.data(k) !== undefined) {
+          ele.removeData(k);
+        }
+      }
+      const attrs = ugm.getEdge(ele.id());
+      if (attrs) restoreLabel(ele, data, () => defaultEdgeLabel(attrs));
+    });
+    patch.nodes.forEach((data, id) => {
+      const ele = cy.getElementById(id);
+      if (ele.nonempty()) ele.data(data);
+    });
+    patch.edges.forEach((data, id) => {
+      const ele = cy.getElementById(id);
+      if (ele.nonempty()) ele.data(data);
+    });
+    // Review 4.7: the spec may have (re)stamped _icon; pinned nodes
+    // render background-image from _bgStack, so their stacks must
+    // re-compose here or the new icon never shows under the badge.
+    const badge = pinBadgeUri(useThemeStore.getState().theme);
+    cy.nodes().forEach((n) => {
+      if (n.hasClass("g3t-pinned")) composePinStack(n, badge);
+    });
+  });
+}
+
 /**
  * Same-graph scene patch (MR-1 flash fix, G3L:CNT-003). A same-graph
  * structural rebuild (collapse/expand, re-layout) previously destroyed
@@ -1060,6 +1150,25 @@ export function CytoscapeCanvas({
   const hiddenRef = useRef(hidden);
   // eslint-disable-next-line react-hooks/refs
   hiddenRef.current = hidden;
+  // Issue #13: the init path applies the spec to every (re)built
+  // instance from this ref, exactly as hiddenRef above; the spec
+  // effect below keeps handling spec changes over a live instance.
+  const encodingSpecRef = useRef(encodingSpec);
+  // eslint-disable-next-line react-hooks/refs
+  encodingSpecRef.current = encodingSpec;
+  // What the last applyEncodingPatch call used, so the spec effect can
+  // skip the application the init path just made (on mount, and on
+  // every rebuild) instead of patching the same instance twice.
+  const lastEncodingPatchRef = useRef<{
+    cy: Core;
+    spec: EncodingSpec;
+    ugm: UGM;
+  } | null>(null);
+  // Issue #28: the stylesheet prop restyles by CONTENT (see
+  // stylesheetContentKey); the applied key is recorded at init and by
+  // the restyle effect so neither applies what the other just did.
+  const stylesheetKey = stylesheetContentKey(stylesheet);
+  const stylesheetAppliedKeyRef = useRef(stylesheetKey);
 
   /** One stylesheet assembly for init AND live theme restyles.
    *  Order is the precedence story: structural defaults (fallback
@@ -1556,6 +1665,21 @@ export function CytoscapeCanvas({
     setOverlayCy(cy);
     // Re-apply the visibility filter to this (possibly rebuilt) instance.
     applyHiddenClasses(cy, hiddenRef.current);
+    // Issue #13: same for the encoding spec. A layout/edgeStyle change
+    // rebuilds the instance while the spec and ugm keep their identity,
+    // so the spec effect below has no reason to re-run; the rebuilt
+    // instance rendered the type-palette defaults ("my icons vanished").
+    // Structural scenes carry no spec patch (the effect skips them too).
+    const spec = encodingSpecRef.current;
+    if (!structural && spec) {
+      applyEncodingPatch(cy, spec, ugm);
+      lastEncodingPatchRef.current = { cy, spec, ugm };
+    }
+    // The merged stylesheet composed above read stylesheetRef.current,
+    // which is the stylesheet this key describes (issue #28).
+    stylesheetAppliedKeyRef.current = stylesheetContentKey(
+      stylesheetRef.current,
+    );
     // Bugfix 3: read from ref (see comment near onReadyRef above)
     onReadyRef.current?.(cy);
 
@@ -1660,60 +1784,26 @@ export function CytoscapeCanvas({
     };
   }, [initCytoscape]);
 
-  // Spec application: batch element-data updates; Cytoscape restyles
-  // from its data mappers. MUST follow the init effect in source
-  // order: effects run top-down on mount, and this one needs
-  // cyRef populated to apply the INITIAL spec.
+  // Spec application over a LIVE instance (spec or ugm identity
+  // change): element-data patches only, so visual edits never move
+  // nodes. MUST follow the init effect in source order: effects run
+  // top-down, and this one needs cyRef populated. The INITIAL spec, and
+  // the spec on every rebuilt instance, is applied by the init path
+  // (issue #13); this effect skips an application that path just made
+  // for the same instance, spec and ugm.
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy || !encodingSpec || structural) return;
-    const patch = applyEncodingSpec(encodingSpec, ugm);
-    // VR-2 follow-up (owner verification 2026-07-28): a spec change
-    // that DROPS a channel must also CLEAR that channel's stale data,
-    // or the old attribute-selector rule keeps matching forever
-    // (leaving color-by-confidence left every edge amber: the new
-    // spec wrote no _ecolor, and nothing removed the old one).
-    const NODE_KEYS = ["_color", "_icon", "_size"] as const;
-    const EDGE_KEYS = ["_ecolor", "_ewidth"] as const;
-    cy.batch(() => {
-      cy.nodes().forEach((ele) => {
-        const data = patch.nodes.get(ele.id());
-        for (const k of NODE_KEYS) {
-          if (
-            (data === undefined || !(k in data)) &&
-            ele.data(k) !== undefined
-          ) {
-            ele.removeData(k);
-          }
-        }
-      });
-      cy.edges().forEach((ele) => {
-        const data = patch.edges.get(ele.id());
-        for (const k of EDGE_KEYS) {
-          if (
-            (data === undefined || !(k in data)) &&
-            ele.data(k) !== undefined
-          ) {
-            ele.removeData(k);
-          }
-        }
-      });
-      patch.nodes.forEach((data, id) => {
-        const ele = cy.getElementById(id);
-        if (ele.nonempty()) ele.data(data);
-      });
-      patch.edges.forEach((data, id) => {
-        const ele = cy.getElementById(id);
-        if (ele.nonempty()) ele.data(data);
-      });
-      // Review 4.7: the spec may have (re)stamped _icon; pinned nodes
-      // render background-image from _bgStack, so their stacks must
-      // re-compose here or the new icon never shows under the badge.
-      const badge = pinBadgeUri(useThemeStore.getState().theme);
-      cy.nodes().forEach((n) => {
-        if (n.hasClass("g3t-pinned")) composePinStack(n, badge);
-      });
-    });
+    const last = lastEncodingPatchRef.current;
+    if (
+      last &&
+      last.cy === cy &&
+      last.spec === encodingSpec &&
+      last.ugm === ugm
+    )
+      return;
+    applyEncodingPatch(cy, encodingSpec, ugm);
+    lastEncodingPatchRef.current = { cy, spec: encodingSpec, ugm };
   }, [encodingSpec, ugm, structural]);
 
   // Visibility filter (hidden prop): a batched class toggle, applied on
@@ -1858,14 +1948,26 @@ export function CytoscapeCanvas({
   // merged stylesheet and applies it in place. Bypass styles
   // (instance overrides) and classes survive fromJson by Cytoscape's
   // contract; element data is untouched.
+  // Issue #28: the `stylesheet` prop rides the SAME restyle, keyed on
+  // its content. It used to be read only here and at init, so a
+  // changed stylesheet showed up only on the next theme change or
+  // rebuild. One effect for both: a render that changes theme and
+  // stylesheet together composes once, and the init path records both
+  // "applied" marks, so mount and every rebuild apply nothing twice.
   useEffect(() => {
     const cy = cyRef.current;
-    if (!cy || themeAppliedRef.current === theme) return;
+    if (!cy) return;
+    if (
+      themeAppliedRef.current === theme &&
+      stylesheetAppliedKeyRef.current === stylesheetKey
+    )
+      return;
     themeAppliedRef.current = theme;
+    stylesheetAppliedKeyRef.current = stylesheetKey;
     cy.style()
       .fromJson(composeMergedStylesheet(theme) as never)
       .update();
-  }, [theme, composeMergedStylesheet]);
+  }, [theme, composeMergedStylesheet, stylesheetKey]);
 
   // Algorithm overlays (round 21): classes only, computed from the
   // pure union rule; deactivating every overlay strips both classes,
