@@ -1,5 +1,29 @@
 # g3-toolkit Status
 
+**As of:** 2026-10-13 (active: **BACKLOG ROUND 2.** With #43 merged
+and 1.1.0 published, the maintainer ruled on every decision the
+remaining backlog had been waiting for (the table is in
+`planning/backlog-round-2.md`) and fourteen agents worked #5, #6, #9,
+#16, #17, #18, #20, #44, #45, #46 (demo half), #47 and #48, plus the
+#19 inventory, each in an isolated worktree, merged one at a time onto
+this branch. CLOSED by this round pending Zach's live review: #5, #6,
+#9, #16, #17, #18, #20, #44, #47, #48 (and #45 when its entry lands).
+STAYS OPEN: #19 (the inventory is delivered in
+`roadmap/design/onready-inventory.md`; the ruling on `onReady`'s future
+and the stability policy is Zach's, and the record argues `canvas` for
+the handle name where this round shipped `core`), #46 (the live
+checklist), #12 and the fork PR #3 (held by ruling). What needs eyes:
+the Biomedical Labels control and Explore view, the two matrix paging
+controls, TableView virtualization scrolling, AriaCompanion under a
+real screen reader, and the `g3t-view` typography. Bundle after the
+round: react about 446 of 446 KB before #45 (every raise has its own
+ledger entry), core 181.5 of 184. Process note recorded in the round
+log: two of the orchestrator's own merge checks piped gate output
+through grep and pushed a red commit; CLAUDE.md's piping rule applies
+to the orchestrator too.)
+
+## PRIOR SNAPSHOT (2026-10-13 host-integration round)
+
 **As of:** 2026-10-13 (active: **HOST-INTEGRATION ROUND.** Tracking
 issue #23 (seventeen sub-issues from a downstream host) plus the
 2026-08-27 backlog (#10, #13, #14, #21) were worked as eleven parallel
