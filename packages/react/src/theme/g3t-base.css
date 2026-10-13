@@ -213,6 +213,35 @@ body {
   border-top: 1px solid var(--g3t-border);
 }
 
+/* Table view (#21). The root carried no layout and its regions had no
+   class names, so a host with a definite height got a table that
+   floated or overflowed, and the only override seams were test ids.
+   The region classes are always present; g3t-table-fill is the opt-in
+   that uses the host's height: flex column, scrolling body, sticky
+   header cells (a sticky thead does nothing in most engines, only the
+   cells position), pagination pinned at the bottom. */
+.g3t-table-fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.g3t-table-fill > .g3t-table-toolbar,
+.g3t-table-fill > .g3t-table-pagination {
+  flex: 0 0 auto;
+}
+.g3t-table-fill > .g3t-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.g3t-table-fill > .g3t-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--g3t-z-sticky, 100);
+  background: var(--g3t-bg-primary);
+}
+
 /* Tooltip */
 .g3t-tooltip {
   position: fixed;

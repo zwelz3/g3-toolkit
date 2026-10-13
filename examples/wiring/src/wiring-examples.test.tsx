@@ -71,10 +71,12 @@ import {
   ViewErrorBoundary,
   ShaclShapeBrowser,
   FloatingLegend,
+  TableView,
   type EncodingSpec,
   type LegendChannel,
   type ProvenanceChain,
   type ShaclShape,
+  type DataGridColumn,
 } from "@g3-toolkit/react";
 
 beforeEach(() => {
@@ -880,6 +882,64 @@ describe("provenance trace (guide: Render a provenance trace)", () => {
   it("Minimap renders its disabled placeholder while the core is null (guide: Camera control)", () => {
     render(<Minimap core={null} />);
     expect(screen.getByTestId("minimap")).toBeDefined();
+  });
+});
+
+describe("table view recipes (guide: Table view recipes)", () => {
+  interface Binding {
+    s: string;
+    label: string;
+    count: number;
+  }
+  const rows: Binding[] = [
+    { s: "urn:1", label: "one", count: 1 },
+    { s: "urn:2", label: "two", count: 2 },
+  ];
+  const columns: DataGridColumn<Binding>[] = [
+    { id: "s", header: "Subject", value: (r) => r.s },
+    {
+      id: "label",
+      header: "Label",
+      value: (r) => r.label,
+      render: (v, r) => <a href={r.s}>{String(v)}</a>,
+    },
+    { id: "count", header: "Count", value: (r) => r.count, filter: "range" },
+  ];
+
+  it("renders plain rows without a UGM, with host-owned selection", () => {
+    const onSelect = vi.fn();
+    render(
+      <TableView
+        rows={rows}
+        columns={columns}
+        rowId={(r) => r.s}
+        selection={{ selected: new Set(), onSelect }}
+      />,
+    );
+    expect(screen.getByText("Subject")).toBeDefined();
+    expect(screen.getByRole("link", { name: "two" })).toBeDefined();
+    fireEvent.click(screen.getByTestId("table-row-urn:1"));
+    expect(onSelect).toHaveBeenCalledWith(["urn:1"]);
+    // The shared store was not written: this is a standalone register.
+    expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
+  });
+
+  it("fill mode names the regions and keeps pageSize live", () => {
+    const ugm = graph();
+    const { rerender } = render(
+      <TableView ugm={ugm} fill rowHeight={28} pageSize={1} />,
+    );
+    const root = screen.getByTestId("table-view");
+    expect(root.className).toContain("g3t-table-fill");
+    expect(root.querySelector(".g3t-table-scroll")).not.toBeNull();
+    expect(root.querySelector(".g3t-table-pagination")).not.toBeNull();
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "Page 1 of 2",
+    );
+    rerender(<TableView ugm={ugm} fill rowHeight={28} pageSize={2} />);
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "Page 1 of 1",
+    );
   });
 });
 
