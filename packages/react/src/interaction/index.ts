@@ -54,6 +54,7 @@ export type { ExpandResult } from "./neighbors";
 //  remaining-tickets.tsx in P3.5. Symbols flow in via the earlier
 //  `export * from` lines for ./context-menu, ./temporal, ./property-editor.)
 export * from "./feedback";
+export * from "./pagination";
 export {
   GraphToolbar,
   runGraphLayout,
