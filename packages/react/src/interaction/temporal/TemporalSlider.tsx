@@ -9,6 +9,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 export interface TemporalSliderProps {
   ugm: UGM;
@@ -107,7 +108,7 @@ export function TemporalSlider({
   return (
     <div
       data-testid="temporal-slider"
-      className={className}
+      className={viewClass(className)}
       style={{ fontSize: 11, padding: 4 }}
     >
       {/* Time range display */}

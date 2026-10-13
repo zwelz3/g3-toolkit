@@ -246,6 +246,33 @@ spatial and typographic constants from `@g3-toolkit/core`) is separate
 and still writes to `<html>`; nothing in it changes with the theme
 except the dark shadow set.
 
+### Style the toolkit's text (the `g3t-view` root class)
+
+Every view and panel root carries the class `g3t-view`, composed after
+your own `className` and after the component's own class (`g3t-table`,
+`g3t-minimap`), so selectors on those keep working. `style.css` sets
+the toolkit face, size, line-height and ink on `.g3t-view` and nowhere
+outside it: a view reads in the toolkit face whether or not the host
+imports `style.base.css`, inline sizes inside a view still win, and
+nothing on your page changes. Style the toolkit's text through it,
+with one rule for every view or a scoped one for a region:
+
+```css
+.g3t-view {
+  font-size: 14px;
+}
+.sidebar .g3t-view {
+  font-size: 12px;
+}
+```
+
+```tsx
+import { TableView } from "@g3-toolkit/react";
+
+<TableView ugm={ugm} className="host-table" />;
+// renders <div class="g3t-table host-table g3t-view" ...>
+```
+
 ### Drive the encoding from app state
 
 The spec is plain serializable state YOU own:

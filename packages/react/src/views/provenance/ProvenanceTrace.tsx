@@ -21,6 +21,8 @@
  * @g3-toolkit/react.
  */
 
+import { viewClass } from "../../theme/view-class";
+
 /** One node in a provenance trail. */
 export interface ProvenanceHop {
   /** Graph node / action id this hop refers to. */
@@ -80,7 +82,7 @@ export function ProvenanceTrace({
   return (
     <div
       data-testid={testId ?? "g3t-provenance-trace"}
-      className={className}
+      className={viewClass(className)}
       role="tree"
       aria-label={title}
       style={{

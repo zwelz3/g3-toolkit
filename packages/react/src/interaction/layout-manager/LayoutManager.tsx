@@ -10,6 +10,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { viewClass } from "../../theme/view-class";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -140,7 +141,7 @@ export function LayoutManager({
   return (
     <div
       data-testid="layout-manager"
-      className={className}
+      className={viewClass(className)}
       style={{ fontSize: 12, padding: 8 }}
     >
       {/* Layout selector */}

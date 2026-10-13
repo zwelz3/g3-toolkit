@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import type { UGM } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 import "./TemporalRangeFilter.css";
 
 export interface TemporalRangeFilterProps {
@@ -132,7 +133,7 @@ export function TemporalRangeFilter({
   return (
     <div
       data-testid="temporal-range-filter"
-      className={`g3t-temporal-filter${className ? ` ${className}` : ""}`}
+      className={viewClass("g3t-temporal-filter", className)}
       style={{ fontSize: "var(--g3t-font-sm, 12px)" }}
     >
       <div className="g3t-panel-title">Time Range</div>

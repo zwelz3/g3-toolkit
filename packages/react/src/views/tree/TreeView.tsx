@@ -26,6 +26,7 @@ import { useWorkingSetManager } from "../../state/working-set-context";
 import type { WorkingSetManager } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 import { EmptyState } from "../../interaction/feedback";
+import { viewClass } from "../../theme/view-class";
 import "./TreeView.css";
 
 export interface TreeViewProps {
@@ -373,7 +374,7 @@ export function TreeView({
   return (
     <div
       data-testid="tree-view"
-      className={className}
+      className={viewClass(className)}
       style={{
         fontSize: 13,
         overflow: "auto",

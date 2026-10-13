@@ -12,6 +12,7 @@
 import { useState } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 export interface DetailInspectorProps {
   /** The UGM instance to read data from. */
@@ -30,7 +31,7 @@ export function DetailInspector({
 }: DetailInspectorProps) {
   if (!selection) {
     return (
-      <div className={className} data-testid="detail-inspector">
+      <div className={viewClass(className)} data-testid="detail-inspector">
         <p style={{ color: "#888", padding: 12 }}>
           Right-click an element and select &quot;Inspect properties&quot;
         </p>
@@ -42,13 +43,13 @@ export function DetailInspector({
     const attrs = ugm.getNode(selection.id);
     if (!attrs) {
       return (
-        <div className={className} data-testid="detail-inspector">
+        <div className={viewClass(className)} data-testid="detail-inspector">
           <p>Node not found: {selection.id}</p>
         </div>
       );
     }
     return (
-      <div className={className} data-testid="detail-inspector">
+      <div className={viewClass(className)} data-testid="detail-inspector">
         <h3 style={{ margin: "8px 12px" }}>Node: {selection.id}</h3>
         <PropertySection label="Types" value={attrs.types} />
         <PropertySection
@@ -67,13 +68,13 @@ export function DetailInspector({
   const endpoints = ugm.getEdgeEndpoints(selection.id);
   if (!attrs || !endpoints) {
     return (
-      <div className={className} data-testid="detail-inspector">
+      <div className={viewClass(className)} data-testid="detail-inspector">
         <p>Edge not found: {selection.id}</p>
       </div>
     );
   }
   return (
-    <div className={className} data-testid="detail-inspector">
+    <div className={viewClass(className)} data-testid="detail-inspector">
       <h3 style={{ margin: "8px 12px" }}>
         Edge: {endpoints.source} → {endpoints.target}
       </h3>

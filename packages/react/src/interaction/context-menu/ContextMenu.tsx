@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import type { MenuItem, MenuTarget } from "./types";
+import { viewClass } from "../../theme/view-class";
 
 export interface ContextMenuProps {
   /** Items to display. */
@@ -52,6 +53,7 @@ export function ContextMenu({ items, target, onClose }: ContextMenuProps) {
   return (
     <div
       ref={menuRef}
+      className={viewClass()}
       role="menu"
       data-testid="context-menu"
       style={{

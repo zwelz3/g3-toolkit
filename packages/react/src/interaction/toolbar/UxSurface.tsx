@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 // ── HoverTooltip (M8.5.E3.T1) ──────────────────────────────────────
 
@@ -36,6 +37,7 @@ export function HoverTooltip({ data }: HoverTooltipProps) {
   return (
     <div
       data-testid="hover-tooltip"
+      className={viewClass()}
       style={{
         position: "fixed",
         left: data.x + 12,
@@ -122,7 +124,7 @@ export function ZoomControls({
   return (
     <div
       data-testid="zoom-controls"
-      className={className}
+      className={viewClass(className)}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -239,7 +241,7 @@ export function Toolbar({
   return (
     <div
       data-testid="toolbar"
-      className={className}
+      className={viewClass(className)}
       style={{
         display: "flex",
         alignItems: "center",
@@ -336,7 +338,7 @@ export function StatusBar({ ugm, zoomLevel, className }: StatusBarProps) {
   return (
     <div
       data-testid="status-bar"
-      className={className}
+      className={viewClass(className)}
       style={{
         display: "flex",
         alignItems: "center",
@@ -409,6 +411,7 @@ export function KeyboardShortcutModal({
   return (
     <div
       data-testid="shortcut-modal-backdrop"
+      className={viewClass()}
       onClick={onClose}
       style={{
         position: "fixed",

@@ -65,6 +65,13 @@ tokens name IBM Plex Sans and IBM Plex Mono with system fallbacks;
 self-host them or load them in your document, or override the tokens.
 [design-tokens.md](./design-tokens.md#typography) has the stack.
 
+Every view root carries `g3t-view` (after your `className` and the
+component's own class), and `style.css` sets the toolkit face, size,
+line-height and ink on that class, so a view reads in the toolkit face
+without `style.base.css` while your own elements stay yours. Style the
+toolkit's text through it: `.g3t-view { font-size: 14px }` resizes
+every view, `.sidebar .g3t-view { ... }` one region.
+
 To style your own chrome against ours, read the tokens the
 stylesheet defines. [design-tokens.md](./design-tokens.md) is the
 complete list, generated from the two emitters. Do not guess names:

@@ -10,6 +10,7 @@
 import { useMemo } from "react";
 import type { DiffResult } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
+import { viewClass } from "../../theme/view-class";
 
 export interface DiffRendererProps {
   diff: DiffResult;
@@ -57,7 +58,7 @@ export function DiffRenderer({ diff, className }: DiffRendererProps) {
   return (
     <div
       data-testid="diff-renderer"
-      className={className}
+      className={viewClass(className)}
       style={{ padding: 8, fontSize: 13 }}
     >
       {/* Summary bar */}

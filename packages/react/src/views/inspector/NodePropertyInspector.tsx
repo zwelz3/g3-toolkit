@@ -27,6 +27,7 @@ import { useThemeStore } from "../../theme/ThemeManager";
 import { useInspectorSectionStore } from "../../state/inspector-section-store";
 import { resolveFields, type PropertyInspectorSpec } from "./property-spec";
 import { PropertyField } from "./PropertyField";
+import { viewClass } from "../../theme/view-class";
 import "./NodePropertyInspector.css";
 
 export interface NodePropertyInspectorProps {
@@ -152,7 +153,7 @@ export function NodePropertyInspector({
     return (
       <div
         data-testid="node-property-inspector"
-        className={className}
+        className={viewClass(className)}
         style={card}
       >
         <Header

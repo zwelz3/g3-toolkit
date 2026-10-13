@@ -14,6 +14,7 @@ import {
   serializeEncodingSpec,
   type EncodingSpec,
 } from "./encoding-spec";
+import { viewClass } from "../../theme/view-class";
 
 export interface SpecPortProps {
   spec: EncodingSpec;
@@ -39,7 +40,7 @@ export function SpecPort({ spec, onApply, className }: SpecPortProps) {
   }
 
   return (
-    <div className={className} data-testid="g3t-spec-port">
+    <div className={viewClass(className)} data-testid="g3t-spec-port">
       <textarea
         className="g3t-input g3t-spec-port-text"
         aria-label="Encoding spec JSON"

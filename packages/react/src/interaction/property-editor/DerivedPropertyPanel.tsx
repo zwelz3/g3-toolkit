@@ -10,6 +10,7 @@
 import { useState, useCallback } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { type DerivedPropertyEngine } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 
 export interface DerivedPropertyPanelProps {
   ugm: UGM;
@@ -51,7 +52,7 @@ export function DerivedPropertyPanel({
   return (
     <div
       data-testid="derived-property-panel"
-      className={className}
+      className={viewClass(className)}
       style={{ fontSize: "var(--g3t-font-sm, 12px)" }}
     >
       <div className="g3t-panel-title">Derived Properties</div>

@@ -317,6 +317,26 @@ describe("wiring guide: toolkit state driving the host", () => {
   });
 });
 
+describe("wiring guide: style the toolkit's text (the g3t-view root class)", () => {
+  it("every view root carries g3t-view after the host class and the component's own class", () => {
+    render(
+      <>
+        <TableView ugm={graph()} className="host-table" />
+        <SchemaView ugm={graph()} className="host-schema" />
+        <FacetFilter ugm={graph()} onFilterChange={vi.fn()} />
+      </>,
+    );
+    expect(screen.getByTestId("table-view").className).toBe(
+      "g3t-table host-table g3t-view",
+    );
+    expect(screen.getByTestId("schema-view").className).toBe(
+      "host-schema g3t-view",
+    );
+    // No host class: the view still carries the toolkit's root class.
+    expect(screen.getByTestId("facet-filter").className).toBe("g3t-view");
+  });
+});
+
 describe("wiring guide: word the legend for your audience", () => {
   it("sectionTitle and the channel-aware labelFor reach every section; edge rows need no overrides", () => {
     const ugm = graph();

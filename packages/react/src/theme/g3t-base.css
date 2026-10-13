@@ -23,14 +23,28 @@
  * IBM Plex Mono, with system fallbacks), documented in
  * docs/consuming-g3t.md. tests/dist/public-api.test.ts asserts the
  * built style.css keeps to this rule.
+ *
+ * VIEW ROOT RULE (issue #45): every exported view and panel composes
+ * the class `g3t-view` onto its root element (the host's `className`
+ * and the component's own class, such as `g3t-table`, stay ahead of
+ * it, so selectors on those keep working). The scope rule above
+ * reaches chrome built from `g3t-*` atoms, but a view whose root was
+ * an unclassed, inline-styled element (the canvas wrapper, the
+ * inspectors, the tree and schema views, the context menu) inherited
+ * the HOST face when the host imported only style.css. The `.g3t-view`
+ * rule below is where the toolkit's text starts: face, size,
+ * line-height and ink on the root, inherited by everything inside it,
+ * never set on a host element. Hosts style the toolkit's text through
+ * this class; packages/react/src/theme/view-class.ts composes it.
  */
 
 /* ── Typography and box model ──────────────────────────────────────
    Applied to g3t-classed elements (first class or any later class),
    not to the page. Descendants without a class inherit the face from
    the nearest g3t ancestor, so chrome composed from toolkit atoms
-   reads in the toolkit face; a view that only sets inline styles on
-   its root inherits the host's. Size, color and line-height are NOT
+   reads in the toolkit face; a view whose root sets only inline
+   styles used to inherit the host's, which the `g3t-view` root class
+   (next rule) closes. Size, color and line-height are NOT
    set here: those are per-component rules below, and setting them on
    every g3t element directly (rather than letting them inherit, as
    the old body rule did) would override the inline sizes components
@@ -38,12 +52,34 @@
    line-height delta. border-box replaces the universal reset for the
    elements the toolkit owns: .g3t-input and friends carry padding
    plus border at 100% width and overflow under content-box. */
+.g3t-view,
 [class^="g3t-"],
 [class*=" g3t-"] {
   box-sizing: border-box;
   font-family: var(--g3t-font, "IBM Plex Sans", sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── View root (issue #45) ──────────────────────────────────────────
+   The one place size, line-height and ink are set from: a view ROOT
+   can carry them safely, because children inherit them and the
+   inline sizes components pass down still win, where the per-element
+   rule above could not (it would have overridden those inline sizes
+   and grown every button by the line-height delta). The values are
+   the ones the opt-in page rule (g3t-page.css) puts on body, so a
+   host that imports both sees no change; a host that imports only
+   style.css now gets the toolkit's text inside every view instead of
+   its own body face and size. Fallbacks match g3t-page.css for a
+   host that applies no theme. Atoms that used to pick line-height up
+   from the host (.g3t-btn, .g3t-select, .g3t-input, the section
+   header) pin `line-height: normal`, the UA value they rendered with
+   under the page rule, so a host reset such as `button { line-height:
+   inherit }` cannot stretch them by the root's 1.5 either. */
+.g3t-view {
+  font-size: var(--g3t-font-md, 13px);
+  line-height: var(--g3t-line-height, 1.5);
+  color: var(--g3t-text-primary, #212529);
 }
 
 /* ── Shared component patterns ─────────────────────────────────── */
@@ -76,6 +112,7 @@
   font-family: inherit;
   font-size: var(--g3t-font-sm, 12px);
   font-weight: var(--g3t-font-weight-medium, 500);
+  line-height: normal;
   color: var(--g3t-text-primary);
   background: var(--g3t-bg-primary);
   border: 1px solid var(--g3t-border);
@@ -132,6 +169,7 @@
 .g3t-select {
   font-family: inherit;
   font-size: var(--g3t-font-sm, 12px);
+  line-height: normal;
   padding: var(--g3t-space-1, 4px) var(--g3t-space-2, 8px);
   background: var(--g3t-bg-primary);
   color: var(--g3t-text-primary);
@@ -155,6 +193,7 @@
 .g3t-input {
   font-family: inherit;
   font-size: var(--g3t-font-md, 13px);
+  line-height: normal;
   padding: var(--g3t-space-2, 8px);
   background: var(--g3t-bg-primary);
   color: var(--g3t-text-primary);
@@ -563,6 +602,7 @@
   text-align: left;
   padding: var(--g3t-space-1, 4px) 0;
   font-family: inherit;
+  line-height: normal;
   font-size: var(--g3t-font-md, 0.8125rem);
   font-weight: var(--g3t-font-weight-semibold, 600);
   color: var(--g3t-text-primary);

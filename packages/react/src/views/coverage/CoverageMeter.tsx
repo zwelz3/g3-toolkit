@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { viewClass } from "../../theme/view-class";
 
 /** The three honest states a required concept resolves to (see the
  *  originating analytic). Drives the meter's accent. "neutral" is the
@@ -126,7 +127,7 @@ export function CoverageMeter({
     <div
       data-testid={testId ?? "g3t-coverage-meter"}
       data-state={state}
-      className={className}
+      className={viewClass(className)}
       role="img"
       aria-label={ariaLabel}
       style={{
@@ -268,7 +269,7 @@ export function CoverageMeterList({
   return (
     <div
       data-testid={testId ?? "g3t-coverage-meter-list"}
-      className={className}
+      className={viewClass(className)}
       style={{
         display: "flex",
         flexDirection: "column",

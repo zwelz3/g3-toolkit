@@ -14,6 +14,7 @@ import type {
   LegendChannel,
   LegendElement,
 } from "../../interaction/encoding/SpecLegend";
+import { viewClass } from "../../theme/view-class";
 
 export function FloatingLegend({
   elements,
@@ -69,6 +70,7 @@ export function FloatingLegend({
   return (
     <div
       data-testid={testId}
+      className={viewClass()}
       style={{
         position: "absolute",
         ...vertical,

@@ -16,6 +16,7 @@
  * established ids with zero test churn.
  */
 import { useRef, useState, type ReactNode } from "react";
+import { viewClass } from "../../theme/view-class";
 
 export interface FloatingPanelProps {
   header: ReactNode;
@@ -69,7 +70,7 @@ export function FloatingPanel({
   return (
     <div
       data-testid={testId}
-      className={className}
+      className={viewClass(className)}
       style={{
         position: positioning,
         ...vertical,
