@@ -14,6 +14,12 @@ import type { UGM } from "../ugm";
 // ── Shape Types ─────────────────────────────────────────────────────
 
 export interface ShaclPropertyConstraint {
+  /** The property shape's own identifier (its IRI when parsed from a
+   *  shapes graph). Optional and informational for the validator; the
+   *  shape browser keys constraint rows by it, because one shape may
+   *  constrain the same path twice (two property shapes on one
+   *  predicate) and `path` alone is not unique. */
+  id?: string;
   path: string;
   name?: string;
   datatype?: "string" | "number" | "boolean" | "date" | "uri";
@@ -30,9 +36,26 @@ export interface ShaclPropertyConstraint {
   severity?: "violation" | "warning" | "info";
 }
 
+/** One SHACL target declaration (sh:targetClass, sh:targetSubjectsOf,
+ *  sh:targetObjectsOf, sh:targetNode, sh:target with a SPARQL body).
+ *  `value` is the class, predicate, or node IRI, or the SPARQL text. */
+export interface ShaclShapeTarget {
+  kind: "class" | "subjectsOf" | "objectsOf" | "node" | "sparql";
+  value: string;
+}
+
 export interface ShaclShape {
   id: string;
+  /** The class the validator matches nodes against. Required because
+   *  the validator targets by class only; shapes with other target
+   *  kinds still name their primary class here. */
   targetClass: string;
+  /** Every target the shape declares, when there is more than the one
+   *  class (several classes, subjects-of, objects-of, a node, or a
+   *  SPARQL target). Display metadata today: the validator does not
+   *  resolve these, and the shape browser renders all of them
+   *  alongside `targetClass`. A shapes-graph parser would populate it. */
+  targets?: ShaclShapeTarget[];
   name?: string;
   description?: string;
   properties: ShaclPropertyConstraint[];

@@ -107,6 +107,7 @@ export {
 } from "./shacl";
 export type {
   ShaclShape,
+  ShaclShapeTarget,
   ShaclPropertyConstraint,
   ShaclViolation,
   ShaclValidationResult,

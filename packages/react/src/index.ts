@@ -72,7 +72,10 @@ export type { FloatingPanelProps } from "./views/popout/FloatingPanel";
 export { NeighborhoodPopout } from "./views/popout/NeighborhoodPopout";
 export type { NeighborhoodPopoutProps } from "./views/popout/NeighborhoodPopout";
 export { ShaclShapeBrowser } from "./views/schema/ShaclShapeBrowser";
-export type { ShaclShapeBrowserProps } from "./views/schema/ShaclShapeBrowser";
+export type {
+  ShaclShapeBrowserProps,
+  ShaclShapeSummary,
+} from "./views/schema/ShaclShapeBrowser";
 // The validator's shape model, re-exported alongside the components
 // that consume it so `ShaclShape` on this entry means one thing. A
 // display-only type in SchemaView used to own this name here, and it

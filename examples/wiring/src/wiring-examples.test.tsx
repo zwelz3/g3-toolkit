@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
@@ -63,7 +64,9 @@ import {
   createDefaultMenuManager,
   registerToolkitActions,
   ViewErrorBoundary,
+  ShaclShapeBrowser,
   type ProvenanceChain,
+  type ShaclShape,
 } from "@g3-toolkit/react";
 
 beforeEach(() => {
@@ -462,6 +465,84 @@ describe("wiring guide: linked shape + data views (B4)", () => {
       path: "name",
       severity: "violation",
     });
+  });
+});
+
+describe("wiring guide: shape browser from a deep link or an aggregated report", () => {
+  const shapes: ShaclShape[] = [
+    {
+      id: "ex:QuoteShape",
+      targetClass: "ex:Quote",
+      targets: [
+        { kind: "class", value: "ex:Quote" },
+        { kind: "subjectsOf", value: "ex:quoteVerified" },
+      ],
+      properties: [
+        // Two property shapes on one path: give each its own id.
+        { id: "ex:QuoteShape-verified", path: "ex:quoteVerified", minCount: 1 },
+        {
+          id: "ex:QuoteShape-verified-bool",
+          path: "ex:quoteVerified",
+          datatype: "boolean",
+        },
+      ],
+    },
+    { id: "ex:OrderShape", targetClass: "ex:Order", properties: [] },
+  ];
+
+  it("summary totals win over counting, and the selected shape opens expanded", () => {
+    function Host() {
+      // From the URL: /shapes?selected=ex:QuoteShape
+      const [selected, setSelected] = useState<string | null>("ex:QuoteShape");
+      return (
+        <ShaclShapeBrowser
+          shapes={shapes}
+          validationResults={[]}
+          summary={{
+            "ex:QuoteShape": {
+              focus: 120,
+              failing: 3,
+              bySeverity: { warning: 3 },
+            },
+          }}
+          selectedShape={selected}
+          onSelectShape={setSelected}
+        />
+      );
+    }
+    render(<Host />);
+    // No placeholder results, yet the totals and tier come through.
+    expect(screen.getByTestId("shape-ex:QuoteShape").textContent).toContain(
+      "117/120 pass",
+    );
+    const badge = screen.getByTestId("shape-badge-ex:QuoteShape");
+    expect(badge.getAttribute("data-severity")).toBe("warning");
+    expect(badge.getAttribute("aria-label")).toBe("3 failing");
+    // Deep link: expanded on load, both constraint rows rendered.
+    expect(
+      screen
+        .getByTestId("shape-toggle-ex:QuoteShape")
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(
+      screen.getByTestId("constraint-ex:QuoteShape-ex:QuoteShape-verified"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        "constraint-ex:QuoteShape-ex:QuoteShape-verified-bool",
+      ),
+    ).toBeInTheDocument();
+    // Every target renders, class first.
+    expect(screen.getByTestId("shape-targets-ex:QuoteShape").textContent).toBe(
+      "→ ex:Quote, subjects of ex:quoteVerified",
+    );
+    // The host owns the selection: collapsing reports null and closes.
+    fireEvent.click(screen.getByTestId("shape-toggle-ex:QuoteShape"));
+    expect(
+      screen
+        .getByTestId("shape-toggle-ex:QuoteShape")
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
   });
 });
 

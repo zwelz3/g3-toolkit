@@ -537,6 +537,61 @@ Canvas application (compound parents + preset row positions) is the
 next slice; the document is renderer-neutral, so you can already
 consume it for SVG export or your own drawing layer.
 
+### Drive the shape browser from a deep link or an aggregated report
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`.
+`ShaclShapeBrowser` counts one result per focus node by default. A
+host whose report is already summarized (pyshacl, Jena, a SPARQL
+COUNT) hands the totals over through `summary`, which wins over
+counting for the shapes it names, so passing focus nodes need no
+placeholder results. `selectedShape` / `onSelectShape` make the
+selection controlled; the selected shape renders expanded, so a shape
+chosen from the URL opens on load. Leave both props off and the
+browser keeps its own expanded state as before. A shape declares every
+target it has through `targets`; `targetClass` stays the class the
+validator matches:
+
+```tsx
+import { useState } from "react";
+import { ShaclShapeBrowser, type ShaclShape } from "@g3-toolkit/react";
+
+const shapes: ShaclShape[] = [
+  {
+    id: "ex:QuoteShape",
+    targetClass: "ex:Quote",
+    targets: [
+      { kind: "class", value: "ex:Quote" },
+      { kind: "subjectsOf", value: "ex:quoteVerified" },
+    ],
+    properties: [
+      // Two property shapes on one path: give each its own id.
+      { id: "ex:QuoteShape-verified", path: "ex:quoteVerified", minCount: 1 },
+      {
+        id: "ex:QuoteShape-verified-bool",
+        path: "ex:quoteVerified",
+        datatype: "boolean",
+      },
+    ],
+  },
+];
+
+// From the URL: /shapes?selected=ex:QuoteShape
+const [selected, setSelected] = useState<string | null>("ex:QuoteShape");
+
+<ShaclShapeBrowser
+  shapes={shapes}
+  validationResults={validationResults}
+  // Per-shape totals from the report; bySeverity sets the badge tier.
+  summary={{
+    "ex:QuoteShape": { focus: 120, failing: 3, bySeverity: { warning: 3 } },
+  }}
+  selectedShape={selected}
+  onSelectShape={setSelected} // null when the selected shape collapses
+/>;
+// The badge exposes its tier for host CSS or tests:
+//   [data-testid="shape-badge-ex:QuoteShape"][data-severity="warning"]
+```
+
 ### Render a provenance trace
 
 CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. The

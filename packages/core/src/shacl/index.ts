@@ -5,6 +5,7 @@ export {
 } from "./shacl-validator";
 export type {
   ShaclShape,
+  ShaclShapeTarget,
   ShaclPropertyConstraint,
   ShaclViolation,
   ShaclValidationResult,
