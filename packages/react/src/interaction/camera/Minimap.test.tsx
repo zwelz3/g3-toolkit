@@ -110,6 +110,8 @@ describe("handle prop: core is canonical, cy a deprecated alias (issue #18)", ()
   it("omitting both is the disabled placeholder", () => {
     render(<Minimap />);
     expect(screen.getByTestId("minimap")).toHaveAttribute("data-disabled");
+  });
+});
 
 /**
  * Paint path (issue #9). The default jsdom context is null, which is
