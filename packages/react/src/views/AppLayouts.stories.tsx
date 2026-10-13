@@ -56,7 +56,7 @@ export const SidebarAndTable: Story = {
         }}
       >
         <div style={{ width: 200, borderRight: "1px solid #ddd", padding: 8 }}>
-          <SearchBar ugm={ugm} onSearchChange={() => {}} />
+          <SearchBar ugm={ugm} />
           <FacetFilter ugm={ugm} onFilterChange={() => {}} />
         </div>
         <div style={{ flex: 1 }}>

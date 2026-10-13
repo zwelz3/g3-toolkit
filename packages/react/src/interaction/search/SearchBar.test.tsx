@@ -176,3 +176,32 @@ describe("SearchBar (Fuse.js)", () => {
     expect(outerRenderCount).toBeLessThanOrEqual(50);
   });
 });
+
+// Issue #18: onSearchChange is optional. The common case (and what
+// GraphToolbar's internal SearchBar relies on) is the bar driving the
+// selection store on an explicit pick, with no per-keystroke callback.
+describe("onSearchChange is optional (issue #18)", () => {
+  it("without onSearchChange, a picked result writes the selection store", async () => {
+    render(<SearchBar ugm={makeUGM()} />);
+    fireEvent.change(screen.getByTestId("search-input"), {
+      target: { value: "alice" },
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("search-result-p1")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("search-result-p1"));
+    expect(useSelectionStore.getState().selectedNodeIds.has("p1")).toBe(true);
+  });
+
+  it("without onSearchChange, typing and clearing do not throw", async () => {
+    render(<SearchBar ugm={makeUGM()} />);
+    const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "bob" } });
+    await waitFor(() => {
+      expect(screen.getByTestId("search-dropdown")).toBeInTheDocument();
+    });
+    expect(() =>
+      fireEvent.change(input, { target: { value: "" } }),
+    ).not.toThrow();
+  });
+});

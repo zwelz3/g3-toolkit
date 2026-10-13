@@ -513,7 +513,7 @@ export function ScaleSurface({ onBack }: { onBack: () => void }) {
               zIndex: 5,
             }}
           >
-            <GraphToolbar ugm={canvasUgm} cy={core} />
+            <GraphToolbar ugm={canvasUgm} core={core} />
           </div>
           <CytoscapeCanvas
             ugm={canvasUgm}

@@ -4,10 +4,11 @@
  * component contract: structure, the disabled placeholder, sizing, and
  * the render-event subscription lifecycle.
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import { Minimap } from "./Minimap";
+import { resetCoreHandleWarnings } from "../core-handle";
 
 function mockCore() {
   const on = vi.fn();
@@ -60,5 +61,51 @@ describe("Minimap", () => {
         fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10 }),
       ).not.toThrow();
     }
+  });
+});
+
+// Issue #18 (maintainer ruling 2026-10-13): the handle prop is `core`
+// everywhere; `cy` survives one major as a deprecated alias.
+describe("handle prop: core is canonical, cy a deprecated alias (issue #18)", () => {
+  beforeEach(() => resetCoreHandleWarnings());
+
+  it("core subscribes with no warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { core, on } = mockCore();
+    render(<Minimap core={core} />);
+    expect(on).toHaveBeenCalledWith("render", expect.any(Function));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("cy is accepted, enables the minimap, and warns ONCE in development", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { core, on } = mockCore();
+    const { rerender } = render(<Minimap cy={core} />);
+    rerender(<Minimap cy={core} />);
+    render(<Minimap cy={mockCore().core} />);
+    expect(on).toHaveBeenCalledWith("render", expect.any(Function));
+    expect(screen.getAllByTestId("minimap")[0]).not.toHaveAttribute(
+      "data-disabled",
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/Minimap.*`cy`.*deprecated/);
+    warn.mockRestore();
+  });
+
+  it("when both are given, core wins and cy is ignored (no warning)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const a = mockCore();
+    const b = mockCore();
+    render(<Minimap core={a.core} cy={b.core} />);
+    expect(a.on).toHaveBeenCalledWith("render", expect.any(Function));
+    expect(b.on).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("omitting both is the disabled placeholder", () => {
+    render(<Minimap />);
+    expect(screen.getByTestId("minimap")).toHaveAttribute("data-disabled");
   });
 });

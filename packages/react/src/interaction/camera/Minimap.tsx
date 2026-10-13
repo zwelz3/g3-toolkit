@@ -25,6 +25,7 @@ import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { Core, NodeSingular } from "cytoscape";
 import { useThemeStore } from "../../theme/ThemeManager";
 import { createCameraController } from "./cameraController";
+import { resolveCoreHandle } from "../core-handle";
 import {
   computeMinimapFrame,
   projectToMinimap,
@@ -34,8 +35,14 @@ import "./Minimap.css";
 
 export interface MinimapProps {
   /** The Cytoscape instance from the canvas `onReady` callback. While
-   *  null the minimap renders a disabled placeholder. */
-  core: Core | null;
+   *  null (or omitted) the minimap renders a disabled placeholder. The
+   *  same prop name every handle-taking component uses (issue #18). */
+  core?: Core | null;
+  /** @deprecated Use `core`. Accepted as an alias for one major and
+   *  removed in the next major; when both are supplied `core` wins
+   *  and this prop is ignored. Warns once per component in development
+   *  when it is the only handle given. */
+  cy?: Core | null;
   /** Minimap width in CSS px. Default 200. */
   width?: number;
   /** Minimap height in CSS px. Default 140. */
@@ -70,7 +77,8 @@ const cancelFrame = (id: number): void => {
 };
 
 export function Minimap({
-  core,
+  core: coreProp,
+  cy: cyAlias,
   width = 200,
   height = 140,
   padding = 10,
@@ -90,6 +98,9 @@ export function Minimap({
     nodeFilterRef.current = nodeFilter;
   }, [nodeFilter]);
   const theme = useThemeStore((s) => s.theme);
+  // Issue #18: `core` is canonical, `cy` the deprecated alias
+  // (core ?? cy, see core-handle.ts).
+  const core = resolveCoreHandle("Minimap", coreProp, cyAlias);
   const controller = useMemo(
     () => (core ? createCameraController(core) : null),
     [core],

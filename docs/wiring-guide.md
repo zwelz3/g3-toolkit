@@ -78,10 +78,19 @@ your own `SearchBar` beside the toolbar ships two search fields that
 both drive the selection store, which is an easy and confusing
 duplicate. Use one or the other.
 
-**Two names for one handle.** `GraphToolbar` takes the Cytoscape
-instance as `cy`; `Minimap` takes the same instance as `core`. Both
-are the value `onReady` hands you. The inconsistency is real and
-frozen for 1.x, since renaming either is a breaking change.
+**One name for the handle: `core`.** Every component that takes the
+Cytoscape instance `onReady` hands you (`GraphToolbar`, `Minimap`)
+takes it as `core`. `GraphToolbar` shipped it as `cy`; that name is
+still accepted as a deprecated alias through 1.x and is removed in
+the next major, so migrate to `core` when convenient. Resolution is
+`core ?? cy`: when both are supplied, `core` wins. Development builds
+warn once per component when only `cy` is given; production builds
+are silent.
+
+**`SearchBar` needs no callback.** `onSearchChange` is optional; the
+bar drives the selection store on an explicit pick either way (this
+is what `GraphToolbar`'s internal `SearchBar` relies on). Pass it only
+when your host also wants the live match set on every keystroke.
 
 ## Patterns (which components pair, and why)
 
@@ -1263,11 +1272,13 @@ camera.frameAll(); // fit everything
 ```
 
 `cy` is the Cytoscape core the canvas hands you through `onReady`.
-The same core feeds the `Minimap` component (an overview inset whose
-viewport rectangle tracks and drives the camera): store the core from
-`onReady` in state and render `<Minimap core={core} />`; while the
-core is null it shows a disabled placeholder, so it mounts safely
-before the canvas is ready.
+The same core feeds the `Minimap` and `GraphToolbar` components, both
+under the `core` prop: store the core from `onReady` in state and
+render `<Minimap core={core} />` (an overview inset whose viewport
+rectangle tracks and drives the camera) and
+`<GraphToolbar ugm={ugm} core={core} />`; while the core is null the
+minimap shows a disabled placeholder and the toolbar's controls
+no-op, so both mount safely before the canvas is ready.
 
 ## Where the rest lives
 
