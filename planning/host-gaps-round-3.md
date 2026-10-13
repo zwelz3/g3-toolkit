@@ -64,6 +64,11 @@ path. Order alone decides. The guide and the design record say theme
 
 ## Questions for Zach, by issue
 
+The ones that are work are filed: #67 (`targetClass` optional on
+`ShaclShape`), #68 (label-collision threads from #60), #69 (a
+post-overlay host slot, from #63), #70 (TreeView threads from #59).
+The rest are recorded here only.
+
 - #54: should `targetClass` become optional on `ShaclShape` now that
   `targets` carries every target? The validator still matches by
   `targetClass` only, so a shape without one validates nothing today.
