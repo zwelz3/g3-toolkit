@@ -17,7 +17,10 @@ export * from "./map";
 export * from "./tree";
 export * from "./schema";
 export { ShaclShapeBrowser } from "./schema/ShaclShapeBrowser";
-export type { ShaclShapeBrowserProps } from "./schema/ShaclShapeBrowser";
+export type {
+  ShaclShapeBrowserProps,
+  ShaclShapeSummary,
+} from "./schema/ShaclShapeBrowser";
 // Same rationale as the root barrel: on this entry `ShaclShape` is the
 // validator's model, and SchemaView's display-only type is
 // SchemaViewShape.
