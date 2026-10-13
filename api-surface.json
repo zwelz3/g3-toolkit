@@ -111,6 +111,7 @@
     "summarizeValidation",
     "themeFromTokens",
     "toStructuralInput",
+    "tripleEdgeKey",
     "typeCollapse",
     "validateGraphDocument",
     "validateShacl",
@@ -151,6 +152,7 @@
     "listCollapse",
     "literalCollapse",
     "reificationCollapse",
+    "tripleEdgeKey",
     "typeCollapse"
   ],
   "@g3-toolkit/core/pipeline": [

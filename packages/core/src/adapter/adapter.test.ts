@@ -22,6 +22,7 @@ import type { HolonicDataset } from "./holonic-adapter";
 import { ingestAlgorithmResults } from "../algorithm-adapter";
 import { bearerAuth } from "../middleware";
 import { exportSubgraphJson } from "../export";
+import { tripleEdgeKey } from "../projection/triple-edge-key";
 
 // GremlinAdapter response type (mirrors internal type)
 interface GremlinResponse {
@@ -1238,6 +1239,81 @@ describe("adapters pass stable edge keys (issue #48)", () => {
       expect(ugm.getEdge("portal-1")?.type).toBe("feeds");
       expect(edgeIds(adapter.projectToLPG())).toEqual(["portal-1", "portal-2"]);
       expectIdsSurvive(ugm, ["portal-1", "portal-2"]);
+    });
+  });
+
+  describe("SparqlAdapter", () => {
+    // A SELECT over a property path (what `expandNeighborhood` sends)
+    // binds the same triple in every row whose path crosses it, and so
+    // does a dataset that holds the triple in two named graphs, since
+    // the adapter binds only ?s ?p ?o and never a graph. Each such row
+    // used to add a parallel edge.
+    const uri = (value: string) => ({ type: "uri" as const, value });
+    const alice = "http://ex.org/alice";
+    const bob = "http://ex.org/bob";
+    const knows = "http://ex.org/knows";
+    const likes = "http://ex.org/likes";
+    const rows = {
+      results: {
+        bindings: [
+          { s: uri(alice), p: uri(knows), o: uri(bob) },
+          { s: uri(alice), p: uri(knows), o: uri(bob) },
+          { s: uri(alice), p: uri(likes), o: uri(bob) },
+          // A blank-node subject is a node too; its key must not
+          // collide with it or with any IRI.
+          {
+            s: { type: "bnode" as const, value: "b0" },
+            p: uri(knows),
+            o: uri(alice),
+          },
+        ],
+      },
+    };
+    const expectedIds = [
+      tripleEdgeKey(alice, knows, bob),
+      tripleEdgeKey(alice, likes, bob),
+      tripleEdgeKey("b0", knows, alice),
+    ];
+
+    const load = async (body: unknown): Promise<UGM> => {
+      const adapter = new SparqlAdapter(
+        "http://test/sparql",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify(body)),
+        }) as unknown as typeof fetch,
+      );
+      return adapter.query("SELECT ?s ?p ?o WHERE { ?s ?p ?o }");
+    };
+
+    it("keys each edge on its triple and keeps the first of a repeated row", async () => {
+      const ugm = await load(rows);
+      expect(edgeIds(ugm)).toEqual(expectedIds);
+      expect(ugm.edgeCount).toBe(3);
+      expect(
+        ugm
+          .getEdgesBetween(alice, bob)
+          .map((id) => ugm.getEdge(id)?.type)
+          .sort(),
+      ).toEqual(["knows", "likes"]);
+    });
+
+    it("yields the same edge ids on a second load", async () => {
+      expect(edgeIds(await load(rows))).toEqual(edgeIds(await load(rows)));
+    });
+
+    it("no edge key equals a node id (Cytoscape has one id space)", async () => {
+      const ugm = await load(rows);
+      const nodeIds = new Set(ugm.toJSON().nodes.map((n) => n.id));
+      expect(nodeIds.has("b0")).toBe(true);
+      for (const id of edgeIds(ugm)) {
+        expect(nodeIds.has(id)).toBe(false);
+        expect(id.startsWith("<")).toBe(true);
+      }
+    });
+
+    it("survives snapshot and export", async () => {
+      expectIdsSurvive(await load(rows), expectedIds);
     });
   });
 });

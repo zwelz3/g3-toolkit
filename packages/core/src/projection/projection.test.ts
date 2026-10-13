@@ -23,6 +23,9 @@ import {
   reificationCollapse,
 } from "./transforms";
 import { createPresetPipeline, checkRenderPermission } from "./presets";
+import { tripleEdgeKey } from "./triple-edge-key";
+import { UGM } from "../ugm";
+import { exportSubgraphJson } from "../export";
 
 // ── Test data ───────────────────────────────────────────────────────
 
@@ -608,5 +611,114 @@ describe("Projection: edge cases (audit)", () => {
     expect(
       castLiteral("true", "http://www.w3.org/2001/XMLSchema#boolean"),
     ).toBe(true);
+  });
+});
+
+// ── Stable edge keys from the pipeline (issue #48) ─────────────────
+
+/**
+ * The pipeline let graphology generate edge ids, so the same input
+ * projected twice gave different ids, and a triple listed twice became
+ * two parallel edges. Every resource-object triple is now keyed by
+ * `tripleEdgeKey`, shared with the SPARQL adapter, with first wins on
+ * a duplicate. No existing fixture holds a duplicate triple, so no
+ * pinned count moved; the count assertions here are the new ones.
+ */
+describe("projection keys edges on the triple (issue #48)", () => {
+  const edgeIds = (ugm: UGM): string[] => ugm.toJSON().edges.map((e) => e.id);
+  const EX = "http://example.org/";
+  const knows: RDFGraph["triples"][number] = {
+    subject: `${EX}alice`,
+    predicate: `${EX}knows`,
+    object: `${EX}bob`,
+    objectType: "uri",
+  };
+  const likes: RDFGraph["triples"][number] = {
+    ...knows,
+    predicate: `${EX}likes`,
+  };
+  // A second namespace whose local part is also "knows": a distinct
+  // triple, so a distinct edge, even though both edges carry type
+  // "knows". The key is the full IRI, not the local part.
+  const alsoKnows: RDFGraph["triples"][number] = {
+    ...knows,
+    predicate: "http://other.example/knows",
+  };
+  const duplicated: RDFGraph = { triples: [knows, knows, likes, alsoKnows] };
+
+  it("the same triple in two input rows yields one edge, keyed by the triple", () => {
+    const ugm = createPresetPipeline("standard").project(duplicated);
+    expect(ugm.edgeCount).toBe(3);
+    expect(edgeIds(ugm)).toEqual([
+      tripleEdgeKey(knows.subject, knows.predicate, knows.object),
+      tripleEdgeKey(likes.subject, likes.predicate, likes.object),
+      tripleEdgeKey(alsoKnows.subject, alsoKnows.predicate, alsoKnows.object),
+    ]);
+    expect(
+      ugm
+        .getEdgesBetween(`${EX}alice`, `${EX}bob`)
+        .map((id) => ugm.getEdge(id)?.type)
+        .sort(),
+    ).toEqual(["knows", "knows", "likes"]);
+  });
+
+  it("a second projection of the same input yields identical ids", () => {
+    const a = createPresetPipeline("standard").project(duplicated);
+    const b = createPresetPipeline("standard").project(duplicated);
+    expect(edgeIds(a)).toEqual(edgeIds(b));
+    // A fresh pipeline with a different step set keys the same way.
+    const bare = new ProjectionPipeline().project(duplicated);
+    expect(bare.hasEdge(edgeIds(a)[0]!)).toBe(true);
+  });
+
+  it("rdf:type edges (typeCollapse off) are keyed on the full rdf:type triple", () => {
+    const p = new ProjectionPipeline();
+    p.addStep({ name: "Type", transform: typeCollapse, enabled: false });
+    const ugm = p.project(makeTripleGraph());
+    expect(ugm.hasEdge(tripleEdgeKey("ex:alice", RDF.type, "ex:Person"))).toBe(
+      true,
+    );
+    expect(ugm.hasEdge(tripleEdgeKey("ex:alice", "ex:knows", "ex:bob"))).toBe(
+      true,
+    );
+  });
+
+  it("no edge key equals a node id in a fixture whose node ids are IRIs or CURIEs", () => {
+    for (const g of [duplicated, makeTripleGraph()]) {
+      const ugm = new ProjectionPipeline().project(g);
+      const nodeIds = new Set(ugm.toJSON().nodes.map((n) => n.id));
+      expect(nodeIds.size).toBeGreaterThan(0);
+      for (const id of edgeIds(ugm)) {
+        expect(nodeIds.has(id)).toBe(false);
+        expect(id.startsWith("<")).toBe(true);
+      }
+    }
+  });
+
+  it("the named graph is not part of the key unless the caller passes one", () => {
+    // Neither core path carries a graph (RDFTriple has none, the
+    // adapter binds ?s ?p ?o), so both merge graphs and the same
+    // triple from two graphs is one edge. A quad-aware host that keeps
+    // graphs distinct passes the graph and gets distinct keys.
+    const base = tripleEdgeKey("s", "p", "o");
+    expect(base).toBe("<s> <p> <o>");
+    expect(tripleEdgeKey("s", "p", "o", "g1")).toBe("<s> <p> <o> <g1>");
+    expect(tripleEdgeKey("s", "p", "o", "g1")).not.toBe(
+      tripleEdgeKey("s", "p", "o", "g2"),
+    );
+    const ugm = new ProjectionPipeline().project({ triples: [knows, knows] });
+    expect(edgeIds(ugm)).toEqual([
+      tripleEdgeKey(knows.subject, knows.predicate, knows.object),
+    ]);
+  });
+
+  it("ids survive snapshot and subgraph export", () => {
+    const ugm = createPresetPipeline("standard").project(duplicated);
+    const ids = edgeIds(ugm);
+    expect(edgeIds(UGM.fromJSON(ugm.toJSON()))).toEqual(ids);
+    const exported = JSON.parse(exportSubgraphJson(ugm)) as {
+      edges: Array<{ id: string }>;
+    };
+    expect(exported.edges.map((e) => e.id)).toEqual(ids);
   });
 });

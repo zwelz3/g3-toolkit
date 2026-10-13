@@ -21,6 +21,7 @@ export {
   listCollapse,
   reificationCollapse,
 } from "./transforms";
+export { tripleEdgeKey } from "./triple-edge-key";
 
 // WITHDRAWN 2026-08-15: checkRenderPermission. Undocumented and
 // unused; the module and its tests stay in the tree. See

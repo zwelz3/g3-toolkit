@@ -1114,6 +1114,29 @@ const ugm = p.project(rdfGraph);
 p.getSteps(); // inspectable, so a UI can show or toggle steps
 ```
 
+Edge ids are a function of the triple, not of the projection run.
+Every resource-object triple becomes one edge whose id is
+`tripleEdgeKey(subject, predicate, object)`, the same key the SPARQL
+adapter uses, so projecting the same input twice gives the same ids,
+a triple listed twice (a SELECT that binds it in two rows) is one
+edge rather than two parallel ones (first occurrence wins), and a host
+can address an edge by its triple without reading the graph. The key
+begins with `<`, which no IRI, CURIE or blank-node label can, so it
+never collides with a node id in the one id space Cytoscape gives
+nodes and edges. The optional fourth argument is a named graph: the
+pipeline and the adapter merge graphs and never pass one, so it is for
+a host that keys its own quads and keeps graphs distinct.
+
+```ts
+import { tripleEdgeKey } from "@g3-toolkit/core";
+const edgeId = tripleEdgeKey(
+  "http://example.org/p53",
+  "http://example.org/regulates",
+  "http://example.org/mdm2",
+);
+ugm.getEdge(edgeId); // the projected edge, by its triple
+```
+
 The biomedical playground shell renders this live: its canvas toggle
 shows the raw triple view beside the projected one, and its caption
 lists the preset's step names straight from `getSteps()`.
