@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { viewClass } from "../../theme/view-class";
 
 // ── Store Interface (D6-compatible) ─────────────────────────────
 
@@ -117,7 +118,7 @@ export function AnnotationPanel({
   if (!elementId) {
     return (
       <div
-        className={className}
+        className={viewClass(className)}
         style={{ fontSize: 11, color: "var(--g3t-text-muted)", padding: 8 }}
       >
         Select a node or edge to add annotations.
@@ -127,7 +128,7 @@ export function AnnotationPanel({
 
   return (
     <div
-      className={className}
+      className={viewClass(className)}
       data-testid="annotation-panel"
       style={{ fontSize: 12, padding: 8 }}
     >

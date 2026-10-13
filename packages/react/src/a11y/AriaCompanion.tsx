@@ -30,6 +30,7 @@ import {
 } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../state/selection-store";
+import { viewClass } from "../theme/view-class";
 
 export interface AriaCompanionProps {
   ugm: UGM;
@@ -208,7 +209,7 @@ export function AriaCompanion({
   );
 
   return (
-    <div className={className} data-testid="aria-companion">
+    <div className={viewClass(className)} data-testid="aria-companion">
       {instructions !== undefined && (
         <p
           id={instructionsId}

@@ -419,7 +419,15 @@ const BUDGETS = {
   // its branch, +1.9 KB for the #16 AriaCompanion props before it)
   // land on the 436.4 KB merged measurement above: 441.9 KB merged.
   // About 4 KB headroom, same posture.
-  react: 446 * 1024,
+  // Issue #45 (2026-10-13): 446 -> 450. The shared view root class:
+  // every exported view and panel root composes `g3t-view` through
+  // one helper (packages/react/src/theme/view-class.ts), so the
+  // scoped typography from #24 reaches views whose root was an
+  // unclassed inline-styled element. Measured 445.6 -> 446.4 KB
+  // (457,103 bytes after; +0.8 KB), one `viewClass(...)` call per
+  // root across 48 files plus the helper, no new dependency and no
+  // vendored bytes. Headroom back to about 3.5 KB, same posture.
+  react: 450 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the

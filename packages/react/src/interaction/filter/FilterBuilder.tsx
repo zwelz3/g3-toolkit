@@ -13,6 +13,7 @@ import {
   type FilterGroup,
   type PropertyFilter,
 } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 
 // ── FilterBuilder (M11.E3.T2) ───────────────────────────────────────
 
@@ -88,7 +89,7 @@ export function FilterBuilder({ ugm, onApply, className }: FilterBuilderProps) {
   return (
     <div
       data-testid="filter-builder"
-      className={className}
+      className={viewClass(className)}
       style={{
         fontSize: "var(--g3t-font-sm, 12px)",
         display: "flex",

@@ -17,6 +17,7 @@ import type { UGM } from "@g3-toolkit/core";
 import { DESIGN_TOKENS } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { EmptyState } from "../../interaction/feedback";
+import { viewClass } from "../../theme/view-class";
 
 export interface MapViewProps {
   ugm: UGM;
@@ -122,7 +123,7 @@ export function MapView({ ugm, showEdges = true, className }: MapViewProps) {
   return (
     <div
       data-testid="map-view"
-      className={className}
+      className={viewClass(className)}
       style={{ width: "100%", height: "100%", minHeight: 200 }}
     >
       {geoNodes.length === 0 ? (

@@ -28,6 +28,7 @@ import { useSelectionStore } from "../../state/selection-store";
 import { useWorkingSetManager } from "../../state/working-set-context";
 import { EmptyState } from "../../interaction/feedback";
 import { PaginationControl } from "../../interaction/pagination";
+import { viewClass } from "../../theme/view-class";
 
 export interface MatrixViewProps {
   ugm: UGM;
@@ -158,7 +159,7 @@ export function MatrixView({
   return (
     <div
       data-testid="matrix-view"
-      className={className}
+      className={viewClass(className)}
       style={{ overflow: "auto", padding: 8 }}
     >
       {paged ? (

@@ -12,6 +12,7 @@ import type { ECharts } from "echarts";
 import type { UGM } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
 import { loadEcharts } from "../load-echarts";
+import { viewClass } from "../../theme/view-class";
 
 export type FlowMode = "sankey" | "chord";
 
@@ -155,7 +156,7 @@ export function SankeyView({
   return (
     <div
       data-testid="sankey-view"
-      className={className}
+      className={viewClass(className)}
       style={{ width: "100%", height: "100%", minHeight: 200 }}
     >
       <div style={{ display: "flex", gap: 4, padding: "4px 8px" }}>

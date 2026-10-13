@@ -21,6 +21,7 @@
 
 import type { CSSProperties, KeyboardEvent } from "react";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 import "./PaginationControl.css";
 
 export interface PaginationControlProps {
@@ -109,7 +110,7 @@ export function PaginationControl({
   return (
     <nav
       aria-label={label}
-      className={["g3t-pagination", className].filter(Boolean).join(" ")}
+      className={viewClass("g3t-pagination", className)}
       style={style}
       data-testid={testId}
       onKeyDown={onKeyDown}

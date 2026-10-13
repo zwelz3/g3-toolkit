@@ -11,6 +11,7 @@
  */
 
 import { useThemeStore, THEME_PRESETS } from "./ThemeManager";
+import { viewClass } from "./view-class";
 
 export interface ThemeSwitcherProps {
   /** Called after the theme is applied (e.g. host page chrome sync). */
@@ -23,7 +24,7 @@ export function ThemeSwitcher({ onSelect, className }: ThemeSwitcherProps) {
   const setTheme = useThemeStore((s) => s.setTheme);
   return (
     <div
-      className={className}
+      className={viewClass(className)}
       role="group"
       aria-label="Theme"
       data-testid="g3t-theme-switcher"

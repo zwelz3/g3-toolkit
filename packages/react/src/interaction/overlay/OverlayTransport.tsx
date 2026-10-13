@@ -22,6 +22,7 @@
 import type { CSSProperties } from "react";
 import { Icon } from "../../icons";
 import type { OverlaySequence } from "./useOverlaySequence";
+import { viewClass } from "../../theme/view-class";
 import "./OverlayTransport.css";
 
 export interface OverlayTransportLabels {
@@ -118,7 +119,7 @@ export function OverlayTransport({
 
   return (
     <div
-      className={["g3t-overlay-transport", className].filter(Boolean).join(" ")}
+      className={viewClass("g3t-overlay-transport", className)}
       style={style}
       role="group"
       aria-label={ariaLabel}

@@ -12,6 +12,7 @@ import type { FuseResult } from "fuse.js";
 import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 export interface SearchResult {
   matchingIds: string[];
@@ -168,7 +169,7 @@ export function SearchBar({
   return (
     <div
       data-testid="search-bar"
-      className={className}
+      className={viewClass(className)}
       style={{ position: "relative" }}
     >
       <input

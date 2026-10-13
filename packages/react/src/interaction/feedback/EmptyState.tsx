@@ -11,6 +11,7 @@
 
 import type { ReactNode } from "react";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 export interface EmptyStateProps {
   /** One line naming the situation ("No temporal data"). */
@@ -42,7 +43,7 @@ export function EmptyState({
     <div
       data-testid={testId}
       role={variant === "error" ? "alert" : undefined}
-      className={className}
+      className={viewClass(className)}
       style={{
         display: "flex",
         flexDirection: "column",

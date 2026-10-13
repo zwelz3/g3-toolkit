@@ -41,6 +41,7 @@ import {
   DEFAULT_LAYOUT_OPTIONS,
   type LayoutPanelOptions,
 } from "../layout-manager/LayoutManager";
+import { viewClass } from "../../theme/view-class";
 
 /** Map layout ids and options onto a Cytoscape layout config.
  *  Exported for tests. Hierarchical engines not bundled (dagre, elk)
@@ -300,7 +301,7 @@ export function GraphToolbar({
 
   return (
     <div
-      className={`g3t-graph-toolbar ${className ?? ""}`}
+      className={viewClass("g3t-graph-toolbar", className)}
       ref={rootRef}
       data-testid="g3t-graph-toolbar"
     >

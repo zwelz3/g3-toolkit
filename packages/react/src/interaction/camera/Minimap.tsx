@@ -31,6 +31,7 @@ import {
   projectToMinimap,
   type MinimapFrame,
 } from "./minimap-frame";
+import { viewClass } from "../../theme/view-class";
 import "./Minimap.css";
 
 export interface MinimapProps {
@@ -266,7 +267,7 @@ export function Minimap({
 
   return (
     <div
-      className={["g3t-minimap", className].filter(Boolean).join(" ")}
+      className={viewClass("g3t-minimap", className)}
       style={{ width, height, ...style }}
       data-testid="minimap"
       data-disabled={disabled || undefined}

@@ -12,6 +12,7 @@
 // wired; R2.12 is tracked as in-progress in specs/02.
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { UGM } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 
 export interface PropertyEditCallback {
   onPropertyChange(
@@ -127,7 +128,7 @@ export function PropertyEditor({
 
   return (
     <div
-      className={className}
+      className={viewClass(className)}
       data-testid="property-editor"
       style={{ fontSize: 12 }}
     >

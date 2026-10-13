@@ -156,6 +156,7 @@ import type {
   StructuralGeometry,
 } from "@g3-toolkit/core";
 import { prefersReducedMotion } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 
 export type CyStylesheet = cytoscape.StylesheetCSS | cytoscape.StylesheetStyle;
 
@@ -2797,6 +2798,9 @@ export function CytoscapeCanvas({
 
   return (
     <div
+      // #45: the shared view root class; the inner mount keeps the
+      // host's `className` so selectors on it still reach the canvas.
+      className={viewClass()}
       style={{ position: "relative", width: "100%", height: "100%" }}
       onContextMenu={suppressContextMenu}
     >

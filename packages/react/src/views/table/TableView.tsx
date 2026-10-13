@@ -68,6 +68,7 @@ import type {
 } from "../../interaction/context-menu";
 import { ContextMenu } from "../../interaction/context-menu";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 /** A flat row representation of a UGM node (what `renderCell` sees
  *  on the UGM path: built-in `id` and `types`, then one key per
@@ -1093,9 +1094,7 @@ export function TableView<T = TableNodeRow>({
       // #21(a): a stable class structure so a host can style each
       // region without selecting on test ids; g3t-table-fill is the
       // opt-in layout (packages/react/src/theme/g3t-base.css).
-      className={["g3t-table", fill ? "g3t-table-fill" : "", className ?? ""]
-        .filter((c) => c !== "")
-        .join(" ")}
+      className={viewClass("g3t-table", fill && "g3t-table-fill", className)}
       data-testid="table-view"
       onClick={() => setMenuState(null)}
     >

@@ -17,6 +17,7 @@ import {
 } from "../../interaction/element-pointer-events";
 import type { SvgSceneEdge, SvgSceneNode } from "../svg/svg-adapter";
 import { buildDisplayList, type DrawOp } from "./display-list";
+import { viewClass } from "../../theme/view-class";
 
 export interface CanvasAdapterProps extends ElementPointerHandlers<SceneHit> {
   nodes: readonly SvgSceneNode[];
@@ -241,6 +242,7 @@ export function CanvasAdapter({
     <canvas
       ref={ref}
       {...pointerProps}
+      className={viewClass()}
       style={{ width, height }}
       data-testid={testId}
       data-g3t-ops={ops.length}
