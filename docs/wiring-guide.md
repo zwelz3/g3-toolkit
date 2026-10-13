@@ -120,6 +120,22 @@ rather than as a filter. Let activation be their act. Overlays carry
 an optional `tone` (`neutral` / `info` / `warning` / `danger`) so
 distinct tiers stay visually distinct once activated.
 
+**Overlays beat your stylesheet.** The canvas merges the `stylesheet`
+prop after the theme and the encoding rules and BEFORE the `g3t-ov-*`
+overlay rules (issue #63), so an ordinary `node { border-width: 1 }`
+or `edge { width: 1.5 }` in your sheet styles every element except an
+active overlay's members, where the overlay border, line width and
+color win. Cytoscape resolves rules by order alone, not CSS
+specificity, so this is the only ordering under which the documented
+precedence (overlays outrank theme, spec and host chrome) holds. To
+change how overlay members look, set the theme's `overlayColor` and
+the semantic tone colors (`error`, `warning`, `info`), which the merge
+applies last, rather than restating `node.g3t-ov-member` in your own
+sheet, where a more specific selector would still lose on order. A
+per-element bypass (`ele.style(...)`) outranks every rule, which is
+why instance pins still shadow the overlay border on the pinned
+element.
+
 **The context menu is a command bus.** `@g3-toolkit/core/events` is a
 context-action command bus, NOT a fourth integration channel. Add
 your verbs as menu actions; do not build a general pub/sub on it.
@@ -390,8 +406,10 @@ it to the canvas as `hidden`; the canvas hides them with a class
 (`display:none`) in a batched restyle, so node positions and the
 Cytoscape instance survive. Do NOT feed a pre-filtered UGM as `ugm`: a new
 `ugm` reference re-creates the instance and re-runs layout on every
-toggle (additive mode, next section, only ever grows a graph; a filter
-removes, so it would rebuild there too).
+toggle. Additive mode (next section) would remove the filtered nodes in
+place, but a hidden node keeps its position and its edges for when the
+filter lifts, and stays reachable for search, routes and export; a
+removed node is laid out again when it returns.
 
 ```tsx
 import { useMemo, useState } from "react";
@@ -417,18 +435,21 @@ const hidden = useMemo(() => {
 </>;
 ```
 
-### Grow a drawn graph without rebuilding it
+### Grow or shrink a drawn graph without rebuilding it
 
 CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. An
-explorer that adds one neighborhood at a time hands the canvas a new
-`ugm` on every step, and a new identity is a different graph: the
-instance is re-created, positions and the camera reset. With
-`graphUpdate="additive"` a new ugm whose node-id set is a SUPERSET of
-the drawn one grows the live instance instead: the new nodes and edges
-join in place, only the new nodes are laid out (one fcose pass with
-every existing node held by `fixedNodeConstraint`, seeded next to the
-neighbors they were expanded from), and the camera does not move. The
-host still owns the growth; it just builds each step as a superset.
+explorer that adds one neighborhood at a time, or collapses one, hands
+the canvas a new `ugm` on every step, and a new identity is a different
+graph: the instance is re-created, positions and the camera reset. With
+`graphUpdate="additive"` a new ugm that shares at least one node with
+the drawn one is the SAME SCENE and updates the live instance instead:
+nodes the new ugm lacks leave in place with their incident edges, the
+new nodes and edges join, every surviving node keeps its position, only
+the new nodes are laid out (one fcose pass with every existing node
+held by `fixedNodeConstraint`, seeded next to the neighbors they were
+expanded from; a pure removal runs no layout), and the camera does not
+move. The host still owns the change; it just builds each step from the
+previous one.
 
 ```tsx
 import { useState } from "react";
@@ -450,17 +471,39 @@ const expand = (nodeId: string) => {
   setGraph(next);
 };
 
+// A collapse is the same recipe minus the nodes: the canvas removes
+// them in place and nothing else moves.
+const collapse = (nodeIds: readonly string[]) => {
+  const next = UGM.fromJSON(graph.toJSON());
+  for (const id of nodeIds) if (next.hasNode(id)) next.removeNode(id);
+  setGraph(next);
+};
+
 <>
   <button onClick={() => expand(selectedIds[0])}>Expand</button>
+  <button onClick={() => collapse(selectedIds)}>Collapse</button>
   <CytoscapeCanvas ugm={graph} graphUpdate="additive" />
 </>;
 ```
 
-A step that REMOVES a node (pruning, a different subject) takes the
-normal rebuild path; so does a containment change that re-parents a
-drawn node. Edges the new ugm no longer has are removed in place, and
-drawn elements take the new ugm's data, so a data-only change is also
-in place. `animate` and `animationDuration` apply to the growth pass.
+The boundary is sharing a node. A new ugm with NO node in common with
+the drawn one (a different subject, or an empty graph, which has no
+scene to keep) takes the normal rebuild path and fits; so does a
+containment change that re-parents a surviving node (removing a parent
+whose children survive is not that: the children are moved to the top
+level in place and keep their positions). Edges the new ugm no longer
+has are removed in place, and drawn elements take the new ugm's data,
+so a data-only change is also in place. `animate` and
+`animationDuration` apply to the growth pass. Store entries that name
+a removed node (a pin, a selection, an overlay member) are yours and
+are left alone; the canvas skips ids it no longer draws, exactly as a
+rebuild does.
+
+Upgrading from 1.2.0: additive mode used to rebuild on any node
+removal. A host that relied on a shrink forcing a fresh layout and fit
+passes that step through `graphUpdate="rebuild"` (the prop is read per
+render, so switching it for one step is fine), or hands the canvas a
+ugm that shares no node with the drawn one.
 
 ### Register an algorithm result from your backend
 
@@ -846,7 +889,15 @@ passes rdfs:subClassOf as `class -> parent(s)`; a parent that is not a
 listed class leaves its child at the top level. Every shape targeting
 a class counts toward its badge (constraints, shapes), and with
 results the badge also reports the most severe status (violation >
-warning > info, or conforms):
+warning > info, or conforms). A shape targets every class named in
+`targetClass` and in `targets` of kind `class` (#56), and because
+`sh:targetClass` selects subclass instances too, a shape declared on a
+superclass also appears on each subclass, listed after the direct
+shapes and marked (`data-inherited-from`, the
+`g3t-schema-shape-inherited` class, `N inherited` on the badge). A
+class with several parents renders once under each of them; the copies
+share one record, so their badges agree, and each card carries its own
+`data-parent` and a root-to-card `data-path`:
 
 ```tsx
 import { SchemaView, TreeView } from "@g3-toolkit/react";
@@ -874,6 +925,103 @@ import { SchemaView, TreeView } from "@g3-toolkit/react";
   initialDepth={1}
   showType={false}
 />;
+```
+
+### Ontology rails: TreeView filter, group rows, rich labels, controlled selection
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. Issue
+#59 added what a host needs to replace its own keyboard tree with
+`TreeView` for a class, property or vocabulary rail:
+
+- `filter` (a string, case-insensitive on the label, or a predicate
+  over the row) keeps the matches plus their ancestors and HOLDS those
+  ancestors open while it is active: their chevron is inert and
+  ArrowLeft climbs instead of closing. Clearing it restores the
+  expansion the user had. No match renders a filter-specific empty
+  state (`tree-view-filter-empty`).
+- `renderLabel(node, ctx)` replaces the label text; `ctx` carries
+  `depth`, `expanded`, `selected`, `group` and `childCount` (children
+  in the hierarchy, filter or not, so a count badge holds still while
+  the host types). The `[type]` prefix and chevron stay around it.
+- `isGroup(node)` marks expand-only rows ("Object properties" over its
+  members): click, Enter and Space toggle instead of selecting, the
+  row carries no `aria-selected`, and `data-group="true"` is there for
+  host CSS. It is a predicate rather than a reserved node property
+  because the UGM data model belongs to the adapter and a host's group
+  rows are usually synthetic nodes it injected itself.
+- `selected` (a string or null) makes the selection CONTROLLED: the
+  tree highlights that id, writes nothing to `useSelectionStore`, and
+  ignores what the store holds, so a URL-driven rail no longer collides
+  with the canvas or table on the same page. `onSelect` is then the
+  only channel. Omit `selected` and the tree reads and writes the store
+  as before (the default path); do not switch between the two after
+  mount.
+- A selection that arrives from OUTSIDE the tree (the store, or
+  `selected`, including the one present at mount) opens the branch
+  holding it and calls `scrollIntoView({ block: "nearest" })` on the
+  row. A pick made in the tree does neither.
+- `initialExpanded` seeds ids open in addition to `initialDepth` (same
+  seed semantics: toggles survive a reseed), and `ariaLabel` names the
+  tree (default "Hierarchy").
+- A node under several parents (a class with two superclasses, a DAG)
+  renders under EACH parent, with its subtree. Row identity is the
+  path (`data-path`; expansion and focus are per copy), selection is
+  the node id (selecting one copy highlights every copy, and the
+  `tree-node-<id>` testid repeats), a declared root is still never
+  repeated as a descendant, and a cycle is cut where a node is already
+  on the current path. The working-set limit counts rows, so a repeated
+  node counts each time.
+
+```tsx
+import { useState } from "react";
+import {
+  TreeView,
+  type TreeRowNode,
+  type TreeLabelContext,
+} from "@g3-toolkit/react";
+
+function ClassRail() {
+  // URL-driven: the route owns the selection, not the shared store.
+  const [selectedClass, setSelectedClass] = useState<string | null>(
+    "ex:Requirement",
+  );
+  const [query, setQuery] = useState("");
+  return (
+    <>
+      <input
+        aria-label="Filter classes"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <TreeView
+        ugm={ugm}
+        rootIds={["owl:Thing"]}
+        ariaLabel="Classes"
+        showType={false}
+        initialDepth={1}
+        initialExpanded={["ex:Artifact"]}
+        filter={query}
+        isGroup={(node: TreeRowNode) => node.type === "Group"}
+        renderLabel={(node: TreeRowNode, ctx: TreeLabelContext) => (
+          <span style={{ fontStyle: ctx.group ? "italic" : undefined }}>
+            {node.label}
+            {ctx.childCount > 0 && (
+              <span title={`${ctx.childCount} subclasses`}>
+                {" "}
+                ({ctx.childCount})
+              </span>
+            )}
+          </span>
+        )}
+        selected={selectedClass}
+        onSelect={(id) => {
+          setSelectedClass(id);
+          navigate(`/classes/${encodeURIComponent(id)}`);
+        }}
+      />
+    </>
+  );
+}
 ```
 
 ### Render a provenance trace
@@ -990,9 +1138,13 @@ from the property registry), but tabular data that is not a graph
 (SPARQL SELECT bindings, a named-graph register, a validation-result
 list) does not need converting first. Pass `rows` and `columns`; a
 column names a `value` reader, optionally a `render`, and an inline
-filter kind (`"text"` default, `"values"` for a checklist over the
-distinct values with counts, `"range"` for a numeric min/max,
-`"none"`). `renderCell` is a table-wide override on either path
+filter kind (`"text"` for a substring match, `"values"` for a
+checklist over the distinct values with counts, `"range"` for a
+numeric min/max, `"none"`). Leave `filter` out and the kind is
+inferred from the column's values: `"range"` when every present value
+is a number, `"values"` when the distinct values number at most 20
+and at most half the rows, `"text"` otherwise; an explicit kind
+always wins. `renderCell` is a table-wide override on either path
 (return `undefined` to fall back to the column). `selection` decides
 where a row click goes: `"store"` (default, the shared selection
 store, right for a view linked to a canvas), `"none"` for a standalone
@@ -1041,10 +1193,14 @@ the FILTERED rows in the current sort, the visible columns in their
 current order, as RFC 4180 text from cell values (not rendered
 nodes); pass `{ filename, download }` to name the file or to replace
 the browser download with your own sink. `search` adds one box above
-the per-column filters: a case-insensitive substring match over the
-VISIBLE columns only (hidden columns and `filter: "none"` columns are
-skipped, and hiding a column drops its matches at once), stacked on
-the per-column filters, with the "N of M rows" count following it.
+the per-column filters, over the VISIBLE columns only (hidden columns
+and `filter: "none"` columns are skipped, and hiding a column drops
+its matches at once), stacked on the per-column filters, with the
+"N of M rows" count following it. The query is split on whitespace
+and every word must appear, as a case-insensitive substring,
+somewhere in the row, not necessarily in the same cell (`alice acme`
+finds the row whose name is Alice and whose org is Acme); wrap a
+phrase in double quotes to match it as one substring.
 The column menu's move buttons reorder columns; hand the table a
 `columnOrder` (TanStack's shape: listed ids first, the rest after in
 definition order) and `onColumnOrderChange` to persist it, or omit
@@ -1102,6 +1258,95 @@ const csv = getCsv(
   hostTable.getSortedRowModel().rows,
   hostTable.getVisibleLeafColumns(),
 );
+```
+
+### Sorting, hidden columns, CSV values, empty state, toolbar slot
+
+What a host replacing its own TanStack table needs beyond the recipes
+above. `sorting` and `onSortingChange` control the sort (TanStack's
+shape, `{ id, desc }[]`, first rule outermost) the way `columnOrder`
+does, so it can live in the URL; `initialSorting` seeds an
+uncontrolled table instead. A column with `hidden: true` starts
+toggled off but stays in the column menu. A column's `csv` reader
+replaces the cell value in the export (a cell that renders a local
+name exports the full IRI); `getCsv` takes the same hook as its third
+argument, `{ value: (row, column) => ... }`. `emptyMessage` is what
+the body shows when nothing matches (a `role="status"` row; the
+default names the path's noun). `toolbar` renders your own controls
+beside the Export CSV button. `pageSizeOptions` adds a rows-per-page
+select to the pagination bar, which also carries first/last buttons
+now; pass `onPageSizeChange` and set `pageSize` yourself, or leave it
+out and the pick is held internally. Per column, `align: "num"`
+right-aligns on tabular figures, `width` sizes the header, and
+`title` is the header tooltip. Two things happen without a prop:
+repeated `rowId`s are suffixed `#2`, `#3` in data order so every row
+stays addressable, and when the column SET changes (one SPARQL result
+replacing another with different variables) filters and the internal
+sort on columns that left are dropped, so they do not resurface when
+the variable comes back; a controlled sort is reported back pruned
+through `onSortingChange`.
+
+```tsx
+import { useState } from "react";
+import {
+  TableView,
+  type DataGridColumn,
+  type TableSort,
+} from "@g3-toolkit/react";
+
+interface Binding {
+  iri: string;
+  label: string;
+  statements: number;
+  graph: string;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  {
+    id: "label",
+    header: "Label",
+    title: "The rdfs:label, or the IRI's local name",
+    value: (r) => r.label,
+    csv: (r) => r.iri, // the export carries the full IRI
+    width: 240,
+  },
+  {
+    id: "statements",
+    header: "N",
+    title: "Statements about the subject",
+    value: (r) => r.statements,
+    align: "num", // right-aligned, tabular figures; filter inferred as range
+  },
+  { id: "graph", header: "Graph", value: (r) => r.graph, hidden: true },
+];
+
+function Register({ rows }: { rows: Binding[] }) {
+  // The sort lives wherever your URL state does (here: local state).
+  const [sorting, setSorting] = useState<TableSort[]>([
+    { id: "statements", desc: true },
+  ]);
+  const [pageSize, setPageSize] = useState(25);
+  return (
+    <TableView
+      rows={rows}
+      columns={columns}
+      rowId={(r) => r.iri}
+      selection="none"
+      sorting={sorting}
+      onSortingChange={setSorting}
+      pageSize={pageSize}
+      pageSizeOptions={[25, 100, 500]}
+      onPageSizeChange={setPageSize}
+      emptyMessage="No subjects match. Clear a filter to widen the set."
+      exportCsv={{ filename: "subjects.csv" }}
+      toolbar={
+        <button type="button" onClick={() => exportJson(rows)}>
+          Export JSON
+        </button>
+      }
+    />
+  );
+}
 ```
 
 ### Fill a sized host (dock panel)
@@ -1416,8 +1661,8 @@ of planning/large-graph-design.md; Approach 4 (worker layout with
 viewport culling, for drilled sets past ~5k) is designed but not yet
 implemented. To grow a drilled-in set one neighborhood at a time
 without re-laying out what is already drawn, pass each step as a
-superset ugm with `graphUpdate="additive"` ("Grow a drawn graph
-without rebuilding it", above).
+new ugm built from the previous one with `graphUpdate="additive"`
+("Grow or shrink a drawn graph without rebuilding it", above).
 
 ## Dense graphs: let labels yield to each other
 
@@ -1693,6 +1938,48 @@ const view: PathGraph = {
   getEdge: (id) => ugm.getEdge(id),
 };
 findShortestPath(view, "a", "c");
+```
+
+Endpoints follow one rule in all three searches: a node the graph does
+not report via `hasNode` is never found, not even as its own zero-hop
+path, so a `PathGraph` that indexes only nodes with edges answers the
+same way from every search. Source equals target on an existing node
+is the one zero-hop path (`nodeIds: [id]`, `edgeIds: []`, `length: 0`;
+`pathCount: 1` from `allShortestPaths`; a one-element array from
+`kShortestPaths`).
+
+`kShortestPaths` costs up to k × L bounded searches on the full graph
+(L is the hop count of the longest listed route), so on a large index
+it is the expensive one of the three. When the listing only needs the
+routes that TIE for shortest, run it over the edge union
+`allShortestPaths` returns, bounded at the shortest length: the union
+holds every shortest route and nothing else, and `maxHops` at that
+length keeps a walk from doubling back through the union to a longer
+one. Each spur search then reads the union instead of the whole graph.
+
+```ts
+import {
+  allShortestPaths,
+  kShortestPaths,
+  type PathGraph,
+} from "@g3-toolkit/core";
+const union = allShortestPaths(ugm, "a", "c");
+if (union.found) {
+  const nodes = new Set(union.nodeIds);
+  const edges = new Set(union.edgeIds);
+  const unionView: PathGraph = {
+    hasNode: (id) => nodes.has(id),
+    getNodeEdges: (id) => ugm.getNodeEdges(id).filter((e) => edges.has(e)),
+    getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+    getEdge: (id) => ugm.getEdge(id),
+  };
+  // Only the routes of length union.length, up to the count cap.
+  const shortestRoutes = kShortestPaths(unionView, "a", "c", {
+    k: union.pathCount,
+    maxHops: union.length,
+  });
+  // shortestRoutes[i].nodeIds, shortestRoutes[i].edgeIds
+}
 ```
 
 ### Subgraph export

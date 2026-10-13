@@ -42,9 +42,11 @@ library-mode output) and the bundle does not import it for you:
 auto-injection breaks strict CSP setups and server rendering, so
 the decision stays with your bundler. Without this line every view
 renders unstyled, with no error and no warning. In development the
-canvas logs a one-time warning when the design tokens are absent
-from the document, which is the fastest way to spot a missing
-import.
+canvas logs a one-time warning when the `--g3t-*` design tokens are
+absent from its own container (they inherit from wherever the theme
+was applied, `<html>` or a `setThemeTarget` container). The tokens
+come from the theme, not from `style.css`, so the warning names an
+unapplied or wrongly scoped theme first and the import second.
 
 `style.css` styles the toolkit's own elements only: every rule is
 scoped to a `g3t-` class, it sets nothing on `html`, `body` or `*`,
@@ -111,15 +113,17 @@ expanding a neighborhood) costs you the whole arrangement, because a
 new `ugm` identity is a different graph. That is often not what you
 want.
 
-The supported answer is the canvas's own additive mode (issue #26):
-`<CytoscapeCanvas ugm={graph} graphUpdate="additive" />`. When the new
-ugm's node-id set is a superset of the drawn one, the instance is kept,
-the new elements join in place, and ONLY the new nodes are laid out:
-one fcose pass with every existing node held by `fixedNodeConstraint`,
-seeded next to their drawn neighbors, no fit. A node removal or a
-re-parented node falls back to the rebuild. The recipe, with the
-edge-id rule that makes the diff minimal, is in the wiring guide under
-"Grow a drawn graph without rebuilding it".
+The supported answer is the canvas's own additive mode (issues #26 and
+#64): `<CytoscapeCanvas ugm={graph} graphUpdate="additive" />`. When
+the new ugm shares at least one node with the drawn one, the instance
+is kept: nodes the new ugm lacks leave in place with their edges, the
+new elements join, every surviving node holds, and ONLY the new nodes
+are laid out: one fcose pass with every existing node held by
+`fixedNodeConstraint`, seeded next to their drawn neighbors, no fit. A
+ugm sharing no node with the drawn one (an empty one included) or a
+re-parented surviving node falls back to the rebuild. The recipe, with
+the edge-id rule that makes the diff minimal, is in the wiring guide
+under "Grow or shrink a drawn graph without rebuilding it".
 
 `@g3-toolkit/core/layout` still exports the lower-level pieces for a
 host that drives the core directly: `capturePositions`,
@@ -285,8 +289,16 @@ so leaving a mode reverts cleanly.
 
 Stylesheet merge order (later rules win the property): defaults,
 curve style, chrome, theme colors, structural theme colors,
-ENCODING rules, overlay/dim, YOUR stylesheet, hidden filter. Your
-rules beat everything except the visibility filter.
+ENCODING rules, YOUR stylesheet, overlay/dim (`g3t-ov-*`), label
+collision outcomes, hidden filter. Your rules beat the theme and the
+encoding; they do not beat an active overlay on its members (issue
+#63; before that fix an ordinary `node { border-width: 1 }` or `edge
+{ width: 1.5 }` stripped the overlay emphasis, because Cytoscape has
+no selector specificity and the later rule wins). To restyle overlay
+members, set the theme's `overlayColor` and semantic tone colors; a
+more specific selector in your sheet does not help, since order alone
+decides, while a per-element bypass (`ele.style(...)`) outranks every
+rule.
 
 ## Structural scenes
 

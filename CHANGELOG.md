@@ -1,5 +1,276 @@
 # Changelog
 
+## Unreleased
+
+### 2026-10-13 (gaps found integrating 1.2.0 into a host, #53)
+
+Twelve sub-issues from the host that drove #23, re-checked against
+the `v1.2.0` tag, worked as ten agents in isolated worktrees and
+merged one branch at a time (`planning/host-gaps-round-3.md`). Eight
+are defects against shipped behavior and four add to the public
+surface. What an adopter on 1.2.0 should read first:
+
+- **Overlay members no longer take your stylesheet's chrome (#63).**
+  The `stylesheet` prop now lands BEFORE the overlay block, so a host
+  `node { border-width: 1 }` or `edge { width: 1.5 }` no longer strips
+  the overlay border or line width from members. Remove any restated
+  `node.g3t-ov-member` / `edge.g3t-ov-member` workaround and set the
+  theme's `overlayColor` and tone colors instead; a more specific host
+  selector cannot win, because Cytoscape resolves by order alone.
+- **Additive mode shrinks in place (#64).** `graphUpdate="additive"`
+  no longer rebuilds when a node leaves the ugm. A host that relied on
+  a removal forcing a fresh layout and fit passes that step through
+  `graphUpdate="rebuild"`.
+- **TableView search is word-AND across the row (#58).** Every
+  whitespace-separated word must match somewhere in the row, not the
+  same cell; wrap a phrase in double quotes to match it as one
+  substring.
+- **Path search never finds a node the graph does not report (#65).**
+  `findShortestPath(g, x, x)` returned a zero-hop path for a missing
+  `x`; it now returns not found, as the other two searches already did.
+- **TreeView rows are paths (#59).** A node reachable from several
+  parents renders under each; `tree-node-<id>` test ids repeat per
+  copy, and expansion is per copy.
+- **Bundle:** react 450 to 465 KB (ledger entries for #57/#58, #59 and
+  the merge-step re-measure); core unchanged.
+
+Defects against shipped behavior:
+
+- **`ShaclShapeBrowser` no longer lists an empty `targetClass` as a
+  target (#54).** `targetsOf` always put `{ kind: "class", value:
+  shape.targetClass }` first, and `targetClass` is required on
+  `ShaclShape`, so a shape targeted only by `sh:targetSubjectsOf` or a
+  SPARQL target, or with no target at all, passed `""` and rendered
+  "→ , subjects of decomposes", "→ , SPARQL target" or a bare "→". An
+  empty `targetClass` now contributes no entry, and a shape with no
+  target draws no arrow. Tests cover a subjectsOf-only shape, a
+  SPARQL-only shape and an untargeted shape. `targetClass` stays
+  required on the type; making it optional is a core type change left
+  for a ruling.
+- **`ShaclShapeBrowser` badges a shape validated with 0 focus nodes as
+  "No focus nodes", not "Not validated" (#55).** The badge treated
+  `totalNodes === 0` as not validated even when the `summary` prop
+  carried `{ focus: 0, failing: 0 }` for the shape. "Not validated" is
+  now reserved for a shape with no summary entry and no results; a
+  summary entry with zero focus nodes gets a neutral badge (minus
+  glyph, muted tone, aria-label "No focus nodes"), the summary line
+  reads "0 focus nodes", and the expanded panel no longer says "All 0
+  nodes pass validation." Every badge state exposes `data-state`
+  (`not-validated`, `no-focus-nodes`, `pass`, `fail`) alongside the
+  existing `data-severity`. The #35 test that asserted the old reading
+  now expects the new one; a new test covers all three states.
+- **`SchemaView` badges every class a shape targets, shapes flow down
+  to subclasses, and a class renders under each of its parents (#56).**
+  The view found a class's shapes with `s.targetClass === name`, so a
+  shape whose `targets` (added in 1.2.0, #35) named several classes
+  badged one of them; the host had shapes targeting 13 and 7 classes.
+  A shape now badges `targetClass` and every `targets` entry of kind
+  `class`, deduplicated; the display-only `SchemaViewShape` accepts the
+  same optional `targets`. SHACL's `sh:targetClass` selects instances
+  of subclasses, so with `subClassOf` a shape declared on a superclass
+  also appears on each subclass, after the direct shapes, marked
+  inherited: the row carries `g3t-schema-shape-inherited`,
+  `data-inherited-from` and a title naming the declaring class, and
+  the badge adds `N inherited` with `data-inherited-count`.
+  Attribution is to the nearest declaring ancestor, a shape the class
+  targets directly is never listed twice, and an inherited shape's
+  failing results count toward the subclass status. Per the
+  maintainer's ruling, a class with several superclasses renders once
+  under each instead of under the first listed only: the copies share
+  one class record, so their badges agree, and each card carries its
+  own `data-parent`, `data-depth` and a root-to-card `data-path` that
+  keys it, since `schema-class-<name>` now repeats per copy; a link
+  that closes a cycle entered from a root is cut, and a cycle with no
+  entry is still promoted to the top level. Badges without inheritance
+  render exactly as before. Tests cover the `targets` badges, direct
+  and inherited order and marks, dedupe, multi-level attribution,
+  inherited status, two-parent rendering and the cycle cut; the wiring
+  guide's class-hierarchy section and its twin state the three rules.
+- **TableView: keyboard sorting (#57).** The header sort trigger was a
+  div with an onClick, so a keyboard or screen-reader user could not
+  sort at all. It is a native button now: in the tab order with the
+  stylesheet's focus ring, Enter and Space toggle the sort, and
+  Shift+Enter adds a sort column the way Shift+click does (handled on
+  keydown with the default suppressed, so the modifier is honored
+  regardless of how a browser synthesizes the click). `aria-sort`
+  stays on the `th` and is omitted on a column that cannot sort. Click
+  behavior, classes and test ids are unchanged. Tests:
+  `table-keyboard-sort.test.tsx`.
+- **Label collision (#60).** Candidacy was decided from the data
+  `label` alone, so an element whose stylesheet blanks the label (edge
+  labels on hover only, for example) was still measured and ranked as
+  a zero-size box at the pan point. `applyLabelCollisionPass` now
+  reads the rendered label (`pstyle("label")`) when the instance
+  reports one and skips elements whose rendered label is empty or
+  whose label box has zero width or height; a headless core or a
+  minimal mock without `pstyle` falls back to the data field. The
+  canvas also subscribed the pass to every selection-store write and
+  ran a full synchronous measure per mouseover and mouseout (about 50
+  ms each on the host's 300-node graph). The listener now diffs the
+  three fields the pass reads: a selection change (by content) runs at
+  once, a hover change rides the same 120 ms debounce as zoom, and a
+  write that changes none of them runs nothing; a full pass cancels a
+  pass pending on the debounce. The pass also re-runs on a ugm change,
+  so a label hidden under a node the additive path removed (#64)
+  returns without waiting for the next zoom. Tests: blanked label not
+  measured and hiding nothing at the pan point, zero-size box not a
+  candidate, no-op store writes run no pass, a hover burst runs one
+  pass, an additive removal re-runs the pass.
+- **`Minimap` no longer draws hidden nodes or their edges (#61).** The
+  painter drew every top-level node and every edge regardless of
+  visibility, so a graph filtered through the canvas `hidden` prop
+  (the `g3t-hidden` class) showed minimap dots the canvas did not
+  render. The painter now skips elements that are not `visible()`
+  (display: none, visibility: hidden, a hidden parent), skips edges
+  that are hidden themselves or whose top-level endpoint is skipped,
+  and frames the visible elements only, so a hidden far-off node no
+  longer shrinks the overview. `nodeFilter` is unchanged and composes
+  with the default: a host predicate narrows further and need not
+  restate visibility (hosts passing `nodeFilter={(n) => n.visible()}`
+  can drop it). Note that `visible()` also treats `opacity: 0` as
+  hidden. Six regression tests cover the hidden node, hidden edge,
+  hidden compound parent, filter composition, framing and the
+  all-hidden graph.
+- **Design-token warning probes the canvas container, not `<html>`
+  (#62).** The development-only "design tokens not found" warning in
+  `CytoscapeCanvas` read `--g3t-bg-primary` from
+  `document.documentElement` and blamed a missing `style.css` import.
+  `style.css` has defined no color tokens since #24, and a theme
+  scoped through `setThemeTarget` (#33) writes them on a container, so
+  a host following the guide got a false warning naming the wrong
+  cause (hidden only when the bundler leaves `process` undefined,
+  which skips the check). The probe now reads `getComputedStyle` of
+  the canvas's own container, which inherits the tokens from whichever
+  ancestor received the theme, falling back to `<html>` only when the
+  ref is unset; the message names an unapplied or wrongly scoped theme
+  as the likely cause and still points at the `style.css` import. Test:
+  `CytoscapeCanvas.token-warning.test.tsx` (tokens on a wrapper, on
+  `<html>` only, and nowhere). The consuming guide's sentence about the
+  warning was corrected to match.
+- **Path search: one endpoint rule for all three searches (#65).**
+  `findShortestPath` answered source equals target before calling
+  `hasNode`, so a host `PathGraph` that indexes only nodes with edges
+  got a zero-hop path from it and nothing from `allShortestPaths` or
+  `kShortestPaths`. The existence check now runs first in every
+  search: a node the graph does not report is never found, not even as
+  its own path, and an existing node is its own zero-hop path in all
+  three (`length: 0`, `pathCount: 1`, a one-element array). Tests pin
+  both cases for all three functions over a plain UGM and an
+  edge-indexed `PathGraph`. The wiring guide's Path analysis section
+  states the rule, notes that `kShortestPaths` costs up to k × L
+  bounded searches, and shows how to list only the tied-shortest
+  routes by running it over the `allShortestPaths` edge union bounded
+  at the shortest length, with an executable twin.
+
+Additions to the public surface:
+
+- **Overlay rules outrank the host stylesheet (#63, follow-up to
+  #32).** `composeCanvasStylesheet` pushed the `stylesheet` prop after
+  `OVERLAY_RULES` and `overlayThemeRules`, and Cytoscape resolves rules
+  by order alone (it has no selector specificity), so a host `node {
+  border-width: 1 }` or `edge { width: 1.5 }` stripped the overlay
+  border and line width from every member, and a host attribute or
+  focus-class color beat the overlay color; the #32 theme color reached
+  a member only where the host set nothing. The host sheet now lands
+  after the theme and encoding rules (it keeps winning those ties) and
+  BEFORE the overlay block, which is the canvas precedence CLAUDE.md
+  already stated; the svg-overlay transparency, label-collision and
+  hidden rules keep following it. Headless cytoscape tests assert the
+  merged order and the computed styles through the real merge. The
+  wiring guide, the consuming doc and the overlay design record state
+  the order and that a host restyles members through the theme
+  (`overlayColor`, the tone colors) or a per-element bypass. No demo
+  or story relied on the old order.
+- **Additive graph updates shrink in place (#64).**
+  `graphUpdate="additive"` (#26) grew the live instance only while the
+  new `ugm`'s node set was a superset of the drawn one; a collapse or
+  a type filter dropped a node, the plan's `superset` went false, and
+  the instance was re-created with every position and the camera lost.
+  Maintainer ruling: "same input graph minus some nodes" is the same
+  scene under the camera/position doctrine, so additive mode itself
+  removes; no new mode value. The plan now carries `removeNodeIds`,
+  and `superset` became `sameScene`: the plan applies whenever the new
+  ugm shares at least one node with the live instance (grow, shrink,
+  or both in one step); a disjoint set, the empty ugm included, still
+  rebuilds, since an empty graph has no scene to keep (so the first
+  non-empty ugm after an empty one now rebuilds and fits instead of
+  growing an unfitted empty instance). `applyAdditiveUpdate` removes
+  the nodes with their incident edges in the same batch before adding,
+  runs no layout for a pure removal, never writes the camera, seeds
+  new nodes from survivors only and holds only survivors in
+  `fixedNodeConstraint`. A removed compound parent does not take its
+  surviving children: they are moved to the top level with
+  `eles.move({ parent: null })` first; a surviving node that changes
+  to another parent still takes the rebuild. Store entries naming a
+  removed id (pin, selection, overlay member, hidden) are the host's
+  and stay; every re-apply pass already skips ids the instance lacks.
+  Tests: the mocked canvas suite and the headless fcose suite cover
+  shrink, shrink plus grow, the disjoint and empty boundary, the
+  compound parent and host stores. Wiring guide section renamed "Grow
+  or shrink a drawn graph without rebuilding it" with a collapse step,
+  the boundary and the upgrade note; the Bio demo's Reset now shrinks
+  in place and its caption says so.
+- **TableView: adoption gaps (#58).** A host replacing its own
+  TanStack table was blocked by six gaps: sorting was internal only,
+  there was no per-column hidden-by-default or CSV value, no
+  empty-state message, no toolbar slot, and the filter kind was never
+  inferred. TableView gains `sorting` + `onSortingChange` (controlled)
+  and `initialSorting` (seed), shaped like `columnOrder`, with the
+  exported `TableSort` type; per-column `hidden`, `csv` (routed through
+  a new optional third `getCsv` argument, `{ value(row, column) }`,
+  exported as `TableCsvOptions`), `align: "num"`, `width` and `title`;
+  an `emptyMessage` prop over a `role="status"` row that the body
+  renders when nothing matches; a `toolbar` slot beside the Export CSV
+  button; filter-kind inference when `filter` is unset (range for
+  all-numeric columns, a values checklist when at most 20 distinct
+  values and at most half the rows, text otherwise; an explicit kind
+  wins; rows path only, so the UGM path's filters and e2e selectors are
+  unchanged); first/last page buttons and a rows-per-page select
+  (`pageSizeOptions`, optional `onPageSizeChange`); repeated `rowId`s
+  suffixed `#2`, `#3`; and, when the column set changes (one SPARQL
+  result replacing another), filters and the internal sort on columns
+  that left are dropped and a controlled sort is reported back pruned.
+  Search semantics changed under the maintainer's ruling: the query is
+  split on whitespace and every word must appear somewhere in the row
+  across the visible searchable columns, not the same cell, with a
+  double-quoted phrase matching as one substring; the stored filter
+  keeps its shape and each row is evaluated once. Wiring guide: a new
+  recipe with its executable twin, and the search and inference
+  sentences. Tests: `table-adoption.test.tsx` (18 tests) and the search
+  cases in `table-followups.test.tsx`. Bundle ledger: react +6.4 KB
+  measured, all TableView.
+- **TreeView adoption gaps (#59).** A host evaluating `TreeView` for
+  ontology rails could not swap in its own keyboard tree: `build` kept
+  a visited set over the open rows, so a class with two superclasses
+  showed under one of them only (and which one changed as rows
+  opened); there was no filter, no label render slot, no expand-only
+  rows, selection went only through the shared store, a selection
+  arriving from outside was neither revealed nor scrolled to,
+  expansion seeded by depth only, and the tree's accessible name was
+  hard-coded. Rows are now paths: one placement walk puts a node under
+  every parent it is reachable from (maintainer ruling), cuts a cycle
+  where a node is already on the current path, keeps a declared root
+  off the descendant level, and is capped at 100,000 rows for
+  pathological DAGs; row identity (key, expansion, focus) is the path,
+  selection is the node id so one pick highlights every copy, and the
+  working-set limit counts rows. New props: `filter` (string or
+  predicate; matches plus ancestors, ancestors held open while active,
+  the user's expansion restored on clear), `renderLabel(node, ctx)`
+  with `depth`, `expanded`, `selected`, `childCount` and `group`
+  (types `TreeRowNode` and `TreeLabelContext` exported), `isGroup(node)`
+  for expand-only rows (toggle on click, Enter and Space, no
+  `aria-selected`, `data-group`), `selected` for controlled selection
+  (the store is neither read nor written; `onSelect` is the channel),
+  `initialExpanded`, and `ariaLabel` (default "Hierarchy"). A selection
+  arriving from outside (store or `selected`, including at mount) opens
+  the branch of every copy and calls `scrollIntoView({ block: "nearest"
+  })` on the first; a pick inside the tree does neither. The breadcrumb
+  still follows the first incoming edge, so a node under several
+  parents shows one path there. Tests cover each item plus the DAG
+  placement, the cycle cut and the per-row limit; the wiring guide
+  gained an ontology-rail section with its executable twin. Bundle
+  ledger: react +4.4 KB measured, all in the tree chunk.
+
 ## 1.2.0 PUBLISHED: 2026-10-13
 
 Published to npm as `@g3-toolkit/*` 1.2.0 under tag `v1.2.0`. This

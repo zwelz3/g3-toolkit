@@ -90,6 +90,19 @@ explicit per-node act outranks a computed emphasis. The amber
 position-pin underlay renders through the overlay dim (underlay vs
 opacity compose).
 
+Host stylesheet (2026-10-13, issue #63): the canvas's `stylesheet`
+prop was merged AFTER the overlay rules, and since cytoscape resolves
+equal-shape rules by order alone, an ordinary host `node {
+border-width: 1 }` or `edge { width: 1.5 }` stripped the overlay
+geometry from every member and a host attribute or focus-class color
+beat the overlay color (the #32 theme color reached a member only
+where the host set nothing). Ruling: the host sheet now lands before
+the overlay block, so the namespace rule holds against host chrome
+too; the host sheet keeps beating theme and encoding on ties. A host
+restyles overlay members through the theme (`overlayColor`, the tone
+colors) or a per-element bypass; a more specific selector in the host
+sheet does not help, because cytoscape has no specificity at all.
+
 ## Controls
 
 AlgorithmPanel: reference runners, the overlay registry with

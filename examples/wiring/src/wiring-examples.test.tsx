@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useEffect, useRef, useState } from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
   UGM,
@@ -81,6 +81,8 @@ import {
   computeSequenceActiveIds,
   SchemaView,
   TreeView,
+  type TreeRowNode,
+  type TreeLabelContext,
   createDefaultMenuManager,
   registerToolkitActions,
   ViewErrorBoundary,
@@ -88,6 +90,7 @@ import {
   FloatingLegend,
   TableView,
   getCsv,
+  type TableSort,
   MatrixView,
   PaginationControl,
   resolveLabelCollisions,
@@ -809,6 +812,57 @@ describe("wiring guide: class hierarchy (SchemaView nesting, TreeView forests)",
     expect(badge).toHaveAttribute("data-severity", "violation");
   });
 
+  it("SchemaView badges `targets` classes, inherits superclass shapes, and renders a class under each parent (#56)", () => {
+    const shapes = [
+      {
+        id: "AgentShape",
+        targetClass: "Agent",
+        properties: [{ path: "name", minCount: 1 }],
+      },
+      {
+        id: "NamedShape",
+        // An empty targetClass with `targets` naming several classes.
+        targetClass: "",
+        targets: [
+          { kind: "class" as const, value: "Person" },
+          { kind: "class" as const, value: "Org" },
+        ],
+        properties: [{ path: "label", minCount: 1 }],
+      },
+    ];
+    render(
+      <SchemaView
+        schema={{
+          nodeTypes: ["Agent", "LegalEntity", "Person", "Org"],
+          edgeTypes: [],
+          nodeProperties: {},
+          edgeProperties: {},
+        }}
+        // Org has two superclasses: it renders under both.
+        subClassOf={{
+          Person: "Agent",
+          Org: ["Agent", "LegalEntity"],
+        }}
+        shapes={shapes}
+      />,
+    );
+    // NamedShape badges Person through `targets`, not `targetClass`.
+    expect(screen.getByTestId("shacl-badge-Person")).toHaveTextContent(
+      "2 shapes, 1 inherited",
+    );
+    const personList = screen.getByTestId("shacl-constraints-Person");
+    expect(
+      within(personList).getByTestId("shacl-shape-AgentShape"),
+    ).toHaveAttribute("data-inherited-from", "Agent");
+    // Org appears once under each parent, with its own path.
+    const copies = screen.getAllByTestId("schema-class-Org");
+    expect(copies).toHaveLength(2);
+    expect(copies.map((c) => c.getAttribute("data-path")).sort()).toEqual([
+      "Agent/Org",
+      "LegalEntity/Org",
+    ]);
+  });
+
   it("TreeView renders a forest, seeds expansion, drops the type prefix, and moves by keyboard", () => {
     const ugm = new UGM();
     ugm.addNode("owl:Thing", {
@@ -865,6 +919,161 @@ describe("wiring guide: class hierarchy (SchemaView nesting, TreeView forests)",
       screen.getByTestId("tree-node-prov:Entity"),
     );
     expect(screen.getByRole("tree")).toBeInTheDocument();
+  });
+});
+
+describe("wiring guide: ontology rails (TreeView filter, group rows, rich labels, controlled selection)", () => {
+  function railGraph(): UGM {
+    const ugm = new UGM();
+    const cls = (id: string, name: string, type = "Class") =>
+      ugm.addNode(id, { types: [type], properties: { name } });
+    cls("owl:Thing", "Thing");
+    cls("ex:Artifact", "Artifact");
+    cls("ex:Requirement", "Requirement");
+    cls("ex:Design", "Design");
+    cls("ex:Agent", "Agent");
+    cls("ex:Deliverable", "Deliverable");
+    cls("ex:props", "Object properties", "Group");
+    cls("ex:satisfies", "satisfies", "Property");
+    const sub = (p: string, c: string) =>
+      ugm.addEdge(p, c, { type: "subClassOf", properties: {} });
+    sub("owl:Thing", "ex:Artifact");
+    sub("ex:Artifact", "ex:Requirement");
+    sub("ex:Artifact", "ex:Design");
+    sub("owl:Thing", "ex:Agent");
+    // Two superclasses: Deliverable shows under Artifact AND Agent.
+    sub("ex:Artifact", "ex:Deliverable");
+    sub("ex:Agent", "ex:Deliverable");
+    sub("owl:Thing", "ex:props");
+    sub("ex:props", "ex:satisfies");
+    return ugm;
+  }
+
+  it("filters with ancestors, toggles group rows, renders rich labels, and keeps the selection in the host", () => {
+    const ugm = railGraph();
+    const navigate = vi.fn();
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    let setFromOutside: (id: string | null) => void = () => {};
+
+    function ClassRail() {
+      const [selectedClass, setSelectedClass] = useState<string | null>(
+        "ex:Requirement",
+      );
+      setFromOutside = setSelectedClass;
+      const [query, setQuery] = useState("");
+      return (
+        <>
+          <input
+            aria-label="Filter classes"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <TreeView
+            ugm={ugm}
+            rootIds={["owl:Thing"]}
+            ariaLabel="Classes"
+            showType={false}
+            initialDepth={1}
+            initialExpanded={["ex:Artifact"]}
+            filter={query}
+            isGroup={(node: TreeRowNode) => node.type === "Group"}
+            renderLabel={(node: TreeRowNode, ctx: TreeLabelContext) => (
+              <span style={{ fontStyle: ctx.group ? "italic" : undefined }}>
+                {node.label}
+                {ctx.childCount > 0 && (
+                  <span title={`${ctx.childCount} subclasses`}>
+                    {" "}
+                    ({ctx.childCount})
+                  </span>
+                )}
+              </span>
+            )}
+            selected={selectedClass}
+            onSelect={(id) => {
+              setSelectedClass(id);
+              navigate(`/classes/${encodeURIComponent(id)}`);
+            }}
+          />
+        </>
+      );
+    }
+
+    try {
+      useSelectionStore.getState().clear();
+      render(<ClassRail />);
+      const item = (id: string) => screen.getByTestId(`tree-node-${id}`);
+      const row = (id: string) => item(id).querySelector(".g3t-tree-row")!;
+
+      // ariaLabel, the controlled selection at mount (highlighted and
+      // scrolled to), initialExpanded, and the rich label with its count.
+      expect(screen.getByRole("tree", { name: "Classes" })).toBeInTheDocument();
+      expect(item("ex:Requirement")).toHaveAttribute("aria-selected", "true");
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+      expect(scrollIntoView.mock.instances[0]).toBe(item("ex:Requirement"));
+      expect(screen.getByTestId("tree-label-ex:Artifact")).toHaveTextContent(
+        "Artifact (3)",
+      );
+      expect(
+        screen.getByTestId("tree-label-ex:Artifact").querySelector("[title]"),
+      ).toHaveAttribute("title", "3 subclasses");
+
+      // A class with two superclasses renders under both; selecting
+      // one copy highlights both.
+      expect(screen.getAllByTestId("tree-node-ex:Deliverable")).toHaveLength(1);
+      fireEvent.click(screen.getByTestId("tree-toggle-ex:Agent"));
+      const copies = screen.getAllByTestId("tree-node-ex:Deliverable");
+      expect(copies).toHaveLength(2);
+      fireEvent.click(copies[1]!.querySelector(".g3t-tree-row")!);
+      for (const c of copies) {
+        expect(c).toHaveAttribute("aria-selected", "true");
+      }
+
+      // A group row toggles and never selects; the store stays empty.
+      expect(item("ex:props")).not.toHaveAttribute("aria-selected");
+      expect(item("ex:props")).toHaveAttribute("data-group", "true");
+      fireEvent.click(row("ex:props"));
+      expect(item("ex:satisfies")).toBeInTheDocument();
+      // Only the Deliverable pick above reached the host.
+      expect(navigate).toHaveBeenCalledTimes(1);
+
+      // A pick stays in the host: onSelect fires, the store is untouched.
+      fireEvent.click(row("ex:Design"));
+      expect(navigate).toHaveBeenCalledWith("/classes/ex%3ADesign");
+      expect(item("ex:Design")).toHaveAttribute("aria-selected", "true");
+      expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
+
+      // The store is ignored on the way in, too.
+      act(() => {
+        useSelectionStore.getState().selectNodes(["ex:Agent"]);
+      });
+      expect(item("ex:Agent")).toHaveAttribute("aria-selected", "false");
+
+      // A selection arriving from outside (the route) scrolls its row.
+      scrollIntoView.mockClear();
+      act(() => setFromOutside("ex:Agent"));
+      expect(item("ex:Agent")).toHaveAttribute("aria-selected", "true");
+      expect(scrollIntoView.mock.instances[0]).toBe(item("ex:Agent"));
+
+      // Filter: matches plus ancestors, ancestors held open.
+      fireEvent.change(screen.getByLabelText("Filter classes"), {
+        target: { value: "req" },
+      });
+      expect(item("ex:Requirement")).toBeInTheDocument();
+      expect(screen.queryByTestId("tree-node-ex:Design")).toBeNull();
+      expect(screen.queryByTestId("tree-node-ex:Agent")).toBeNull();
+      expect(screen.getByTestId("tree-toggle-ex:Artifact")).toBeDisabled();
+      fireEvent.change(screen.getByLabelText("Filter classes"), {
+        target: { value: "nothing here" },
+      });
+      expect(screen.getByTestId("tree-view-filter-empty")).toBeInTheDocument();
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      useSelectionStore.getState().clear();
+    }
   });
 });
 
@@ -941,12 +1150,15 @@ describe("wiring guide: filter by hiding, not by rebuilding", () => {
   });
 });
 
-describe("wiring guide: grow a drawn graph without rebuilding it", () => {
-  // The canvas's in-place growth is pinned under a cytoscape mock in
-  // packages/react (CytoscapeCanvas.additive.test.tsx) and against the
-  // real fcose in additive-update.test.ts. This twin runs the HOST side
-  // of the recipe: every step is a superset ugm whose drawn edges keep
-  // their ids, which is what makes the diff add only what is new.
+describe("wiring guide: grow or shrink a drawn graph without rebuilding it", () => {
+  // The canvas's in-place growth and shrink are pinned under a
+  // cytoscape mock in packages/react (CytoscapeCanvas.additive.test.tsx)
+  // and against the real fcose in additive-update.test.ts. This twin
+  // runs the HOST side of the recipe: every step is a new ugm built
+  // from the previous one whose kept edges keep their ids, which is
+  // what makes the diff add only what is new, and a collapse step
+  // shares a node with the drawn graph, which is what keeps it in place
+  // (issue #64).
   it("each step is a superset ugm with stable edge ids; additive mode is a canvas prop", () => {
     const base = graph();
     const neighborhood = (nodeId: string) =>
@@ -983,6 +1195,38 @@ describe("wiring guide: grow a drawn graph without rebuilding it", () => {
     // The prop is on the public canvas type.
     const el = <CytoscapeCanvas ugm={next} graphUpdate="additive" />;
     expect(el.props.graphUpdate).toBe("additive");
+  });
+
+  it("a collapse step drops nodes and their edges but shares the rest, so the canvas shrinks in place (#64)", () => {
+    const base = graph();
+    const collapse = (current: UGM, nodeIds: readonly string[]): UGM => {
+      const next = UGM.fromJSON(current.toJSON());
+      for (const id of nodeIds) if (next.hasNode(id)) next.removeNode(id);
+      return next;
+    };
+    const next = collapse(base, ["asset-2", "not-drawn"]);
+    expect(next.hasNode("asset-2")).toBe(false);
+    next.forEachEdge((_id, _attrs, source, target) => {
+      expect(source).not.toBe("asset-2");
+      expect(target).not.toBe("asset-2");
+    });
+    // Same scene: at least one drawn node survives, and the survivors'
+    // edges keep their ids, so nothing but asset-2's edges leave.
+    const survivors = base.getNodeIds().filter((id) => id !== "asset-2");
+    expect(survivors.length).toBeGreaterThan(0);
+    for (const id of survivors) expect(next.hasNode(id)).toBe(true);
+    base.forEachEdge((id, _attrs, source, target) => {
+      if (source !== "asset-2" && target !== "asset-2")
+        expect(next.hasEdge(id)).toBe(true);
+    });
+    expect(next.nodeCount).toBe(base.nodeCount - 1);
+    // The boundary: a ugm sharing no node is a different graph and
+    // rebuilds, the empty ugm included; a host that wants a shrink to
+    // rebuild and fit passes that step through graphUpdate="rebuild".
+    const empty = collapse(base, base.getNodeIds());
+    expect(empty.nodeCount).toBe(0);
+    const el = <CytoscapeCanvas ugm={empty} graphUpdate="rebuild" />;
+    expect(el.props.graphUpdate).toBe("rebuild");
   });
 });
 
@@ -1501,6 +1745,117 @@ describe("table view recipes (guide: Table view recipes)", () => {
     expect(csv.split("\r\n").filter((l) => l !== "")).toHaveLength(301);
   });
 
+  it("sorting, hidden columns, CSV values, empty state, toolbar slot (guide: Sorting, hidden columns, CSV values, empty state, toolbar slot)", () => {
+    interface Subject {
+      iri: string;
+      label: string;
+      statements: number;
+      graph: string;
+    }
+    const subjects: Subject[] = [
+      { iri: "urn:a", label: "Alpha", statements: 3, graph: "g1" },
+      { iri: "urn:b", label: "Beta", statements: 12, graph: "g1" },
+      { iri: "urn:c", label: "Gamma", statements: 7, graph: "g2" },
+    ];
+    const subjectColumns: DataGridColumn<Subject>[] = [
+      {
+        id: "label",
+        header: "Label",
+        title: "The rdfs:label, or the IRI's local name",
+        value: (r) => r.label,
+        csv: (r) => r.iri,
+        width: 240,
+      },
+      {
+        id: "statements",
+        header: "N",
+        value: (r) => r.statements,
+        align: "num",
+      },
+      { id: "graph", header: "Graph", value: (r) => r.graph, hidden: true },
+    ];
+    const download = vi.fn();
+    const exportJson = vi.fn();
+    let lastSorting: TableSort[] = [];
+    function Register() {
+      const [sorting, setSorting] = useState<TableSort[]>([
+        { id: "statements", desc: true },
+      ]);
+      const [pageSize, setPageSize] = useState(25);
+      lastSorting = sorting;
+      return (
+        <TableView
+          rows={subjects}
+          columns={subjectColumns}
+          rowId={(r) => r.iri}
+          selection="none"
+          sorting={sorting}
+          onSortingChange={setSorting}
+          pageSize={pageSize}
+          pageSizeOptions={[25, 100, 500]}
+          onPageSizeChange={setPageSize}
+          emptyMessage="No subjects match. Clear a filter to widen the set."
+          exportCsv={{ filename: "subjects.csv", download }}
+          toolbar={
+            <button type="button" onClick={() => exportJson(subjects)}>
+              Export JSON
+            </button>
+          }
+        />
+      );
+    }
+    render(<Register />);
+    const rowIds = () =>
+      [...document.querySelectorAll("[data-testid^='table-row-']")].map((tr) =>
+        String(tr.getAttribute("data-testid")).replace("table-row-", ""),
+      );
+    // Controlled sort applied from the host's state; the hidden column
+    // is not in the header row but is in the column menu.
+    expect(rowIds()).toEqual(["urn:b", "urn:c", "urn:a"]);
+    expect(screen.queryByTestId("column-sort-graph")).toBeNull();
+    fireEvent.click(screen.getByTestId("column-visibility-toggle"));
+    expect(screen.getByTestId("column-menu-row-graph")).toBeDefined();
+    fireEvent.keyDown(document, { key: "Escape" });
+    // A header click (or Enter on the focused header) reports the next
+    // sort, the host stores it, the table follows.
+    fireEvent.keyDown(screen.getByTestId("column-sort-label"), {
+      key: "Enter",
+    });
+    expect(lastSorting).toEqual([{ id: "label", desc: false }]);
+    expect(rowIds()).toEqual(["urn:a", "urn:b", "urn:c"]);
+    // The numeric column was inferred as a range filter and is
+    // right-aligned; the header carries the tooltip and width.
+    expect(screen.getByTestId("column-filter-statements-min")).toBeDefined();
+    const labelTh = screen.getByTestId("column-sort-label").closest("th")!;
+    expect(labelTh.style.width).toBe("240px");
+    expect(screen.getByTestId("column-sort-label").getAttribute("title")).toBe(
+      "The rdfs:label, or the IRI's local name",
+    );
+    // The export writes the IRI, not the rendered label.
+    fireEvent.click(screen.getByTestId("table-export-csv"));
+    expect(download).toHaveBeenCalledWith(
+      "Label,N\r\nurn:a,3\r\nurn:b,12\r\nurn:c,7\r\n",
+      "subjects.csv",
+    );
+    // The host's own button sits in the same toolbar end.
+    fireEvent.click(screen.getByRole("button", { name: "Export JSON" }));
+    expect(exportJson).toHaveBeenCalledWith(subjects);
+    // Rows-per-page goes through the host's state.
+    fireEvent.change(screen.getByTestId("table-page-size"), {
+      target: { value: "100" },
+    });
+    expect(
+      (screen.getByTestId("table-page-size") as HTMLSelectElement).value,
+    ).toBe("100");
+    // The empty state names the host's message.
+    fireEvent.change(screen.getByTestId("column-filter-statements-min"), {
+      target: { value: "99" },
+    });
+    expect(screen.getByRole("status").textContent).toBe(
+      "No subjects match. Clear a filter to widen the set.",
+    );
+  });
+
   it("getCsv is the pure half, callable with a row model's rows and leaf columns (guide: Export, search, reorder, multi-value filters)", () => {
     // @tanstack/react-table is a peer of @g3-toolkit/react and is not
     // installed at this example's root, so the rows and columns here
@@ -1693,6 +2048,70 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     };
     expect(findShortestPath(view, "a", "c").nodeIds).toEqual(["a", "b", "c"]);
     expect(kShortestPaths(view, "a", "c", { k: 2 })).toHaveLength(1);
+  });
+
+  it("endpoints: a node hasNode does not report is never found; an existing node is its own zero-hop path (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    ugm.addNode("lone", { types: ["Site"], properties: {} });
+    // An adjacency-style index: only nodes with edges are reported.
+    const view: PathGraph = {
+      hasNode: (id) => ugm.hasNode(id) && ugm.getNodeEdges(id).length > 0,
+      getNodeEdges: (id) => ugm.getNodeEdges(id),
+      getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+      getEdge: (id) => ugm.getEdge(id),
+    };
+    expect(findShortestPath(view, "lone", "lone").found).toBe(false);
+    expect(allShortestPaths(view, "lone", "lone").pathCount).toBe(0);
+    expect(kShortestPaths(view, "lone", "lone", { k: 3 })).toEqual([]);
+    expect(findShortestPath(view, "b", "b")).toEqual({
+      nodeIds: ["b"],
+      edgeIds: [],
+      length: 0,
+      found: true,
+    });
+    expect(allShortestPaths(view, "b", "b").pathCount).toBe(1);
+    expect(kShortestPaths(view, "b", "b", { k: 3 })).toEqual([
+      { nodeIds: ["b"], edgeIds: [] },
+    ]);
+  });
+
+  it("kShortestPaths over the allShortestPaths union lists only the shortest routes (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    // a - b - c, a second two-hop route through a hub, and a three-hop
+    // detour that kShortestPaths over the full graph would list too.
+    ugm.addNode("hub:1", { types: ["Hub"], properties: {} });
+    ugm.addEdge("a", "hub:1", { type: "feeds" });
+    ugm.addEdge("hub:1", "c", { type: "feeds" });
+    ugm.addNode("d1", { types: ["Site"], properties: {} });
+    ugm.addNode("d2", { types: ["Site"], properties: {} });
+    ugm.addEdge("a", "d1", { type: "feeds" });
+    ugm.addEdge("d1", "d2", { type: "feeds" });
+    ugm.addEdge("d2", "c", { type: "feeds" });
+    expect(kShortestPaths(ugm, "a", "c", { k: 50 })).toHaveLength(3);
+
+    const union = allShortestPaths(ugm, "a", "c");
+    expect(union.found).toBe(true);
+    expect(union.length).toBe(2);
+    expect(union.pathCount).toBe(2);
+    const nodes = new Set(union.nodeIds);
+    const edges = new Set(union.edgeIds);
+    const unionView: PathGraph = {
+      hasNode: (id) => nodes.has(id),
+      getNodeEdges: (id) => ugm.getNodeEdges(id).filter((e) => edges.has(e)),
+      getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+      getEdge: (id) => ugm.getEdge(id),
+    };
+    const shortestRoutes = kShortestPaths(unionView, "a", "c", {
+      k: union.pathCount,
+      maxHops: union.length,
+    });
+    expect(shortestRoutes.map((r) => r.nodeIds).sort()).toEqual([
+      ["a", "b", "c"],
+      ["a", "hub:1", "c"],
+    ]);
+    expect(shortestRoutes.every((r) => r.edgeIds.length === union.length)).toBe(
+      true,
+    );
   });
 
   it("UGM.addEdge keeps a host-supplied key as the edge id (guide: The integration surface)", () => {

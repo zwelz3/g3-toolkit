@@ -252,7 +252,10 @@ export const DEFAULT_OVERLAY_COLOR = "#2f9e44";
  *  block (overlayThemeRules), because these rules sit after the theme
  *  block (the dim must beat encoding) and cytoscape gives the property
  *  to the later rule: with the literals last, no theme ever reached an
- *  emphasized member (issue #32, the fixed green in a dark host). */
+ *  emphasized member (issue #32, the fixed green in a dark host).
+ *  Both blocks also sit AFTER the host's `stylesheet` prop (issue
+ *  #63): an ordinary host `node { border-width: 1 }` must not strip
+ *  the member border. */
 export const OVERLAY_RULES: CyStylesheet[] = [
   {
     selector: "node.g3t-ov-member",
@@ -400,9 +403,11 @@ export function themeColorRules(theme: G3tTheme): CyStylesheet[] {
  *  the 2026-08-27 tones alike. composeCanvasStylesheet pushes these
  *  right after OVERLAY_RULES, so the theme wins the color and the
  *  static block keeps supplying geometry (border width, line width,
- *  dim opacity). Neutral members take `overlayColor`, defaulting to
- *  the historical green when a consumer theme omits the optional
- *  field; tones take the semantic trio. */
+ *  dim opacity); both land after the host's stylesheet (issue #63),
+ *  so the theme is the host's path to an overlay color, not a bare
+ *  `node { border-color }` rule. Neutral members take `overlayColor`,
+ *  defaulting to the historical green when a consumer theme omits
+ *  the optional field; tones take the semantic trio. */
 export function overlayThemeRules(theme: G3tTheme): CyStylesheet[] {
   const member = theme.overlayColor ?? DEFAULT_OVERLAY_COLOR;
   return [
@@ -690,11 +695,14 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
  *  (VR-2 root cause: these previously sat BEFORE the theme block,
  *  so the theme's plain `edge { line-color }` clobbered
  *  `edge[_ecolor]` in every theme and color-by-confidence never
- *  painted) -> OVERLAY rules (emphasis dim must beat encoding) ->
+ *  painted) -> user stylesheet (the host wins ties against theme and
+ *  encoding) -> OVERLAY rules (emphasis dim must beat encoding, and
+ *  the overlay border/width must beat the host's plain node/edge
+ *  rules; issue #63 moved the host sheet ahead of this block) ->
  *  OVERLAY theme colors (issue #32: the static overlay literals used
  *  to be the last word, so no theme reached a member) ->
- *  user stylesheet (user wins ties) -> svg-overlay transparency ->
- *  hidden filter last. */
+ *  svg-overlay transparency -> label-collision outcomes -> hidden
+ *  filter last. */
 /** Upstream P1 (prm-analyzer, 2026-07-28) + the 64b regression it
  *  shipped with: the first guard classified elements by the
  *  PRESENCE of data.source, but ugmToCytoscapeElements spreads
@@ -778,16 +786,32 @@ export function composeCanvasStylesheet(
     // are user intent and beat default chrome.
     ...ENCODING_EDGE_RULES,
     ...ENCODING_NODE_RULES,
-    // Emphasis/overlay dim still beats encoding (the 9.10
-    // contract: a trace-route dim must fade encoded elements too).
-    ...OVERLAY_RULES,
-    // Overlay COLORS from the theme, after the static block so they
-    // win the property (issue #32); the user stylesheet still follows.
-    ...overlayThemeRules(theme),
   );
+  // The host's stylesheet: after theme and encoding (adopter chrome
+  // beats both on ties) and BEFORE the overlay block (issue #63). It
+  // used to come last, and because cytoscape gives a property to the
+  // later rule whatever the selector shape, an ordinary host `node {
+  // border-width: 1 }` or `edge { width: 1.5 }` beat the overlay
+  // border and line width on every member, and a host `node[strong=1]`
+  // or focus-class color beat the overlay color; #32's theme color
+  // reached a member only where the host set nothing. Cytoscape has
+  // no selector specificity (order alone decides), so a host restyles
+  // an overlay through the theme (`overlayColor`, the tone colors) or
+  // a per-element bypass, not through a more specific selector in
+  // this sheet.
   if (opts?.userStylesheet) {
     merged.push(...opts.userStylesheet);
   }
+  merged.push(
+    // Emphasis/overlay dim beats encoding (the 9.10 contract: a
+    // trace-route dim must fade encoded elements too) and the host
+    // stylesheet (the canvas precedence: overlays = g3t-ov-* classes
+    // outrank theme, spec and host chrome).
+    ...OVERLAY_RULES,
+    // Overlay COLORS from the theme, after the static block so they
+    // win the property (issue #32).
+    ...overlayThemeRules(theme),
+  );
   // SVG overlay mode (G3L:RND-002): routed structural edges go
   // fully transparent in Cytoscape while STAYING mounted and
   // hit-testable; the overlay draws the visuals. opacity (not
@@ -993,22 +1017,30 @@ export interface CytoscapeCanvasProps {
    * "rebuild" (default): a new identity is a different graph; the
    * instance is re-created and laid out from scratch (positions and
    * camera reset), as the `ugm` contract above says. "additive": when
-   * the new ugm's node-id set is a SUPERSET of the live instance's
-   * (an explorer growing one neighborhood at a time), the instance is
-   * kept: new nodes and edges are added in place, edges the new ugm no
+   * the new ugm shares at least one node with the live instance (the
+   * same scene, grown by an explorer's expansion or shrunk by its
+   * collapse or a type filter, issues #26 and #64), the instance is
+   * kept: nodes the new ugm lacks are removed in place with their
+   * incident edges, new nodes and edges are added, edges the new ugm no
    * longer has are removed, existing elements take the new ugm's data,
-   * and ONLY the new nodes are laid out, seeded at the centroid of
-   * their already-placed neighbors and settled by fcose with every
-   * existing node held by `fixedNodeConstraint` (which fcose honors;
-   * `locked` it does not). The camera is untouched (no fit). `animate`
-   * and `animationDuration` apply to that pass. A ugm that REMOVES a
-   * node, a containment change that re-parents an existing node, or a
+   * every surviving node keeps its position, and ONLY the new nodes
+   * are laid out, seeded at the centroid of their already-placed
+   * neighbors and settled by fcose with every existing node held by
+   * `fixedNodeConstraint` (which fcose honors; `locked` it does not).
+   * A pure removal runs no layout at all. The camera is untouched (no
+   * fit). `animate` and `animationDuration` apply to the growth pass.
+   * A ugm that shares NO node with the drawn one (an empty ugm
+   * included: there is no scene to keep), a containment change that
+   * re-parents a surviving node (a removed parent's surviving children
+   * are moved to the top level, which is not a re-parent), or a
    * structural scene falls back to the rebuild path. Edge ids must be
-   * stable across growth (pass `key` to `UGM.addEdge`) for the diff to
+   * stable across steps (pass `key` to `UGM.addEdge`) for the diff to
    * add only the new edges; generated ids differ per UGM instance, so
    * every edge is then replaced (correct, but a churn). The spec,
    * hidden set, pins, overrides and overlays are re-applied to the
-   * grown instance.
+   * updated instance; store entries naming a removed id are the
+   * host's and are left as they are (the re-apply passes skip ids the
+   * instance no longer has, exactly as a rebuild does).
    */
   graphUpdate?: "rebuild" | "additive";
 }
@@ -1399,32 +1431,42 @@ function ugmGraphKey(ugm: UGM): string {
   return [...ugm.getNodeIds()].sort().join("|") + "#" + eids.sort().join("|");
 }
 
-/** Issue #26: does `ugm` carry every node the live instance has? */
-function isNodeSuperset(ugm: UGM, live: ReadonlySet<string>): boolean {
-  for (const id of live) if (!ugm.hasNode(id)) return false;
-  return true;
+/** Issues #26 and #64: is `ugm` the SAME SCENE as the live instance,
+ *  which means the two share at least one node? A superset grows it, a
+ *  subset shrinks it, an overlap does both; a disjoint set (an empty
+ *  ugm included) is a different graph with nothing to keep in place. */
+function sharesScene(ugm: UGM, live: ReadonlySet<string>): boolean {
+  for (const id of live) if (ugm.hasNode(id)) return true;
+  return false;
 }
 
 /**
- * Additive graph update (issue #26): the pure plan. Partitions the
- * next ugm's element definitions against the live instance's ids into
- * nodes and edges to ADD, elements to UPDATE in place (data merge), and
- * edge ids to REMOVE. Nodes are never removed: `superset` is false when
- * the live instance holds a node the next graph lacks, and the caller
- * falls back to a rebuild. Edges absent from the next graph DO go
- * (position-neutral, and without it a host that lets the UGM generate
- * edge ids would draw every edge twice after a growth step). Exported
- * for direct testing, like planScenePatch.
+ * Additive graph update (issues #26 and #64): the pure plan. Partitions
+ * the next ugm's element definitions against the live instance's ids
+ * into nodes and edges to ADD, elements to UPDATE in place (data
+ * merge), node ids to REMOVE (drawn, absent from the next graph; their
+ * incident edges are absent from it too, so they are in
+ * `removeEdgeIds` as well) and edge ids to REMOVE. `sameScene` is
+ * whether the live instance and the next graph share at least one
+ * node: a disjoint next graph (an empty one included) has no scene to
+ * keep, and the caller falls back to a rebuild. Node removal in place
+ * is the #64 ruling: "same input graph minus some nodes" is the same
+ * scene under the camera/position doctrine, so a collapse or a type
+ * filter keeps every other position and the camera. Edges absent from
+ * the next graph go too (position-neutral, and without it a host that
+ * lets the UGM generate edge ids would draw every edge twice after a
+ * step). Exported for direct testing, like planScenePatch.
  */
 export function planAdditiveUpdate(
   existingNodeIds: ReadonlySet<string>,
   existingEdgeIds: ReadonlySet<string>,
   next: readonly { group?: string; data: { id?: string } }[],
 ): {
-  superset: boolean;
+  sameScene: boolean;
   addNodeIdx: number[];
   addEdgeIdx: number[];
   updateIdx: number[];
+  removeNodeIds: string[];
   removeEdgeIds: string[];
 } {
   const nextNodeIds = new Set<string>();
@@ -1445,18 +1487,23 @@ export function planAdditiveUpdate(
       else addNodeIdx.push(i);
     }
   });
-  let superset = true;
+  const removeNodeIds: string[] = [];
   for (const id of existingNodeIds) {
-    if (!nextNodeIds.has(id)) {
-      superset = false;
-      break;
-    }
+    if (!nextNodeIds.has(id)) removeNodeIds.push(id);
   }
+  const sameScene = removeNodeIds.length < existingNodeIds.size;
   const removeEdgeIds: string[] = [];
   for (const id of existingEdgeIds) {
     if (!nextEdgeIds.has(id)) removeEdgeIds.push(id);
   }
-  return { superset, addNodeIdx, addEdgeIdx, updateIdx, removeEdgeIds };
+  return {
+    sameScene,
+    addNodeIdx,
+    addEdgeIdx,
+    updateIdx,
+    removeNodeIds,
+    removeEdgeIds,
+  };
 }
 
 /**
@@ -1532,23 +1579,29 @@ const IMMUTABLE_DATA_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Issue #26: grow a live instance in place. `next` is the converter's
- * output for the new ugm (validated). Returns false, having touched
- * nothing, when the live node set is not a subset of `next` or an
- * existing node would change parent (Cytoscape's `parent` is immutable
- * through data(); that case needs the rebuild). Otherwise, in one
- * batch: stale edges leave, existing elements take the new data
- * (topology-derived converter fields such as `_curveStyle` change when
- * a reverse edge arrives, and a data-only ugm change lands without a
- * rebuild), and the new elements join, nodes seeded by
- * seedAdditivePositions. Then, only if nodes were added, ONE fcose pass
- * runs from the current positions (randomize: false) with every
- * existing non-compound visible node held by `fixedNodeConstraint`,
- * `fit: false` so the camera stays where the user left it. Hidden
- * (display: none) nodes are excluded from the constraint list because
- * fcose excludes them from its graph, and a constraint on a node it
- * does not know yields NaN coordinates for everything. Exported for the
- * headless fcose test (the React tests mock cytoscape).
+ * Issues #26 and #64: grow or shrink a live instance in place. `next`
+ * is the converter's output for the new ugm (validated). Returns
+ * false, having touched nothing, when the live node set shares no node
+ * with `next` (a different graph, the empty graph included) or a
+ * surviving node would change parent (Cytoscape's `parent` is
+ * immutable through data(); that case needs the rebuild). Otherwise,
+ * in one batch: the surviving children of a removed compound parent
+ * are moved to the top level first (cytoscape's `remove` takes a
+ * parent's descendants with it; `move` keeps the element object, so
+ * position, classes and bypasses survive), removed nodes and stale
+ * edges leave, existing elements take the new data (topology-derived
+ * converter fields such as `_curveStyle` change when a reverse edge
+ * arrives, and a data-only ugm change lands without a rebuild), and
+ * the new elements join, nodes seeded by seedAdditivePositions. Then,
+ * only if nodes were added, ONE fcose pass runs from the current
+ * positions (randomize: false) with every existing non-compound
+ * visible node held by `fixedNodeConstraint`, `fit: false` so the
+ * camera stays where the user left it; a pure removal runs no layout,
+ * so every surviving position holds exactly. Hidden (display: none)
+ * nodes are excluded from the constraint list because fcose excludes
+ * them from its graph, and a constraint on a node it does not know
+ * yields NaN coordinates for everything. Exported for the headless
+ * fcose test (the React tests mock cytoscape).
  */
 export function applyAdditiveUpdate(
   cy: Core,
@@ -1573,14 +1626,28 @@ export function applyAdditiveUpdate(
     existingEdgeIds,
     next as never,
   );
-  if (!plan.superset) return false;
+  if (!plan.sameScene) return false;
+  const removedNodeIds = new Set(plan.removeNodeIds);
+  // Surviving children of a removed parent: top-level in `next` (the
+  // containment edge left with the parent), so not a re-parent; they
+  // are moved out before the parent goes. Any other parent change on a
+  // surviving node is a re-parent and takes the rebuild.
+  const moveOut: cytoscape.NodeSingular[] = [];
   for (const i of plan.updateIdx) {
     const def = next[i];
     if (!def?.data.id || def.group === "edges") continue;
     const ele = cy.$id(def.data.id);
     if (ele.empty()) continue;
-    if ((def.data as { parent?: string }).parent !== ele.data("parent"))
-      return false;
+    const nextParent = (def.data as { parent?: string }).parent;
+    const liveParent = ele.data("parent") as string | undefined;
+    if (nextParent === liveParent) continue;
+    if (nextParent === undefined && liveParent !== undefined) {
+      if (removedNodeIds.has(liveParent)) {
+        moveOut.push(ele);
+        continue;
+      }
+    }
+    return false;
   }
   const addNodes = plan.addNodeIdx
     .map((i) => next[i])
@@ -1588,6 +1655,9 @@ export function applyAdditiveUpdate(
   const addEdges = plan.addEdgeIdx
     .map((i) => next[i])
     .filter((d): d is cytoscape.ElementDefinition => d !== undefined);
+  // Seed beside what SURVIVES: a removed node's position is no
+  // neighbor and must not pull the graph centroid.
+  for (const id of plan.removeNodeIds) placed.delete(id);
   const seeds = seedAdditivePositions(
     addNodes.map((d) => String(d.data.id)),
     placed,
@@ -1603,6 +1673,13 @@ export function applyAdditiveUpdate(
     if (seed) def.position = seed;
   }
   cy.batch(() => {
+    for (const ele of moveOut) ele.move({ parent: null });
+    for (const id of plan.removeNodeIds) {
+      // A descendant of a parent removed earlier in this loop is
+      // already gone; $id is then empty and the removal is skipped.
+      const ele = cy.$id(id);
+      if (ele.nonempty()) ele.remove();
+    }
     for (const id of plan.removeEdgeIds) {
       const ele = cy.$id(id);
       if (ele.nonempty()) ele.remove();
@@ -1764,8 +1841,9 @@ export function CytoscapeCanvas({
   // Issue #26 (additive graph updates). The init callback keys on
   // `initUgm`, the ugm identity the live instance was BUILT from, and
   // reads the current ugm through ugmRef. In additive mode a new ugm
-  // whose node set is a superset of the live instance's keeps the init
-  // key (no teardown; the additive effect below grows the instance in
+  // that shares a node with the live instance (the same scene, grown
+  // or shrunk; issue #64) keeps the init key (no teardown; the
+  // additive effect below updates the instance in
   // place); anything else moves the key to the new ugm, which rebuilds
   // exactly as before, so the default mode never diverges from the
   // pre-#26 behavior. The decision is made ONCE per ugm identity, in
@@ -1774,7 +1852,8 @@ export function CytoscapeCanvas({
   // would re-order the rebuild after the ugm-keyed pin, override and
   // overlay effects, which would then dress a doomed instance and
   // never run for the new one. liveNodeIdsRef is the live instance's
-  // node set (null for a structural scene, which is never grown).
+  // node set (null for a structural scene, which is never updated in
+  // place).
   const ugmRef = useRef(ugm);
   // eslint-disable-next-line react-hooks/refs
   ugmRef.current = ugm;
@@ -1786,14 +1865,14 @@ export function CytoscapeCanvas({
      render re-deciding on the same inputs changes nothing. */
   if (additiveRef.current.ugm !== ugm) {
     const live = liveNodeIdsRef.current;
-    const grow =
+    const inPlace =
       graphUpdate === "additive" &&
       !structural &&
       live !== null &&
-      isNodeSuperset(ugm, live);
+      sharesScene(ugm, live);
     additiveRef.current = {
       ugm,
-      initUgm: grow ? additiveRef.current.initUgm : ugm,
+      initUgm: inPlace ? additiveRef.current.initUgm : ugm,
     };
   }
   const initUgm = additiveRef.current.initUgm;
@@ -1854,8 +1933,9 @@ export function CytoscapeCanvas({
 
   /** One stylesheet assembly for init AND live theme restyles.
    *  Order is the precedence story: structural defaults (fallback
-   *  literals) -> spec-channel rules -> theme-resolved colors ->
-   *  user stylesheet. */
+   *  literals) -> theme-resolved colors -> spec-channel rules ->
+   *  user stylesheet -> overlay classes (issue #63: the overlay
+   *  emphasis outranks host chrome). */
   const composeMergedStylesheet = useCallback(
     (theme: G3tTheme): CyStylesheet[] =>
       composeCanvasStylesheet(theme, {
@@ -2026,20 +2106,30 @@ export function CytoscapeCanvas({
     // Upstream P1 (prm-analyzer, 2026-07-28): the packed bundle does
     // not auto-load style.css, and unstyled rendering is silent.
     // Dev-only discovery aid: warn ONCE when the design tokens are
-    // absent from the document.
+    // absent. Issue #62: the probe reads the canvas's OWN container,
+    // not <html>. style.css carries no color tokens (its :root rule
+    // is transitions only); applyTheme writes them, and a scoped
+    // theme (setThemeTarget) writes them on a container, where a
+    // probe of <html> never sees them. Custom properties inherit, so
+    // the container reports whichever ancestor received the theme.
+    // <html> is the fallback only when the ref is unset. The
+    // `typeof process` guard is deliberate: a bundler that leaves
+    // `process` undefined skips the aid instead of throwing.
     if (
       typeof process !== "undefined" &&
       process.env?.NODE_ENV !== "production" &&
       typeof getComputedStyle === "function" &&
       !stylesheetWarnedRef.current
     ) {
-      const probe = getComputedStyle(document.documentElement)
+      const probe = getComputedStyle(
+        containerRef.current ?? document.documentElement,
+      )
         .getPropertyValue("--g3t-bg-primary")
         .trim();
       if (probe === "") {
         stylesheetWarnedRef.current = true;
         console.warn(
-          '[g3t] design tokens not found on :root. Did you forget `import "@g3-toolkit/react/style.css"`? Components will render unstyled without it.',
+          '[g3t] design tokens (--g3t-*) not found on this canvas\'s container. The theme has probably not been applied (useThemeStore / applyTheme), or was applied through setThemeTarget to a container that does not contain this canvas. Also check `import "@g3-toolkit/react/style.css"`. Components will render unstyled without both.',
         );
       }
     }
@@ -2495,18 +2585,22 @@ export function CytoscapeCanvas({
     };
   }, [initCytoscape]);
 
-  // Issue #26: additive growth over a LIVE instance. Runs after the
-  // init effect (source order), so when the ugm change rebuilt the
-  // instance in this commit (rebuild mode, or a non-superset in
-  // additive mode) liveUgmRef already names this ugm and there is
-  // nothing to do. Otherwise the render-time decision kept the init
-  // key and this effect grows the instance in place, then moves its
+  // Issues #26 and #64: additive growth or shrink over a LIVE
+  // instance. Runs after the init effect (source order), so when the
+  // ugm change rebuilt the instance in this commit (rebuild mode, or a
+  // disjoint node set in additive mode) liveUgmRef already names this
+  // ugm and there is nothing to do. Otherwise the render-time decision
+  // kept the init key and this effect updates the instance in place
+  // (removed nodes leave with their edges, new ones join), then moves its
   // identity forward (so a later same-graph rebuild replays positions
   // and camera, LR-45) and re-applies what the init path applies to a
   // fresh instance: hidden classes, the spec patch (over the whole
-  // instance: a data-driven scale may re-domain when nodes arrive, and
-  // the patch cleans stale channels), and emphasis; the pin, override
-  // and overlay effects below key on `ugm` and follow on their own. If
+  // instance: a data-driven scale may re-domain when nodes arrive or
+  // leave, and the patch cleans stale channels), and emphasis; the pin,
+  // override and overlay effects below key on `ugm` and follow on
+  // their own, and each skips an id the instance no longer has, so a
+  // store entry naming a removed node (a pin, an overlay member, a
+  // selection) needs no cleanup here and stays the host's. If
   // the live instance cannot be grown after all (the host mutated it
   // through onReady, or a parent would change), fall back to a rebuild
   // through the epoch.
@@ -2706,9 +2800,16 @@ export function CytoscapeCanvas({
   // at registration, then on layoutstop (initial settle and every
   // reheat), on a node drop, on zoom end (zoom has no end event, so
   // the trailing edge of a short debounce), and on selection/hover
-  // store changes (priority input). Also keyed on the inputs that
-  // change label text or visibility (spec, hidden set, theme and
-  // stylesheet restyles) so a pass re-measures after them; those
+  // store changes (priority input): a selection change runs at once, a
+  // hover change rides the same debounce as zoom (issue #60: the pass
+  // measures every element, so a synchronous run per mouseover and
+  // mouseout cost about 50 ms each on a 300-node host graph), and a
+  // store write that leaves all three fields as they were (a repeated
+  // setHover(null), a clear() of an empty selection) runs nothing. The
+  // store has no selector subscription, so the listener diffs the
+  // fields itself. Also keyed on the inputs that change label text or
+  // visibility (spec, hidden set, theme and stylesheet restyles) so a
+  // pass re-measures after them; those
   // effects sit ABOVE this one in source order, so cytoscape already
   // holds their result when this runs. Restyle only.
   // labelCollisionTouchedRef: "none" (the default) does NO work unless
@@ -2731,7 +2832,13 @@ export function CytoscapeCanvas({
     // overlayCy flip lands a render later), so a store notification
     // or the trailing zoom timer can arrive for a dead instance.
     const alive = () => typeof cy.destroyed !== "function" || !cy.destroyed();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const run = () => {
+      // A full pass satisfies any pass still pending on the debounce.
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
       if (!alive()) return;
       labelCollisionTouchedRef.current = true;
       const sel = useSelectionStore.getState();
@@ -2747,7 +2854,6 @@ export function CytoscapeCanvas({
         hoveredNodeId: sel.hoveredNodeId,
       });
     };
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(() => {
@@ -2758,7 +2864,22 @@ export function CytoscapeCanvas({
     cy.on("layoutstop", run);
     cy.on("zoom", schedule);
     cy.on("dragfree", "node", run);
-    const unsub = useSelectionStore.subscribe(run);
+    const sameIds = (a: ReadonlySet<string>, b: ReadonlySet<string>) => {
+      if (a === b) return true;
+      if (a.size !== b.size) return false;
+      for (const id of a) if (!b.has(id)) return false;
+      return true;
+    };
+    const unsub = useSelectionStore.subscribe((state, prev) => {
+      if (
+        !sameIds(state.selectedNodeIds, prev.selectedNodeIds) ||
+        !sameIds(state.selectedEdgeIds, prev.selectedEdgeIds)
+      ) {
+        run();
+        return;
+      }
+      if (state.hoveredNodeId !== prev.hoveredNodeId) schedule();
+    });
     if (layoutSettledRef.current) run();
     return () => {
       if (timer !== undefined) clearTimeout(timer);
@@ -2768,6 +2889,12 @@ export function CytoscapeCanvas({
       cy.removeListener("zoom", schedule);
       cy.removeListener("dragfree", "node", run);
     };
+    // `ugm` is here for the additive path (#64): a pure removal runs
+    // no layout, so without it a label hidden under a REMOVED node's
+    // label stayed hidden until the next zoom, selection or layout
+    // pass. Growth already re-runs through fcose's layoutstop, and a
+    // rebuild through the overlayCy flip; the additive effect sits
+    // above this one, so the removal is in cytoscape when this runs.
   }, [
     overlayCy,
     labelCollision,
@@ -2776,6 +2903,7 @@ export function CytoscapeCanvas({
     hidden,
     theme,
     stylesheetKey,
+    ugm,
   ]);
 
   // Bugfix 16: belt-and-suspenders contextmenu suppression. We already

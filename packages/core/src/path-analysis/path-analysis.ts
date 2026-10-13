@@ -197,6 +197,15 @@ const NOT_FOUND: PathResult = {
 
 /**
  * Find the shortest path between two nodes using BFS.
+ *
+ * Endpoint rule, shared by every search here (issue #65): a node the
+ * graph does not report via `hasNode` is never found, not even as its
+ * own path, so the existence check runs BEFORE the same-node
+ * shortcut. The order matters for a host PathGraph that indexes only
+ * nodes with edges: this search used to answer a zero-hop path for a
+ * node the other two searches reported missing. Source equals target
+ * on an existing node is the one zero-hop path: `nodeIds: [id]`,
+ * `edgeIds: []`, `length: 0`, `found: true`.
  */
 export function findShortestPath(
   graph: PathGraph,
@@ -204,12 +213,12 @@ export function findShortestPath(
   targetId: string,
   options?: PathOptions,
 ): PathResult {
-  if (sourceId === targetId) {
-    return { nodeIds: [sourceId], edgeIds: [], length: 0, found: true };
-  }
-
   if (!graph.hasNode(sourceId) || !graph.hasNode(targetId)) {
     return { ...NOT_FOUND };
+  }
+
+  if (sourceId === targetId) {
+    return { nodeIds: [sourceId], edgeIds: [], length: 0, found: true };
   }
 
   const path = bfs(
@@ -237,7 +246,11 @@ export function findShortestPath(
  *  findShortestPath: a target farther than the bound is `found:
  *  false` (issue #29: the loop used to read only the frontier, so a
  *  search between distant nodes on a large graph ran to exhaustion
- *  while the option documented a bound it did not apply). */
+ *  while the option documented a bound it did not apply).
+ *
+ *  Endpoints follow findShortestPath's rule: a node `hasNode` does
+ *  not report is never found; an existing node is its own zero-hop
+ *  path, here with `pathCount: 1`. */
 export function allShortestPaths(
   graph: PathGraph,
   sourceId: string,
@@ -335,8 +348,9 @@ export function allShortestPaths(
  * same order every call. Parallel edges yield distinct paths (same
  * nodeIds, different edgeIds), matching how allShortestPaths counts
  * them. Fewer than k paths exist: the array is shorter. Disconnected
- * or missing endpoints: empty array. Source equals target: the one
- * trivial path.
+ * or missing endpoints (a node `hasNode` does not report, the same
+ * rule as findShortestPath): empty array. Source equals target on an
+ * existing node: the one trivial path, `[{ nodeIds: [id], edgeIds: [] }]`.
  */
 export function kShortestPaths(
   graph: PathGraph,
