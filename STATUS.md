@@ -1,5 +1,30 @@
 # g3-toolkit Status
 
+**As of:** 2026-10-13 (active: **HOST GAPS ROUND 3, after 1.2.0.** The
+host from #23 moved to 1.2.0 and filed twelve gaps under #53. Four
+needed a ruling (overlay precedence, additive shrink, several parents,
+table search semantics; the table is in
+`planning/host-gaps-round-3.md`) and ten agents worked all twelve in
+isolated worktrees, merged one at a time onto this branch. CLOSED by
+this round pending Zach's live review: #54, #55, #56, #57, #58, #59,
+#60, #61, #62, #63, #64, #65, and #53 with them. Behavior changes a
+1.2.0 host reads first (the Unreleased section of the CHANGELOG): the
+`stylesheet` prop now sits BEFORE the overlay block; `additive` mode
+removes nodes in place instead of rebuilding; TableView search is
+word-AND across the row; `findShortestPath` no longer finds a node
+the graph does not report; TreeView rows are paths, so a DAG node
+renders under each parent. STAYS OPEN: #19 (the `onReady` ruling),
+#46 (the live checklist), #12 and the fork PR #3 (held by ruling), and
+the per-issue questions in the round log (notably whether
+`targetClass` becomes optional, #54). What needs eyes: overlay chrome
+on a canvas with a host stylesheet, a collapse and Reset in the Bio
+Explore view, the minimap on a filtered canvas, the TableView
+pagination bar, keyboard sorting under a screen reader, and a
+two-parent class in TreeView and SchemaView. Bundle after the round:
+react 460.9 of 465 KB (three ledger entries), core 181.5 of 184.)
+
+## PRIOR SNAPSHOT (2026-10-13 backlog round 2)
+
 **As of:** 2026-10-13 (active: **BACKLOG ROUND 2.** With #43 merged
 and 1.1.0 published, the maintainer ruled on every decision the
 remaining backlog had been waiting for (the table is in
