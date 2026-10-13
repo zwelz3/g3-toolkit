@@ -868,6 +868,45 @@ describe("wiring guide: class hierarchy (SchemaView nesting, TreeView forests)",
   });
 });
 
+describe("wiring guide: double-click a node to open detail", () => {
+  // The recipe binds `dbltap` inside onReady. Cytoscape's event
+  // model is the same headless, so the twin runs the recipe's handler
+  // against a headless core and fires the gesture from the API.
+  it("dbltap on a node selects it and opens detail; on the background it fits", async () => {
+    const { default: cytoscape } = await import("cytoscape");
+    const cy = cytoscape({
+      headless: true,
+      elements: [{ data: { id: "n1" } }, { data: { id: "n2" } }],
+    });
+    const opened: string[] = [];
+    const animate = vi.spyOn(cy, "animate");
+    const handleReady = (core: Core) => {
+      core.on("dbltap", "node", (evt) => {
+        const id = evt.target.id();
+        useSelectionStore.getState().selectNodes([id]);
+        opened.push(id);
+      });
+      core.on("dbltap", (evt) => {
+        if (evt.target === core) {
+          core.animate(
+            { fit: { eles: core.elements(), padding: 40 } },
+            { duration: 200 },
+          );
+        }
+      });
+    };
+    handleReady(cy);
+    cy.getElementById("n1").emit("dbltap");
+    expect(opened).toEqual(["n1"]);
+    expect(useSelectionStore.getState().selectedNodeIds.has("n1")).toBe(true);
+    cy.emit("dbltap");
+    expect(animate).toHaveBeenCalledTimes(1);
+    // Issue #50: the twin also pins that bus wiring of the same shape
+    // belongs in onReady; see the "Add your action" recipe.
+    cy.destroy();
+  });
+});
+
 describe("wiring guide: filter by hiding, not by rebuilding", () => {
   it("FacetFilter emits the toggled type to onFilterChange", () => {
     const ugm = new UGM();

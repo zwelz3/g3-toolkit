@@ -7,6 +7,34 @@ published package. 1.1.0 (published 2026-10-13, without the entries
 below) is the released version on npm; the next tag is what moves these
 entries under a version heading.
 
+### 2026-10-13 (three incidental findings from the #19 inventory, #50)
+
+- **`context:hideNodes` hides through the class only, so the `hidden`
+  prop can un-hide what it hid (#50).** The handler in
+  `wire-cytoscape-actions.ts` wrote a `display: none` style BYPASS on
+  the node and its connected edges as well as the `g3t-hidden` class.
+  A bypass outranks every stylesheet rule, so a node hidden from the
+  context menu stayed invisible after a host removed it from the
+  `hidden` set, and the two visibility paths disagreed. The bypasses
+  were also redundant: `.g3t-hidden` already sets `display: none`, and
+  Cytoscape drops an edge whose endpoint is not displayed. The handler
+  now adds the class and nothing else; the test asserts no bypass is
+  written.
+- **The context-menu story binds the command bus inside `onReady`.**
+  `CytoscapeCanvas.stories.tsx` wired `wireCytoscapeContextActions` in
+  an effect keyed on `ugm` over a stored handle, the shape the guide's
+  double-click recipe warns against: the canvas re-creates its core on
+  the rebuild props too, and the effect never re-ran for those, leaving
+  the bus wired to a destroyed core. The story now wires inside
+  `onReady` with a disposer that runs before the next wiring and on
+  unmount.
+- **The double-click recipe has an executable twin.** The guide's
+  "Double-click a node to open detail" was the one recipe without a
+  twin in `examples/wiring`, and the only one registering a gesture.
+  The twin runs the recipe's handler against a headless core, fires
+  `dbltap` on a node (selection store written, detail opened) and on the
+  background (one `animate` fit).
+
 ### 2026-10-13 (backlog round 2: rulings applied to #5, #6, #9, #16 to #20, #44 to #48)
 
 Source: the backlog left after #43 (the five follow-ups it filed plus
