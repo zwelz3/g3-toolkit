@@ -2706,9 +2706,16 @@ export function CytoscapeCanvas({
   // at registration, then on layoutstop (initial settle and every
   // reheat), on a node drop, on zoom end (zoom has no end event, so
   // the trailing edge of a short debounce), and on selection/hover
-  // store changes (priority input). Also keyed on the inputs that
-  // change label text or visibility (spec, hidden set, theme and
-  // stylesheet restyles) so a pass re-measures after them; those
+  // store changes (priority input): a selection change runs at once, a
+  // hover change rides the same debounce as zoom (issue #60: the pass
+  // measures every element, so a synchronous run per mouseover and
+  // mouseout cost about 50 ms each on a 300-node host graph), and a
+  // store write that leaves all three fields as they were (a repeated
+  // setHover(null), a clear() of an empty selection) runs nothing. The
+  // store has no selector subscription, so the listener diffs the
+  // fields itself. Also keyed on the inputs that change label text or
+  // visibility (spec, hidden set, theme and stylesheet restyles) so a
+  // pass re-measures after them; those
   // effects sit ABOVE this one in source order, so cytoscape already
   // holds their result when this runs. Restyle only.
   // labelCollisionTouchedRef: "none" (the default) does NO work unless
@@ -2731,7 +2738,13 @@ export function CytoscapeCanvas({
     // overlayCy flip lands a render later), so a store notification
     // or the trailing zoom timer can arrive for a dead instance.
     const alive = () => typeof cy.destroyed !== "function" || !cy.destroyed();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const run = () => {
+      // A full pass satisfies any pass still pending on the debounce.
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
       if (!alive()) return;
       labelCollisionTouchedRef.current = true;
       const sel = useSelectionStore.getState();
@@ -2747,7 +2760,6 @@ export function CytoscapeCanvas({
         hoveredNodeId: sel.hoveredNodeId,
       });
     };
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(() => {
@@ -2758,7 +2770,22 @@ export function CytoscapeCanvas({
     cy.on("layoutstop", run);
     cy.on("zoom", schedule);
     cy.on("dragfree", "node", run);
-    const unsub = useSelectionStore.subscribe(run);
+    const sameIds = (a: ReadonlySet<string>, b: ReadonlySet<string>) => {
+      if (a === b) return true;
+      if (a.size !== b.size) return false;
+      for (const id of a) if (!b.has(id)) return false;
+      return true;
+    };
+    const unsub = useSelectionStore.subscribe((state, prev) => {
+      if (
+        !sameIds(state.selectedNodeIds, prev.selectedNodeIds) ||
+        !sameIds(state.selectedEdgeIds, prev.selectedEdgeIds)
+      ) {
+        run();
+        return;
+      }
+      if (state.hoveredNodeId !== prev.hoveredNodeId) schedule();
+    });
     if (layoutSettledRef.current) run();
     return () => {
       if (timer !== undefined) clearTimeout(timer);

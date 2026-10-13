@@ -67,7 +67,27 @@ type MeasurableElement = SingularElementArgument & {
   };
   visible?: () => boolean;
   degree?: (includeLoops: boolean) => number;
+  /** Cytoscape's parsed-style read; undefined on a style-disabled
+   *  (headless) instance, and absent from a minimal mock. */
+  pstyle?: (name: string) => { strValue?: unknown } | undefined;
 };
+
+/** The label as the stylesheet renders it, or undefined when the
+ *  instance cannot say (headless, or a mock without `pstyle`), in which
+ *  case the data field is the only evidence and candidacy falls back to
+ *  it. A host that blanks labels by rule (`label: ""` on edges until
+ *  hovered, say) leaves the data label intact, so the data field alone
+ *  cannot tell a shown label from a blanked one (issue #60). */
+function readRenderedLabel(ele: MeasurableElement): string | undefined {
+  if (typeof ele.pstyle !== "function") return undefined;
+  try {
+    const prop = ele.pstyle("label");
+    if (!prop) return undefined;
+    return typeof prop.strValue === "string" ? prop.strValue : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function readLabelBox(
   ele: MeasurableElement,
@@ -121,8 +141,16 @@ export function applyLabelCollisionPass(
     // element without a label has nothing to collide.
     const text = ele.data("label");
     if (typeof text !== "string" || text === "") return;
+    // Candidacy follows the RENDERED label, not the data field: a
+    // label the stylesheet blanks measures as a zero box at the pan
+    // point, which would rank against (and could hide) a real label
+    // covering that point, and could itself take the hide class, which
+    // then suppresses the label when a hover rule later shows it. Such
+    // an element is not measured at all. The zero-size guard below is
+    // the belt for an instance that cannot report its parsed style.
+    if (readRenderedLabel(ele) === "") return;
     const box = readLabelBox(ele);
-    if (!box) return;
+    if (!box || box.w <= 0 || box.h <= 0) return;
     const isNode = ele.isNode();
     const id = ele.id();
     let explicit: number | undefined;
