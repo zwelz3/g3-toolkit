@@ -7,7 +7,11 @@ table search semantics; the table is in
 `planning/host-gaps-round-3.md`) and ten agents worked all twelve in
 isolated worktrees, merged one at a time onto this branch. CLOSED by
 this round pending Zach's live review: #54, #55, #56, #57, #58, #59,
-#60, #61, #62, #63, #64, #65, and #53 with them. Behavior changes a
+#60, #61, #62, #63, #64, #65, and #53 with them (merged as #66), and
+in the follow-up pass the four issues it filed: #67 (`targetClass`
+optional, validator reads `targets`), #68 (text-opacity candidacy,
+rendered-label shorten), #69 (`stylesheetAfterOverlays`), #70
+(path-aware breadcrumb, cap warning). Behavior changes a
 1.2.0 host reads first (the Unreleased section of the CHANGELOG): the
 `stylesheet` prop now sits BEFORE the overlay block; `additive` mode
 removes nodes in place instead of rebuilding; TableView search is
@@ -15,8 +19,7 @@ word-AND across the row; `findShortestPath` no longer finds a node
 the graph does not report; TreeView rows are paths, so a DAG node
 renders under each parent. STAYS OPEN: #19 (the `onReady` ruling),
 #46 (the live checklist), #12 and the fork PR #3 (held by ruling), and
-the per-issue questions in the round log (notably whether
-`targetClass` becomes optional, #54). What needs eyes: overlay chrome
+the recorded-only threads in the round log's follow-ups section. What needs eyes: overlay chrome
 on a canvas with a host stylesheet, a collapse and Reset in the Bio
 Explore view, the minimap on a filtered canvas, the TableView
 pagination bar, keyboard sorting under a screen reader, and a

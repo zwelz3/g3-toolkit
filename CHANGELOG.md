@@ -2,6 +2,97 @@
 
 ## Unreleased
 
+### 2026-10-13 (follow-ups from the #53 round: #67, #68, #69, #70)
+
+Four threads the #53 round left open, each ruled on and worked as one
+agent in an isolated worktree (`planning/host-gaps-round-3.md`, the
+follow-ups section). What a 1.2.0 host reads first: `targetClass` is
+optional on `ShaclShape` and the validator now selects focus nodes
+from `targets` too, so a shape that passed `""` and validated nothing
+starts validating; `CytoscapeCanvas` gains `stylesheetAfterOverlays`,
+the one host rule slot that outranks the overlay block.
+
+- **`ShaclShape.targetClass` is optional, and the validator reads
+  `targets` (#67).** Root cause: `targets` (1.2.0, #35) let a shape
+  declare subjects-of, objects-of, node and SPARQL targets, but
+  `targetClass` stayed required and the validator matched by it alone,
+  so a shape with no class target had to pass `""` and then validated
+  nothing. Fix, per the maintainer ruling: `targetClass?: string` on
+  `ShaclShape`, `ShaclValidationResult` and the react
+  `SchemaViewShape`; absent and `""` both mean no class target in every
+  reader (validator, `ShaclShapeBrowser`, `SchemaView`), so hosts that
+  passed the placeholder keep working. `validateShacl` selects focus
+  nodes from the union of `targetClass` and every `targets` entry:
+  `class` matches typed nodes as before (declared `types` only, no
+  subclass closure, since the UGM carries none), `subjectsOf` selects
+  the source of every edge of that type, `objectsOf` the target of
+  every such edge, `node` the node with that id; the set is
+  deduplicated per shape so a class listed both ways validates once.
+  `sparql` targets select nothing (documented on `ShaclShapeTarget`:
+  the toolkit runs no SPARQL), a target with an empty value is skipped,
+  and a shape with no target at all validates nothing. Results echo
+  `targetClass` only when the shape names one, and the node-major
+  result order of class-only shapes is unchanged. Tests cover each
+  kind, dedupe, mixed kinds, empty targets, the `""` placeholder and
+  result order, plus an absent `targetClass` in `ShaclShapeBrowser` and
+  `SchemaView`. The wiring guide's validation report recipe shows a
+  targets-only shape with an executable twin.
+- **Label collision: candidacy follows the rendered `text-opacity` and
+  whitespace; shorten reads the rendered label (#68).** Root cause: the
+  #60 pass read the rendered label through `pstyle("label")` and
+  skipped an empty one, but a host (or the toolkit's own
+  `labelVisible: false` and structural port rules) that blanks a label
+  with `text-opacity: 0`, or renders whitespace, keeps a full label
+  box, so the element was still measured, could outrank and hide a
+  real label under it, and could take the hide class or `_labelShort`
+  for text nobody sees. Fix: `applyLabelCollisionPass` reads
+  `pstyle("text-opacity")` (`pfValue`, then `value`) and treats 0, and
+  a whitespace-only rendered label, as not a candidate; an instance
+  without `pstyle` still falls back to the data label. Shorten mode now
+  truncates the RENDERED label (data `label` as the fallback), so a
+  host stylesheet mapping `label: data(name)` gets `_labelShort` from
+  `name` instead of a truncation of the wrong field. The strip before
+  measure already keeps a pass from reading its own `[_labelShort]`
+  output (cytoscape's batch end flushes style synchronously); a test
+  pins that two consecutive passes shorten once. Selection stays
+  synchronous and hover debounced, per the ruling.
+- **`CytoscapeCanvas` gains `stylesheetAfterOverlays` (#69).** Root
+  cause: #63 moved the host `stylesheet` before the overlay block, and
+  because Cytoscape resolves rules by order alone, no rule in that
+  sheet can win a property back on an overlay member, however specific
+  its selector; the only paths were the theme (every member) and a
+  per-element bypass (which outranks everything). Fix: a second
+  stylesheet prop merged after `OVERLAY_RULES` and `overlayThemeRules`
+  and before the svg-overlay transparency, label-collision and hidden
+  rules, which stay last; it rides the same content-keyed restyle as
+  `stylesheet` (one `style().fromJson`, never a re-init). Tests: the
+  merged order pins the slot's position; headless Cytoscape shows a
+  `node.host-focus { border-width: 4 }` rule beating the overlay border
+  from the slot and losing from `stylesheet`, and still losing to the
+  hidden filter and a label-collision outcome; the canvas mock shows a
+  slot change restyles in place without re-creating the instance.
+  Guide snippet and wiring twin added; the consuming doc's merge order,
+  the overlays design record and the CLAUDE.md precedence line list
+  the slot.
+- **TreeView breadcrumb follows the picked copy; the placement cap
+  warns (#70).** Rows have been paths since #59, but the breadcrumb
+  still took its path from the first incoming edge per node, so
+  picking the copy of a multi-parent node under its second parent
+  showed the first parent's path. The breadcrumb now reads placement: a
+  pick in the tree (a row or a crumb) records its path and the crumbs
+  are that path; a selection arriving from outside (the store or
+  `selected`) shows the first copy in placement order, the one the
+  reveal scrolls to. A selected node the roots do not reach shows no
+  breadcrumb instead of an edge-derived trail through rows the tree
+  never renders. The placement walk's `MAX_PATH_ROWS` cut was silent;
+  it now warns once per graph per tree instance in development, naming
+  the cap and that rows beyond it are not placed (nothing in
+  production). Tests: the breadcrumb under the second parent, then the
+  first, by click and by keyboard; an outside selection shows the first
+  copy and forgets an earlier pick; a crumb click stays on the picked
+  path; the cap warns once per graph and is silent under the cap and in
+  production. Reveal of every copy is kept as ruled.
+
 ### 2026-10-13 (gaps found integrating 1.2.0 into a host, #53)
 
 Twelve sub-issues from the host that drove #23, re-checked against
