@@ -12,11 +12,13 @@ import { useMemo, useCallback } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { scaleColor } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { useWorkingSetManager } from "../../state/working-set-context";
 import { EmptyState } from "../../interaction/feedback";
 
 export interface MatrixViewProps {
   ugm: UGM;
-  /** Maximum dimensions before aggregation (default 200, R7.3). */
+  /** Maximum dimensions before aggregation (R7.3). Defaults to the
+   *  matrix limit of the nearest `WorkingSetProvider` (200 built in). */
   maxSize?: number;
   /** VR-18 (owner verification 2026-07-26): stretch the table to
    *  the host's width (the analytics rail) instead of the natural
@@ -34,11 +36,13 @@ interface MatrixCell {
 
 export function MatrixView({
   ugm,
-  maxSize = 200,
+  maxSize: maxSizeProp,
   fill = false,
   className,
 }: MatrixViewProps) {
   const { selectNodes } = useSelectionStore();
+  const workingSet = useWorkingSetManager();
+  const maxSize = maxSizeProp ?? workingSet.getLimit("matrix");
 
   // Build adjacency matrix by node type
   const { types, matrix, maxCount, totalTypes } = useMemo(() => {

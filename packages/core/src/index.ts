@@ -284,8 +284,20 @@ export { ComboManager } from "./combo";
 export type { Combo } from "./combo";
 
 // ── Working set (limits per view; D6 logic) ─────────────────────────
-export { WorkingSetManager } from "./working-set-manager";
-export type { ViewType, LimitCheckResult } from "./working-set-manager";
+export {
+  WorkingSetManager,
+  parseWorkingSetConfig,
+  validateWorkingSetConfig,
+} from "./working-set-manager";
+export type {
+  ViewType,
+  LimitCheckResult,
+  RaiseAllowed,
+  RaiseRefused,
+  RaiseResult,
+  WorkingSetConfig,
+  WorkingSetViewLimit,
+} from "./working-set-manager";
 
 // ── Undo/redo stack (D6 pure logic; reclassified from @g3-toolkit/react in P3.2) ──
 export { UndoRedoStack } from "./undo-redo";

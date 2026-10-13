@@ -43,6 +43,8 @@ import {
   collapseByCluster,
   buildSubgraph,
   G3tEventBus,
+  WorkingSetManager,
+  parseWorkingSetConfig,
   type RDFGraph,
 } from "@g3-toolkit/core";
 import {
@@ -77,6 +79,10 @@ import {
   TableView,
   resolveLabelCollisions,
   composeLabelPriority,
+  MatrixView,
+  WorkingSetProvider,
+  useWorkingSetManager,
+  workingSetLimitMessage,
   type EncodingSpec,
   type LegendChannel,
   type LabelCandidate,
@@ -1338,5 +1344,104 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(fit.mock.calls.length + animate.mock.calls.length).toBeGreaterThan(
       0,
     );
+  });
+});
+
+describe("wiring guide: set deployment working-set limits", () => {
+  const deploymentConfigText = JSON.stringify({
+    version: 1,
+    limits: {
+      canvas: { default: 300, ceiling: 800 },
+      tree: { ceiling: 2000 },
+      matrix: { default: 3 },
+    },
+  });
+
+  function ringOfTypes(n: number): UGM {
+    const ugm = new UGM();
+    for (let i = 0; i < n; i++) {
+      ugm.addNode(`n${i}`, { types: [`T${i}`], properties: {} });
+    }
+    for (let i = 0; i < n; i++) {
+      ugm.addEdge(`n${i}`, `n${(i + 1) % n}`, { type: "next" });
+    }
+    return ugm;
+  }
+
+  it("R7.7: the administrator's 300 canvas limit applies through the provider", () => {
+    const manager = WorkingSetManager.fromConfig(
+      parseWorkingSetConfig(deploymentConfigText),
+    );
+    let seen: WorkingSetManager | null = null;
+    function Probe() {
+      seen = useWorkingSetManager();
+      return null;
+    }
+    render(
+      <WorkingSetProvider manager={manager}>
+        <Probe />
+        <MatrixView ugm={ringOfTypes(5)} />
+      </WorkingSetProvider>,
+    );
+    expect(seen).toBe(manager);
+    expect(manager.getLimit("canvas")).toBe(300);
+    expect(manager.checkLimit("canvas", 301).allowed).toBe(false);
+    // The matrix read its limit from the same document.
+    expect(
+      screen.getByText(/Showing 3 of 5 node types \(working-set limit\)/),
+    ).toBeInTheDocument();
+  });
+
+  it("the explicit action to exceed: a prompt under the ceiling, a refusal above it", () => {
+    const manager = WorkingSetManager.fromConfig(
+      parseWorkingSetConfig(deploymentConfigText),
+    );
+    function ShowAllNotice({ requested }: { requested: number }) {
+      const mgr = useWorkingSetManager();
+      const notice = workingSetLimitMessage(mgr, "canvas", requested);
+      if (notice.kind === "within") return null;
+      if (notice.kind === "refused") {
+        return <p role="status">{notice.message}</p>;
+      }
+      return (
+        <p role="status">
+          {notice.message}{" "}
+          <button onClick={() => mgr.setUserOverride("canvas", requested)}>
+            Show all
+          </button>
+        </p>
+      );
+    }
+    const { rerender } = render(
+      <WorkingSetProvider manager={manager}>
+        <ShowAllNotice requested={650} />
+      </WorkingSetProvider>,
+    );
+    expect(screen.getByRole("status").textContent).toMatch(/Show all\?/);
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(manager.getLimit("canvas")).toBe(650);
+
+    rerender(
+      <WorkingSetProvider manager={manager}>
+        <ShowAllNotice requested={801} />
+      </WorkingSetProvider>,
+    );
+    expect(screen.getByRole("status").textContent).toMatch(
+      /exceeds this deployment's canvas ceiling of 800/,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(manager.canRaise("canvas", 801)).toMatchObject({
+      ok: false,
+      reason: "above-ceiling",
+    });
+    expect(manager.getCeiling("canvas")).toBe(800);
+  });
+
+  it("a malformed document fails at setup with the shared typed error", () => {
+    expect(() =>
+      parseWorkingSetConfig(
+        JSON.stringify({ version: 1, limits: { canvass: { ceiling: 1 } } }),
+      ),
+    ).toThrow(/unknown view type "canvass"/);
   });
 });

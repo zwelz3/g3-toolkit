@@ -95,7 +95,17 @@ const BUDGETS = {
   // with the security fix above (+6.9 KB, measured on main the same
   // day) core is 173.0 KB, so the two raises stack: 176 keeps about
   // 3 KB of headroom, the posture both entries set.
-  core: 176.0 * 1024,
+  // Working-set configuration 2026-10-13 (issue #5): 176 -> 180.
+  // Measured 177.0 KB with the change on its branch (+4.0 KB over the
+  // 173.0 basis above): the versioned WorkingSetConfig document and
+  // its validator (working-set-config.ts, the throwing convention of
+  // model/document-errors.ts, so the error classes it reuses cost
+  // nothing new), and the manager's three-layer resolution (deployment
+  // default and ceiling, user override, canRaise/setUserOverride with
+  // a typed refusal). Pure core, no new dependency; the React provider
+  // that consumes it lives in @g3-toolkit/react. 180 keeps the same
+  // ~3 KB headroom posture the two entries above set.
+  core: 180.0 * 1024,
   // Core ledger:
   // - NO RAISE, 2026-08-15 (the @g3-toolkit/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against

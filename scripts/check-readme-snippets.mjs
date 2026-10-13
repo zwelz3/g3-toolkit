@@ -91,6 +91,9 @@ const PLACEHOLDERS = {
   // Everything else is the adopter's own code and has no toolkit type.
   caseId: "any",
   cy: "any",
+  // The deployment's working-set document, read from wherever the
+  // host keeps configuration (issue #5 recipe).
+  deploymentConfigText: "string",
   DossierLookup: "any",
   initialSpec: "any",
   logError: "any",
