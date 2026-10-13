@@ -1,11 +1,34 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 PUBLISHED: 2026-10-13
 
-Everything in this section is merged to `main` and NONE of it is in a
-published package. 1.1.0 (published 2026-10-13, without the entries
-below) is the released version on npm; the next tag is what moves these
-entries under a version heading.
+Published to npm as `@g3-toolkit/*` 1.2.0 under tag `v1.2.0`. This
+section holds everything merged between 1.1.0 and that tag: the
+host-integration round (#23), backlog round 2, and the #50 findings.
+
+A minor release under the version policy: every change to an exported
+name or prop is additive, and the two renames keep the old form as a
+deprecated alias. What an adopter on 1.1.0 should read before
+upgrading:
+
+- **Deprecated, still accepted:** `GraphToolbar`'s `cy` prop (use
+  `core`; one development warning when only `cy` is given) and
+  `useAnnounce` (use `useAnnouncer` with `AriaCompanion`'s
+  `announcement` prop). Both are removed no earlier than 2.0.0.
+- **Visible without a code change:** every view root carries
+  `g3t-view` (#45), so a host that imports only `style.css` now sees
+  the toolkit's 13px/1.5 typography where views used to inherit the
+  host's body text; and `style.css` no longer restyles the host page
+  (#24), whose page-wide rules moved to the opt-in `style.base.css`.
+- **Edge ids from the adapters change (#48).** Gremlin, Cypher and
+  triple-derived edges are keyed on the source's own id or on
+  `tripleEdgeKey`, so a host that persisted 1.1.0 edge ids (a selection,
+  a pin, a workspace snapshot) will not find them again.
+- **UGM snapshots are version 2 (#17).** 1.2.0 reads version 1 and
+  unversioned snapshots; 1.1.0 loads a version 2 snapshot without
+  checking its version and drops the derivation stamps.
+- **New regular dependency:** `@tanstack/react-virtual` in
+  `@g3-toolkit/react` (#47).
 
 ### 2026-10-13 (three incidental findings from the #19 inventory, #50)
 
