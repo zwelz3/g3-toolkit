@@ -1,0 +1,44 @@
+/*
+ * g3t PAGE styles: OPT-IN (published as @g3-toolkit/react/style.base.css).
+ *
+ * The universal reset and the body typography that g3t-base.css used
+ * to carry. They restyle the whole host page, which is right for an
+ * application built on the toolkit (the playground, Storybook, a
+ * dashboard that is nothing but g3t views) and wrong for a component
+ * dropped into somebody else's product (issue #24: list margins
+ * vanished and the body font changed on pages with no graph). So the
+ * component stylesheet no longer includes them, and this file is a
+ * second import a host adds on purpose:
+ *
+ *   import "@g3-toolkit/react/style.css";       // always
+ *   import "@g3-toolkit/react/style.base.css";  // page reset + body type
+ *
+ * Fonts are the host's to load. There is deliberately no @import of a
+ * font CDN here: a third-party request on load is unusable offline,
+ * under a strict CSP, and on air-gapped deployments. The expected
+ * faces are IBM Plex Sans (body) and IBM Plex Mono (code and
+ * identifiers), which the --g3t-font and --g3t-font-mono tokens name
+ * with system fallbacks; self-host them or load them from a CDN in
+ * the host document, or point the tokens at a face of your own.
+ */
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--g3t-font, "IBM Plex Sans", sans-serif);
+  font-size: var(--g3t-font-md, 13px);
+  line-height: var(--g3t-line-height, 1.5);
+  color: var(--g3t-text-primary, #212529);
+  background: var(--g3t-bg-primary, #fff);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

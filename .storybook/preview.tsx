@@ -14,6 +14,10 @@ import { injectDesignTokens } from "@g3-toolkit/core";
 // dist/style.css which only exists after build. For dev mode this
 // works against the live source file.
 import "../packages/react/src/theme/g3t-base.css";
+// The page reset and body typography are a separate OPT-IN file
+// (issue #24: the component stylesheet must not restyle a host page).
+// Storybook is our own page, so it opts in, as the playground does.
+import "../packages/react/src/theme/g3t-page.css";
 
 // Capitalised because Storybook RENDERS a decorator as a component, and
 // this one calls hooks. Lowercase `withTheme` read to react-hooks as a

@@ -1,9 +1,40 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "fs";
 import { resolve } from "path";
 import { externalsFromPackageJson } from "../../scripts/vite-externals.mjs";
 
 const external = externalsFromPackageJson(resolve(__dirname, "package.json"));
+
+/**
+ * Emit the OPT-IN page stylesheet as its own dist file.
+ *
+ * `cssCodeSplit: false` folds every stylesheet a JS entry imports into
+ * the one `style.css`, which is what the component styles want and
+ * exactly what the page reset must NOT do (issue #24: the reset and
+ * the `body` rule restyled the host page for anyone who imported the
+ * component styles). Nothing in src imports g3t-page.css, so it never
+ * reaches that bundle; this plugin copies it verbatim to
+ * `dist/style.base.css`, the target of the `./style.base.css` export.
+ * `fileName` is explicit so `assetFileNames` below (which maps every
+ * css asset onto style.css) does not fold it back in.
+ */
+const PAGE_CSS = resolve(__dirname, "src/theme/g3t-page.css");
+function emitPageStylesheet(): Plugin {
+  return {
+    name: "g3t-emit-page-stylesheet",
+    buildStart() {
+      this.addWatchFile(PAGE_CSS);
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "style.base.css",
+        source: readFileSync(PAGE_CSS, "utf8"),
+      });
+    },
+  };
+}
 
 /**
  * Multi-entry library build (P2.4).
@@ -16,6 +47,8 @@ const external = externalsFromPackageJson(resolve(__dirname, "package.json"));
  *   dist/a11y.{mjs,cjs}       ← ./a11y
  *   dist/timeline.{mjs,cjs}   ← ./timeline (opt-in; see below)
  *   dist/style.css            ← extracted CSS (from index entry)
+ *   dist/style.base.css       ← ./style.base.css (opt-in page reset;
+ *                                emitted by emitPageStylesheet below)
  *
  * `timeline` is its own entry for a packaging reason, not an
  * organisational one. TimelineView statically imports vis-timeline and
@@ -36,7 +69,7 @@ export default defineConfig({
   // 425.9 -> 357.1). Sourcemaps ship, so full minify is strictly
   // better than readable identifiers; the bundle budgets were
   // REBASED to this measurement basis in the same commit (ledger).
-  plugins: [react()],
+  plugins: [react(), emitPageStylesheet()],
   resolve: {
     alias: {
       "@g3-toolkit/core": resolve(__dirname, "../core/src"),

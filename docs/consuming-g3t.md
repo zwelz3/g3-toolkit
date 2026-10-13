@@ -46,6 +46,25 @@ canvas logs a one-time warning when the design tokens are absent
 from the document, which is the fastest way to spot a missing
 import.
 
+`style.css` styles the toolkit's own elements only: every rule is
+scoped to a `g3t-` class, it sets nothing on `html`, `body` or `*`,
+and it loads no font. A second, OPT-IN file carries the page-level
+reset (`box-sizing: border-box` and zero margins everywhere) and the
+`body` typography (IBM Plex Sans, 13px, theme ink and background)
+that the playground and Storybook use. Add it when the toolkit IS the
+page; leave it out when g3 views sit inside a product with its own
+styles:
+
+```ts
+import "@g3-toolkit/react/style.css"; // always
+import "@g3-toolkit/react/style.base.css"; // opt-in page reset + body type
+```
+
+Fonts are yours to load. The `--g3t-font` and `--g3t-font-mono`
+tokens name IBM Plex Sans and IBM Plex Mono with system fallbacks;
+self-host them or load them in your document, or override the tokens.
+[design-tokens.md](./design-tokens.md#typography) has the stack.
+
 To style your own chrome against ours, read the tokens the
 stylesheet defines. [design-tokens.md](./design-tokens.md) is the
 complete list, generated from the two emitters. Do not guess names:

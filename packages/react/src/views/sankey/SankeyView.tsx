@@ -8,9 +8,10 @@
  */
 
 import { useRef, useEffect, useMemo, useState } from "react";
-import * as echarts from "echarts";
+import type { ECharts } from "echarts";
 import type { UGM } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
+import { loadEcharts } from "../load-echarts";
 
 export type FlowMode = "sankey" | "chord";
 
@@ -34,6 +35,11 @@ export function SankeyView({
 }: SankeyViewProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [currentMode, setCurrentMode] = useState<FlowMode>(mode);
+  // echarts loads asynchronously (see load-echarts.ts); re-throwing a
+  // load or init failure from render keeps it inside ViewErrorBoundary
+  // instead of leaving an unhandled rejection.
+  const [chartError, setChartError] = useState<Error | null>(null);
+  if (chartError) throw chartError;
 
   // Aggregate edge counts between node types
   const { nodes, links } = useMemo(() => {
@@ -62,56 +68,76 @@ export function SankeyView({
   }, [ugm]);
 
   useEffect(() => {
-    if (!chartRef.current || nodes.length === 0 || links.length === 0) return;
+    const el = chartRef.current;
+    if (!el || nodes.length === 0 || links.length === 0) return;
 
-    // SVG renderer: equivalent output at type-graph scale, crisper
-    // labels, and it runs in jsdom (the canvas renderer needs a real
-    // 2d context), so the view is directly testable (review 5.5:
-    // this component relocated to Analytics with no suite of its own).
-    const chart = echarts.init(chartRef.current, undefined, {
-      renderer: "svg",
-    });
+    // The chart is built once the lazy module resolves; `cancelled`
+    // stops a stale callback from drawing on a container a later
+    // effect run owns.
+    let cancelled = false;
+    let chart: ECharts | null = null;
+    let observer: ResizeObserver | null = null;
 
-    if (currentMode === "sankey") {
-      chart.setOption({
-        tooltip: { trigger: "item" },
-        series: [
-          {
-            type: "sankey",
-            data: nodes,
-            links,
-            emphasis: { focus: "adjacency" },
-            lineStyle: { color: "gradient", curveness: 0.5 },
-          },
-        ],
+    const draw = (echarts: Awaited<ReturnType<typeof loadEcharts>>) => {
+      if (cancelled) return;
+      // SVG renderer: equivalent output at type-graph scale, crisper
+      // labels, and it runs in jsdom (the canvas renderer needs a real
+      // 2d context), so the view is directly testable (review 5.5:
+      // this component relocated to Analytics with no suite of its own).
+      chart = echarts.init(el, undefined, {
+        renderer: "svg",
       });
-    } else {
-      // Chord-like visualization via ECharts graph with circular layout
-      chart.setOption({
-        tooltip: {},
-        series: [
-          {
-            type: "graph",
-            layout: "circular",
-            data: nodes.map((n) => ({ ...n, symbolSize: 30 })),
-            links: links.map((l) => ({
-              ...l,
-              lineStyle: { width: Math.max(1, l.value) },
-            })),
-            roam: true,
-            label: { show: true },
-            emphasis: { focus: "adjacency" },
-          },
-        ],
-      });
-    }
 
-    const observer = new ResizeObserver(() => chart.resize());
-    observer.observe(chartRef.current);
+      if (currentMode === "sankey") {
+        chart.setOption({
+          tooltip: { trigger: "item" },
+          series: [
+            {
+              type: "sankey",
+              data: nodes,
+              links,
+              emphasis: { focus: "adjacency" },
+              lineStyle: { color: "gradient", curveness: 0.5 },
+            },
+          ],
+        });
+      } else {
+        // Chord-like visualization via ECharts graph with circular layout
+        chart.setOption({
+          tooltip: {},
+          series: [
+            {
+              type: "graph",
+              layout: "circular",
+              data: nodes.map((n) => ({ ...n, symbolSize: 30 })),
+              links: links.map((l) => ({
+                ...l,
+                lineStyle: { width: Math.max(1, l.value) },
+              })),
+              roam: true,
+              label: { show: true },
+              emphasis: { focus: "adjacency" },
+            },
+          ],
+        });
+      }
+
+      const instance = chart;
+      observer = new ResizeObserver(() => instance.resize());
+      observer.observe(el);
+    };
+
+    loadEcharts()
+      .then(draw)
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setChartError(err instanceof Error ? err : new Error(String(err)));
+      });
 
     return () => {
-      observer.disconnect();
-      chart.dispose();
+      cancelled = true;
+      observer?.disconnect();
+      chart?.dispose();
     };
   }, [nodes, links, currentMode]);
 
