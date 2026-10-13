@@ -109,11 +109,19 @@ export interface EncodingSpec {
     size?: ChannelEncoding<SizeScale>;
     icon?: ChannelEncoding<IconScale>;
     shape?: ChannelEncoding<ShapeScale>;
+    /** OVERRIDES the label the canvas converter stamps on every node
+     *  (`properties.name`, else the id); it never creates or removes
+     *  one. Dropping the channel restores that default rather than
+     *  hiding the label; a host that wants NO label adds a stylesheet
+     *  rule (`{ selector: "node", style: { label: "" } }`). */
     label?: ChannelEncoding<FixedScale<string>> | { driver: string };
   };
   edge: {
     color?: ChannelEncoding<ColorScale>;
     width?: ChannelEncoding<SizeScale>;
+    /** Same contract as node.label: overrides the converter's default
+     *  (the edge type); dropping it restores that default, and hiding
+     *  edge labels is a stylesheet rule, not a spec change. */
     label?: { driver: string } | undefined;
   };
 }

@@ -7,8 +7,31 @@
  */
 
 import type { ElementDefinition } from "cytoscape";
-import type { UGM } from "@g3-toolkit/core";
+import type { UGM, NodeAttributes, EdgeAttributes } from "@g3-toolkit/core";
 import { buildTypeVisualMap } from "./palette";
+
+/** The label the converter stamps on a node: `properties.name`, else
+ *  the id, with an explicit `properties.label` winning (the converter
+ *  spreads `attrs.properties` AFTER its own stamps). Exported as ONE
+ *  rule rather than restated in the canvas (issue #14): the encoding
+ *  spec's `label` channel OVERRIDES this value, it never creates or
+ *  removes it, so a spec that drops the channel has to RESTORE it,
+ *  and restoring from anything but the converter's own rule drifts. */
+export function defaultNodeLabel(id: string, attrs: NodeAttributes): unknown {
+  if (Object.prototype.hasOwnProperty.call(attrs.properties, "label")) {
+    return attrs.properties.label;
+  }
+  return typeof attrs.properties.name === "string" ? attrs.properties.name : id;
+}
+
+/** Edge counterpart of defaultNodeLabel: the edge type, with an
+ *  explicit `properties.label` winning for the same spread reason. */
+export function defaultEdgeLabel(attrs: EdgeAttributes): unknown {
+  if (Object.prototype.hasOwnProperty.call(attrs.properties, "label")) {
+    return attrs.properties.label;
+  }
+  return attrs.type;
+}
 
 /**
  * Convert all UGM nodes and edges to Cytoscape elements.
@@ -78,7 +101,7 @@ export function ugmToCytoscapeElements(
       group: "nodes",
       data: {
         id,
-        label: name,
+        label: defaultNodeLabel(id, attrs),
         ...(parentOf.has(id) ? { parent: parentOf.get(id) } : {}),
         ...(parentIds.has(id)
           ? { _compoundLabel: `\u00AB${primaryType}\u00BB\n${name}` }
@@ -147,7 +170,7 @@ export function ugmToCytoscapeElements(
         id: edgeId,
         source,
         target,
-        label: attrs.type,
+        label: defaultEdgeLabel(attrs),
         type: attrs.type,
         _confidence: attrs.meta.confidence ?? 1,
         // Cytoscape selectors can't match boolean false; use 0/1
