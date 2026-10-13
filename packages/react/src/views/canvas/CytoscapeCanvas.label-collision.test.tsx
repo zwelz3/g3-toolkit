@@ -19,6 +19,8 @@ type FakeEle = {
   removeData: (k: string) => void;
   hasClass: (c: string) => boolean;
   addClass: (c: string) => void;
+  remove: () => void;
+  position: () => { x: number; y: number };
   removeClass: (c: string) => void;
   visible: () => boolean;
   degree: () => number;
@@ -65,6 +67,12 @@ function fakeEle(
     },
     visible: () => true,
     degree: () => 0,
+    // The additive path (#64) reads survivor positions and removes a
+    // departing element in place.
+    position: () => ({ x: box.x1, y: box.y1 }),
+    remove: () => {
+      eles = eles.filter((e) => e.id() !== id);
+    },
     renderedBoundingBox: (opts: unknown) => {
       bboxCalls.push(opts);
       return box;
@@ -86,13 +94,19 @@ function fakeEle(
   };
 }
 const handlers = new Map<string, Array<(...a: unknown[]) => void>>();
+const onceHandlers = new Map<string, Array<(...a: unknown[]) => void>>();
 const cy = {
   on: vi.fn((evt: string, a: unknown, b?: unknown) => {
     const fn = (typeof a === "function" ? a : b) as (...x: unknown[]) => void;
     if (!handlers.has(evt)) handlers.set(evt, []);
     handlers.get(evt)!.push(fn);
   }),
-  one: vi.fn(),
+  // `one` carries the layout-settlement flag the canvas sets on the
+  // first layoutstop; it gates the pass an effect re-run makes (#64).
+  one: vi.fn((evt: string, fn: (...a: unknown[]) => void) => {
+    if (!onceHandlers.has(evt)) onceHandlers.set(evt, []);
+    onceHandlers.get(evt)!.push(fn);
+  }),
   removeListener: vi.fn(),
   destroyed: () => false,
   destroy: vi.fn(),
@@ -127,6 +141,7 @@ const cy = {
   zoom: vi.fn(() => 1),
   fit: vi.fn(),
   viewport: vi.fn(),
+  $id: (id: string) => cy.getElementById(id),
 };
 const cytoscapeFn = vi.fn((_opts?: unknown) => cy);
 vi.mock("cytoscape", () => ({ default: cytoscapeFn, __esModule: true }));
@@ -136,6 +151,9 @@ const { CytoscapeCanvas } = await import("./CytoscapeCanvas");
 
 const fireLayoutStop = () => {
   act(() => {
+    const once = onceHandlers.get("layoutstop") ?? [];
+    onceHandlers.delete("layoutstop");
+    for (const h of once) h();
     for (const h of handlers.get("layoutstop") ?? []) h();
   });
 };
@@ -167,6 +185,7 @@ describe("CytoscapeCanvas labelCollision (issue #40)", () => {
     cytoscapeFn.mockClear();
     cy.on.mockClear();
     handlers.clear();
+    onceHandlers.clear();
     bboxCalls.length = 0;
     useSelectionStore.setState({
       selectedNodeIds: new Set(),
@@ -451,6 +470,34 @@ describe("CytoscapeCanvas labelCollision (issue #40)", () => {
     });
     expect(b.classes.has("g3t-label-hidden")).toBe(false);
     expect(cytoscapeFn.mock.calls.length).toBe(1);
+  });
+
+  it("re-runs after an additive removal, so a label hidden under a departed label returns (#64)", () => {
+    eles = overprintingElements();
+    const g0 = threeNodeGraph();
+    const { rerender } = render(
+      <CytoscapeCanvas ugm={g0} graphUpdate="additive" labelCollision="hide" />,
+    );
+    fireLayoutStop();
+    const byId = (id: string) => eles.find((e) => e.id() === id)!;
+    expect(byId("b").classes.has("g3t-label-hidden")).toBe(true);
+    // A collapse drops a, the label that was covering b's.
+    const g1 = UGM.fromJSON(g0.toJSON());
+    g1.removeNode("a");
+    act(() => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={g1}
+          graphUpdate="additive"
+          labelCollision="hide"
+        />,
+      );
+    });
+    // In place (no re-init, no layout to fire layoutstop) ...
+    expect(cytoscapeFn.mock.calls.length).toBe(1);
+    expect(eles.map((e) => e.id())).toEqual(["b", "c"]);
+    // ... and the pass re-ran on the ugm change: nothing covers b now.
+    expect(byId("b").classes.has("g3t-label-hidden")).toBe(false);
   });
 
   it("is a no-op when the instance cannot measure labels (jsdom / minimal mock)", () => {

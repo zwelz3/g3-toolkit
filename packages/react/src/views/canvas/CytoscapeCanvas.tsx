@@ -2889,6 +2889,12 @@ export function CytoscapeCanvas({
       cy.removeListener("zoom", schedule);
       cy.removeListener("dragfree", "node", run);
     };
+    // `ugm` is here for the additive path (#64): a pure removal runs
+    // no layout, so without it a label hidden under a REMOVED node's
+    // label stayed hidden until the next zoom, selection or layout
+    // pass. Growth already re-runs through fcose's layoutstop, and a
+    // rebuild through the overlayCy flip; the additive effect sits
+    // above this one, so the removal is in cytoscape when this runs.
   }, [
     overlayCy,
     labelCollision,
@@ -2897,6 +2903,7 @@ export function CytoscapeCanvas({
     hidden,
     theme,
     stylesheetKey,
+    ugm,
   ]);
 
   // Bugfix 16: belt-and-suspenders contextmenu suppression. We already
