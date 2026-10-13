@@ -25,9 +25,12 @@ type FakeEle = {
   visible: () => boolean;
   degree: () => number;
   renderedBoundingBox: (opts: unknown) => Box;
-  /** Parsed-style read, as cytoscape's `pstyle("label").strValue`;
-   *  absent on the minimal (headless) variant. */
-  pstyle?: (name: string) => { strValue: string } | undefined;
+  /** Parsed-style read, as cytoscape's `pstyle("label").strValue` and
+   *  `pstyle("text-opacity").pfValue`; absent on the minimal (headless)
+   *  variant. */
+  pstyle?: (
+    name: string,
+  ) => { strValue?: string; pfValue?: number; value?: number } | undefined;
   empty: () => boolean;
   nonempty: () => boolean;
   classes: Set<string>;
@@ -44,6 +47,10 @@ function fakeEle(
   // field, as the converter's mapping does. "" models a host rule that
   // blanks the label (issue #60), which the data field cannot show.
   renderedLabel?: string,
+  // What `pstyle("text-opacity")` reports; cytoscape's renderer reads
+  // `pfValue`, and a 0 keeps the full label box while drawing nothing
+  // (issue #68). Default: fully opaque.
+  textOpacity: { pfValue?: number; value?: number } = { pfValue: 1, value: 1 },
 ): FakeEle {
   const store: Record<string, unknown> = { id, label: id, ...data };
   const classes = new Set<string>();
@@ -77,16 +84,17 @@ function fakeEle(
       bboxCalls.push(opts);
       return box;
     },
-    // The hidden class blanks the label like the real rule does, so a
-    // pass that measured before clearing would read "" here.
-    pstyle: (name: string) =>
-      name === "label"
-        ? {
-            strValue: classes.has("g3t-label-hidden")
-              ? ""
-              : (renderedLabel ?? String(store.label)),
-          }
-        : undefined,
+    // The hidden class blanks the label like the real rule does, and
+    // the `[_labelShort]` rule maps it to the short form, so a pass
+    // that measured before clearing would read "" or the truncation.
+    pstyle: (name: string) => {
+      if (name === "text-opacity") return textOpacity;
+      if (name !== "label") return undefined;
+      if (classes.has("g3t-label-hidden")) return { strValue: "" };
+      if (store._labelShort !== undefined)
+        return { strValue: String(store._labelShort) };
+      return { strValue: renderedLabel ?? String(store.label) };
+    },
     empty: () => false,
     nonempty: () => true,
     classes,
@@ -406,6 +414,210 @@ describe("CytoscapeCanvas labelCollision (issue #40)", () => {
     render(<CytoscapeCanvas ugm={threeNodeGraph()} labelCollision="hide" />);
     fireLayoutStop();
     for (const e of eles) expect(e.classes.has("g3t-label-hidden")).toBe(false);
+  });
+
+  it("a label at rendered text-opacity 0 is neither measured, ranked, hidden nor shortened (issue #68)", () => {
+    // n's real label; e1 (outranking) and e2 (outranked) carry real
+    // label boxes over it that the stylesheet draws at opacity 0 (how
+    // `labelVisible: false` blanks a label). Without the opacity read
+    // e1 would win the spot and n would be shortened or hidden, and e2
+    // would take _labelShort or the hide class for a label nobody sees.
+    // e1 reports the parsed number as cytoscape does (pfValue); e2
+    // reports only the raw `value`, the fallback read.
+    eles = [
+      fakeEle(
+        "n",
+        "node",
+        { x1: 0, y1: 0, w: 40, h: 12 },
+        { _labelPriority: 5 },
+      ),
+      fakeEle(
+        "e1",
+        "edge",
+        { x1: 0, y1: 0, w: 160, h: 12 },
+        { source: "a", target: "b", _labelPriority: 10, label: "e".repeat(40) },
+        undefined,
+        { pfValue: 0, value: 0 },
+      ),
+      fakeEle(
+        "e2",
+        "edge",
+        { x1: 0, y1: 0, w: 160, h: 12 },
+        { source: "b", target: "c", _labelPriority: 1, label: "e".repeat(40) },
+        undefined,
+        { value: 0 },
+      ),
+    ];
+    render(
+      <CytoscapeCanvas
+        ugm={threeNodeGraph()}
+        labelCollision="shorten"
+        labelMaxLength={10}
+      />,
+    );
+    fireLayoutStop();
+    expect(bboxCalls.length).toBe(1);
+    for (const e of eles) {
+      expect(e.classes.has("g3t-label-hidden")).toBe(false);
+      expect(e.store._labelShort).toBeUndefined();
+    }
+  });
+
+  it("a whitespace-only rendered label is neither measured, ranked, hidden nor shortened (issue #68)", () => {
+    // Same shape as the text-opacity case, with a host rule that
+    // renders whitespace instead of "". The data label stays intact.
+    eles = [
+      fakeEle(
+        "n",
+        "node",
+        { x1: 0, y1: 0, w: 40, h: 12 },
+        { _labelPriority: 5 },
+      ),
+      fakeEle(
+        "e1",
+        "edge",
+        { x1: 0, y1: 0, w: 160, h: 12 },
+        { source: "a", target: "b", _labelPriority: 10, label: "e".repeat(40) },
+        " \t\n",
+      ),
+      fakeEle(
+        "e2",
+        "edge",
+        { x1: 0, y1: 0, w: 160, h: 12 },
+        { source: "b", target: "c", _labelPriority: 1, label: "e".repeat(40) },
+        "   ",
+      ),
+    ];
+    render(
+      <CytoscapeCanvas
+        ugm={threeNodeGraph()}
+        labelCollision="shorten"
+        labelMaxLength={10}
+      />,
+    );
+    fireLayoutStop();
+    expect(bboxCalls.length).toBe(1);
+    for (const e of eles) {
+      expect(e.classes.has("g3t-label-hidden")).toBe(false);
+      expect(e.store._labelShort).toBeUndefined();
+      expect(e.store.label).not.toBe("");
+    }
+  });
+
+  it("falls back to the data label for candidacy and shortening when the instance cannot report its parsed style", () => {
+    // No pstyle: neither the text-opacity nor the rendered-label read
+    // can veto a candidate, so the data label decides, as before #60.
+    eles = [
+      fakeEle(
+        "a",
+        "node",
+        { x1: 120, y1: 0, w: 40, h: 12 },
+        { _labelPriority: 2 },
+      ),
+      fakeEle(
+        "b",
+        "node",
+        { x1: 0, y1: 0, w: 160, h: 12 },
+        { label: "b".repeat(40) },
+      ),
+      fakeEle("c", "node", { x1: 130, y1: 2, w: 20, h: 8 }, {}),
+    ].map((e) => ({ ...e, pstyle: undefined }) as unknown as FakeEle);
+    const ugm = threeNodeGraph();
+    render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        labelCollision="shorten"
+        labelMaxLength={10}
+      />,
+    );
+    fireLayoutStop();
+    const byId = (id: string) => eles.find((e) => e.id() === id)!;
+    expect(bboxCalls.length).toBe(3);
+    expect(byId("b").store._labelShort).toBe("b".repeat(9) + "…");
+    expect(byId("b").classes.has("g3t-label-hidden")).toBe(false);
+    // c sits inside a's box and cannot shorten (3 chars): hidden.
+    expect(byId("c").classes.has("g3t-label-hidden")).toBe(true);
+    expect(byId("a").classes.has("g3t-label-hidden")).toBe(false);
+  });
+
+  it('"shorten" truncates the RENDERED label, so a host `label: data(name)` rule is shortened from `name` (issue #68)', () => {
+    // b's data label is the short converter default ("b"); the host
+    // stylesheet renders `name`, 40 chars over 160px. Before the fix
+    // the pass truncated "b" (already within maxLength), so the loser
+    // could not shorten and was hidden instead.
+    const name = "x".repeat(40);
+    eles = [
+      fakeEle(
+        "a",
+        "node",
+        { x1: 120, y1: 0, w: 40, h: 12 },
+        { _labelPriority: 2 },
+      ),
+      fakeEle("b", "node", { x1: 0, y1: 0, w: 160, h: 12 }, { name }, name),
+    ];
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["T"] });
+    ugm.addNode("b", { types: ["T"] });
+    render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        labelCollision="shorten"
+        labelMaxLength={10}
+      />,
+    );
+    fireLayoutStop();
+    const b = eles[1]!;
+    expect(b.classes.has("g3t-label-hidden")).toBe(false);
+    expect(b.store._labelShort).toBe("x".repeat(9) + "…");
+    // Neither `label` nor `name` is written.
+    expect(b.store.label).toBe("b");
+    expect(b.store.name).toBe(name);
+  });
+
+  it("two consecutive passes measure the original rendered label, never the previous truncation (issue #68)", () => {
+    // Once _labelShort is written the `[_labelShort]` rule makes the
+    // RENDERED label the short form (the mock models that). A second
+    // pass that read it would find a 10-char label that cannot shorten
+    // further and would hide b; the strip before measure keeps the
+    // outcome stable.
+    eles = [
+      fakeEle(
+        "a",
+        "node",
+        { x1: 120, y1: 0, w: 40, h: 12 },
+        { _labelPriority: 2 },
+      ),
+      fakeEle(
+        "b",
+        "node",
+        { x1: 0, y1: 0, w: 160, h: 12 },
+        { label: "b".repeat(40) },
+      ),
+    ];
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["T"] });
+    ugm.addNode("b", { types: ["T"] });
+    render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        labelCollision="shorten"
+        labelMaxLength={10}
+      />,
+    );
+    fireLayoutStop();
+    const b = eles[1]!;
+    const short = "b".repeat(9) + "…";
+    expect(b.store._labelShort).toBe(short);
+    // The mock renders the short form now, as the scoped rule would.
+    expect(b.pstyle!("label")?.strValue).toBe(short);
+    fireLayoutStop();
+    expect(b.store._labelShort).toBe(short);
+    expect(b.classes.has("g3t-label-hidden")).toBe(false);
+    act(() => {
+      useSelectionStore.getState().selectNodes(["c"]);
+    });
+    expect(b.store._labelShort).toBe(short);
+    expect(b.classes.has("g3t-label-hidden")).toBe(false);
   });
 
   it('"shorten": writes _labelShort for a loser whose truncated box fits, no class', () => {

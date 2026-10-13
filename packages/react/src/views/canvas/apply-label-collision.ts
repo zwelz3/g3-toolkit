@@ -17,6 +17,20 @@
  * measure, so a pass starts from the full labels and never judges a
  * label against its own previous truncation.
  *
+ * Candidacy follows the RENDERED label, not the data field (issues
+ * #60 and #68): an element is a candidate only when it carries the
+ * converter's `label` data field AND the stylesheet actually draws
+ * something for it. A rendered label that is empty or whitespace only
+ * (`label: ""` by rule), or a rendered `text-opacity` of 0 (how
+ * `labelVisible: false` and the structural converter blank a label),
+ * draws nothing, so such an element is not measured, not ranked,
+ * never given the hide class, and never given `_labelShort`. Shorten
+ * mode truncates the rendered label too, so a host rule mapping
+ * `label: data(name)` is shortened from `name`. When the instance
+ * cannot report its parsed style (headless, or a minimal mock without
+ * `pstyle`) the data `label` is the only evidence and both rules fall
+ * back to it.
+ *
  * Restyle only, by construction: no layout call, no camera call, no
  * position write. Headless-safe: a minimal mock or a jsdom instance
  * without a renderer yields no measurable boxes, and the pass is a
@@ -69,7 +83,9 @@ type MeasurableElement = SingularElementArgument & {
   degree?: (includeLoops: boolean) => number;
   /** Cytoscape's parsed-style read; undefined on a style-disabled
    *  (headless) instance, and absent from a minimal mock. */
-  pstyle?: (name: string) => { strValue?: unknown } | undefined;
+  pstyle?: (
+    name: string,
+  ) => { strValue?: unknown; pfValue?: unknown; value?: unknown } | undefined;
 };
 
 /** The label as the stylesheet renders it, or undefined when the
@@ -84,6 +100,25 @@ function readRenderedLabel(ele: MeasurableElement): string | undefined {
     const prop = ele.pstyle("label");
     if (!prop) return undefined;
     return typeof prop.strValue === "string" ? prop.strValue : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The rendered `text-opacity`, or undefined when the instance cannot
+ *  say (same fallback as readRenderedLabel). Cytoscape's renderer reads
+ *  the parsed number as `pfValue`; `value` is the belt for a mock that
+ *  reports only the raw one. A label drawn at opacity 0 keeps its full
+ *  box, so the box alone cannot tell it from a shown label (issue #68),
+ *  and the toolkit itself blanks labels this way (`labelVisible:
+ *  false`, structural port labels). */
+function readRenderedTextOpacity(ele: MeasurableElement): number | undefined {
+  if (typeof ele.pstyle !== "function") return undefined;
+  try {
+    const prop = ele.pstyle("text-opacity");
+    if (!prop) return undefined;
+    if (typeof prop.pfValue === "number") return prop.pfValue;
+    return typeof prop.value === "number" ? prop.value : undefined;
   } catch {
     return undefined;
   }
@@ -139,16 +174,27 @@ export function applyLabelCollisionPass(
     // Only the converter's `label` field is a candidate: structural
     // sub-elements render `_label` through class rules and a bare
     // element without a label has nothing to collide.
-    const text = ele.data("label");
-    if (typeof text !== "string" || text === "") return;
+    const dataLabel = ele.data("label");
+    if (typeof dataLabel !== "string" || dataLabel.trim() === "") return;
     // Candidacy follows the RENDERED label, not the data field: a
     // label the stylesheet blanks measures as a zero box at the pan
     // point, which would rank against (and could hide) a real label
     // covering that point, and could itself take the hide class, which
     // then suppresses the label when a hover rule later shows it. Such
-    // an element is not measured at all. The zero-size guard below is
-    // the belt for an instance that cannot report its parsed style.
-    if (readRenderedLabel(ele) === "") return;
+    // an element is not measured at all. Whitespace draws nothing
+    // either, and a label at `text-opacity: 0` keeps its full box while
+    // drawing nothing (issue #68), so both are out on the same grounds.
+    // The zero-size guard below is the belt for an instance that
+    // cannot report its parsed style.
+    const rendered = readRenderedLabel(ele);
+    if (rendered !== undefined && rendered.trim() === "") return;
+    if (readRenderedTextOpacity(ele) === 0) return;
+    // Shorten truncates what is drawn: under a host rule such as
+    // `label: data(name)` the data `label` is the wrong field. The
+    // previous pass's `_labelShort` was stripped above (and the batch
+    // end flushed the style), so this is the full label, never the
+    // already-shortened one.
+    const text = rendered ?? dataLabel;
     const box = readLabelBox(ele);
     if (!box || box.w <= 0 || box.h <= 0) return;
     const isNode = ele.isNode();
