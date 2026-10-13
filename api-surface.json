@@ -92,6 +92,7 @@
     "parseChangeSet",
     "parseGraphDocument",
     "parseJsonObject",
+    "parseWorkingSetConfig",
     "pinNodes",
     "polylineIntersectsBoxes",
     "prefersReducedMotion",
@@ -121,6 +122,7 @@
     "typeCollapse",
     "validateGraphDocument",
     "validateShacl",
+    "validateWorkingSetConfig",
     "virtualizeRelationalData"
   ],
   "@g3-toolkit/core/adapters": [
@@ -330,6 +332,7 @@
     "ViewErrorBoundary",
     "VisualEncodingManager",
     "WorkingSetManager",
+    "WorkingSetProvider",
     "ZoomControls",
     "applyBulkStyle",
     "applyEmphasisClasses",
@@ -365,6 +368,7 @@
     "findShortestPath",
     "fromLegacyConfig",
     "getCsv",
+    "getDefaultWorkingSetManager",
     "getIcon",
     "glyphStrokeFor",
     "harvestSceneFromCy",
@@ -426,9 +430,11 @@
     "useStructuralLayout",
     "useStyleOverrideStore",
     "useThemeStore",
+    "useWorkingSetManager",
     "warnOnCustomPalette",
     "wireCytoscapeContextActions",
-    "wireStructuralPortDrag"
+    "wireStructuralPortDrag",
+    "workingSetLimitMessage"
   ],
   "@g3-toolkit/react/views": [
     "CytoscapeCanvas",
@@ -552,9 +558,11 @@
     "EMPHASIS_DIM_CLASS",
     "EMPHASIS_EDGE_CLASS",
     "UndoRedoStack",
+    "WorkingSetProvider",
     "applyEmphasisClasses",
     "computeLockedIds",
     "computeOverlayMembership",
+    "getDefaultWorkingSetManager",
     "overriddenNodeIds",
     "overrideScopeSummary",
     "useEmphasisStore",
@@ -562,7 +570,9 @@
     "useOverlayStore",
     "usePositionPinStore",
     "useSelectionStore",
-    "useStyleOverrideStore"
+    "useStyleOverrideStore",
+    "useWorkingSetManager",
+    "workingSetLimitMessage"
   ],
   "@g3-toolkit/react/theme": [
     "DARK_SHADOWS",

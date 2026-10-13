@@ -101,7 +101,11 @@ const BUDGETS = {
   // document errors) and tripleEdgeKey (#48, +0.7 KB) were measured on
   // separate branches; merged, core measures 177.3 KB. About 2.7 KB
   // headroom, same posture as the entries above.
-  core: 180.0 * 1024,
+  // Plus the working-set configuration (#5, +3.1 KB on its branch: the
+  // versioned WorkingSetConfig document and validator, the manager's
+  // default/ceiling/user-override resolution): 180 -> 184, measured
+  // after the merge (see the core line's comment history).
+  core: 184.0 * 1024,
   // Core ledger:
   // - NO RAISE, 2026-08-15 (the @g3-toolkit/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against

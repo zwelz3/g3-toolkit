@@ -293,11 +293,18 @@ export type { Combo } from "./combo";
 export {
   WorkingSetManager,
   DEFAULT_LIMIT_STRATEGIES,
+  parseWorkingSetConfig,
+  validateWorkingSetConfig,
 } from "./working-set-manager";
 export type {
   ViewType,
   LimitCheckResult,
   LimitStrategy,
+  RaiseAllowed,
+  RaiseRefused,
+  RaiseResult,
+  WorkingSetConfig,
+  WorkingSetViewLimit,
 } from "./working-set-manager";
 
 // ── Paging over query results (issue #6; D6 logic) ──────────────────

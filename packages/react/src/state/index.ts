@@ -31,3 +31,17 @@ export {
   EMPHASIS_DIM_CLASS,
 } from "./emphasis-store";
 export type { EmphasisState, EmphasisCoreLike } from "./emphasis-store";
+
+// Working-set limits reach the views through this context (issue #5):
+// an explicit prop, then the nearest provider, then a module default
+// that keeps provider-less hosts on today's behavior.
+export {
+  WorkingSetProvider,
+  useWorkingSetManager,
+  getDefaultWorkingSetManager,
+  workingSetLimitMessage,
+} from "./working-set-context";
+export type {
+  WorkingSetProviderProps,
+  WorkingSetLimitMessage,
+} from "./working-set-context";

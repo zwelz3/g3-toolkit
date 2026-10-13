@@ -25,15 +25,17 @@ import { useMemo, useCallback, useState } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { scaleColor, pageCategories, pageCount } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { useWorkingSetManager } from "../../state/working-set-context";
 import { EmptyState } from "../../interaction/feedback";
 import { PaginationControl } from "../../interaction/pagination";
 
 export interface MatrixViewProps {
   ugm: UGM;
-  /** Page size per axis (default 200, R7.3): a matrix with more node
-   *  types than this pages rows and columns independently. A host that
-   *  consults `WorkingSetManager.checkLimit("matrix", n)` passes its
-   *  `pageSize` here. */
+  /** Page size per axis (R7.3): a matrix with more node types than
+   *  this pages rows and columns independently. Defaults to the matrix
+   *  limit of the nearest `WorkingSetProvider` (200 built in); a host
+   *  that consults `WorkingSetManager.checkLimit("matrix", n)` passes
+   *  its `pageSize` here. */
   maxSize?: number;
   /** VR-18 (owner verification 2026-07-26): stretch the table to
    *  the host's width (the analytics rail) instead of the natural
@@ -51,11 +53,13 @@ interface MatrixCell {
 
 export function MatrixView({
   ugm,
-  maxSize = 200,
+  maxSize: maxSizeProp,
   fill = false,
   className,
 }: MatrixViewProps) {
   const { selectNodes } = useSelectionStore();
+  const workingSet = useWorkingSetManager();
+  const maxSize = maxSizeProp ?? workingSet.getLimit("matrix");
   // Zero-based page per axis. Clamped at read time (below) rather than
   // reset in an effect, so a graph that shrinks never leaves the view
   // on a page past the end for a render.

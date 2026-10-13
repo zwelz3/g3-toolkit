@@ -66,7 +66,8 @@ export type DocumentKind =
   | "algorithm-result"
   | "shacl-report"
   | "style-config"
-  | "change-set";
+  | "change-set"
+  | "working-set-config";
 
 /**
  * Shared failure vocabulary. Used by the throwing parsers as

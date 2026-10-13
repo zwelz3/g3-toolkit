@@ -1475,6 +1475,92 @@ The error belongs to the input that produced it: switching inputs
 clears it, and a later successful layout of the same input clears it
 too.
 
+## Set deployment working-set limits
+
+Working-set limits (canvas 500, table 10,000, tree 1,000, matrix 200,
+sankey 100, streaming 500 by default) are a property of the hardware a
+deployment runs on, so they are configuration, not code. A platform
+administrator writes one versioned document per deployment; the host
+resolves it once at setup into a manager and mounts a provider around
+the views. Every view that enforces a limit (TreeView, MatrixView, and
+`expandNeighbors` through the manager you hand it) reads it from the
+nearest provider; an explicit `workingSetManager` prop wins over the
+provider, and with neither the module default keeps today's behavior.
+
+```tsx
+import { WorkingSetManager, parseWorkingSetConfig } from "@g3-toolkit/core";
+import { WorkingSetProvider, TreeView, MatrixView } from "@g3-toolkit/react";
+
+// Resolve ONCE at host setup, outside render: the manager's identity
+// is what carries any user override.
+const manager = WorkingSetManager.fromConfig(
+  parseWorkingSetConfig(deploymentConfigText),
+);
+
+function Workbench() {
+  return (
+    <WorkingSetProvider manager={manager}>
+      <TreeView ugm={ugm} />
+      <MatrixView ugm={ugm} />
+    </WorkingSetProvider>
+  );
+}
+```
+
+The document (every view and every field optional):
+
+```json
+{
+  "version": 1,
+  "limits": {
+    "canvas": { "default": 300, "ceiling": 800 },
+    "tree": { "ceiling": 2000 },
+    "matrix": { "default": 150 }
+  }
+}
+```
+
+Two numbers per view, from spec decision D5: `default` is the soft
+limit an analyst may raise with an explicit acknowledgment; `ceiling`
+is the hard limit no user action can exceed. Precedence, lowest to
+highest: built-in defaults, then the deployment document (whose
+ceiling also bounds everything beneath it), then a per-user override.
+`parseWorkingSetConfig` throws the same typed `DocumentParseError`
+subclasses as the other versioned documents (unknown view names and a
+`default` above its own `ceiling` are rejected rather than ignored),
+so a broken document fails at setup instead of configuring nothing.
+
+The "explicit user action to exceed" rule goes through the manager,
+which answers with a typed result rather than a throw:
+
+```tsx
+import {
+  useWorkingSetManager,
+  workingSetLimitMessage,
+} from "@g3-toolkit/react";
+
+function ShowAllNotice({ requested }: { requested: number }) {
+  const manager = useWorkingSetManager();
+  const notice = workingSetLimitMessage(manager, "canvas", requested);
+  if (notice.kind === "within") return null;
+  if (notice.kind === "refused") return <p role="status">{notice.message}</p>;
+  // "prompt": the request is above the soft default but under the ceiling.
+  return (
+    <p role="status">
+      {notice.message}{" "}
+      <button onClick={() => manager.setUserOverride("canvas", requested)}>
+        Show all
+      </button>
+    </p>
+  );
+}
+```
+
+`canRaise(view, n)` is the pure form of the same check; `getCeiling`
+reports the administrator bound (undefined when unbounded); and
+`setUserOverride` refuses above the ceiling with
+`{ ok: false, reason: "above-ceiling" }` and leaves the limit in force.
+
 ## Programmatic APIs
 
 Every snippet here runs under CI in
