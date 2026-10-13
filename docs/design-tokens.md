@@ -10,8 +10,12 @@ Two functions emit these, and this table is generated from them:
 
 - `injectDesignTokens()` (`@g3-toolkit/core`) for the spatial,
   typographic, and scale constants. Call once at startup.
-- `injectCssVariables()` (`@g3-toolkit/react`, via `useThemeStore`)
-  for everything that changes with the active theme.
+- `injectCssVariables()` (`@g3-toolkit/react`, via `useThemeStore`
+  and `applyTheme`) for everything that changes with the active
+  theme. These land on `<html>` by default, or on the element the
+  host names as the theme target (`setThemeTarget`, or
+  `applyTheme(theme, { target })`), together with `color-scheme`;
+  the vocabulary is the same either way.
 
 Values in the "source" column name the constant or theme field
 supplying them, not the literal, since the theme-driven half changes

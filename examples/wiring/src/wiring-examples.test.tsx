@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
@@ -61,6 +61,8 @@ import {
   FacetFilter,
   applyEncodingSpec,
   createTheme,
+  applyTheme,
+  themeFromCssVariables,
   createCameraController,
   ProvenanceTrace,
   Minimap,
@@ -158,6 +160,35 @@ describe("wiring guide: custom buttons", () => {
     useThemeStore.getState().setTheme("dark");
     expect(useThemeStore.getState().theme.id).toBe("dark");
     useThemeStore.getState().setTheme("light");
+  });
+
+  it("theme scoped to the graph area: setThemeTarget on mount, clearTheme on unmount", () => {
+    const root = document.documentElement.style;
+    root.removeProperty("color-scheme");
+    root.removeProperty("--g3t-bg-primary");
+    function GraphArea() {
+      const ref = useRef<HTMLDivElement>(null);
+      useEffect(() => {
+        const { setThemeTarget, clearTheme } = useThemeStore.getState();
+        setThemeTarget(ref.current!);
+        return () => clearTheme();
+      }, []);
+      return <div ref={ref} data-testid="graph-area" />;
+    }
+    const { unmount } = render(<GraphArea />);
+    useThemeStore.getState().setTheme("dark");
+    const area = screen.getByTestId("graph-area") as HTMLElement;
+    expect(area.style.getPropertyValue("color-scheme")).toBe("dark");
+    expect(area.style.getPropertyValue("--g3t-bg-primary")).not.toBe("");
+    // The host page keeps its own scheme.
+    expect(root.getPropertyValue("color-scheme")).toBe("");
+    expect(root.getPropertyValue("--g3t-bg-primary")).toBe("");
+    unmount();
+    expect(area.style.getPropertyValue("color-scheme")).toBe("");
+    expect(area.style.getPropertyValue("--g3t-bg-primary")).toBe("");
+    useThemeStore.getState().setThemeTarget("root");
+    useThemeStore.getState().setTheme("light");
+    useThemeStore.getState().clearTheme();
   });
 
   it("algorithm result from a backend response, overlay registered", () => {
@@ -937,6 +968,33 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(theme.id).toBe("acme");
     expect(theme.bgPrimary.length).toBeGreaterThan(0);
     expect(theme.textPrimary.length).toBeGreaterThan(0);
+  });
+
+  it("themeFromCssVariables + applyTheme: follow the host's variables, dispose on unmount", () => {
+    const sheet = document.createElement("style");
+    sheet.textContent =
+      ":root { --app-surface: #111111; --app-text: #eeeeee; --app-accent: #ff8800; }";
+    document.head.appendChild(sheet);
+    const theme = themeFromCssVariables(
+      document.body,
+      {
+        bgPrimary: "--app-surface",
+        textPrimary: "--app-text",
+        accentPrimary: "--app-accent",
+      },
+      { id: "app", name: "App", colorScheme: "dark" },
+    );
+    expect(theme.bgPrimary).toBe("#111111");
+    expect(theme.accentPrimary).toBe("#ff8800");
+    const dispose = applyTheme(theme, { target: document.body });
+    expect(document.body.style.getPropertyValue("--g3t-bg-primary")).toBe(
+      "#111111",
+    );
+    expect(document.body.style.getPropertyValue("color-scheme")).toBe("dark");
+    dispose();
+    expect(document.body.style.getPropertyValue("--g3t-bg-primary")).toBe("");
+    expect(document.body.style.getPropertyValue("color-scheme")).toBe("");
+    sheet.remove();
   });
 
   it("createCameraController drives the cy viewport imperatively", () => {
