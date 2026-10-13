@@ -398,7 +398,13 @@ const BUDGETS = {
   // bytes across react's 15 dist maps (885,513 source bytes, all
   // first-party), so no vendored weight. Headroom 5 KB, modest on
   // purpose as the previous entries set it.
-  react: 434 * 1024,
+  // Round-2 integration (2026-10-13): 434 -> 440. The #47 table entry
+  // above (429.0 KB) and the #20 overlay sequence (+5.6 KB: the
+  // useOverlaySequence hook, OverlayTransport and the pure rules,
+  // tree-shakeable named exports) were measured on separate branches;
+  // merged, react measures 436.4 KB. About 3.5 KB headroom, same
+  // posture as the entries above.
+  react: 440 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the
