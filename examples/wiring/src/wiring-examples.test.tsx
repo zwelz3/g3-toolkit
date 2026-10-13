@@ -31,6 +31,9 @@ import {
   resultSelectionIds,
   resultDetail,
   findShortestPath,
+  allShortestPaths,
+  kShortestPaths,
+  type PathGraph,
   exportSubgraphJson,
   exportSubgraphCsv,
   createPresetPipeline,
@@ -727,6 +730,83 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(path.found).toBe(true);
     expect(path.nodeIds).toEqual(["a", "b", "c"]);
     expect(path.length).toBe(2);
+  });
+
+  it("path options: maxHops, directed, nodeFilter (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    // a - b - c plus a hub joining a and c directly.
+    ugm.addNode("hub:1", { types: ["Hub"], properties: {} });
+    ugm.addEdge("a", "hub:1", { type: "feeds" });
+    ugm.addEdge("hub:1", "c", { type: "feeds" });
+    ugm.addEdge("c", "a", { type: "returns" });
+
+    const bounded = findShortestPath(ugm, "a", "c", {
+      maxHops: 4,
+      directed: true,
+      nodeFilter: (id) => !id.startsWith("hub:"),
+    });
+    expect(bounded.nodeIds).toEqual(["a", "b", "c"]);
+    // Undirected, c - a is one hop; directed, that edge points the
+    // other way.
+    expect(findShortestPath(ugm, "a", "c").length).toBe(1);
+    // A farther target under maxHops is reported not found.
+    expect(
+      findShortestPath(ugm, "a", "c", { maxHops: 1, directed: true }).found,
+    ).toBe(false);
+    expect(
+      allShortestPaths(ugm, "a", "c", { maxHops: 1, directed: true }).found,
+    ).toBe(false);
+  });
+
+  it("kShortestPaths lists individual routes, shortest first (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    ugm.addNode("hub:1", { types: ["Hub"], properties: {} });
+    ugm.addEdge("a", "hub:1", { type: "feeds" });
+    ugm.addEdge("hub:1", "c", { type: "feeds" });
+    ugm.addEdge("a", "c", { type: "direct" });
+    const routes = kShortestPaths(ugm, "a", "c", { k: 5, maxHops: 4 });
+    expect(routes.map((r) => r.nodeIds)).toEqual([
+      ["a", "c"],
+      ["a", "b", "c"],
+      ["a", "hub:1", "c"],
+    ]);
+    expect(routes.every((r) => r.edgeIds.length === r.nodeIds.length - 1)).toBe(
+      true,
+    );
+    // k larger than the number of routes: a shorter array, not an error.
+    expect(kShortestPaths(ugm, "a", "c", { k: 50 })).toHaveLength(3);
+  });
+
+  it("PathGraph: a four-method view stands in for a UGM (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    const view: PathGraph = {
+      hasNode: (id) => ugm.hasNode(id),
+      getNodeEdges: (id) => ugm.getNodeEdges(id),
+      getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+      getEdge: (id) => ugm.getEdge(id),
+    };
+    expect(findShortestPath(view, "a", "c").nodeIds).toEqual(["a", "b", "c"]);
+    expect(kShortestPaths(view, "a", "c", { k: 2 })).toHaveLength(1);
+  });
+
+  it("UGM.addEdge keeps a host-supplied key as the edge id (guide: The integration surface)", () => {
+    const ugm = new UGM();
+    ugm.addNode("pump-1", { types: ["Asset"], properties: { name: "Pump" } });
+    ugm.addNode("site-north", { types: ["Site"], properties: {} });
+    const edgeId = ugm.addEdge("pump-1", "site-north", {
+      key: "pump-1|locatedAt|site-north",
+      type: "locatedAt",
+    });
+    expect(edgeId).toBe("pump-1|locatedAt|site-north");
+    // Snapshots and the JSON export carry it unchanged.
+    expect(UGM.fromJSON(ugm.toJSON()).hasEdge(edgeId)).toBe(true);
+    const exported = JSON.parse(exportSubgraphJson(ugm)) as {
+      edges: Array<{ id: string }>;
+    };
+    expect(exported.edges[0]?.id).toBe(edgeId);
+    expect(() =>
+      ugm.addEdge("pump-1", "site-north", { key: edgeId, type: "locatedAt" }),
+    ).toThrow(/already exists/);
   });
 
   it("exportSubgraphJson / exportSubgraphCsv serialize the (sub)graph", () => {

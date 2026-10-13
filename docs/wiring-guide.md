@@ -31,6 +31,26 @@ surface, in three parts:
    validated documents, which is how external processes (Python
    services, pipelines, saved state) participate.
 
+The `ugm` you hand to the props channel is yours to build. Give each
+edge a `key` when your data already has a stable edge identity: the
+UGM then uses it as the edge id, so selection, overlays, and a
+"selected edge" in your URL survive a rebuild from the same data
+(without a key, every rebuild generates fresh ids). Keys are unique
+across the whole graph, and a duplicate throws.
+
+```ts
+import { UGM } from "@g3-toolkit/core";
+const ugm = new UGM();
+ugm.addNode("pump-1", { types: ["Asset"], properties: { name: "Pump" } });
+ugm.addNode("site-north", { types: ["Site"], properties: {} });
+const edgeId = ugm.addEdge("pump-1", "site-north", {
+  key: "pump-1|locatedAt|site-north", // your id, kept as-is
+  type: "locatedAt",
+});
+// edgeId === "pump-1|locatedAt|site-north"; toJSON/fromJSON and
+// exportSubgraphJson carry it unchanged.
+```
+
 A useful consequence: a "custom button" is almost always one line of
 store or function call in an `onClick`.
 
@@ -757,7 +777,12 @@ from their own handlers rather than mounting as components.
 ### Path analysis
 
 ```ts
-import { findShortestPath, allShortestPaths } from "@g3-toolkit/core";
+import {
+  findShortestPath,
+  allShortestPaths,
+  kShortestPaths,
+  type PathGraph,
+} from "@g3-toolkit/core";
 const path = findShortestPath(ugm, "a", "c");
 // path.found, path.nodeIds (["a","b","c"]), path.edgeIds, path.length
 
@@ -766,6 +791,35 @@ const path = findShortestPath(ugm, "a", "c");
 // dense graphs stay honest ("50+").
 const all = allShortestPaths(ugm, "a", "c");
 // all.nodeIds, all.edgeIds, all.pathCount
+
+// Options, shared by every search: maxHops bounds the search (a
+// farther target is found: false, and the search stops at the
+// bound instead of walking the whole graph); directed follows edges
+// source to target only; nodeFilter decides which nodes may sit
+// BETWEEN the endpoints (the endpoints themselves are exempt, so a
+// search between two hubs still finds them); edgeTypes filters edges.
+const bounded = findShortestPath(ugm, "a", "c", {
+  maxHops: 4,
+  directed: true,
+  nodeFilter: (id) => !id.startsWith("hub:"),
+});
+
+// The individual routes, shortest first (Yen's algorithm on unit-weight
+// hops; deterministic for a given graph), for a "path 3 of 12" listing.
+// Fewer than k exist: the array is shorter. Disconnected: empty.
+const routes = kShortestPaths(ugm, "a", "c", { k: 5, maxHops: 4 });
+// routes[i].nodeIds, routes[i].edgeIds
+
+// Every search reads only four methods, so a host with its own index
+// can pass a PathGraph instead of building a UGM for a read-only
+// search. UGM is a PathGraph by construction.
+const view: PathGraph = {
+  hasNode: (id) => ugm.hasNode(id),
+  getNodeEdges: (id) => ugm.getNodeEdges(id),
+  getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+  getEdge: (id) => ugm.getEdge(id),
+};
+findShortestPath(view, "a", "c");
 ```
 
 ### Subgraph export

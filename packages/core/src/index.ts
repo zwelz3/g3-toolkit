@@ -304,10 +304,20 @@ export {
 } from "./theme";
 
 // ── Path analysis (D6; reclassified from @g3-toolkit/react in P3.2) ────────
-export { findShortestPath, allShortestPaths } from "./path-analysis";
+export {
+  findShortestPath,
+  allShortestPaths,
+  kShortestPaths,
+} from "./path-analysis";
 export { khopNeighborhood } from "./path-analysis/khop";
 export type { KhopOptions } from "./path-analysis/khop";
-export type { PathResult, PathOptions } from "./path-analysis";
+export type {
+  PathResult,
+  PathOptions,
+  PathGraph,
+  SimplePath,
+  KShortestPathsOptions,
+} from "./path-analysis";
 export * from "./export";
 export { collapseByCluster, buildSubgraph } from "./scale/collapse-by-cluster";
 export type {
