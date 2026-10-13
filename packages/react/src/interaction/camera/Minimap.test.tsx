@@ -149,16 +149,26 @@ interface FakeNodeSpec {
   parent?: string;
   /** Model-space box for a compound container. */
   box?: { x1: number; y1: number; x2: number; y2: number };
+  /** `visible()` is false: display: none, the g3t-hidden class, or a
+   *  hidden ancestor (a hidden parent hides its children, as in
+   *  Cytoscape). */
+  hidden?: boolean;
 }
 
+/** An edge pair, optionally hidden on its own (both endpoints shown). */
+type FakeEdgeSpec = [string, string] | { s: string; t: string; hidden: true };
+
 /** The slice of the cytoscape Core the painter reads: nodes (with the
- *  :orphan selector), edges, the element bounding box, and the extent. */
-function fakeCore(specs: FakeNodeSpec[], edgePairs: Array<[string, string]>) {
+ *  :orphan and :visible selectors), edges, the visible-element bounding
+ *  box, and the extent. `visible()` follows Cytoscape: a node is hidden
+ *  by itself or by an ancestor; an edge by itself or by either endpoint. */
+function fakeCore(specs: FakeNodeSpec[], edgePairs: FakeEdgeSpec[]) {
   type FakeNode = {
     id: () => string;
     position: () => { x: number; y: number };
     parent: () => FakeNode[];
     isParent: () => boolean;
+    visible: () => boolean;
     boundingBox: () => {
       x1: number;
       y1: number;
@@ -178,6 +188,16 @@ function fakeCore(specs: FakeNodeSpec[], edgePairs: Array<[string, string]>) {
         return p ? [p] : [];
       },
       isParent: () => specs.some((o) => o.parent === s.id),
+      visible: () => {
+        let cur: FakeNodeSpec | undefined = s;
+        while (cur) {
+          if (cur.hidden) return false;
+          cur = cur.parent
+            ? specs.find((o) => o.id === cur!.parent)
+            : undefined;
+        }
+        return true;
+      },
       boundingBox: () => {
         const b = s.box ?? { x1: s.x, y1: s.y, x2: s.x, y2: s.y };
         return { ...b, w: b.x2 - b.x1, h: b.y2 - b.y1 };
@@ -185,33 +205,47 @@ function fakeCore(specs: FakeNodeSpec[], edgePairs: Array<[string, string]>) {
     });
   }
   const all = [...byId.values()];
-  const xs = specs.map((s) => s.x);
-  const ys = specs.map((s) => s.y);
-  const bbox = {
-    x1: Math.min(...xs),
-    y1: Math.min(...ys),
-    x2: Math.max(...xs),
-    y2: Math.max(...ys),
+  const visibleBox = () => {
+    const shown = specs.filter((s) => byId.get(s.id)!.visible());
+    const xs = shown.map((s) => s.x);
+    const ys = shown.map((s) => s.y);
+    const b = {
+      x1: Math.min(...xs),
+      y1: Math.min(...ys),
+      x2: Math.max(...xs),
+      y2: Math.max(...ys),
+    };
+    return { ...b, w: b.x2 - b.x1, h: b.y2 - b.y1 };
   };
   const extent = { x1: -50, y1: -50, x2: 350, y2: 250, w: 400, h: 300 };
-  const edges = edgePairs.map(([s, t]) => ({
-    source: () => byId.get(s)!,
-    target: () => byId.get(t)!,
-  }));
+  const edges = edgePairs.map((spec) => {
+    const [s, t, hidden] = Array.isArray(spec)
+      ? [spec[0], spec[1], false]
+      : [spec.s, spec.t, spec.hidden];
+    return {
+      source: () => byId.get(s)!,
+      target: () => byId.get(t)!,
+      visible: () =>
+        !hidden && byId.get(s)!.visible() && byId.get(t)!.visible(),
+    };
+  });
   const core = {
     on: vi.fn(),
     off: vi.fn(),
     destroyed: () => false,
-    nodes: (selector?: string) =>
-      selector === ":orphan" ? all.filter((n) => n.parent().length === 0) : all,
+    nodes: (selector?: string) => {
+      if (selector === ":orphan")
+        return all.filter((n) => n.parent().length === 0);
+      if (selector === ":visible") return all.filter((n) => n.visible());
+      return all;
+    },
     edges: () => edges,
-    elements: () => ({
-      boundingBox: () => ({
-        ...bbox,
-        w: bbox.x2 - bbox.x1,
-        h: bbox.y2 - bbox.y1,
-      }),
-    }),
+    elements: (selector?: string) => {
+      if (selector !== undefined && selector !== ":visible") {
+        throw new Error(`fakeCore: unsupported elements selector ${selector}`);
+      }
+      return { boundingBox: visibleBox };
+    },
     extent: () => extent,
   };
   return core as unknown as Core;
@@ -314,5 +348,137 @@ describe("Minimap paint (recorded 2D context)", () => {
     await waitFor(() => expect(names("fillRect")).toHaveLength(1));
     expect(names("arc")).toHaveLength(0);
     expect(names("strokeRect")).toHaveLength(0);
+  });
+
+  // Issue #61: the painter drew every :orphan node and every edge, so a
+  // graph filtered through the canvas `hidden` prop (display: none via
+  // g3t-hidden) showed dots the canvas did not draw.
+  describe("hidden elements (issue #61)", () => {
+    it("skips a node that is not visible() and the edges touching it", async () => {
+      const core = fakeCore(
+        [
+          { id: "a", x: 0, y: 0 },
+          { id: "b", x: 300, y: 200 },
+          { id: "h", x: 150, y: 100, hidden: true },
+        ],
+        [
+          ["a", "b"],
+          ["a", "h"],
+          ["h", "b"],
+        ],
+      );
+      render(<Minimap core={core} width={200} height={140} />);
+      await waitFor(() => expect(names("strokeRect")).toHaveLength(1));
+      // Two dots (a, b); the hidden node draws nothing.
+      expect(names("arc")).toHaveLength(2);
+      // One edge (a-b); the two edges into the hidden node are skipped.
+      expect(names("moveTo")).toHaveLength(1);
+      expect(names("lineTo")).toHaveLength(1);
+    });
+
+    it("skips an edge hidden on its own while both endpoints draw", async () => {
+      const core = fakeCore(
+        [
+          { id: "a", x: 0, y: 0 },
+          { id: "b", x: 300, y: 200 },
+        ],
+        [{ s: "a", t: "b", hidden: true }],
+      );
+      render(<Minimap core={core} width={200} height={140} />);
+      await waitFor(() => expect(names("strokeRect")).toHaveLength(1));
+      expect(names("arc")).toHaveLength(2);
+      expect(names("moveTo")).toHaveLength(0);
+    });
+
+    it("skips a hidden compound parent, its children, and their edges", async () => {
+      const core = fakeCore(
+        [
+          {
+            id: "p",
+            x: 50,
+            y: 50,
+            box: { x1: 0, y1: 0, x2: 100, y2: 100 },
+            hidden: true,
+          },
+          { id: "c1", x: 20, y: 20, parent: "p" },
+          { id: "leaf", x: 300, y: 200 },
+          { id: "other", x: 200, y: 100 },
+        ],
+        [
+          ["c1", "leaf"],
+          ["leaf", "other"],
+        ],
+      );
+      render(<Minimap core={core} width={200} height={140} />);
+      await waitFor(() => expect(names("strokeRect")).toHaveLength(1));
+      // No container rectangle: only the viewport fill and stroke.
+      expect(names("fillRect")).toHaveLength(2);
+      expect(names("arc")).toHaveLength(2);
+      // Only leaf-other draws; c1-leaf has a hidden ancestor at one end.
+      expect(names("moveTo")).toHaveLength(1);
+    });
+
+    it("composes with nodeFilter: the filter narrows the visible set", async () => {
+      const core = fakeCore(
+        [
+          { id: "a", x: 0, y: 0 },
+          { id: "b", x: 300, y: 200 },
+          { id: "h", x: 150, y: 100, hidden: true },
+          { id: "port", x: 310, y: 210 },
+        ],
+        [
+          ["a", "b"],
+          ["b", "port"],
+          ["a", "h"],
+        ],
+      );
+      render(
+        <Minimap
+          core={core}
+          width={200}
+          height={140}
+          nodeFilter={(n) => n.id() !== "port"}
+        />,
+      );
+      await waitFor(() => expect(names("strokeRect")).toHaveLength(1));
+      // a and b only: h is hidden, port is filtered.
+      expect(names("arc")).toHaveLength(2);
+      // a-b only: b-port loses its filtered endpoint, a-h its hidden one.
+      expect(names("moveTo")).toHaveLength(1);
+    });
+
+    it("frames the visible elements only, so a hidden far node does not shrink the graph", async () => {
+      const shown: FakeNodeSpec[] = [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 300, y: 200 },
+      ];
+      const withHiddenFar = fakeCore(
+        [...shown, { id: "far", x: 5000, y: 5000, hidden: true }],
+        [],
+      );
+      render(<Minimap core={withHiddenFar} width={200} height={140} />);
+      await waitFor(() => expect(names("arc")).toHaveLength(2));
+      const dotsWithHidden = names("arc").map((c) => c.args.slice(0, 2));
+      rec.calls.length = 0;
+      render(<Minimap core={fakeCore(shown, [])} width={200} height={140} />);
+      await waitFor(() => expect(names("arc")).toHaveLength(2));
+      const dotsAlone = names("arc").map((c) => c.args.slice(0, 2));
+      expect(dotsWithHidden).toEqual(dotsAlone);
+    });
+
+    it("paints only the wash when every node is hidden", async () => {
+      const core = fakeCore(
+        [
+          { id: "a", x: 0, y: 0, hidden: true },
+          { id: "b", x: 300, y: 200, hidden: true },
+        ],
+        [["a", "b"]],
+      );
+      render(<Minimap core={core} />);
+      await waitFor(() => expect(names("fillRect")).toHaveLength(1));
+      expect(names("arc")).toHaveLength(0);
+      expect(names("moveTo")).toHaveLength(0);
+      expect(names("strokeRect")).toHaveLength(0);
+    });
   });
 });
