@@ -22,10 +22,11 @@ per theme.
 - **Names are stable within a major.** Treat them as public API.
 - **Theme-driven tokens change at runtime.** Read them through
   `var()`; do not snapshot them into JS.
-- `--g3t-success-muted`, `--g3t-warning-muted`, and
-  `--g3t-error-muted` are optional on `G3tTheme`. A custom theme may
-  omit them, in which case they are not emitted at all and your
-  `var()` fallback applies. Always pass a fallback for these three.
+- `--g3t-success-muted`, `--g3t-warning-muted`,
+  `--g3t-error-muted`, and `--g3t-overlay-color` are optional on
+  `G3tTheme`. A custom theme may omit them, in which case they are not
+  emitted at all and your `var()` fallback applies. Always pass a
+  fallback for these four.
 - **Element-scoped properties are not tokens.** A component may set a
   custom property on its own subtree (`--g3t-toggle-accent` on
   `PropertyField`). Those are implementation detail, not vocabulary,
@@ -69,6 +70,7 @@ per theme.
 | `--g3t-edge-selected` | theme.edgeSelectedColor |
 | `--g3t-node-label-color` | theme.nodeLabelColor |
 | `--g3t-node-stroke` | theme.nodeStroke |
+| `--g3t-overlay-color` | theme.overlayColor |
 
 ### Color: data scales
 

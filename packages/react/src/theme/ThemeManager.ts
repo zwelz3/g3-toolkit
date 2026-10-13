@@ -58,6 +58,14 @@ export interface G3tTheme {
   edgeColor: string;
   edgeSelectedColor: string;
   selectionHighlight: string;
+  /** Neutral emphasis color for algorithm-overlay members (the
+   *  g3t-ov-member border and line color; toned members take the
+   *  semantic trio instead). OPTIONAL for the muted trio's reason: a
+   *  consumer-authored theme literal must keep compiling. When absent
+   *  the canvas keeps its historical green (DEFAULT_OVERLAY_COLOR in
+   *  CytoscapeCanvas) and the token is not emitted, so a var() reader
+   *  needs a fallback. */
+  overlayColor?: string;
 
   // Node type palette (Okabe-Ito based, adjusted per theme)
   typePalette: string[];
@@ -91,6 +99,7 @@ export const LIGHT_THEME: G3tTheme = {
   edgeColor: "#868e96",
   edgeSelectedColor: "#2563eb",
   selectionHighlight: "rgba(37, 99, 235, 0.15)",
+  overlayColor: "#2f9e44",
   typePalette: [
     "#E69F00",
     "#56B4E9",
@@ -129,6 +138,7 @@ export const DARK_THEME: G3tTheme = {
   edgeColor: "#555b63",
   edgeSelectedColor: "#4c8bf5",
   selectionHighlight: "rgba(76, 139, 245, 0.2)",
+  overlayColor: "#2f9e44",
   typePalette: [
     "#FFB74D",
     "#64B5F6",
@@ -170,6 +180,7 @@ export const HIGH_CONTRAST_THEME: G3tTheme = {
   edgeColor: "#000000",
   edgeSelectedColor: "#0000cc",
   selectionHighlight: "rgba(0, 0, 204, 0.2)",
+  overlayColor: "#2f9e44",
   typePalette: [
     "#000000",
     "#0000CC",
@@ -264,6 +275,9 @@ function injectCssVariables(theme: G3tTheme): void {
   root.style.setProperty("--g3t-edge-color", theme.edgeColor);
   root.style.setProperty("--g3t-edge-selected", theme.edgeSelectedColor);
   root.style.setProperty("--g3t-selection-highlight", theme.selectionHighlight);
+  // Optional like the muted trio: skip rather than emit "undefined".
+  if (theme.overlayColor)
+    root.style.setProperty("--g3t-overlay-color", theme.overlayColor);
 
   // Type palette as indexed vars
   theme.typePalette.forEach((color, i) => {
