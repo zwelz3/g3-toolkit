@@ -152,6 +152,10 @@ export type {
   ProjectionStepConfig,
 } from "./projection";
 export { typeCollapse } from "./projection";
+// The id every triple-derived edge gets, from the pipeline and the
+// SPARQL adapter alike, so a host can address an edge by its triple
+// without reading the graph (issue #48).
+export { tripleEdgeKey } from "./projection";
 export { createPresetPipeline } from "./projection";
 export type {
   PresetName,

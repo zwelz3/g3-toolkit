@@ -16,6 +16,7 @@
 // ProjectionPipeline instances are accepted as drop-in replacements
 // (compatibility verified in projection.test.ts, M4.E3.T2).
 import { UGM } from "../ugm";
+import { tripleEdgeKey } from "./triple-edge-key";
 
 // ── RDF Graph Model ─────────────────────────────────────────────────
 
@@ -144,10 +145,21 @@ export class ProjectionPipeline {
       });
     }
 
-    // Add edges from remaining URI-to-URI triples
+    // Add edges from remaining URI-to-URI triples. The edge id is the
+    // triple's `tripleEdgeKey` (issue #48): the same input yields the
+    // same ids on every projection, and the key is shared with the
+    // SPARQL adapter so a triple has one id whichever path it came
+    // through. A triple listed twice in the input (the usual source
+    // is a SELECT that binds it in two rows) used to become two
+    // parallel edges; first occurrence wins and the later one is
+    // skipped. No collapse step produces a resource-object triple
+    // (they filter triples or emit literal ones), so this is the one
+    // place the pipeline makes edges.
     for (const t of graph.triples) {
       if (t.subject.startsWith("_:") || t.object.startsWith("_:")) continue;
       if (t.objectType !== "uri") continue;
+      const key = tripleEdgeKey(t.subject, t.predicate, t.object);
+      if (ugm.hasEdge(key)) continue;
       // Auto-create nodes for URI objects not yet in UGM
       // (handles type class nodes when typeCollapse is off)
       if (!ugm.hasNode(t.subject)) {
@@ -156,7 +168,7 @@ export class ProjectionPipeline {
       if (!ugm.hasNode(t.object)) {
         ugm.addNode(t.object, { types: ["Resource"], properties: {} });
       }
-      ugm.addEdge(t.subject, t.object, { type: localPart(t.predicate) });
+      ugm.addEdge(t.subject, t.object, { key, type: localPart(t.predicate) });
     }
 
     // Process synthetic literals from collapse steps (e.g. blank-node inlining)

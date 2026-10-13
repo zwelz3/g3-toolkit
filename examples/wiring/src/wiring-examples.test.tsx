@@ -40,6 +40,7 @@ import {
   createPresetPipeline,
   ProjectionPipeline,
   typeCollapse,
+  tripleEdgeKey,
   collapseByCluster,
   buildSubgraph,
   G3tEventBus,
@@ -887,6 +888,31 @@ describe("projection pipeline (guide: Projection pipeline)", () => {
     expect(ugm.getNode(`${EX}p53`)?.types).toContain("Protein");
     // Steps are inspectable (BioShell renders these names in its caption).
     expect(p.getSteps().map((st) => st.name)).toEqual(["Type Collapse"]);
+  });
+
+  it("edge ids are the triple's key, stable across runs and deduped on a repeated triple", () => {
+    const regulates = tinyRdf.triples[2]!;
+    const edgeId = tripleEdgeKey(
+      regulates.subject,
+      regulates.predicate,
+      regulates.object,
+    );
+    expect(edgeId).toBe(`<${EX}p53> <${EX}regulates> <${EX}mdm2>`);
+    const ugm = createPresetPipeline("standard").project(tinyRdf);
+    expect(ugm.getEdge(edgeId)?.type).toBe("regulates");
+    // Same input, second run: same id.
+    expect(
+      createPresetPipeline("standard").project(tinyRdf).hasEdge(edgeId),
+    ).toBe(true);
+    // The triple bound twice (two SELECT rows) is one edge, first wins.
+    const twice = createPresetPipeline("standard").project({
+      triples: [...tinyRdf.triples, regulates],
+    });
+    expect(twice.getEdgesBetween(`${EX}p53`, `${EX}mdm2`).length).toBe(1);
+    // An edge id never equals a node id.
+    expect(ugm.hasNode(edgeId)).toBe(false);
+    // A named graph is opt-in and makes a distinct key.
+    expect(tripleEdgeKey("s", "p", "o", "g")).toBe("<s> <p> <o> <g>");
   });
 });
 
