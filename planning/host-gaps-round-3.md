@@ -47,7 +47,7 @@ path. Order alone decides. The guide and the design record say theme
 
 - The #59 and #57/#58 agents raised the react budget independently
   (455 and 456), each measured against the 1.2.0 base; #56 added about
-  1.8 KB without a raise. The merged tree measures 460.9 KB; the ledger
+  1.8 KB without a raise. The merged tree measures 461.3 KB; the ledger
   keeps both entries and a merge-step entry setting 465.
 - The #56 agent left the wiring guide's class-hierarchy prose stale
   (it still described first-parent nesting) because other agents were

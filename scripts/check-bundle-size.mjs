@@ -461,7 +461,7 @@ const BUDGETS = {
   // raises above were each measured against the 1.2.0 base, so they
   // do not sum; #56 (SchemaView targets, inheritance, several
   // parents) added about 1.8 KB without a raise. Re-measured on the
-  // merged tree: 460.9 KB (+14.6 KB over the 1.2.0 base), so the
+  // merged tree: 461.3 KB (+15 KB over the 1.2.0 base), so the
   // budget is 465 KB. Headroom kept at the same posture as the
   // entries above.
   react: 465 * 1024,

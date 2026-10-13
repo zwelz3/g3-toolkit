@@ -21,7 +21,7 @@ on a canvas with a host stylesheet, a collapse and Reset in the Bio
 Explore view, the minimap on a filtered canvas, the TableView
 pagination bar, keyboard sorting under a screen reader, and a
 two-parent class in TreeView and SchemaView. Bundle after the round:
-react 460.9 of 465 KB (three ledger entries), core 181.5 of 184.)
+react 461.3 of 465 KB (three ledger entries), core 181.5 of 184.)
 
 ## PRIOR SNAPSHOT (2026-10-13 backlog round 2)
 
