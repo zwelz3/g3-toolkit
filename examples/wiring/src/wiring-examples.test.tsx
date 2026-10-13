@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useEffect, useRef, useState } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
   UGM,
@@ -68,6 +68,8 @@ import {
   themeFromCssVariables,
   createCameraController,
   ProvenanceTrace,
+  AriaCompanion,
+  useAnnouncer,
   Minimap,
   useOverlaySequence,
   OverlayTransport,
@@ -1196,6 +1198,75 @@ describe("provenance trace (guide: Render a provenance trace)", () => {
   it("Minimap renders its disabled placeholder while the core is null (guide: Camera control)", () => {
     render(<Minimap core={null} />);
     expect(screen.getByTestId("minimap")).toBeDefined();
+  });
+});
+
+describe("screen-reader narration (guide: Announce graph state to a screen reader)", () => {
+  it("host announcements reach the companion's live region, debounced, muted while playing, hidden mirrored", () => {
+    vi.useFakeTimers();
+    try {
+      const ugm = graph();
+      const hidden = new Set<string>();
+      function Narrated({ playing }: { playing: boolean }) {
+        const selectedId = useSelectionStore(
+          (s) => [...s.selectedNodeIds][0] ?? null,
+        );
+        const { announcement, announce } = useAnnouncer();
+        useEffect(() => {
+          if (selectedId === null) return;
+          const name = String(ugm.getNode(selectedId)?.properties.name);
+          announce(`Selected ${name}`);
+        }, [selectedId, announce]);
+        return (
+          <AriaCompanion
+            ugm={ugm}
+            hidden={hidden}
+            label="Provenance nodes"
+            instructions="Focusing a node selects it on the canvas; arrow right follows an edge."
+            summarizeNode={(g, id) =>
+              `${String(g.getNode(id)?.properties.name)}, ${g.getNodeEdges(id).length} provenance edges`
+            }
+            announcement={announcement}
+            announceDebounceMs={300}
+            muted={playing}
+          />
+        );
+      }
+      const { rerender } = render(<Narrated playing={false} />);
+      const list = screen.getByRole("listbox", { name: "Provenance nodes" });
+      expect(
+        document.getElementById(list.getAttribute("aria-describedby")!)
+          ?.textContent,
+      ).toContain("arrow right follows an edge");
+      expect(
+        screen.getByTestId("aria-node-asset-1").getAttribute("aria-label"),
+      ).toBe("Pump, 1 provenance edges");
+      const live = () => screen.getByTestId("aria-live-region").textContent;
+      act(() => {
+        useSelectionStore.getState().selectNodes(["asset-1"]);
+      });
+      expect(live()).toBe("");
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(live()).toBe("Selected Pump");
+      // Muted while playing: the region holds; the latest commits on stop.
+      rerender(<Narrated playing />);
+      act(() => {
+        useSelectionStore.getState().selectNodes(["asset-2"]);
+      });
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(live()).toBe("Selected Pump");
+      rerender(<Narrated playing={false} />);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(live()).toBe("Selected Valve");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

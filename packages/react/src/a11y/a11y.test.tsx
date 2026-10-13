@@ -8,7 +8,7 @@
  * E1.T5: Table fallback (verified via selection store wiring).
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../state/selection-store";
@@ -159,5 +159,148 @@ describe("Table fallback (M8.E1.T5)", () => {
 
     // Table would read this and display 2 rows highlighted.
     // This is verified by the existing TableView tests (M1.E2.T2).
+  });
+});
+
+// ── Host announcements (issue #16: the auditor-shell integration) ───
+
+import { act } from "@testing-library/react";
+import { useAnnouncer } from "./AriaCompanion";
+
+describe("AriaCompanion: host announcements (#16)", () => {
+  const live = () => screen.getByTestId("aria-live-region").textContent;
+
+  it("the announcement prop reaches the live region on the same render", () => {
+    const ugm = createTestUGM();
+    const { rerender } = render(
+      <AriaCompanion ugm={ugm} announcement="Selected Alice" />,
+    );
+    expect(live()).toBe("Selected Alice");
+    rerender(<AriaCompanion ugm={ugm} announcement="Selected Bob" />);
+    expect(live()).toBe("Selected Bob");
+  });
+
+  it("an unchanged re-render leaves the region's text alone (no re-utterance)", () => {
+    const ugm = createTestUGM();
+    const { rerender } = render(
+      <AriaCompanion ugm={ugm} announcement="Selected Alice" />,
+    );
+    const node = screen.getByTestId("aria-live-region").firstChild;
+    rerender(<AriaCompanion ugm={ugm} announcement="Selected Alice" />);
+    expect(live()).toBe("Selected Alice");
+    // Same text node instance: React did not touch the DOM, so a
+    // screen reader has nothing to re-announce.
+    expect(screen.getByTestId("aria-live-region").firstChild).toBe(node);
+  });
+
+  it("announceDebounceMs collapses rapid changes to the last one", () => {
+    vi.useFakeTimers();
+    try {
+      const ugm = createTestUGM();
+      const { rerender } = render(
+        <AriaCompanion ugm={ugm} announcement="" announceDebounceMs={200} />,
+      );
+      rerender(
+        <AriaCompanion ugm={ugm} announcement="one" announceDebounceMs={200} />,
+      );
+      rerender(
+        <AriaCompanion ugm={ugm} announcement="two" announceDebounceMs={200} />,
+      );
+      expect(live()).toBe("");
+      act(() => {
+        vi.advanceTimersByTime(199);
+      });
+      expect(live()).toBe("");
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(live()).toBe("two");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("muted holds the region; the latest message commits on unmute", () => {
+    const ugm = createTestUGM();
+    const { rerender } = render(
+      <AriaCompanion ugm={ugm} announcement="before" />,
+    );
+    rerender(<AriaCompanion ugm={ugm} announcement="during 1" muted />);
+    rerender(<AriaCompanion ugm={ugm} announcement="during 2" muted />);
+    expect(live()).toBe("before");
+    rerender(<AriaCompanion ugm={ugm} announcement="during 2" />);
+    expect(live()).toBe("during 2");
+  });
+
+  it("label names the list and instructions describe it", () => {
+    const ugm = createTestUGM();
+    render(
+      <AriaCompanion
+        ugm={ugm}
+        label="Provenance nodes"
+        instructions="Arrow right follows an edge."
+      />,
+    );
+    const list = screen.getByRole("listbox", { name: "Provenance nodes" });
+    const descId = list.getAttribute("aria-describedby");
+    expect(descId).toBeTruthy();
+    expect(document.getElementById(descId!)?.textContent).toBe(
+      "Arrow right follows an edge.",
+    );
+  });
+
+  it("omits the description wiring when no instructions are given", () => {
+    const ugm = createTestUGM();
+    render(<AriaCompanion ugm={ugm} />);
+    expect(
+      screen.getByRole("listbox", { name: "Graph nodes" }),
+    ).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByTestId("aria-instructions")).toBeNull();
+  });
+
+  it("summarizeNode formats option labels and the navigation announcement", () => {
+    const ugm = createTestUGM();
+    render(
+      <AriaCompanion
+        ugm={ugm}
+        summarizeNode={(g, id) => `${String(g.getNode(id)?.properties.name)}!`}
+      />,
+    );
+    expect(
+      screen.getByTestId("aria-node-alice").getAttribute("aria-label"),
+    ).toBe("Alice!");
+    const aliceItem = screen.getByTestId("aria-node-alice");
+    fireEvent.keyDown(aliceItem, { key: "ArrowRight" });
+    expect(live()).toMatch(/^Navigated to (Bob|ACME)!$/);
+  });
+
+  it("hidden nodes leave the list and arrow navigation skips them", () => {
+    const ugm = createTestUGM();
+    // alice's neighbors in insertion order: bob, acme. Hide bob.
+    render(<AriaCompanion ugm={ugm} hidden={new Set(["bob"])} />);
+    expect(screen.queryByTestId("aria-node-bob")).toBeNull();
+    fireEvent.keyDown(screen.getByTestId("aria-node-alice"), {
+      key: "ArrowRight",
+    });
+    expect([...useSelectionStore.getState().selectedNodeIds]).toEqual(["acme"]);
+  });
+
+  it("useAnnouncer: the host's announce() lands in the region", () => {
+    const ugm = createTestUGM();
+    function Host() {
+      const { announcement, announce } = useAnnouncer();
+      return (
+        <>
+          <button type="button" onClick={() => announce("Step 2 of 3")}>
+            step
+          </button>
+          <AriaCompanion ugm={ugm} announcement={announcement} />
+        </>
+      );
+    }
+    render(<Host />);
+    expect(live()).toBe("");
+    fireEvent.click(screen.getByText("step"));
+    expect(live()).toBe("Step 2 of 3");
   });
 });
