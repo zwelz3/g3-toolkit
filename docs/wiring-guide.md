@@ -456,6 +456,81 @@ async function showCommunities(ugm: UGM) {
 }
 ```
 
+### Step through overlays in order (tiers, phases, time slices)
+
+Overlays are the natural unit for a staged narrative: SHACL severity
+tiers, algorithm phases, time slices, provenance steps. The store has
+no notion of order, so sequencing is a layer over it:
+`useOverlaySequence` holds the index and the transport, and on every
+step it sets active EXACTLY the ids it owns. Every other overlay (a
+path overlay, a tier registered elsewhere) keeps its state before,
+during and after, because the hook merges into `activeIds` rather
+than replacing them. Registration stays yours, and happens before the
+sequence takes the ids:
+
+```tsx
+import {
+  reportFromValidationResults,
+  severityOverlays,
+} from "@g3-toolkit/core";
+import {
+  useOverlayStore,
+  useOverlaySequence,
+  OverlayTransport,
+} from "@g3-toolkit/react";
+import { useEffect, useState } from "react";
+
+// Worst tier last, so the cumulative walk ends on the full picture.
+const TIER_ORDER = ["shacl-info", "shacl-warning", "shacl-violation"];
+
+function SeverityWalkthrough() {
+  const [speedMs, setSpeedMs] = useState(1500);
+  const [loop, setLoop] = useState(false);
+  useEffect(() => {
+    const report = reportFromValidationResults(validationResults);
+    const tiers = severityOverlays(report);
+    for (const overlay of tiers) {
+      useOverlayStore.getState().register(overlay, false);
+    }
+    return () => {
+      for (const overlay of tiers) {
+        useOverlayStore.getState().unregister(overlay.id);
+      }
+    };
+  }, []);
+  // "cumulative": step N shows tiers 0..N; "single" shows only step N.
+  const sequence = useOverlaySequence({
+    ids: TIER_ORDER,
+    mode: "cumulative",
+    speedMs,
+    loop,
+  });
+  // Speed and loop controls render only when wired; drop them (and
+  // showReadout) to reduce the control to prev / play / next.
+  return (
+    <OverlayTransport
+      sequence={sequence}
+      speedMs={speedMs}
+      onSpeedChange={setSpeedMs}
+      loop={loop}
+      onLoopChange={setLoop}
+    />
+  );
+}
+```
+
+`sequence` carries `index`, `length`, `isPlaying`, `play`, `pause`,
+`next`, `prev` and `goTo` for your own controls. Playback runs on
+`setInterval`, cleared on pause and unmount; without `loop` the last
+step holds for one interval and playback pauses. When the sequence
+unmounts (or its `ids` change) it RESTORES the ids it owned to the
+active state they had when it took them, so a tier the reviewer had
+toggled on by hand comes back; it never touches the others. The
+index-to-ids rule is the pure `computeSequenceActiveIds(ids, index,
+mode)`, and `stepSequence(index, direction, length, loop)` is the
+transport arithmetic, both exported for hosts that drive the store
+from their own loop.
+
 ### Add your action to the canvas context menu
 
 The base menu is functional with zero config, and follows a strict

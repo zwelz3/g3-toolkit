@@ -67,6 +67,9 @@ import {
   createCameraController,
   ProvenanceTrace,
   Minimap,
+  useOverlaySequence,
+  OverlayTransport,
+  computeSequenceActiveIds,
   SchemaView,
   TreeView,
   createDefaultMenuManager,
@@ -534,6 +537,86 @@ describe("wiring guide: SHACL validation report over the data graph", () => {
     expect(ugm.getNode("c1")!.properties._shacl_maxSeverity).toBe("violation");
     // The conforming node carries no driver props.
     expect(ugm.getNode("c2")!.properties._shacl_resultCount).toBeUndefined();
+  });
+});
+
+describe("wiring guide: step through overlays in order", () => {
+  beforeEach(() => {
+    useOverlayStore.getState().clear();
+  });
+
+  it("the sequence sets only the ids it owns; a foreign overlay keeps its state throughout", () => {
+    const store = useOverlayStore.getState();
+    const tier = (id: string, nodeIds: string[]) => ({
+      id,
+      label: id,
+      nodeIds,
+      edgeIds: [],
+    });
+    // Three tiers registered inactive, as the SHACL recipe does...
+    store.register(tier("shacl-info", ["asset-1"]), false);
+    store.register(tier("shacl-warning", ["asset-2"]), false);
+    store.register(tier("shacl-violation", ["asset-1"]), false);
+    // ...and a path overlay another part of the app owns, ACTIVE.
+    store.register(tier("path-1", ["asset-1", "asset-2"]), true);
+    expect(useOverlayStore.getState().activeIds).toEqual(["path-1"]);
+
+    const TIER_ORDER = ["shacl-info", "shacl-warning", "shacl-violation"];
+    function SeverityWalkthrough() {
+      const [speedMs, setSpeedMs] = useState(1500);
+      const [loop, setLoop] = useState(false);
+      const sequence = useOverlaySequence({
+        ids: TIER_ORDER,
+        mode: "cumulative",
+        speedMs,
+        loop,
+      });
+      return (
+        <OverlayTransport
+          sequence={sequence}
+          speedMs={speedMs}
+          onSpeedChange={setSpeedMs}
+          loop={loop}
+          onLoopChange={setLoop}
+        />
+      );
+    }
+    const { unmount } = render(<SeverityWalkthrough />);
+
+    // Mount: step 0 active, the foreign overlay untouched.
+    expect(useOverlayStore.getState().activeIds).toEqual([
+      "path-1",
+      "shacl-info",
+    ]);
+    expect(screen.getByTestId("overlay-transport-readout").textContent).toBe(
+      "1 of 3",
+    );
+    fireEvent.click(screen.getByLabelText("Next step"));
+    fireEvent.click(screen.getByLabelText("Next step"));
+    // Cumulative: every earlier tier rides along; matches the pure rule.
+    expect(useOverlayStore.getState().activeIds).toEqual([
+      "path-1",
+      ...computeSequenceActiveIds(TIER_ORDER, 2, "cumulative"),
+    ]);
+    expect(screen.getByTestId("overlay-transport-readout").textContent).toBe(
+      "3 of 3",
+    );
+    // At the end without loop the next button is a hard stop.
+    expect(screen.getByLabelText("Next step")).toBeDisabled();
+
+    // The host toggling its own overlay mid-walk is respected.
+    useOverlayStore.getState().toggle("path-1");
+    fireEvent.click(screen.getByLabelText("Previous step"));
+    expect(useOverlayStore.getState().activeIds).toEqual([
+      "shacl-info",
+      "shacl-warning",
+    ]);
+    useOverlayStore.getState().toggle("path-1");
+
+    // Unmount hands the owned ids back as it found them (all inactive)
+    // and leaves the foreign overlay active.
+    unmount();
+    expect(useOverlayStore.getState().activeIds).toEqual(["path-1"]);
   });
 });
 
