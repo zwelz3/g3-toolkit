@@ -1,5 +1,29 @@
 # g3-toolkit Status
 
+**As of:** 2026-10-13 (active: **HOST-INTEGRATION ROUND.** Tracking
+issue #23 (seventeen sub-issues from a downstream host) plus the
+2026-08-27 backlog (#10, #13, #14, #21) were worked as eleven parallel
+agents in isolated worktrees and merged one branch at a time; the
+method and the per-issue dispositions and open questions are in
+`planning/host-integration-round.md`, the entries in the CHANGELOG
+under 2026-10-13. CLOSED by this round, pending Zach's live review:
+#10, #13, #14, #21, #24, #25, #27, #28, #29, #30, #31, #32, #33, #34,
+#35, #36, #37, #38, #39; wave 2 (#26 additive updates, #40 label
+collision) is recorded below this line when it lands. NOT touched: #5,
+#6, #9, #12, #16 to #20 (rulings or larger scope) and #41 (publishing
+is the maintainer's; this round is the content of that release). What
+needs eyes rather than a gate: the dark-theme overlay tones now really
+render from the theme (#32), views with unclassed roots inherit the
+host font when only `style.css` is imported (#24), TableView fill mode
+in a dock host (#21), the TreeView keyboard model (#36). Bundle: react
+411.5 of 418 KB after the round (ledger carries the attribution), core
+166.1 of 169. A latent defect found while fixing #13 and NOT fixed: the
+style-override, pin and overlay effects lose their applied state across
+a layout/edgeStyle rebuild until their store next changes; same shape
+as #13, needs its own issue.)
+
+## PRIOR SNAPSHOT (2026-08-27 version-drift gate)
+
 **As of:** 2026-08-27 (active: **VERSION-DRIFT GATE.** Postmortem item
 3 of 4 from the 1.0.0 release is CLOSED. `scripts/check-version-sync.mjs`
 takes the root `package.json` version as the source of truth and
