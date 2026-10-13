@@ -348,8 +348,33 @@ const BUDGETS = {
   // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
   // styles, controlled drag offsets, the renderer-neutral editor
   // target) and R-13.3 (one legend serving both renderers).
-  react: 395 * 1024,
+  react: 405 * 1024,
   // React ledger:
+  // - 395 -> 405 KB, 2026-10-13 (issue #40, label collision): measured
+  //   402.1 KB. Two components, measured separately by building the
+  //   integration head with this change's source files removed:
+  //   (1) 396.4 KB BEFORE this change, so the head was already 1.4 KB
+  //   over the 395 cap from the canvas fixes merged ahead of this
+  //   branch (#13/#14/#28 spec re-apply and stylesheet restyle,
+  //   #27/#32 preset/overlay); that overage had no ledger entry and
+  //   is absorbed here rather than left red, flagged to the
+  //   maintainer in the round report. (2) +5.7 KB for this change:
+  //   views/canvas/label-collision.ts (the pure greedy resolver,
+  //   shorten strategy and priority composition; tree-shakeable
+  //   named exports, so a host with its own renderer pays only what
+  //   it imports), views/canvas/apply-label-collision.ts (measure
+  //   rendered label boxes, apply class/field decisions), and in
+  //   CytoscapeCanvas the three props, one effect, and three
+  //   stylesheet rules. The canvas-side bytes are reached by every
+  //   CytoscapeCanvas import; the DEFAULT mode ("none") registers no
+  //   listener and does no per-render work, so the cost to a host
+  //   that never opts in is bytes only. Sourcemap audit run first as
+  //   the 2026-07-03 core entry requires: ZERO node_modules source
+  //   bytes across react's 15 dist maps (808,139 source bytes, all
+  //   first-party). Budgets are unminified by policy, and roughly
+  //   half of the 5.7 KB is the docblocks that explain the overlay
+  //   mechanism and why `label` is never written. New headroom is
+  //   2.9 KB, set modestly: the next round should measure.
   // - NO RAISE, 2026-08-28 (core stopped being external): measured
   //   651.7 KB, 167% of the 390 KB budget in force at the time. The
   //   261.7 KB over was not growth and the correct response was a

@@ -18,6 +18,12 @@ import {
 } from "react";
 import cytoscape, { type Core } from "cytoscape";
 import { registerBoxSelectionSync } from "./box-selection-sync";
+import {
+  applyLabelCollisionPass,
+  clearLabelCollision,
+  LABEL_HIDDEN_CLASS,
+  LABEL_SHORT_FIELD,
+} from "./apply-label-collision";
 import fcose from "cytoscape-fcose";
 import type { UGM } from "@g3-toolkit/core";
 import { applyEncodingSpec } from "../../interaction/encoding/spec-apply";
@@ -777,6 +783,24 @@ export function composeCanvasStylesheet(
       style: { opacity: 0 },
     } as never);
   }
+  // Label collision outcomes (issue #40): after the user stylesheet so
+  // a host rule mapping `label` cannot resurrect a hidden or shortened
+  // label. Field-scoped per element kind (no bare node/edge mapping),
+  // like every other data() rule in this file.
+  merged.push(
+    {
+      selector: `node[${LABEL_SHORT_FIELD}]`,
+      style: { label: `data(${LABEL_SHORT_FIELD})` },
+    } as any,
+    {
+      selector: `edge[${LABEL_SHORT_FIELD}]`,
+      style: { label: `data(${LABEL_SHORT_FIELD})` },
+    } as any,
+    {
+      selector: `node.${LABEL_HIDDEN_CLASS}, edge.${LABEL_HIDDEN_CLASS}`,
+      style: { label: "" },
+    } as any,
+  );
   // Visibility filter (hidden prop): last so it wins over every
   // mapper.
   merged.push({
@@ -920,6 +944,35 @@ export interface CytoscapeCanvasProps {
    * where it has not changed; rebuild it only when the hidden set does.
    */
   hidden?: ReadonlySet<string>;
+  /**
+   * Label collision handling (issue #40). Cytoscape draws every label
+   * at its element and never moves one out of another's way, so dense
+   * graphs overprint. "none" (default): current behavior. "hide": after
+   * layout settles, after a zoom ends, after a node is dropped, and on
+   * every selection/hover change, each visible element's rendered
+   * label box is measured and lower-priority overlapping labels are
+   * hidden (class `g3t-label-hidden`, rule `label: ""`). "shorten":
+   * the same, but a loser is first truncated to `labelMaxLength`
+   * characters with an ellipsis (data field `_labelShort`, read by a
+   * `[_labelShort]`-scoped rule) and hidden only if the shortened box
+   * still overlaps. Priority: selected (an edge counts as selected when
+   * either endpoint is) > hovered (`hoveredNodeId` in the selection
+   * store; incident edges count) > `labelPriority` / `_labelPriority` >
+   * node before edge > node degree or edge `weight`. An overlay pass,
+   * restyle only: never re-inits, refits, or moves nodes, and never
+   * writes `label` (the spec and converter own that field). The pure
+   * rule is exported as `resolveLabelCollisions` for hosts with their
+   * own renderer.
+   */
+  labelCollision?: "none" | "hide" | "shorten";
+  /** Host rank for the collision pass (higher wins within the selected
+   *  / hovered tiers). Read through a ref, so an inline arrow is fine;
+   *  a changed accessor takes effect on the next pass. When omitted,
+   *  the `_labelPriority` element data field is used (0 if absent). */
+  labelPriority?: (ele: cytoscape.SingularElementArgument) => number;
+  /** "shorten" mode: maximum characters of a truncated label, ellipsis
+   *  included. Default 16. */
+  labelMaxLength?: number;
 }
 
 /** Apply the visibility filter as a batched class toggle: hidden nodes
@@ -1113,6 +1166,9 @@ export function CytoscapeCanvas({
   structuralDecorations,
   structuralEdgeLayer = "cytoscape",
   hidden,
+  labelCollision = "none",
+  labelPriority,
+  labelMaxLength,
 }: CytoscapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -1196,6 +1252,10 @@ export function CytoscapeCanvas({
   const hiddenRef = useRef(hidden);
   // eslint-disable-next-line react-hooks/refs
   hiddenRef.current = hidden;
+  // Issue #40: the priority accessor is read per pass, never a dep.
+  const labelPriorityRef = useRef(labelPriority);
+  // eslint-disable-next-line react-hooks/refs
+  labelPriorityRef.current = labelPriority;
   // Issue #13: the init path applies the spec to every (re)built
   // instance from this ref, exactly as hiddenRef above; the spec
   // effect below keeps handling spec changes over a live instance.
@@ -2090,6 +2150,84 @@ export function CytoscapeCanvas({
       });
     });
   }, [overlays, overlayActiveIds, ugm]);
+
+  // Label collision pass (issue #40): one effect per live instance
+  // (`overlayCy` flips on every rebuild, so the listeners re-register
+  // on the new core). Runs the pass when the layout is already settled
+  // at registration, then on layoutstop (initial settle and every
+  // reheat), on a node drop, on zoom end (zoom has no end event, so
+  // the trailing edge of a short debounce), and on selection/hover
+  // store changes (priority input). Also keyed on the inputs that
+  // change label text or visibility (spec, hidden set, theme and
+  // stylesheet restyles) so a pass re-measures after them; those
+  // effects sit ABOVE this one in source order, so cytoscape already
+  // holds their result when this runs. Restyle only.
+  // labelCollisionTouchedRef: "none" (the default) does NO work unless
+  // a pass applied something on this instance that must be restored
+  // (same gate as overlayTouchedRef: a bare mount asks nothing of a
+  // minimal test mock, and the default mode costs nothing per render).
+  const labelCollisionTouchedRef = useRef(false);
+  useEffect(() => {
+    const cy = overlayCy;
+    if (!cy) return;
+    if (labelCollision === "none") {
+      if (labelCollisionTouchedRef.current) {
+        labelCollisionTouchedRef.current = false;
+        clearLabelCollision(cy);
+      }
+      return;
+    }
+    const mode = labelCollision;
+    // A rebuild destroys the core before this effect re-runs (the
+    // overlayCy flip lands a render later), so a store notification
+    // or the trailing zoom timer can arrive for a dead instance.
+    const alive = () => typeof cy.destroyed !== "function" || !cy.destroyed();
+    const run = () => {
+      if (!alive()) return;
+      labelCollisionTouchedRef.current = true;
+      const sel = useSelectionStore.getState();
+      const selectedIds = new Set<string>([
+        ...sel.selectedNodeIds,
+        ...sel.selectedEdgeIds,
+      ]);
+      applyLabelCollisionPass(cy, {
+        mode,
+        maxLength: labelMaxLength,
+        priority: labelPriorityRef.current,
+        selectedIds,
+        hoveredNodeId: sel.hoveredNodeId,
+      });
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = undefined;
+        run();
+      }, 120);
+    };
+    cy.on("layoutstop", run);
+    cy.on("zoom", schedule);
+    cy.on("dragfree", "node", run);
+    const unsub = useSelectionStore.subscribe(run);
+    if (layoutSettledRef.current) run();
+    return () => {
+      if (timer !== undefined) clearTimeout(timer);
+      unsub();
+      if (!alive()) return;
+      cy.removeListener("layoutstop", run);
+      cy.removeListener("zoom", schedule);
+      cy.removeListener("dragfree", "node", run);
+    };
+  }, [
+    overlayCy,
+    labelCollision,
+    labelMaxLength,
+    encodingSpec,
+    hidden,
+    theme,
+    stylesheetKey,
+  ]);
 
   // Bugfix 16: belt-and-suspenders contextmenu suppression. We already
   // attach a native contextmenu listener inside initCytoscape (bugfix

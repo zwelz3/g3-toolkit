@@ -24,3 +24,20 @@ export {
   MULTI_TYPE_PIE_RULES,
   MAX_SLICES,
 } from "./multi-type";
+// Label collision (issue #40): the pure placement rule and the
+// canvas's priority composition, for hosts measuring their own labels.
+export {
+  resolveLabelCollisions,
+  composeLabelPriority,
+  shortenLabel,
+  DEFAULT_LABEL_MAX_LENGTH,
+} from "./label-collision";
+export type {
+  LabelBox,
+  LabelCandidate,
+  LabelCollisionOptions,
+  LabelCollisionResult,
+  LabelDecision,
+  LabelKind,
+  LabelPriorityInput,
+} from "./label-collision";
