@@ -105,9 +105,17 @@ export const BIO_STYLES = `
 .bio-run:hover { filter: brightness(1.08); }
 .bio-view-toggle {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   padding: 6px 8px;
+  max-width: min(720px, calc(100% - 16px));
+}
+.bio-toggle-row { display: flex; align-items: center; gap: 6px; }
+.bio-toggle-group { display: inline-flex; align-items: center; gap: 6px; }
+.bio-toggle-group + .bio-toggle-group { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--bio-line); }
+.bio-toggle-label {
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--bio-dim); white-space: nowrap;
 }
 .bio-view-btn {
   font: inherit;
@@ -124,6 +132,7 @@ export const BIO_STYLES = `
   background: #b17ef0;
   color: #fff;
 }
+.bio-view-btn:disabled { opacity: 0.45; cursor: default; }
 .bio-view-caption {
   font-size: 11px;
   opacity: 0.7;

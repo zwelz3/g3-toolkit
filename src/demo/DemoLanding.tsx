@@ -136,7 +136,7 @@ export const SCENARIOS: Scenario[] = [
     title: "Biomedical Knowledge Graph",
     subtitle: "RDF ontology with in-browser SPARQL",
     description:
-      "Query an RDF gene / protein / disease / drug / pathway graph with a curated in-browser SPARQL executor. Browse the class ontology and its object and data properties, run the default queries or edit your own, and see numeric results in a linked bar or scatter panel whose bars select the matching node.",
+      "Query an RDF gene / protein / disease / drug / pathway graph with a curated in-browser SPARQL executor. Browse the class ontology and its object and data properties, run the default queries or edit your own, and see numeric results in a linked bar or scatter panel whose bars select the matching node. The canvas compares label-collision modes on one scene, and its Explore view grows the drawn graph one neighborhood at a time without re-laying it out.",
     accent: "#b17ef0",
     accentGlow: "rgba(177, 126, 240, 0.15)",
     icon: "◉",
