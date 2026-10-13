@@ -223,6 +223,20 @@ const GROUPS = [
   ["Layering", /^--g3t-z-/],
 ];
 
+// Issue #24 (2026-10-13): style.css used to carry a Google Fonts
+// @import; it no longer loads any font. The note lives here, not in
+// the generated file, because the doc is byte-compared on every run.
+const FONT_LOADING_NOTE = `**Font loading is the host's.** \`--g3t-font\` names IBM Plex Sans and
+\`--g3t-font-mono\` names IBM Plex Mono, each with system fallbacks
+(\`-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif\` and
+\`'Fira Code', 'Consolas', monospace\`). Neither stylesheet the package
+ships loads a font: \`style.css\` once carried a Google Fonts \`@import\`,
+and a third-party request on load is unusable offline, under a strict
+CSP and on air-gapped deployments. Self-host the two Plex faces or
+load them from a CDN in your own document, or override the two tokens
+to use a face you already ship; without either, the toolkit renders
+in the first fallback that is installed.`;
+
 function renderDoc() {
   const all = [...globalTokens, ...[...globalPrefixes].map((p) => `${p}*`)];
   const claimed = new Set();
@@ -239,7 +253,8 @@ function renderDoc() {
       })
       .join("\n");
     sections.push(
-      `### ${title}\n\n| Token | Value source |\n| --- | --- |\n${rows}`,
+      `### ${title}\n\n| Token | Value source |\n| --- | --- |\n${rows}` +
+        (title === "Typography" ? `\n\n${FONT_LOADING_NOTE}` : ""),
     );
   }
 
