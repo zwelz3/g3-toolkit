@@ -106,9 +106,15 @@ export interface ShaclShapeBrowserProps {
 }
 
 /** Every target a shape declares, `targetClass` first, with a duplicate
- *  class entry in `targets` folded away so it is not drawn twice. */
+ *  class entry in `targets` folded away so it is not drawn twice.
+ *  `targetClass` is required on the type, so a shape with no class
+ *  target (subjects-of only, SPARQL only, or no target at all) passes
+ *  `""`; that is not a target and contributes no entry (#54). */
 function targetsOf(shape: ShaclShape): ShaclShapeTarget[] {
-  const out: ShaclShapeTarget[] = [{ kind: "class", value: shape.targetClass }];
+  const out: ShaclShapeTarget[] = [];
+  if (shape.targetClass !== "") {
+    out.push({ kind: "class", value: shape.targetClass });
+  }
   for (const t of shape.targets ?? []) {
     if (t.kind === "class" && t.value === shape.targetClass) continue;
     out.push(t);
@@ -242,18 +248,32 @@ export function ShaclShapeBrowser({
           count?: number;
           color: string;
           severity?: ShaclSeverity;
+          state: "not-validated" | "no-focus-nodes" | "pass" | "fail";
         };
-        if (!stats || stats.totalNodes === 0) {
+        if (!stats) {
+          // No summary entry and no results: nothing ran for this shape.
           badge = {
             icon: null,
             srLabel: "Not validated",
             color: "var(--g3t-text-muted)",
+            state: "not-validated",
+          };
+        } else if (stats.totalNodes === 0) {
+          // The shape ran and its targets matched nothing (#55). Only a
+          // host summary can say so: counted results always carry at
+          // least one focus node. Neutral, not a pass and not idle.
+          badge = {
+            icon: "minus",
+            srLabel: "No focus nodes",
+            color: "var(--g3t-text-muted)",
+            state: "no-focus-nodes",
           };
         } else if (stats.failing === 0) {
           badge = {
             icon: "check",
             srLabel: "All nodes pass",
             color: "var(--g3t-success, #22c55e)",
+            state: "pass",
           };
         } else {
           const tier = worst ?? "violation";
@@ -263,6 +283,7 @@ export function ShaclShapeBrowser({
             count: stats.failing,
             color: SEVERITY_COLOR[tier],
             severity: tier,
+            state: "fail",
           };
         }
 
@@ -309,35 +330,43 @@ export function ShaclShapeBrowser({
                   </span>
                 ) : null}
               </span>
-              <span
-                data-testid={`shape-targets-${shape.id}`}
-                title={targets.map(targetTitle).join("\n")}
-                style={{
-                  fontSize: 10,
-                  color: "var(--g3t-text-muted)",
-                  // The full target IRI previously rendered unshrunk
-                  // and pushed the badge out of narrow rails (review
-                  // 3.6: "failing shape has no red X that I can
-                  // see"). Local name + ellipsis; full IRI on hover.
-                  minWidth: 0,
-                  flexShrink: 1,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                →{" "}
-                {targets.map((t, i) => (
-                  <span key={`${t.kind}:${t.value}`} data-target-kind={t.kind}>
-                    {i > 0 ? ", " : ""}
-                    {targetLabel(t)}
-                  </span>
-                ))}
-              </span>
+              {/* No declared target: no arrow either, so the header
+                  does not dangle one at nothing (#54). */}
+              {targets.length > 0 ? (
+                <span
+                  data-testid={`shape-targets-${shape.id}`}
+                  title={targets.map(targetTitle).join("\n")}
+                  style={{
+                    fontSize: 10,
+                    color: "var(--g3t-text-muted)",
+                    // The full target IRI previously rendered unshrunk
+                    // and pushed the badge out of narrow rails (review
+                    // 3.6: "failing shape has no red X that I can
+                    // see"). Local name + ellipsis; full IRI on hover.
+                    minWidth: 0,
+                    flexShrink: 1,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  →{" "}
+                  {targets.map((t, i) => (
+                    <span
+                      key={`${t.kind}:${t.value}`}
+                      data-target-kind={t.kind}
+                    >
+                      {i > 0 ? ", " : ""}
+                      {targetLabel(t)}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
               <span style={{ flex: 1 }} />
               <span
                 data-testid={`shape-badge-${shape.id}`}
                 data-severity={badge.severity}
+                data-state={badge.state}
                 role="img"
                 aria-label={badge.srLabel}
                 style={{
@@ -371,6 +400,7 @@ export function ShaclShapeBrowser({
                   · {stats.passing}/{stats.totalNodes} pass
                 </span>
               )}
+              {stats && stats.totalNodes === 0 && <span> · 0 focus nodes</span>}
             </div>
 
             {/* Expanded: per-node results */}
@@ -478,17 +508,30 @@ export function ShaclShapeBrowser({
                     );
                   })}
 
-                {nodeResults.filter((r) => !r.valid).length === 0 && (
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--g3t-success, #22c55e)",
-                      padding: "4px 8px",
-                    }}
-                  >
-                    All {stats?.totalNodes ?? 0} nodes pass validation.
-                  </div>
-                )}
+                {nodeResults.filter((r) => !r.valid).length === 0 &&
+                  (badge.state === "no-focus-nodes" ? (
+                    // Nothing passed because nothing was selected; the
+                    // success tone would overstate it (#55).
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "var(--g3t-text-muted)",
+                        padding: "4px 8px",
+                      }}
+                    >
+                      No focus nodes: the shape's targets matched nothing.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "var(--g3t-success, #22c55e)",
+                        padding: "4px 8px",
+                      }}
+                    >
+                      All {stats?.totalNodes ?? 0} nodes pass validation.
+                    </div>
+                  ))}
               </div>
             )}
           </div>
