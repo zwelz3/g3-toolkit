@@ -365,3 +365,95 @@ describe("a changed stylesheet prop restyles in place (#28)", () => {
     expect(cytoscapeFn).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("a changed stylesheetAfterOverlays prop restyles in place (#69)", () => {
+  beforeEach(() => {
+    cytoscapeFn.mockClear();
+    fromJson.mockClear();
+  });
+  type Sheet = Array<{ selector: string; style: Data }>;
+  const FOCUS4 = [
+    { selector: "node.host-focus", style: { "border-width": 4 } },
+  ];
+  const FOCUS6 = [
+    { selector: "node.host-focus", style: { "border-width": 6 } },
+  ];
+  const focusRule = (sheet: Sheet) =>
+    sheet.filter((r) => r.selector === "node.host-focus").at(-1)!.style;
+  const selectors = (sheet: Sheet) => sheet.map((r) => r.selector);
+
+  it("sits after the overlay member rules at init and restyles through style().fromJson without re-creating the instance", () => {
+    const ugm = graph();
+    const { rerender } = render(
+      <CytoscapeCanvas ugm={ugm} stylesheetAfterOverlays={FOCUS4} />,
+    );
+    const initial = cytoscapeFn.mock.calls[0]![0].style;
+    expect(focusRule(initial)["border-width"]).toBe(4);
+    expect(selectors(initial).indexOf("node.host-focus")).toBeGreaterThan(
+      selectors(initial).lastIndexOf("node.g3t-ov-member"),
+    );
+    expect(fromJson).not.toHaveBeenCalled();
+    act(() => {
+      rerender(<CytoscapeCanvas ugm={ugm} stylesheetAfterOverlays={FOCUS6} />);
+    });
+    // Restyle, not re-init: one constructor call, one fromJson, no fit.
+    expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+    expect(fromJson).toHaveBeenCalledTimes(1);
+    const applied = fromJson.mock.calls[0]![0] as unknown as Sheet;
+    expect(focusRule(applied)["border-width"]).toBe(6);
+    expect(selectors(applied).indexOf("node.host-focus")).toBeGreaterThan(
+      selectors(applied).lastIndexOf("node.g3t-ov-member"),
+    );
+    expect(cy.fit).not.toHaveBeenCalled();
+  });
+
+  it("keys on content: a fresh literal with the same rules does not restyle", () => {
+    const ugm = graph();
+    const { rerender } = render(
+      <CytoscapeCanvas ugm={ugm} stylesheetAfterOverlays={FOCUS4} />,
+    );
+    act(() => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={ugm}
+          stylesheetAfterOverlays={[
+            { selector: "node.host-focus", style: { "border-width": 4 } },
+          ]}
+        />,
+      );
+    });
+    expect(fromJson).not.toHaveBeenCalled();
+    expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rides the same restyle as `stylesheet`: both changing together compose once", () => {
+    const ugm = graph();
+    const RED = [{ selector: "node", style: { "background-color": "red" } }];
+    const BLUE = [{ selector: "node", style: { "background-color": "blue" } }];
+    const { rerender } = render(
+      <CytoscapeCanvas
+        ugm={ugm}
+        stylesheet={RED}
+        stylesheetAfterOverlays={FOCUS4}
+      />,
+    );
+    act(() => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={ugm}
+          stylesheet={BLUE}
+          stylesheetAfterOverlays={FOCUS6}
+        />,
+      );
+    });
+    expect(fromJson).toHaveBeenCalledTimes(1);
+    const applied = fromJson.mock.calls[0]![0] as unknown as Sheet;
+    expect(
+      applied.filter((r) => r.selector === "node").at(-1)!.style[
+        "background-color"
+      ],
+    ).toBe("blue");
+    expect(focusRule(applied)["border-width"]).toBe(6);
+    expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+  });
+});

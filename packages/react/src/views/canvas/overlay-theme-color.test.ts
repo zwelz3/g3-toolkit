@@ -23,6 +23,7 @@ import {
   overlayThemeRules,
   type CyStylesheet,
 } from "./CytoscapeCanvas";
+import { LABEL_HIDDEN_CLASS, LABEL_SHORT_FIELD } from "./apply-label-collision";
 
 /** Hex to cytoscape's normalized "rgb(r,g,b)" rendering. */
 function rgb(hex: string): string {
@@ -229,6 +230,110 @@ describe("overlay rules outrank the host stylesheet (issue #63)", () => {
     expect(cy.$id("b").style("border-width")).toBe("3px");
     cy.$id("b").removeClass("g3t-ov-member");
     expect(cy.$id("b").style("border-width")).toBe("1px");
+    cy.destroy();
+  });
+});
+
+/**
+ * The post-overlay host slot (issue #69).
+ *
+ * #63 settled that the host `stylesheet` lands before the overlay
+ * block, and because cytoscape has no selector specificity, no rule in
+ * that sheet can win a property back on a member, however specific its
+ * selector. `stylesheetAfterOverlays` is the one rule-based path that
+ * can: it lands after both overlay blocks (static geometry, theme
+ * colors) and before the svg-overlay transparency, the label-collision
+ * outcomes and the hidden filter, which stay last. Computed styles
+ * through the real merge, as above.
+ */
+describe("the post-overlay host slot (issue #69)", () => {
+  const focusRule: CyStylesheet[] = [
+    {
+      selector: "node.host-focus",
+      style: { "border-width": 4, "border-color": "#555555" },
+    },
+  ];
+
+  it("lands after every overlay rule and before the svg-overlay, label-collision and hidden rules", () => {
+    const sheet = composeCanvasStylesheet(DARK_THEME, {
+      userStylesheet: [
+        { selector: "node.host-chrome", style: { "border-width": 2 } },
+      ],
+      userStylesheetAfterOverlays: focusRule,
+      structuralEdgeLayer: "svg-overlay",
+    });
+    const selectors = sheet.map((r) => r.selector);
+    const slot = selectors.indexOf("node.host-focus");
+    expect(slot).toBeGreaterThan(-1);
+    expect(selectors.lastIndexOf("node.host-focus")).toBe(slot);
+    // After the ordinary host sheet and every overlay rule, static and
+    // theme-derived alike.
+    expect(slot).toBeGreaterThan(selectors.indexOf("node.host-chrome"));
+    for (const sel of [
+      "node.g3t-ov-member",
+      "edge.g3t-ov-member",
+      ".g3t-ov-dim",
+      "node.g3t-ov-danger",
+    ]) {
+      expect(selectors.lastIndexOf(sel)).toBeLessThan(slot);
+    }
+    // Still under the svg-overlay transparency, both label-collision
+    // outcomes and the hidden filter, which closes the sheet.
+    expect(
+      selectors.lastIndexOf("edge.g3t-structural-edge-routed"),
+    ).toBeGreaterThan(slot);
+    expect(selectors.indexOf(`node[${LABEL_SHORT_FIELD}]`)).toBeGreaterThan(
+      slot,
+    );
+    expect(
+      selectors.indexOf(
+        `node.${LABEL_HIDDEN_CLASS}, edge.${LABEL_HIDDEN_CLASS}`,
+      ),
+    ).toBeGreaterThan(slot);
+    expect(selectors.lastIndexOf(".g3t-hidden")).toBe(sheet.length - 1);
+  });
+
+  it("the same focus rule beats the overlay border from the slot and loses from `stylesheet`", () => {
+    const theme = createTheme(
+      { id: "host", name: "Host", overlayColor: "#ff00aa", error: "#123456" },
+      DARK_THEME,
+    );
+    const before = mount(theme, { userStylesheet: focusRule });
+    before.$id("a").addClass("host-focus");
+    expect(before.$id("a").style("border-width")).toBe("3px");
+    expect(before.$id("a").style("border-color")).toBe(rgb("#ff00aa"));
+    before.destroy();
+
+    const after = mount(theme, { userStylesheetAfterOverlays: focusRule });
+    after.$id("a").addClass("host-focus");
+    expect(after.$id("a").style("border-width")).toBe("4px");
+    expect(after.$id("a").style("border-color")).toBe(rgb("#555555"));
+    // The slot is scoped by its own selectors: a member without the
+    // host class keeps the overlay emphasis and the theme color.
+    expect(after.$id("b").style("border-width")).toBe("3px");
+    expect(after.$id("b").style("border-color")).toBe(rgb("#ff00aa"));
+    // A tone on the focused member loses too: the slot follows the
+    // theme-derived tone rules, not just the static block.
+    after.$id("a").addClass("g3t-ov-danger");
+    expect(after.$id("a").style("border-color")).toBe(rgb("#555555"));
+    // Off the overlay the rule reads the same from either slot.
+    after.$id("a").removeClass("g3t-ov-member g3t-ov-danger");
+    expect(after.$id("a").style("border-width")).toBe("4px");
+    after.destroy();
+  });
+
+  it("does not outrank the hidden filter or a label-collision outcome", () => {
+    const cy = mount(DARK_THEME, {
+      userStylesheetAfterOverlays: [
+        { selector: "node", style: { display: "element", label: "shown" } },
+      ] as never,
+    });
+    expect(cy.$id("a").style("display")).toBe("element");
+    expect(cy.$id("a").style("label")).toBe("shown");
+    cy.$id("a").addClass("g3t-hidden");
+    expect(cy.$id("a").style("display")).toBe("none");
+    cy.$id("b").addClass(LABEL_HIDDEN_CLASS);
+    expect(cy.$id("b").style("label")).toBe("");
     cy.destroy();
   });
 });
