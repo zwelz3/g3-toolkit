@@ -287,8 +287,16 @@ so leaving a mode reverts cleanly.
 
 Stylesheet merge order (later rules win the property): defaults,
 curve style, chrome, theme colors, structural theme colors,
-ENCODING rules, overlay/dim, YOUR stylesheet, hidden filter. Your
-rules beat everything except the visibility filter.
+ENCODING rules, YOUR stylesheet, overlay/dim (`g3t-ov-*`), label
+collision outcomes, hidden filter. Your rules beat the theme and the
+encoding; they do not beat an active overlay on its members (issue
+#63; before that fix an ordinary `node { border-width: 1 }` or `edge
+{ width: 1.5 }` stripped the overlay emphasis, because Cytoscape has
+no selector specificity and the later rule wins). To restyle overlay
+members, set the theme's `overlayColor` and semantic tone colors; a
+more specific selector in your sheet does not help, since order alone
+decides, while a per-element bypass (`ele.style(...)`) outranks every
+rule.
 
 ## Structural scenes
 

@@ -252,7 +252,10 @@ export const DEFAULT_OVERLAY_COLOR = "#2f9e44";
  *  block (overlayThemeRules), because these rules sit after the theme
  *  block (the dim must beat encoding) and cytoscape gives the property
  *  to the later rule: with the literals last, no theme ever reached an
- *  emphasized member (issue #32, the fixed green in a dark host). */
+ *  emphasized member (issue #32, the fixed green in a dark host).
+ *  Both blocks also sit AFTER the host's `stylesheet` prop (issue
+ *  #63): an ordinary host `node { border-width: 1 }` must not strip
+ *  the member border. */
 export const OVERLAY_RULES: CyStylesheet[] = [
   {
     selector: "node.g3t-ov-member",
@@ -400,9 +403,11 @@ export function themeColorRules(theme: G3tTheme): CyStylesheet[] {
  *  the 2026-08-27 tones alike. composeCanvasStylesheet pushes these
  *  right after OVERLAY_RULES, so the theme wins the color and the
  *  static block keeps supplying geometry (border width, line width,
- *  dim opacity). Neutral members take `overlayColor`, defaulting to
- *  the historical green when a consumer theme omits the optional
- *  field; tones take the semantic trio. */
+ *  dim opacity); both land after the host's stylesheet (issue #63),
+ *  so the theme is the host's path to an overlay color, not a bare
+ *  `node { border-color }` rule. Neutral members take `overlayColor`,
+ *  defaulting to the historical green when a consumer theme omits
+ *  the optional field; tones take the semantic trio. */
 export function overlayThemeRules(theme: G3tTheme): CyStylesheet[] {
   const member = theme.overlayColor ?? DEFAULT_OVERLAY_COLOR;
   return [
@@ -690,11 +695,14 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
  *  (VR-2 root cause: these previously sat BEFORE the theme block,
  *  so the theme's plain `edge { line-color }` clobbered
  *  `edge[_ecolor]` in every theme and color-by-confidence never
- *  painted) -> OVERLAY rules (emphasis dim must beat encoding) ->
+ *  painted) -> user stylesheet (the host wins ties against theme and
+ *  encoding) -> OVERLAY rules (emphasis dim must beat encoding, and
+ *  the overlay border/width must beat the host's plain node/edge
+ *  rules; issue #63 moved the host sheet ahead of this block) ->
  *  OVERLAY theme colors (issue #32: the static overlay literals used
  *  to be the last word, so no theme reached a member) ->
- *  user stylesheet (user wins ties) -> svg-overlay transparency ->
- *  hidden filter last. */
+ *  svg-overlay transparency -> label-collision outcomes -> hidden
+ *  filter last. */
 /** Upstream P1 (prm-analyzer, 2026-07-28) + the 64b regression it
  *  shipped with: the first guard classified elements by the
  *  PRESENCE of data.source, but ugmToCytoscapeElements spreads
@@ -778,16 +786,32 @@ export function composeCanvasStylesheet(
     // are user intent and beat default chrome.
     ...ENCODING_EDGE_RULES,
     ...ENCODING_NODE_RULES,
-    // Emphasis/overlay dim still beats encoding (the 9.10
-    // contract: a trace-route dim must fade encoded elements too).
-    ...OVERLAY_RULES,
-    // Overlay COLORS from the theme, after the static block so they
-    // win the property (issue #32); the user stylesheet still follows.
-    ...overlayThemeRules(theme),
   );
+  // The host's stylesheet: after theme and encoding (adopter chrome
+  // beats both on ties) and BEFORE the overlay block (issue #63). It
+  // used to come last, and because cytoscape gives a property to the
+  // later rule whatever the selector shape, an ordinary host `node {
+  // border-width: 1 }` or `edge { width: 1.5 }` beat the overlay
+  // border and line width on every member, and a host `node[strong=1]`
+  // or focus-class color beat the overlay color; #32's theme color
+  // reached a member only where the host set nothing. Cytoscape has
+  // no selector specificity (order alone decides), so a host restyles
+  // an overlay through the theme (`overlayColor`, the tone colors) or
+  // a per-element bypass, not through a more specific selector in
+  // this sheet.
   if (opts?.userStylesheet) {
     merged.push(...opts.userStylesheet);
   }
+  merged.push(
+    // Emphasis/overlay dim beats encoding (the 9.10 contract: a
+    // trace-route dim must fade encoded elements too) and the host
+    // stylesheet (the canvas precedence: overlays = g3t-ov-* classes
+    // outrank theme, spec and host chrome).
+    ...OVERLAY_RULES,
+    // Overlay COLORS from the theme, after the static block so they
+    // win the property (issue #32).
+    ...overlayThemeRules(theme),
+  );
   // SVG overlay mode (G3L:RND-002): routed structural edges go
   // fully transparent in Cytoscape while STAYING mounted and
   // hit-testable; the overlay draws the visuals. opacity (not
@@ -1854,8 +1878,9 @@ export function CytoscapeCanvas({
 
   /** One stylesheet assembly for init AND live theme restyles.
    *  Order is the precedence story: structural defaults (fallback
-   *  literals) -> spec-channel rules -> theme-resolved colors ->
-   *  user stylesheet. */
+   *  literals) -> theme-resolved colors -> spec-channel rules ->
+   *  user stylesheet -> overlay classes (issue #63: the overlay
+   *  emphasis outranks host chrome). */
   const composeMergedStylesheet = useCallback(
     (theme: G3tTheme): CyStylesheet[] =>
       composeCanvasStylesheet(theme, {
