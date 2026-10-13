@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 PUBLISHED: 2026-10-13
 
 Everything in this section is merged to `main` or sits on the
 `downstream-issues-reccs` branch, and NONE of it is in a published
