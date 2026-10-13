@@ -186,8 +186,10 @@ describe("TableView virtualize (#47)", () => {
       />,
     );
     expect(spacers()).toHaveLength(1);
+    // Quoted (#58 ruling: unquoted words match anywhere in the row,
+    // so a bare `row 19` would keep every row holding "19").
     fireEvent.change(screen.getByTestId("table-search"), {
-      target: { value: "row 19" },
+      target: { value: '"row 19"' },
     });
     // "row 19", "row 190".."row 199": 11 rows, all in the DOM.
     expect(screen.getByTestId("table-pagination")).toHaveTextContent(

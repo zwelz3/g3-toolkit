@@ -441,7 +441,29 @@ const BUDGETS = {
   // textual mention, in timeline.mjs.map, is a source comment about
   // the vendored vis-timeline stylesheet, not a source path). Headroom
   // about 4.2 KB, same posture.
-  react: 455 * 1024,
+  // Issues #57 and #58 (2026-10-13): 450 -> 456. TableView adoption
+  // gaps for a host replacing its own TanStack table. Measured
+  // 446.3 -> 452.7 KB (457,028 -> 463,583 bytes, +6.4 KB), all of it
+  // TableView.tsx in the StatsPanel chunk, so a host that never
+  // references the table pays nothing: the native-button sort trigger
+  // with keyboard multi-sort (#57); controlled/seeded sorting, the
+  // per-column hidden/csv/align/width/title fields, the empty-state
+  // row, the toolbar slot, filter-kind inference, first/last page
+  // buttons with the rows-per-page select, unique row ids, and the
+  // column-set reconciliation that drops filters and sorts on columns
+  // that left (#58); and the every-word search semantics the
+  // maintainer ruled on (a term parser and the row-level match).
+  // Sourcemap audit as the 2026-07-03 core entry requires: ZERO
+  // node_modules source bytes across react's 16 dist maps (965,030
+  // source bytes, all first-party). Headroom about 3.3 KB, same
+  // posture as the entries above.
+  // Merge step (2026-10-13, round 3 on #53): the #59 and #57/#58
+  // raises above were each measured against the 1.2.0 base, so they
+  // do not sum; #56 (SchemaView targets, inheritance, several
+  // parents) added about 1.8 KB without a raise. Re-measured on the
+  // merged tree: 460.9 KB (+14.6 KB over the 1.2.0 base), budget 465 KB. Headroom kept at the
+  // same posture as the entries above.
+  react: 465 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the

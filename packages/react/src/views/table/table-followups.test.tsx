@@ -453,4 +453,59 @@ describe("TableView search (#47)", () => {
       "1 of 3 nodes",
     );
   });
+
+  it("every word must match somewhere in the row, across cells; a quoted phrase is one term (#58 ruling)", () => {
+    render(
+      <TableView rows={bindings} columns={columns} rowId={(r) => r.s} search />,
+    );
+    const box = screen.getByTestId("table-search");
+    // Two words in different cells: "two" is the label, "urn:2" the
+    // subject.
+    fireEvent.change(box, { target: { value: "two urn:2" } });
+    expect(visibleRowIds()).toEqual(["urn:2"]);
+    // Order and spacing do not matter; case does not either.
+    fireEvent.change(box, { target: { value: "  URN:2   Two " } });
+    expect(visibleRowIds()).toEqual(["urn:2"]);
+    // One word absent anywhere in the row: no match.
+    fireEvent.change(box, { target: { value: "two nine" } });
+    expect(visibleRowIds()).toEqual([]);
+    expect(screen.getByTestId("table-pagination")).toHaveTextContent(
+      "0 of 4 rows",
+    );
+    // Each word on its own may match a different row: "one" and "two"
+    // are never in the same row, so nothing matches.
+    fireEvent.change(box, { target: { value: "one two" } });
+    expect(visibleRowIds()).toEqual([]);
+    // A quoted phrase is one substring, spaces included: no cell holds
+    // "two urn", while the unquoted words each match urn:2.
+    fireEvent.change(box, { target: { value: '"two urn"' } });
+    expect(visibleRowIds()).toEqual([]);
+    fireEvent.change(box, { target: { value: '"urn:2"' } });
+    expect(visibleRowIds()).toEqual(["urn:2"]);
+    // A phrase and a word together; an unclosed quote runs to the end.
+    fireEvent.change(box, { target: { value: '"urn:" thr' } });
+    expect(visibleRowIds()).toEqual(["urn:3"]);
+    fireEvent.change(box, { target: { value: '"urn:3' } });
+    expect(visibleRowIds()).toEqual(["urn:3"]);
+    // A column hidden from view drops its cells from the row: "two"
+    // was only in the label.
+    fireEvent.click(screen.getByTestId("column-visibility-toggle"));
+    fireEvent.click(
+      within(screen.getByTestId("column-menu-row-label")).getByRole("checkbox"),
+    );
+    fireEvent.change(box, { target: { value: "two urn:2" } });
+    expect(visibleRowIds()).toEqual([]);
+  });
+
+  it("UGM path: words across id, types and properties", () => {
+    render(<TableView ugm={ugmFixture()} search />);
+    fireEvent.change(screen.getByTestId("table-search"), {
+      target: { value: "org acme" },
+    });
+    expect(visibleRowIds()).toEqual(["acme"]);
+    fireEvent.change(screen.getByTestId("table-search"), {
+      target: { value: "person acme" },
+    });
+    expect(visibleRowIds()).toEqual([]);
+  });
 });
