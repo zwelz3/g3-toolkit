@@ -6,7 +6,7 @@
  * a non-empty graph, survives an empty one).
  */
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import { UGM } from "@g3-toolkit/core";
 import { SankeyView } from "./SankeyView";
 import { stubChartDims } from "../../../../../tests/chart-dims";
@@ -33,10 +33,14 @@ function smallUgm(): UGM {
 }
 
 describe("SankeyView", () => {
-  it("mounts and emits SVG for a non-empty UGM", () => {
+  it("mounts and emits SVG for a non-empty UGM", async () => {
     render(<SankeyView ugm={smallUgm()} mode="sankey" />);
     const root = screen.getByTestId("sankey-view");
-    expect(root.querySelector("svg")).not.toBeNull();
+    // The container is in the DOM on first paint; the SVG arrives once
+    // echarts has been loaded lazily (load-echarts.ts), so the chart
+    // assertion waits rather than reading the first render.
+    expect(root.querySelector("svg")).toBeNull();
+    await waitFor(() => expect(root.querySelector("svg")).not.toBeNull());
   });
 
   it("an empty graph renders the explicit empty state, not a blank chart", () => {
