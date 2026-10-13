@@ -689,3 +689,37 @@ describe("an empty targetClass contributes no target entry (#54)", () => {
     expect(screen.getByTestId("shape-badge-S")).toBeInTheDocument();
   });
 });
+
+// ── Issue #67: an absent targetClass reads like an empty one ────────
+
+describe("an absent targetClass behaves like an empty one (#67)", () => {
+  it("a subjectsOf-only shape without targetClass lists that target alone", () => {
+    const shape: ShaclShape = {
+      id: "S",
+      targets: [{ kind: "subjectsOf", value: "http://x.org/v#decomposes" }],
+      properties: [],
+    };
+    render(<ShaclShapeBrowser shapes={[shape]} validationResults={[]} />);
+    const targets = screen.getByTestId("shape-targets-S");
+    expect(targets.textContent).toBe("→ subjects of decomposes");
+    expect(targets.querySelectorAll("[data-target-kind]")).toHaveLength(1);
+    expect(targets.querySelector('[data-target-kind="class"]')).toBeNull();
+  });
+
+  it("a shape with no target at all shows no arrow, and validates nothing", () => {
+    const shape: ShaclShape = { id: "S", name: "Untargeted", properties: [] };
+    const ugm = new UGM();
+    ugm.addNode("n", { types: ["T"], properties: {} });
+    render(
+      <ShaclShapeBrowser
+        shapes={[shape]}
+        validationResults={validateShacl(ugm, [shape])}
+      />,
+    );
+    expect(screen.queryByTestId("shape-targets-S")).toBeNull();
+    const header = screen.getByTestId("shape-toggle-S");
+    expect(header.textContent).not.toContain("→");
+    expect(header.textContent).toContain("Untargeted");
+    expect(screen.getByTestId("shape-badge-S")).toBeInTheDocument();
+  });
+});

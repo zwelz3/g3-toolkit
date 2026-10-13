@@ -106,17 +106,19 @@ export interface ShaclShapeBrowserProps {
 }
 
 /** Every target a shape declares, `targetClass` first, with a duplicate
- *  class entry in `targets` folded away so it is not drawn twice.
- *  `targetClass` is required on the type, so a shape with no class
- *  target (subjects-of only, SPARQL only, or no target at all) passes
- *  `""`; that is not a target and contributes no entry (#54). */
+ *  class entry in `targets` folded away so it is not drawn twice. A
+ *  shape with no class target (subjects-of only, SPARQL only, or no
+ *  target at all) leaves `targetClass` absent (#67) or, from a host on
+ *  the older required type, passes `""` (#54); both mean no class
+ *  target and contribute no entry. */
 function targetsOf(shape: ShaclShape): ShaclShapeTarget[] {
+  const targetClass = shape.targetClass ?? "";
   const out: ShaclShapeTarget[] = [];
-  if (shape.targetClass !== "") {
-    out.push({ kind: "class", value: shape.targetClass });
+  if (targetClass !== "") {
+    out.push({ kind: "class", value: targetClass });
   }
   for (const t of shape.targets ?? []) {
-    if (t.kind === "class" && t.value === shape.targetClass) continue;
+    if (t.kind === "class" && t.value === targetClass) continue;
     out.push(t);
   }
   return out;
