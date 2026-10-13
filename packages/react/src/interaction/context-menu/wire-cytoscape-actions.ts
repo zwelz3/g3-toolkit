@@ -73,20 +73,21 @@ export function wireCytoscapeContextActions(
     }),
   );
 
-  // Hide: visually hide the node and its incident edges. We use
-  // 'display: none' rather than removing from the graph so the
-  // operation is reversible.
+  // Hide: the same mechanism as CytoscapeCanvas's `hidden` prop, the
+  // `g3t-hidden` class (its stylesheet rule is `display: none`, and
+  // Cytoscape drops an edge whose endpoint is not displayed, so the
+  // incident edges follow). Issue #50: this handler used to ALSO write
+  // a `display: none` style bypass on the node and its edges. A bypass
+  // outranks every stylesheet rule, so a node hidden here stayed
+  // invisible after a host removed it from the `hidden` set, and the
+  // two paths disagreed about what "hidden" means. Class only, so
+  // either path can un-hide what the other hid.
   unsubs.push(
     eventBus.on("context:hideNodes", ({ nodeIds }) => {
       cy.batch(() => {
         for (const id of nodeIds) {
           const el = cy.getElementById(id);
-          if (el.nonempty()) {
-            el.style("display", "none");
-            // Hide connected edges too so they don't dangle
-            el.connectedEdges().style("display", "none");
-            el.addClass("g3t-hidden");
-          }
+          if (el.nonempty()) el.addClass("g3t-hidden");
         }
       });
     }),

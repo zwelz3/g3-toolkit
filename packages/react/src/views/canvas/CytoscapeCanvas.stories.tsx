@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Core } from "cytoscape";
 import { UGM, eventBus } from "@g3-toolkit/core";
 import { CytoscapeCanvas } from "./CytoscapeCanvas";
@@ -356,16 +356,24 @@ export const WithContextMenu: Story = {
       return m;
     }, [ugm]);
 
-    const cyRef = useRef<Core | null>(null);
-    useEffect(() => {
-      const cy = cyRef.current;
-      if (!cy) return;
-      const unsub = wireCytoscapeContextActions(cy, eventBus, ugm, {
-        onViewNeighborhood: (_sub, centerId, hops) =>
-          setLastAction(`Neighborhood ready: ${centerId} (${hops}-hop)`),
-      });
-      return unsub;
-    }, [ugm]);
+    // Issue #50: bind inside onReady, not in an effect over a stored
+    // handle. The canvas re-creates its core on a different input graph
+    // and on the rebuild props (layout, edgeStyle, ...), and an effect
+    // keyed on `ugm` never re-runs for those, so the bus would stay
+    // wired to a destroyed core. onReady fires for every (re)built
+    // instance; the previous wiring is disposed first.
+    const unwireRef = useRef<(() => void) | null>(null);
+    const handleReady = useCallback(
+      (cy: Core) => {
+        unwireRef.current?.();
+        unwireRef.current = wireCytoscapeContextActions(cy, eventBus, ugm, {
+          onViewNeighborhood: (_sub, centerId, hops) =>
+            setLastAction(`Neighborhood ready: ${centerId} (${hops}-hop)`),
+        });
+      },
+      [ugm],
+    );
+    useEffect(() => () => unwireRef.current?.(), []);
 
     return (
       <div
@@ -391,9 +399,7 @@ export const WithContextMenu: Story = {
           <CytoscapeCanvas
             ugm={ugm}
             menuManager={manager}
-            onReady={(cy) => {
-              cyRef.current = cy;
-            }}
+            onReady={handleReady}
           />
         </div>
       </div>
