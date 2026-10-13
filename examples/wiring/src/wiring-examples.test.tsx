@@ -45,7 +45,11 @@ import {
   collapseByCluster,
   buildSubgraph,
   G3tEventBus,
+  WorkingSetManager,
+  pageNodes,
+  pageCount,
   type RDFGraph,
+  type PageWindow,
 } from "@g3-toolkit/core";
 import {
   usePositionPinStore,
@@ -83,6 +87,8 @@ import {
   FloatingLegend,
   TableView,
   getCsv,
+  MatrixView,
+  PaginationControl,
   resolveLabelCollisions,
   composeLabelPriority,
   type EncodingSpec,
@@ -1416,6 +1422,103 @@ describe("table view recipes (guide: Table view recipes)", () => {
     expect(getCsv(csvRows, csvColumns)).toBe(
       'Subject,"Label, long"\r\nurn:2,two\r\nurn:1,one\r\n',
     );
+  });
+});
+
+describe("working-set limits (guide: Working-set limits: page past them)", () => {
+  function typed(n: number): UGM {
+    const ugm = new UGM();
+    for (let i = 0; i < n; i++) {
+      ugm.addNode(`n${String(i).padStart(3, "0")}`, {
+        types: [`T${String(i).padStart(3, "0")}`],
+        properties: {},
+      });
+    }
+    for (let i = 0; i < n - 1; i++) {
+      ugm.addEdge(
+        `n${String(i).padStart(3, "0")}`,
+        `n${String(i + 1).padStart(3, "0")}`,
+        { type: "rel", properties: {} },
+      );
+    }
+    return ugm;
+  }
+
+  it("checkLimit names the strategy and page size; pageNodes cuts a stable, described window", () => {
+    const ugm = typed(350);
+    const limits = new WorkingSetManager();
+    const check = limits.checkLimit("matrix", 350);
+    expect(check).toEqual({
+      allowed: false,
+      limit: 200,
+      requested: 350,
+      strategy: "page",
+      pageSize: 200,
+    });
+    expect(limits.checkLimit("canvas", 600).strategy).toBe("refuse");
+    expect(limits.checkLimit("canvas", 600, "page").strategy).toBe("page");
+    expect(limits.checkLimit("matrix", 100).strategy).toBe("allow");
+
+    const page = pageNodes(ugm, { offset: 0, size: check.pageSize });
+    const window: PageWindow = page.window;
+    expect(window).toEqual({
+      offset: 0,
+      size: 200,
+      total: 350,
+      totalExact: true,
+    });
+    expect(pageCount(window)).toBe(2);
+    const next = pageNodes(ugm, { offset: window.size, size: window.size });
+    expect(next.items).toHaveLength(150);
+    expect(next.items[0]).toBe("n200");
+    // Stable: the same request names the same ids on every call.
+    expect(pageNodes(ugm, { offset: 0, size: 200 })).toEqual(page);
+  });
+
+  it("MatrixView pages per axis at the manager's limit; PaginationControl pages a host list", () => {
+    const ugm = typed(7);
+    const limits = new WorkingSetManager({ matrix: 4 });
+    render(<MatrixView ugm={ugm} maxSize={limits.getLimit("matrix")} />);
+    expect(
+      screen.getByTestId("matrix-rows-pagination-summary").textContent,
+    ).toBe("rows 1 to 4 of 7");
+    expect(screen.queryByTestId("matrix-cell-T003-T004")).toBeNull();
+    fireEvent.click(screen.getByTestId("matrix-columns-pagination-next"));
+    expect(screen.getByTestId("matrix-cell-T003-T004").textContent).toBe("1");
+
+    function NodeRegister() {
+      const [page, setPage] = useState(0);
+      const size = 3;
+      const { items, window } = pageNodes(ugm, { offset: page * size, size });
+      return (
+        <>
+          <ul>
+            {items.map((id) => (
+              <li key={id}>{id}</li>
+            ))}
+          </ul>
+          <PaginationControl
+            page={page}
+            pageSize={size}
+            total={window.total}
+            totalExact={window.totalExact}
+            noun="nodes"
+            onPageChange={setPage}
+          />
+        </>
+      );
+    }
+    render(<NodeRegister />);
+    expect(screen.getByTestId("pagination-control-summary").textContent).toBe(
+      "nodes 1 to 3 of 7",
+    );
+    const nav = screen.getByRole("navigation", { name: "Nodes pagination" });
+    fireEvent.keyDown(nav, { key: "End" });
+    expect(screen.getByTestId("pagination-control-summary").textContent).toBe(
+      "nodes 7 to 7 of 7",
+    );
+    expect(screen.getByText("n006")).toBeDefined();
+    expect(screen.queryByText("n000")).toBeNull();
   });
 });
 

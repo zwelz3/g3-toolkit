@@ -4,19 +4,36 @@
  * Renders node type co-occurrence as a color-scaled grid.
  * Click a cell to drill to the subgraph connecting those types.
  *
+ * Working-set limit (R7.3, issue #6): past `maxSize` types the view
+ * PAGES, rows and columns independently, each axis cut by core's
+ * `pageCategories` (stable id order) and driven by its own
+ * PaginationControl. Two controls rather than one with an axis
+ * selector because independence is the point: a 350x350 request
+ * renders 200x200 and every (rowPage, colPage) pair is reachable, so
+ * every cell is, and the user sees where they are on both axes at
+ * once. Aggregating the remainder into an "other" row/column is the
+ * documented non-goal: it hides which types made the bucket and the
+ * cell click (select the nodes behind it) would have nothing precise
+ * to select. The color scale is computed over the WHOLE matrix, so a
+ * cell keeps its color when the page changes.
+ *
  * @see specs/01-functional-views.md R1.4
  * @see specs/07-ux-defaults-accessibility.md R7.3
  */
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import type { UGM } from "@g3-toolkit/core";
-import { scaleColor } from "@g3-toolkit/core";
+import { scaleColor, pageCategories, pageCount } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { EmptyState } from "../../interaction/feedback";
+import { PaginationControl } from "../../interaction/pagination";
 
 export interface MatrixViewProps {
   ugm: UGM;
-  /** Maximum dimensions before aggregation (default 200, R7.3). */
+  /** Page size per axis (default 200, R7.3): a matrix with more node
+   *  types than this pages rows and columns independently. A host that
+   *  consults `WorkingSetManager.checkLimit("matrix", n)` passes its
+   *  `pageSize` here. */
   maxSize?: number;
   /** VR-18 (owner verification 2026-07-26): stretch the table to
    *  the host's width (the analytics rail) instead of the natural
@@ -39,9 +56,16 @@ export function MatrixView({
   className,
 }: MatrixViewProps) {
   const { selectNodes } = useSelectionStore();
+  // Zero-based page per axis. Clamped at read time (below) rather than
+  // reset in an effect, so a graph that shrinks never leaves the view
+  // on a page past the end for a render.
+  const [rowPage, setRowPage] = useState(0);
+  const [colPage, setColPage] = useState(0);
+  const pageSize = Math.max(1, Math.floor(maxSize));
 
-  // Build adjacency matrix by node type
-  const { types, matrix, maxCount, totalTypes } = useMemo(() => {
+  // Count edges by (source type, target type) once per graph; the
+  // scale maximum is over every cell so paging never recolors.
+  const { typeCounts, typeSet, maxCount } = useMemo(() => {
     const typeCounts = new Map<string, Map<string, MatrixCell>>();
     const typeSet = new Set<string>();
 
@@ -67,30 +91,45 @@ export function MatrixView({
       if (!cell.nodeIds.includes(target)) cell.nodeIds.push(target);
     });
 
-    const allTypes = [...typeSet].sort();
-    const sortedTypes = allTypes.slice(0, maxSize);
-    const mtx: MatrixCell[][] = sortedTypes.map((rowType) =>
-      sortedTypes.map((colType) => {
-        return (
+    let maxVal = 0;
+    for (const row of typeCounts.values()) {
+      for (const cell of row.values()) {
+        if (cell.count > maxVal) maxVal = cell.count;
+      }
+    }
+    return { typeCounts, typeSet, maxCount: maxVal };
+  }, [ugm]);
+
+  const totalTypes = typeSet.size;
+  const pages = pageCount({ size: pageSize, total: totalTypes });
+  const rowPageClamped = Math.min(rowPage, pages - 1);
+  const colPageClamped = Math.min(colPage, pages - 1);
+
+  // Cut the visible window per axis (core's stable id order) and
+  // build only the cells in it.
+  const { rowTypes, colTypes, matrix } = useMemo(() => {
+    const rows = pageCategories(typeSet, {
+      offset: rowPageClamped * pageSize,
+      size: pageSize,
+    }).items;
+    const cols = pageCategories(typeSet, {
+      offset: colPageClamped * pageSize,
+      size: pageSize,
+    }).items;
+    const mtx: MatrixCell[][] = rows.map((rowType) =>
+      cols.map(
+        (colType) =>
           typeCounts.get(rowType)?.get(colType) ?? {
             rowType,
             colType,
             count: 0,
             nodeIds: [],
-          }
-        );
-      }),
+          },
+      ),
     );
-
-    const maxVal = Math.max(0, ...mtx.flat().map((c) => c.count));
-    return {
-      types: sortedTypes,
-      matrix: mtx,
-      maxCount: maxVal,
-      totalTypes: allTypes.length,
-    };
-  }, [ugm, maxSize]);
-  const truncated = totalTypes > types.length;
+    return { rowTypes: rows, colTypes: cols, matrix: mtx };
+  }, [typeSet, typeCounts, pageSize, rowPageClamped, colPageClamped]);
+  const paged = totalTypes > pageSize;
 
   const handleCellClick = useCallback(
     (cell: MatrixCell) => {
@@ -101,7 +140,7 @@ export function MatrixView({
     [selectNodes],
   );
 
-  if (types.length === 0) {
+  if (totalTypes === 0) {
     return (
       <EmptyState
         testId="matrix-empty"
@@ -118,18 +157,31 @@ export function MatrixView({
       className={className}
       style={{ overflow: "auto", padding: 8 }}
     >
-      {truncated ? (
+      {paged ? (
         <div
-          data-testid="matrix-truncation-notice"
-          role="status"
+          data-testid="matrix-paging"
           style={{
-            fontSize: "var(--g3t-font-sm, 12px)",
-            color: "var(--g3t-text-muted, #888)",
-            padding: "4px 0",
+            display: "flex",
+            flexWrap: "wrap",
+            columnGap: "var(--g3t-space-4, 16px)",
           }}
         >
-          Showing {types.length} of {totalTypes} node types (working-set limit).
-          Raise maxSize or filter to specific types to see the rest.
+          <PaginationControl
+            page={rowPageClamped}
+            pageSize={pageSize}
+            total={totalTypes}
+            noun="rows"
+            onPageChange={setRowPage}
+            testId="matrix-rows-pagination"
+          />
+          <PaginationControl
+            page={colPageClamped}
+            pageSize={pageSize}
+            total={totalTypes}
+            noun="columns"
+            onPageChange={setColPage}
+            testId="matrix-columns-pagination"
+          />
         </div>
       ) : null}
       <table
@@ -144,7 +196,7 @@ export function MatrixView({
         <thead>
           <tr>
             <th />
-            {types.map((t) => (
+            {colTypes.map((t) => (
               <th
                 key={t}
                 scope="col"
@@ -173,7 +225,7 @@ export function MatrixView({
         </thead>
         <tbody>
           {matrix.map((row, ri) => (
-            <tr key={types[ri]}>
+            <tr key={rowTypes[ri]}>
               <th
                 scope="row"
                 style={{
@@ -186,7 +238,7 @@ export function MatrixView({
                   whiteSpace: "nowrap",
                 }}
               >
-                {types[ri]}
+                {rowTypes[ri]}
               </th>
               {row.map((cell, ci) => {
                 const intensity = maxCount > 0 ? cell.count / maxCount : 0;
@@ -202,7 +254,7 @@ export function MatrixView({
                 return (
                   <td
                     key={`${ri}-${ci}`}
-                    data-testid={`matrix-cell-${types[ri]}-${types[ci]}`}
+                    data-testid={`matrix-cell-${rowTypes[ri]}-${colTypes[ci]}`}
                     onClick={() => handleCellClick(cell)}
                     style={{
                       ...(fill ? {} : { width: 28 }),
@@ -219,7 +271,7 @@ export function MatrixView({
                       cursor: cell.count > 0 ? "pointer" : "default",
                       border: "1px solid var(--g3t-border, #eee)",
                     }}
-                    title={`${types[ri]} → ${types[ci]}: ${cell.count}`}
+                    title={`${rowTypes[ri]} → ${colTypes[ci]}: ${cell.count}`}
                   >
                     {fill ? (
                       <div

@@ -410,7 +410,12 @@ const BUDGETS = {
   // tree-shakeable named exports) were measured on separate branches;
   // merged, react measures 436.4 KB. About 3.5 KB headroom, same
   // posture as the entries above.
-  react: 440 * 1024,
+  // Round-2 integration (2026-10-13), second raise: 440 -> 446. The
+  // #6 PaginationControl molecule and MatrixView paging (+4.6 KB on
+  // its branch, +1.9 KB for the #16 AriaCompanion props before it)
+  // land on the 436.4 KB merged measurement above: 441.9 KB merged.
+  // About 4 KB headroom, same posture.
+  react: 446 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the

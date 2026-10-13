@@ -1102,6 +1102,103 @@ import { TableView } from "@g3-toolkit/react";
 </div>;
 ```
 
+## Working-set limits: page past them
+
+`WorkingSetManager` owns every per-view limit (canvas 500, table
+10,000, tree 1,000, matrix 200, sankey 100, streaming 500), and since
+issue #6 its answer says what to DO about an excess, not only whether
+there is one. `checkLimit` returns `strategy` ("allow" within the
+limit; otherwise the view type's row of `DEFAULT_LIMIT_STRATEGIES`:
+canvas, tree and streaming "refuse", table and matrix "page", sankey
+"truncate") and `pageSize` (the limit), with `allowed` kept for the
+callers that only ask the old question. Pass a third argument to
+override the row for one call. Both run under CI in
+`examples/wiring/src/wiring-examples.test.tsx` ("working-set limits"
+describe).
+
+```ts
+import {
+  WorkingSetManager,
+  pageNodes,
+  pageCount,
+  type PageWindow,
+} from "@g3-toolkit/core";
+
+const limits = new WorkingSetManager();
+const check = limits.checkLimit("matrix", 350);
+// { allowed: false, limit: 200, requested: 350, strategy: "page", pageSize: 200 }
+
+if (check.strategy === "page") {
+  const page = pageNodes(ugm, { offset: 0, size: check.pageSize });
+  const window: PageWindow = page.window;
+  // { offset: 0, size: 200, total: 350, totalExact: true }
+  const pages = pageCount(window); // 2
+  const next = pageNodes(ugm, { offset: window.size, size: window.size });
+  void pages;
+  void next;
+}
+```
+
+A page is only meaningful over an ordered result, so `pageNodes` and
+`pageCategories` sort by id (a code-unit comparison, the same in every
+locale) before cutting; the same request returns the same page on
+every call, and a comparator in `order` replaces the sort with id as
+the tie-break. The descriptor is offset-based: the in-memory UGM has
+no cursor layer, and `totalExact: false` is reserved for a backend
+that answers with an estimate (the control below then says "about").
+
+### Page a matrix
+
+`MatrixView` pages itself: past `maxSize` types (default 200, the
+R7.3 number) it renders a `maxSize` x `maxSize` window with one
+`PaginationControl` per axis, rows and columns independent, so a
+350x350 request opens at 200x200 and every cell is two clicks away at
+most. Feed it the limit from your manager so a deployment override
+reaches the view. The same control pages anything of yours; it holds
+no state, so a zero-based `page`, the `pageSize` and the `total` are
+all it needs, and ArrowLeft/ArrowRight/Home/End work from anywhere
+inside it.
+
+```tsx
+import { useState } from "react";
+import { WorkingSetManager, pageNodes } from "@g3-toolkit/core";
+import { MatrixView, PaginationControl } from "@g3-toolkit/react";
+
+const limits = new WorkingSetManager();
+
+function TypeMatrix() {
+  return <MatrixView ugm={ugm} maxSize={limits.getLimit("matrix")} />;
+}
+
+function NodeRegister() {
+  const [page, setPage] = useState(0);
+  const size = 50;
+  const { items, window } = pageNodes(ugm, { offset: page * size, size });
+  return (
+    <>
+      <ul>
+        {items.map((id) => (
+          <li key={id}>{id}</li>
+        ))}
+      </ul>
+      <PaginationControl
+        page={page}
+        pageSize={size}
+        total={window.total}
+        totalExact={window.totalExact}
+        noun="nodes"
+        onPageChange={setPage}
+      />
+    </>
+  );
+}
+```
+
+Not in this slice: `TableView` keeps its own TanStack bar (adopting
+the shared control there is the follow-up), and canvas and tree still
+refuse past their limits, because paging a layout is a different
+problem from paging a list.
+
 ## Box (lasso) selection: the gesture
 
 Box selection is on by default (`boxSelectionEnabled: true`), but with
