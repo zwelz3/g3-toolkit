@@ -3,8 +3,8 @@
 project = "g3-toolkit"
 copyright = "2026, g3-toolkit contributors"
 author = "g3-toolkit contributors"
-version = "1.1.0"
-release = "1.1.0"
+version = "1.2.0"
+release = "1.2.0"
 
 extensions = [
     "myst_parser",
