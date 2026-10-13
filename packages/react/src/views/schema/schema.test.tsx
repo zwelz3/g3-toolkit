@@ -563,6 +563,147 @@ describe("SchemaView badges every class in targets and inherits down subclasses 
   });
 });
 
+// ── Issue #56 ruling: a class with several parents, under each ──────
+
+describe("SchemaView renders a class with several parents under each (issue #56 ruling)", () => {
+  const schema = {
+    nodeTypes: ["Thing", "Agent", "LegalEntity", "Org", "Person"],
+    edgeTypes: [],
+    nodeProperties: {},
+    edgeProperties: {},
+  };
+  const subClassOf = {
+    Agent: "Thing",
+    LegalEntity: "Thing",
+    // A repeat and the class itself are ignored: two parents remain.
+    Org: ["Agent", "Agent", "Org", "LegalEntity"],
+    Person: "Agent",
+  };
+
+  it("appears once under each known parent, with per-copy parent, depth and path", () => {
+    render(<SchemaView schema={schema} subClassOf={subClassOf} />);
+    // Before the ruling the first listed parent alone won: one copy.
+    const copies = screen.getAllByTestId("schema-class-Org");
+    expect(copies).toHaveLength(2);
+    const byParent = Object.fromEntries(
+      copies.map((el) => [el.getAttribute("data-parent"), el]),
+    );
+    expect(Object.keys(byParent).sort()).toEqual(["Agent", "LegalEntity"]);
+    expect(screen.getByTestId("schema-subclasses-Agent")).toContainElement(
+      byParent.Agent ?? null,
+    );
+    expect(
+      screen.getByTestId("schema-subclasses-LegalEntity"),
+    ).toContainElement(byParent.LegalEntity ?? null);
+    for (const el of copies) expect(el).toHaveAttribute("data-depth", "2");
+    expect(byParent.Agent).toHaveAttribute("data-path", "Thing/Agent/Org");
+    expect(byParent.LegalEntity).toHaveAttribute(
+      "data-path",
+      "Thing/LegalEntity/Org",
+    );
+    // Single-parent classes render once, as before.
+    expect(screen.getAllByTestId("schema-class-Person")).toHaveLength(1);
+    expect(screen.getAllByTestId("schema-class-Agent")).toHaveLength(1);
+    // Org is not a root: the top level holds Thing alone.
+    const roots = [...screen.getByTestId("schema-view").children].map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(roots).toEqual(["schema-class-Thing"]);
+  });
+
+  it("inherits shapes from every ancestor, once each, and both copies agree", () => {
+    const shapes: ShaclShape[] = [
+      {
+        id: "ThingShape",
+        targetClass: "Thing",
+        properties: [{ path: "id", minCount: 1 }],
+      },
+      {
+        id: "AgentShape",
+        targetClass: "Agent",
+        properties: [{ path: "name", minCount: 1 }],
+      },
+      {
+        id: "LegalShape",
+        targetClass: "LegalEntity",
+        properties: [{ path: "registration" }],
+      },
+    ];
+    render(
+      <SchemaView
+        schema={schema}
+        shapes={shapes}
+        subClassOf={subClassOf}
+        validationResults={[
+          {
+            nodeId: "o1",
+            shapeId: "LegalShape",
+            shapeName: "LegalShape",
+            targetClass: "LegalEntity",
+            valid: false,
+            violations: [
+              { path: "registration", message: "m", severity: "info" },
+            ],
+          },
+        ]}
+      />,
+    );
+    const badges = screen.getAllByTestId("shacl-badge-Org");
+    expect(badges).toHaveLength(2);
+    for (const badge of badges) {
+      // Nearest ancestors first (parents in subClassOf order), then
+      // Thing; ThingShape is reachable through both parents but listed
+      // once. The inherited LegalShape result sets the status on both.
+      expect(badge).toHaveTextContent(
+        "SHACL: 3 constraints, 3 shapes, 3 inherited, info",
+      );
+      expect(badge).toHaveAttribute("data-inherited-count", "3");
+      expect(badge).toHaveAttribute("data-severity", "info");
+      expect(badge).toHaveAttribute(
+        "title",
+        "Shapes: AgentShape (inherited from Agent), LegalShape (inherited from LegalEntity), ThingShape (inherited from Thing)",
+      );
+    }
+    for (const list of screen.getAllByTestId("shacl-constraints-Org")) {
+      expect(
+        within(list).getAllByTestId("shacl-shape-ThingShape"),
+      ).toHaveLength(1);
+      expect(
+        within(list).getByTestId("shacl-shape-LegalShape"),
+      ).toHaveAttribute("data-inherited-from", "LegalEntity");
+    }
+  });
+
+  it("a cycle entered from a root is cut and every class still renders", () => {
+    render(
+      <SchemaView
+        schema={{
+          nodeTypes: ["R", "A", "B", "C"],
+          edgeTypes: [],
+          nodeProperties: {},
+          edgeProperties: {},
+        }}
+        // R -> A -> B -> C -> A: C's link back to A closes the cycle.
+        subClassOf={{ A: ["R", "C"], B: "A", C: "B" }}
+      />,
+    );
+    expect(screen.getAllByTestId("schema-class-A")).toHaveLength(1);
+    expect(screen.getByTestId("schema-class-A")).toHaveAttribute(
+      "data-parent",
+      "R",
+    );
+    expect(screen.getByTestId("schema-class-B")).toHaveAttribute(
+      "data-parent",
+      "A",
+    );
+    expect(screen.getByTestId("schema-class-C")).toHaveAttribute(
+      "data-parent",
+      "B",
+    );
+    expect(screen.queryByTestId("schema-subclasses-C")).toBeNull();
+  });
+});
+
 // ── E2.T3: Diff engine ──────────────────────────────────────────────
 
 describe("diffGraphs (M6.E2.T3)", () => {
