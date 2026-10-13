@@ -34,6 +34,30 @@ npm install vis-timeline vis-data
 import { TimelineView } from "@g3-toolkit/react/timeline";
 ```
 
+## Stylesheet
+
+The components ship their CSS as a separate file; nothing imports it
+for you (auto-injection breaks strict CSP and server rendering):
+
+```ts
+import "@g3-toolkit/react/style.css";
+```
+
+It styles `g3t-` elements only: no `body`, `html` or `*` rule and no
+font download, so a host page keeps its own typography and margins.
+The page-level reset and body typography (IBM Plex Sans at 13px,
+theme ink and background) are a second, opt-in file for applications
+that are built on the toolkit, which is what the playground and
+Storybook import:
+
+```ts
+import "@g3-toolkit/react/style.base.css";
+```
+
+Fonts are loaded by the host. The `--g3t-font` and `--g3t-font-mono`
+tokens name IBM Plex Sans and IBM Plex Mono with system fallbacks;
+self-host them, load them in your document, or override the tokens.
+
 ## Quick start
 
 ```tsx

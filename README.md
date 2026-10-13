@@ -54,6 +54,13 @@ renders unstyled, with no error:
 import "@g3-toolkit/react/style.css";
 ```
 
+That file styles g3 elements only (no `body`, `html` or `*` rule, no
+font download). The page-level reset and body typography the
+playground uses are a separate opt-in,
+`@g3-toolkit/react/style.base.css`; see
+[docs/consuming-g3t.md](docs/consuming-g3t.md) for when to add it and
+how fonts are loaded.
+
 ## Minimal Integration
 
 ```tsx

@@ -85,9 +85,13 @@ function countSubpaths() {
   for (const pkg of ["core", "react", "charts"]) {
     const pkgJson = join(ROOT, "packages", pkg, "package.json");
     const exports = JSON.parse(readFileSync(pkgJson, "utf-8")).exports ?? {};
-    // Don't count ".", "./package.json", or "./style.css"
+    // Don't count ".", "./package.json", or the two css subpaths
     const count = Object.keys(exports).filter(
-      (k) => k !== "." && k !== "./package.json" && k !== "./style.css",
+      (k) =>
+        k !== "." &&
+        k !== "./package.json" &&
+        k !== "./style.css" &&
+        k !== "./style.base.css",
     ).length;
     out[pkg] = count;
   }

@@ -94,6 +94,17 @@ per theme.
 | `--g3t-font-xs` | DESIGN_TOKENS.fontSizeXs |
 | `--g3t-line-height` | DESIGN_TOKENS.lineHeight |
 
+**Font loading is the host's.** `--g3t-font` names IBM Plex Sans and
+`--g3t-font-mono` names IBM Plex Mono, each with system fallbacks
+(`-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif` and
+`'Fira Code', 'Consolas', monospace`). Neither stylesheet the package
+ships loads a font: `style.css` once carried a Google Fonts `@import`,
+and a third-party request on load is unusable offline, under a strict
+CSP and on air-gapped deployments. Self-host the two Plex faces or
+load them from a CDN in your own document, or override the two tokens
+to use a face you already ship; without either, the toolkit renders
+in the first fallback that is installed.
+
 ### Spacing
 
 | Token | Value source |

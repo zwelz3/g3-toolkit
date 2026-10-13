@@ -52,7 +52,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SNAPSHOT_PATH = resolve(ROOT, "api-surface.json");
 const PACKAGES = ["core", "react", "charts"];
-const SKIP_SUBPATHS = new Set(["./package.json", "./style.css"]);
+const SKIP_SUBPATHS = new Set([
+  "./package.json",
+  "./style.css",
+  "./style.base.css",
+]);
 const UPDATE = process.argv.includes("--update");
 
 /** Enumerate the sorted runtime export names of every exports-map entry. */
