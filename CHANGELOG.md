@@ -397,10 +397,9 @@ this round: #41 (publishing is the maintainer's), #5, #6, #9, #12,
 
 ## 1.1.0 PUBLISHED: 2026-10-13
 
-Everything in this section is merged to `main` or sits on the
-`downstream-issues-reccs` branch, and NONE of it is in a published
-package. 1.0.0 remains the released version on npm; the next tag is
-what moves these entries under a version heading.
+Published to npm as `@g3-toolkit/*` 1.1.0 under tag `v1.1.0`. This
+section holds everything merged between 1.0.0 (2026-08-21) and that
+tag, including the `downstream-issues-reccs` round.
 
 ### 2026-10-13 (security: derived-property expressions no longer use expr-eval)
 
