@@ -120,6 +120,22 @@ rather than as a filter. Let activation be their act. Overlays carry
 an optional `tone` (`neutral` / `info` / `warning` / `danger`) so
 distinct tiers stay visually distinct once activated.
 
+**Overlays beat your stylesheet.** The canvas merges the `stylesheet`
+prop after the theme and the encoding rules and BEFORE the `g3t-ov-*`
+overlay rules (issue #63), so an ordinary `node { border-width: 1 }`
+or `edge { width: 1.5 }` in your sheet styles every element except an
+active overlay's members, where the overlay border, line width and
+color win. Cytoscape resolves rules by order alone, not CSS
+specificity, so this is the only ordering under which the documented
+precedence (overlays outrank theme, spec and host chrome) holds. To
+change how overlay members look, set the theme's `overlayColor` and
+the semantic tone colors (`error`, `warning`, `info`), which the merge
+applies last, rather than restating `node.g3t-ov-member` in your own
+sheet, where a more specific selector would still lose on order. A
+per-element bypass (`ele.style(...)`) outranks every rule, which is
+why instance pins still shadow the overlay border on the pinned
+element.
+
 **The context menu is a command bus.** `@g3-toolkit/core/events` is a
 context-action command bus, NOT a fourth integration channel. Add
 your verbs as menu actions; do not build a general pub/sub on it.
