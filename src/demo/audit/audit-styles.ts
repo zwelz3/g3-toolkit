@@ -54,6 +54,13 @@ export const AUDIT_STYLES = `
 }
 .au-canvas-wrap { flex: 1 1 auto; position: relative; min-width: 0; min-height: 0; }
 .au-canvas-wrap > * { position: absolute; inset: 0; }
+/* #16: the screen-reader surfaces sit inside the canvas region for
+   reading order but must not stretch over it (the inset rule above
+   would turn the companion into a click shield). */
+.au-canvas-wrap > .au-a11y, .au-sr-only {
+  position: absolute; inset: auto; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 .au-timeline {
   flex: 0 0 440px; display: flex; flex-direction: column; min-height: 0; /* 12.8 */
   background: var(--au-panel-2); border-left: 1px solid var(--au-line); overflow: auto;

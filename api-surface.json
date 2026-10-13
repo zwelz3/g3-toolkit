@@ -399,6 +399,7 @@
     "trimToEllipse",
     "ugmToCytoscapeElements",
     "useAnnounce",
+    "useAnnouncer",
     "useElementPointerEvents",
     "useEmphasisStore",
     "useInspectorSectionStore",
@@ -567,7 +568,8 @@
     "AriaCompanion",
     "HIGH_CONTRAST_DEFAULTS",
     "HIGH_CONTRAST_ON",
-    "useAnnounce"
+    "useAnnounce",
+    "useAnnouncer"
   ],
   "@g3-toolkit/react/icons": [
     "DEFAULT_ICON_PATHS",

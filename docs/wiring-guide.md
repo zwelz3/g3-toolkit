@@ -803,6 +803,70 @@ const chain: ProvenanceChain = [
 />;
 ```
 
+### Announce graph state to a screen reader
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`;
+demonstrated in the Provenance Auditor shell. A graph canvas is
+opaque to assistive technology, so `AriaCompanion` renders the same
+graph as a hidden, focusable, degree-ordered node list (focus selects,
+arrow right follows an edge) and one polite live region. The host owns
+the wording that only it knows: pass it as `announcement` (here through
+`useAnnouncer`), let the component debounce rapid changes, mute it
+while an animation plays, mirror the canvas `hidden` set so the list
+and the canvas agree, and name the list for your domain:
+
+```tsx
+import { useEffect } from "react";
+import {
+  AriaCompanion,
+  useAnnouncer,
+  useSelectionStore,
+} from "@g3-toolkit/react";
+
+// Your chain, however you derive it (the auditor walks PROV-O edges).
+const chain: string[] = ["ent:release", "act:approve", "ent:review"];
+// The same set you pass to CytoscapeCanvas `hidden`.
+const hidden = new Set<string>();
+
+function Narrated({ playing }: { playing: boolean }) {
+  const selectedId = useSelectionStore(
+    (s) => [...s.selectedNodeIds][0] ?? null,
+  );
+  const { announcement, announce } = useAnnouncer();
+  useEffect(() => {
+    if (selectedId === null) return;
+    const name = String(ugm.getNode(selectedId)?.properties.name);
+    const step = chain.indexOf(selectedId) + 1;
+    announce(
+      step > 0
+        ? `Lineage step ${step} of ${chain.length}: ${name}`
+        : `Selected ${name}`,
+    );
+  }, [selectedId, announce]);
+  return (
+    <AriaCompanion
+      ugm={ugm}
+      hidden={hidden}
+      label="Provenance nodes"
+      instructions="Focusing a node selects it on the canvas; arrow right follows an edge."
+      summarizeNode={(g, id) =>
+        `${String(g.getNode(id)?.properties.name)}, ${g.getNodeEdges(id).length} provenance edges`
+      }
+      announcement={announcement}
+      announceDebounceMs={300}
+      muted={playing}
+    />
+  );
+}
+```
+
+The region only speaks on a DOM change, so an unchanged re-render and
+a repeated identical message are silent by construction. Give the
+canvas region itself an accessible name (`aria-label` on the element
+that wraps the canvas) and a one-line `aria-describedby` saying the
+canvas is decorative and how to reach the list. `useAnnounce` (the
+older export) is deprecated: it never reached a region.
+
 ## Table view recipes
 
 Both run under CI in `examples/wiring/src/wiring-examples.test.tsx`
