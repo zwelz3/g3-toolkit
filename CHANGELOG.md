@@ -237,8 +237,34 @@ the affected suites re-run after each merge. Round log:
   MatrixView enforce a limit today; the guide says so. Merged with #6,
   the matrix limit from the provider is its page size.
 
-- **Ledgers.** React publish weight 421.6 to about 446 KB across the
-  round (budget 428 to 446 with per-branch attribution, each raise a
+- **Every view root carries `g3t-view`, so the scoped typography reaches
+  it (#45).** #24 scoped the toolkit typography to `g3t-` classes and
+  moved the reset and `body` rule to the opt-in `style.base.css`, which
+  left the views whose root is an unclassed, inline-styled element (the
+  `CytoscapeCanvas` wrapper, the inspectors, the encoding panel, the
+  tree and schema views, the context menu, among others) inheriting the
+  host's font, size and ink when a host imported only `style.css`.
+  Every exported view and panel root (49 roots in 48 files) now
+  composes `g3t-view` through one internal helper (`viewClass`), with
+  the host's `className` and the component's own class kept first so
+  host selectors keep working; this is a public DOM change.
+  `g3t-base.css` names `.g3t-view` in the face/smoothing/border-box
+  rule and adds a `.g3t-view` rule for `font-size`, `line-height` and
+  `color`, the values `style.base.css` puts on `body`, so the
+  playground and Storybook render the same; `.g3t-btn`, `.g3t-select`,
+  `.g3t-input` and the panel section header pin `line-height: normal`
+  so a host reset cannot stretch them. VISIBLE CHANGE for hosts
+  without `style.base.css`: views now render at 13px/1.5/text-primary
+  where they previously showed the host's body values, which is the
+  intent. Hosts style the toolkit's text through the class, documented
+  in both guides with an executable twin. Tests: a table-driven suite
+  renders every component with minimal props and pins the class and
+  its order (112 cases, red before); the dist stylesheet test asserts
+  the `.g3t-view` rule and still no bare `body`, `html` or `*`
+  selector. React publish weight 446 to 450 KB (measured +0.8 KB).
+
+- **Ledgers.** React publish weight 421.6 to 446.4 KB across the
+  round (budget 428 to 450 with per-branch attribution, each raise a
   separate entry); core 173.0 to 181.5 KB (budget 176 to 184: the
   derivation registry, tripleEdgeKey, the working-set config); the
   core root barrel consumer-cost scenario 155 to 160 KB; the two

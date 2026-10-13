@@ -39,7 +39,7 @@ no attribution of any kind in commit messages.
 | #16 | Done, with five component gaps closed |
 | #6 | Done as scoped |
 | #5 | Done: config document, ceilings, provider, two views wired |
-| #45 | See the CHANGELOG entry when it lands |
+| #45 | Done: 49 roots carry `g3t-view`; `.g3t-view` carries the toolkit text |
 
 ## What the merge step caught
 
@@ -106,6 +106,10 @@ no attribution of any kind in commit messages.
   long review copy.
 - #9: the Style Lab e2e test relies on `?e2e=1` exposing the DEV-only
   shell in prod, as the existing stylelab spec already does.
+- #45: hosts without `style.base.css` now see 13px/1.5/text-primary
+  inside views (a visible change, the intent); `line-height: normal`
+  on `.g3t-input` also pins textareas; `ViewErrorBoundary`'s fallback
+  keeps its inline system font.
 
 ## Needs eyes rather than a gate
 
