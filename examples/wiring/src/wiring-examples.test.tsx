@@ -59,6 +59,7 @@ import {
   parseWorkspace,
   structuralToCytoscapeElements,
   FacetFilter,
+  CytoscapeCanvas,
   applyEncodingSpec,
   createTheme,
   createCameraController,
@@ -580,6 +581,51 @@ describe("wiring guide: filter by hiding, not by rebuilding", () => {
     });
     expect(hidden.has("only-asset")).toBe(true);
     expect(hidden.has("both")).toBe(false);
+  });
+});
+
+describe("wiring guide: grow a drawn graph without rebuilding it", () => {
+  // The canvas's in-place growth is pinned under a cytoscape mock in
+  // packages/react (CytoscapeCanvas.additive.test.tsx) and against the
+  // real fcose in additive-update.test.ts. This twin runs the HOST side
+  // of the recipe: every step is a superset ugm whose drawn edges keep
+  // their ids, which is what makes the diff add only what is new.
+  it("each step is a superset ugm with stable edge ids; additive mode is a canvas prop", () => {
+    const base = graph();
+    const neighborhood = (nodeId: string) =>
+      nodeId === "asset-2"
+        ? [
+            {
+              id: "asset-3",
+              types: ["Asset"],
+              properties: {},
+              relation: "feeds",
+            },
+          ]
+        : [];
+    const expand = (current: UGM, nodeId: string): UGM => {
+      const next = UGM.fromJSON(current.toJSON());
+      for (const n of neighborhood(nodeId)) {
+        if (!next.hasNode(n.id))
+          next.addNode(n.id, { types: n.types, properties: n.properties });
+        next.addEdge(nodeId, n.id, {
+          type: n.relation,
+          key: `${nodeId}->${n.id}`,
+        });
+      }
+      return next;
+    };
+    const next = expand(base, "asset-2");
+    for (const id of base.getNodeIds()) expect(next.hasNode(id)).toBe(true);
+    const drawnEdgeIds: string[] = [];
+    base.forEachEdge((id) => drawnEdgeIds.push(id));
+    expect(drawnEdgeIds.length).toBeGreaterThan(0);
+    for (const id of drawnEdgeIds) expect(next.hasEdge(id)).toBe(true);
+    expect(next.hasEdge("asset-2->asset-3")).toBe(true);
+    expect(next.nodeCount).toBe(base.nodeCount + 1);
+    // The prop is on the public canvas type.
+    const el = <CytoscapeCanvas ugm={next} graphUpdate="additive" />;
+    expect(el.props.graphUpdate).toBe("additive");
   });
 });
 

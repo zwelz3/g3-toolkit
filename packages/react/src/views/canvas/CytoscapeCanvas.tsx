@@ -162,6 +162,16 @@ function ensureFcose(): void {
   }
 }
 
+/** The canvas's fcose spread tuning, shared by the initial layout and
+ *  the additive pass (issue #26) so new nodes settle at the same edge
+ *  length and repulsion the rest of the graph was laid out with. */
+const FCOSE_TUNING = {
+  idealEdgeLength: 100,
+  nodeRepulsion: 10000,
+  gravity: 0.2,
+  gravityRange: 1.5,
+} as const;
+
 /**
  * Default Cytoscape stylesheet.
  *
@@ -920,6 +930,29 @@ export interface CytoscapeCanvasProps {
    * where it has not changed; rebuild it only when the hidden set does.
    */
   hidden?: ReadonlySet<string>;
+  /**
+   * How a NEW `ugm` identity reaches a live instance (issue #26).
+   * "rebuild" (default): a new identity is a different graph; the
+   * instance is re-created and laid out from scratch (positions and
+   * camera reset), as the `ugm` contract above says. "additive": when
+   * the new ugm's node-id set is a SUPERSET of the live instance's
+   * (an explorer growing one neighborhood at a time), the instance is
+   * kept: new nodes and edges are added in place, edges the new ugm no
+   * longer has are removed, existing elements take the new ugm's data,
+   * and ONLY the new nodes are laid out, seeded at the centroid of
+   * their already-placed neighbors and settled by fcose with every
+   * existing node held by `fixedNodeConstraint` (which fcose honors;
+   * `locked` it does not). The camera is untouched (no fit). `animate`
+   * and `animationDuration` apply to that pass. A ugm that REMOVES a
+   * node, a containment change that re-parents an existing node, or a
+   * structural scene falls back to the rebuild path. Edge ids must be
+   * stable across growth (pass `key` to `UGM.addEdge`) for the diff to
+   * add only the new edges; generated ids differ per UGM instance, so
+   * every edge is then replaced (correct, but a churn). The spec,
+   * hidden set, pins, overrides and overlays are re-applied to the
+   * grown instance.
+   */
+  graphUpdate?: "rebuild" | "additive";
 }
 
 /** Apply the visibility filter as a batched class toggle: hidden nodes
@@ -1094,6 +1127,268 @@ function applyScenePatch(cy: Core, next: cytoscape.ElementDefinition[]): void {
   });
 }
 
+/** LR-45: a ugm's identity for the same-graph test (node + edge ids),
+ *  so data-only rebuilds (the inferred toggle) are recognizable as the
+ *  same graph. Shared with the additive path (issue #26), which moves
+ *  the live instance's identity forward as it grows. */
+function ugmGraphKey(ugm: UGM): string {
+  const eids: string[] = [];
+  ugm.forEachEdge((eid) => eids.push(eid));
+  return [...ugm.getNodeIds()].sort().join("|") + "#" + eids.sort().join("|");
+}
+
+/** Issue #26: does `ugm` carry every node the live instance has? */
+function isNodeSuperset(ugm: UGM, live: ReadonlySet<string>): boolean {
+  for (const id of live) if (!ugm.hasNode(id)) return false;
+  return true;
+}
+
+/**
+ * Additive graph update (issue #26): the pure plan. Partitions the
+ * next ugm's element definitions against the live instance's ids into
+ * nodes and edges to ADD, elements to UPDATE in place (data merge), and
+ * edge ids to REMOVE. Nodes are never removed: `superset` is false when
+ * the live instance holds a node the next graph lacks, and the caller
+ * falls back to a rebuild. Edges absent from the next graph DO go
+ * (position-neutral, and without it a host that lets the UGM generate
+ * edge ids would draw every edge twice after a growth step). Exported
+ * for direct testing, like planScenePatch.
+ */
+export function planAdditiveUpdate(
+  existingNodeIds: ReadonlySet<string>,
+  existingEdgeIds: ReadonlySet<string>,
+  next: readonly { group?: string; data: { id?: string } }[],
+): {
+  superset: boolean;
+  addNodeIdx: number[];
+  addEdgeIdx: number[];
+  updateIdx: number[];
+  removeEdgeIds: string[];
+} {
+  const nextNodeIds = new Set<string>();
+  const nextEdgeIds = new Set<string>();
+  const addNodeIdx: number[] = [];
+  const addEdgeIdx: number[] = [];
+  const updateIdx: number[] = [];
+  next.forEach((def, i) => {
+    const id = def.data.id;
+    if (!id) return;
+    if (def.group === "edges") {
+      nextEdgeIds.add(id);
+      if (existingEdgeIds.has(id)) updateIdx.push(i);
+      else addEdgeIdx.push(i);
+    } else {
+      nextNodeIds.add(id);
+      if (existingNodeIds.has(id)) updateIdx.push(i);
+      else addNodeIdx.push(i);
+    }
+  });
+  let superset = true;
+  for (const id of existingNodeIds) {
+    if (!nextNodeIds.has(id)) {
+      superset = false;
+      break;
+    }
+  }
+  const removeEdgeIds: string[] = [];
+  for (const id of existingEdgeIds) {
+    if (!nextEdgeIds.has(id)) removeEdgeIds.push(id);
+  }
+  return { superset, addNodeIdx, addEdgeIdx, updateIdx, removeEdgeIds };
+}
+
+/**
+ * Issue #26: starting positions for the added nodes. Each new node is
+ * seeded at the centroid of its neighbors that already have a position
+ * (existing nodes, or new nodes seeded earlier in the same pass), so it
+ * appears NEXT TO what it was expanded from instead of at the origin
+ * or in a random scatter; a node with no placed neighbor sits at the
+ * centroid of the placed graph. A deterministic radial offset (golden
+ * angle per new node) keeps two seeds from coinciding with each other
+ * or with a lone neighbor: Cytoscape warns about "invalid endpoints"
+ * for an edge whose ends share a point, and fcose starts from these
+ * positions (randomize: false), so distinct seeds also give it a
+ * direction to spread siblings in. Exported for direct testing.
+ */
+export function seedAdditivePositions(
+  newIds: readonly string[],
+  placed: ReadonlyMap<string, { x: number; y: number }>,
+  edges: readonly { source: string; target: string }[],
+  radius = 40,
+): Map<string, { x: number; y: number }> {
+  const adjacency = new Map<string, string[]>();
+  const link = (a: string, b: string) => {
+    const list = adjacency.get(a);
+    if (list) list.push(b);
+    else adjacency.set(a, [b]);
+  };
+  for (const e of edges) {
+    if (e.source === e.target) continue;
+    link(e.source, e.target);
+    link(e.target, e.source);
+  }
+  let gx = 0;
+  let gy = 0;
+  for (const p of placed.values()) {
+    gx += p.x;
+    gy += p.y;
+  }
+  const graphCenter =
+    placed.size > 0
+      ? { x: gx / placed.size, y: gy / placed.size }
+      : { x: 0, y: 0 };
+  const seeds = new Map<string, { x: number; y: number }>();
+  const GOLDEN_ANGLE = 2.399963229728653;
+  newIds.forEach((id, i) => {
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const nb of adjacency.get(id) ?? []) {
+      const p = placed.get(nb) ?? seeds.get(nb);
+      if (!p) continue;
+      sx += p.x;
+      sy += p.y;
+      n++;
+    }
+    const center = n > 0 ? { x: sx / n, y: sy / n } : graphCenter;
+    const angle = i * GOLDEN_ANGLE;
+    seeds.set(id, {
+      x: center.x + radius * Math.cos(angle),
+      y: center.y + radius * Math.sin(angle),
+    });
+  });
+  return seeds;
+}
+
+/** Cytoscape refuses these through data() (collection/data: the
+ *  immutableKeys list); the additive data merge leaves them alone. */
+const IMMUTABLE_DATA_KEYS: ReadonlySet<string> = new Set([
+  "id",
+  "source",
+  "target",
+  "parent",
+]);
+
+/**
+ * Issue #26: grow a live instance in place. `next` is the converter's
+ * output for the new ugm (validated). Returns false, having touched
+ * nothing, when the live node set is not a subset of `next` or an
+ * existing node would change parent (Cytoscape's `parent` is immutable
+ * through data(); that case needs the rebuild). Otherwise, in one
+ * batch: stale edges leave, existing elements take the new data
+ * (topology-derived converter fields such as `_curveStyle` change when
+ * a reverse edge arrives, and a data-only ugm change lands without a
+ * rebuild), and the new elements join, nodes seeded by
+ * seedAdditivePositions. Then, only if nodes were added, ONE fcose pass
+ * runs from the current positions (randomize: false) with every
+ * existing non-compound visible node held by `fixedNodeConstraint`,
+ * `fit: false` so the camera stays where the user left it. Hidden
+ * (display: none) nodes are excluded from the constraint list because
+ * fcose excludes them from its graph, and a constraint on a node it
+ * does not know yields NaN coordinates for everything. Exported for the
+ * headless fcose test (the React tests mock cytoscape).
+ */
+export function applyAdditiveUpdate(
+  cy: Core,
+  next: cytoscape.ElementDefinition[],
+  opts: {
+    animate: boolean;
+    animationDuration: number;
+    layoutOptions: Record<string, unknown> | undefined;
+  },
+): boolean {
+  const placed = new Map<string, { x: number; y: number }>();
+  cy.nodes().forEach((n) => {
+    const p = n.position();
+    placed.set(n.id(), { x: p.x, y: p.y });
+  });
+  const existingEdgeIds = new Set<string>();
+  cy.edges().forEach((e) => {
+    existingEdgeIds.add(e.id());
+  });
+  const plan = planAdditiveUpdate(
+    new Set(placed.keys()),
+    existingEdgeIds,
+    next as never,
+  );
+  if (!plan.superset) return false;
+  for (const i of plan.updateIdx) {
+    const def = next[i];
+    if (!def?.data.id || def.group === "edges") continue;
+    const ele = cy.$id(def.data.id);
+    if (ele.empty()) continue;
+    if ((def.data as { parent?: string }).parent !== ele.data("parent"))
+      return false;
+  }
+  const addNodes = plan.addNodeIdx
+    .map((i) => next[i])
+    .filter((d): d is cytoscape.ElementDefinition => d !== undefined);
+  const addEdges = plan.addEdgeIdx
+    .map((i) => next[i])
+    .filter((d): d is cytoscape.ElementDefinition => d !== undefined);
+  const seeds = seedAdditivePositions(
+    addNodes.map((d) => String(d.data.id)),
+    placed,
+    next
+      .filter((d) => d.group === "edges")
+      .map((d) => ({
+        source: String(d.data.source),
+        target: String(d.data.target),
+      })),
+  );
+  for (const def of addNodes) {
+    const seed = seeds.get(String(def.data.id));
+    if (seed) def.position = seed;
+  }
+  cy.batch(() => {
+    for (const id of plan.removeEdgeIds) {
+      const ele = cy.$id(id);
+      if (ele.nonempty()) ele.remove();
+    }
+    for (const i of plan.updateIdx) {
+      const def = next[i];
+      if (!def?.data.id) continue;
+      const ele = cy.$id(def.data.id);
+      if (ele.empty()) continue;
+      // Immutable through data() (id, source, target, parent) stay as
+      // they are; the parent case was ruled out above.
+      const rest: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(def.data)) {
+        if (!IMMUTABLE_DATA_KEYS.has(k)) rest[k] = v;
+      }
+      ele.data(rest);
+    }
+    if (addNodes.length + addEdges.length > 0)
+      cy.add([...addNodes, ...addEdges]);
+  });
+  if (addNodes.length === 0) return true;
+  const fixedNodeConstraint: {
+    nodeId: string;
+    position: { x: number; y: number };
+  }[] = [];
+  cy.nodes().forEach((n) => {
+    const id = n.id();
+    if (seeds.has(id)) return;
+    if (typeof n.isParent === "function" && n.isParent()) return;
+    if (typeof n.style === "function" && n.style("display") === "none") return;
+    const p = n.position();
+    fixedNodeConstraint.push({ nodeId: id, position: { x: p.x, y: p.y } });
+  });
+  cy.layout({
+    name: "fcose",
+    ...FCOSE_TUNING,
+    ...(opts.layoutOptions ?? {}),
+    animate: opts.animate,
+    animationDuration: opts.animationDuration,
+    // LAST, like the preset policy in init: no caller option may
+    // re-enable fit, re-randomize the placed nodes, or drop the hold.
+    randomize: false,
+    fit: false,
+    fixedNodeConstraint,
+  } as unknown as cytoscape.LayoutOptions).run();
+  return true;
+}
+
 export function CytoscapeCanvas({
   ugm,
   interactionOptions,
@@ -1113,6 +1408,7 @@ export function CytoscapeCanvas({
   structuralDecorations,
   structuralEdgeLayer = "cytoscape",
   hidden,
+  graphUpdate = "rebuild",
 }: CytoscapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -1196,6 +1492,43 @@ export function CytoscapeCanvas({
   const hiddenRef = useRef(hidden);
   // eslint-disable-next-line react-hooks/refs
   hiddenRef.current = hidden;
+  // Issue #26 (additive graph updates). The init callback keys on
+  // `initUgm`, the ugm identity the live instance was BUILT from, and
+  // reads the current ugm through ugmRef. In additive mode a new ugm
+  // whose node set is a superset of the live instance's keeps the init
+  // key (no teardown; the additive effect below grows the instance in
+  // place); anything else moves the key to the new ugm, which rebuilds
+  // exactly as before, so the default mode never diverges from the
+  // pre-#26 behavior. The decision is made ONCE per ugm identity, in
+  // render, so a rebuild still lands in the SAME commit as the ugm
+  // change: an effect-driven epoch bump (the structural scene pattern)
+  // would re-order the rebuild after the ugm-keyed pin, override and
+  // overlay effects, which would then dress a doomed instance and
+  // never run for the new one. liveNodeIdsRef is the live instance's
+  // node set (null for a structural scene, which is never grown).
+  const ugmRef = useRef(ugm);
+  // eslint-disable-next-line react-hooks/refs
+  ugmRef.current = ugm;
+  const liveUgmRef = useRef<UGM | null>(null);
+  const liveNodeIdsRef = useRef<ReadonlySet<string> | null>(null);
+  const additiveRef = useRef<{ ugm: UGM; initUgm: UGM }>({ ugm, initUgm: ugm });
+  /* eslint-disable react-hooks/refs -- decided in render on purpose; see
+     the comment above. Idempotent per ugm identity, so a discarded
+     render re-deciding on the same inputs changes nothing. */
+  if (additiveRef.current.ugm !== ugm) {
+    const live = liveNodeIdsRef.current;
+    const grow =
+      graphUpdate === "additive" &&
+      !structural &&
+      live !== null &&
+      isNodeSuperset(ugm, live);
+    additiveRef.current = {
+      ugm,
+      initUgm: grow ? additiveRef.current.initUgm : ugm,
+    };
+  }
+  const initUgm = additiveRef.current.initUgm;
+  /* eslint-enable react-hooks/refs */
   // Issue #13: the init path applies the spec to every (re)built
   // instance from this ref, exactly as hiddenRef above; the spec
   // effect below keeps handling spec changes over a live instance.
@@ -1275,6 +1608,11 @@ export function CytoscapeCanvas({
     // MR-1 flash fix: the scene is read from the ref (the callback's
     // deps carry graph IDENTITY via graphEpoch, not the scene object).
     const structural = structuralRef.current;
+    // Issue #26: the CURRENT ugm, not the identity the deps key on
+    // (initUgm): after additive growth the two differ, and a rebuild
+    // for any other reason (layout, edgeStyle, ...) must build the
+    // graph the host is showing now.
+    const ugm = ugmRef.current;
     if (!containerRef.current) return undefined;
 
     // Graph identity: the sorted top-level node ids. Stable across a collapse
@@ -1288,13 +1626,7 @@ export function CytoscapeCanvas({
       : // LR-45: ugm graphs get an identity too (node + edge ids),
         // so data-only rebuilds (the inferred toggle) are
         // recognizable as the same graph.
-        ((): string => {
-          const eids: string[] = [];
-          ugm.forEachEdge((eid) => eids.push(eid));
-          return (
-            [...ugm.getNodeIds()].sort().join("|") + "#" + eids.sort().join("|")
-          );
-        })();
+        ugmGraphKey(ugm);
     const sameGraphRebuild =
       (structural &&
         wasStructuralRef.current &&
@@ -1450,14 +1782,7 @@ export function CytoscapeCanvas({
               edgeElasticity: 100,
             }
           : {}),
-        ...(layoutName === "fcose"
-          ? {
-              idealEdgeLength: 100,
-              nodeRepulsion: 10000,
-              gravity: 0.2,
-              gravityRange: 1.5,
-            }
-          : {}),
+        ...(layoutName === "fcose" ? FCOSE_TUNING : {}),
         // Caller spacing/fit tuning (review 5.11): wins over the
         // built-in fcose/cose numbers above.
         ...(layoutOptionsRef.current ?? {}),
@@ -1508,6 +1833,10 @@ export function CytoscapeCanvas({
     }
     prevInputKeyRef.current = inputKey;
     wasStructuralRef.current = Boolean(structural);
+    // Issue #26: what this instance was built from, for the additive
+    // effect's "already built" test and the render-time superset check.
+    liveUgmRef.current = ugm;
+    liveNodeIdsRef.current = structural ? null : new Set(ugm.getNodeIds());
 
     // Wire right-click context menu (R2.1, R2.2, D3)
     // Bugfix 8: suppress the browser's native contextmenu so it doesn't
@@ -1761,7 +2090,10 @@ export function CytoscapeCanvas({
     // because we know they are stable-by-ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    ugm,
+    // Issue #26: the ugm identity the live instance was built from;
+    // additive growth keeps it (see additiveRef), everything else is
+    // the current ugm.
+    initUgm,
     containmentKey,
     layout,
     layoutOptionsKey,
@@ -1839,6 +2171,53 @@ export function CytoscapeCanvas({
       cyRef.current = null;
     };
   }, [initCytoscape]);
+
+  // Issue #26: additive growth over a LIVE instance. Runs after the
+  // init effect (source order), so when the ugm change rebuilt the
+  // instance in this commit (rebuild mode, or a non-superset in
+  // additive mode) liveUgmRef already names this ugm and there is
+  // nothing to do. Otherwise the render-time decision kept the init
+  // key and this effect grows the instance in place, then moves its
+  // identity forward (so a later same-graph rebuild replays positions
+  // and camera, LR-45) and re-applies what the init path applies to a
+  // fresh instance: hidden classes, the spec patch (over the whole
+  // instance: a data-driven scale may re-domain when nodes arrive, and
+  // the patch cleans stale channels), and emphasis; the pin, override
+  // and overlay effects below key on `ugm` and follow on their own. If
+  // the live instance cannot be grown after all (the host mutated it
+  // through onReady, or a parent would change), fall back to a rebuild
+  // through the epoch.
+  useEffect(() => {
+    if (ugm === liveUgmRef.current) return;
+    const cy = cyRef.current;
+    const grown =
+      cy !== null &&
+      graphUpdate === "additive" &&
+      !structural &&
+      applyAdditiveUpdate(
+        cy,
+        validateAssembledElements(ugmToCytoscapeElements(ugm, { containment })),
+        {
+          animate,
+          animationDuration,
+          layoutOptions: layoutOptionsRef.current,
+        },
+      );
+    if (!grown) {
+      setGraphEpoch((e) => e + 1);
+      return;
+    }
+    liveUgmRef.current = ugm;
+    liveNodeIdsRef.current = new Set(ugm.getNodeIds());
+    prevInputKeyRef.current = ugmGraphKey(ugm);
+    applyHiddenClasses(cy, hiddenRef.current);
+    const spec = encodingSpecRef.current;
+    if (spec) {
+      applyEncodingPatch(cy, spec, ugm);
+      lastEncodingPatchRef.current = { cy, spec, ugm };
+    }
+    applyEmphasisClasses(cy, useEmphasisStore.getState());
+  }, [ugm, graphUpdate, structural, containment, animate, animationDuration]);
 
   // Spec application over a LIVE instance (spec or ugm identity
   // change): element-data patches only, so visual edits never move

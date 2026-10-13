@@ -95,6 +95,7 @@ const PLACEHOLDERS = {
   initialSpec: "any",
   logError: "any",
   navigate: "any",
+  neighborhood: "any",
   nextNodeIds: "any",
   openYourDetailPanel: "any",
   orgSettings: "any",

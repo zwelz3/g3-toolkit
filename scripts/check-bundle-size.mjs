@@ -348,8 +348,26 @@ const BUDGETS = {
   // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
   // styles, controlled drag offsets, the renderer-neutral editor
   // target) and R-13.3 (one legend serving both renderers).
-  react: 395 * 1024,
+  react: 405 * 1024,
   // React ledger:
+  // - 395 -> 405 KB, 2026-10-13 (issue #26, additive graph updates):
+  //   measured 400.9 KB. The integration head this branch grew from
+  //   already measured 396.4 KB (the #13/#14/#28 spec re-apply and
+  //   #27/#32 preset/overlay fixes, merged before this one), so 1.4 KB
+  //   of the overage is theirs and 4.5 KB is this round's:
+  //   CytoscapeCanvas gained `graphUpdate="additive"` (planner, seed
+  //   placement, the in-place grow with one fcose pass under
+  //   fixedNodeConstraint, and the render-time init-key decision).
+  //   It lives in the canvas rather than a tree-shakeable module
+  //   because it IS the canvas's graph-change detection: an explorer
+  //   that grows a drawn graph one neighborhood at a time lost
+  //   positions and camera on every step, and the host-side
+  //   workaround (`locked` under fcose) does not work. Budgets are
+  //   unminified by policy and roughly half of the growth is the
+  //   docblocks that say why. Sourcemap audit run first as the
+  //   2026-07-03 core entry requires: ZERO node_modules source bytes
+  //   across react's dist maps (803,359 bytes, all first-party). New
+  //   headroom is 4.1 KB, set modestly: the next round measures.
   // - NO RAISE, 2026-08-28 (core stopped being external): measured
   //   651.7 KB, 167% of the 390 KB budget in force at the time. The
   //   261.7 KB over was not growth and the correct response was a
