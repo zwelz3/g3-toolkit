@@ -1,0 +1,14 @@
+/* TreeView: the treeitem is the wrapper that owns its group (ARIA
+   structure), so the base `[class^="g3t-"]:focus-visible` ring would
+   box the whole subtree. Suppress it there and draw the ring on the
+   row instead. Doubled class for specificity over the base rule. */
+.g3t-tree-item.g3t-tree-item:focus-visible {
+  outline: none;
+}
+
+.g3t-tree-item:focus-visible > .g3t-tree-row {
+  outline: var(--g3t-focus-ring-width, 2px) solid
+    var(--g3t-accent-primary, #0072b2);
+  outline-offset: calc(-1 * var(--g3t-focus-ring-width, 2px));
+  border-radius: var(--g3t-radius-sm, 4px);
+}
