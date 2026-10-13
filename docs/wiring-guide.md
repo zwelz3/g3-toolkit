@@ -537,6 +537,44 @@ Canvas application (compound parents + preset row positions) is the
 next slice; the document is renderer-neutral, so you can already
 consume it for SVG export or your own drawing layer.
 
+### Class hierarchy: SchemaView nesting and TreeView forests
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. Neither
+`SchemaModel` nor the UGM registry carries subclass edges, so the host
+passes rdfs:subClassOf as `class -> parent(s)`; a parent that is not a
+listed class leaves its child at the top level. Every shape targeting
+a class counts toward its badge (constraints, shapes), and with
+results the badge also reports the most severe status (violation >
+warning > info, or conforms):
+
+```tsx
+import { SchemaView, TreeView } from "@g3-toolkit/react";
+
+<SchemaView
+  schema={{
+    nodeTypes: ["Agent", "Person"],
+    edgeTypes: [],
+    nodeProperties: { Person: ["name", "email"] },
+    edgeProperties: {},
+  }}
+  subClassOf={{ Person: "Agent" }}
+  shapes={shapes}
+  validationResults={validationResults}
+/>;
+
+// TreeView: several roots render as a forest (no synthetic parent row),
+// initialDepth only SEEDS expansion (every row toggles afterwards), the
+// [type] prefix is optional, and the rows form a WAI-ARIA tree: one tab
+// stop, ArrowUp/Down move, ArrowRight opens or enters, ArrowLeft closes
+// or climbs, Home/End jump, Enter or Space selects.
+<TreeView
+  ugm={ugm}
+  rootIds={["owl:Thing", "prov:Entity"]}
+  initialDepth={1}
+  showType={false}
+/>;
+```
+
 ### Render a provenance trace
 
 CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. The

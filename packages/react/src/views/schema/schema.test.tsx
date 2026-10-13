@@ -110,6 +110,212 @@ describe("SchemaView SHACL overlay (M6.E2.T2)", () => {
   });
 });
 
+// ── Issue #37: nesting, every shape, tokens ─────────────────────────
+
+describe("SchemaView subclass nesting (issue #37)", () => {
+  const schema = {
+    nodeTypes: ["Thing", "Agent", "Person", "Org", "Entity", "Doc", "Loose"],
+    edgeTypes: [],
+    nodeProperties: {},
+    edgeProperties: {},
+  };
+
+  it("nests rdfs:subClassOf children under their parent, roots flat and sorted", () => {
+    render(
+      <SchemaView
+        schema={schema}
+        subClassOf={{
+          Agent: "Thing",
+          Person: ["Agent"],
+          Org: "Agent",
+          Doc: "Entity",
+          // A parent that is not a class here leaves Loose at the top.
+          Loose: "owl:Thing",
+        }}
+      />,
+    );
+    const view = screen.getByTestId("schema-view");
+    const roots = [...view.children].map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(roots).toEqual([
+      "schema-class-Entity",
+      "schema-class-Loose",
+      "schema-class-Thing",
+    ]);
+    const agent = screen.getByTestId("schema-class-Agent");
+    expect(agent).toHaveAttribute("data-parent", "Thing");
+    expect(agent).toHaveAttribute("data-depth", "1");
+    expect(screen.getByTestId("schema-subclasses-Thing")).toContainElement(
+      agent,
+    );
+    // Grandchildren, sorted among siblings.
+    const agentKids = [
+      ...screen.getByTestId("schema-subclasses-Agent").children,
+    ].map((el) => el.getAttribute("data-testid"));
+    expect(agentKids).toEqual(["schema-class-Org", "schema-class-Person"]);
+    expect(screen.getByTestId("schema-class-Person")).toHaveAttribute(
+      "data-depth",
+      "2",
+    );
+    expect(screen.getByTestId("schema-class-Doc")).toHaveAttribute(
+      "data-parent",
+      "Entity",
+    );
+    expect(screen.getByTestId("schema-class-Loose")).toHaveAttribute(
+      "data-depth",
+      "0",
+    );
+  });
+
+  it("without subClassOf the list stays flat and sorted (unchanged output)", () => {
+    render(<SchemaView schema={schema} />);
+    const roots = [...screen.getByTestId("schema-view").children].map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(roots).toEqual(
+      [...schema.nodeTypes]
+        .sort((a, b) => a.localeCompare(b))
+        .map((n) => `schema-class-${n}`),
+    );
+    expect(screen.queryByTestId("schema-subclasses-Thing")).toBeNull();
+  });
+
+  it("a subclass cycle does not drop classes", () => {
+    render(
+      <SchemaView
+        schema={{
+          nodeTypes: ["A", "B"],
+          edgeTypes: [],
+          nodeProperties: {},
+          edgeProperties: {},
+        }}
+        subClassOf={{ A: "B", B: "A" }}
+      />,
+    );
+    expect(screen.getByTestId("schema-class-A")).toBeInTheDocument();
+    expect(screen.getByTestId("schema-class-B")).toBeInTheDocument();
+  });
+});
+
+describe("SchemaView badges every targeting shape (issue #37)", () => {
+  const twoShapes: SchemaViewShape[] = [
+    {
+      id: "PersonBasic",
+      targetClass: "Person",
+      constraints: [{ path: "name", minCount: 1 }],
+    },
+    {
+      id: "PersonContact",
+      targetClass: "Person",
+      constraints: [
+        { path: "email", minCount: 1 },
+        { path: "phone", maxCount: 1 },
+      ],
+    },
+  ];
+  const schema = {
+    nodeTypes: ["Person"],
+    edgeTypes: [],
+    nodeProperties: {},
+    edgeProperties: {},
+  };
+
+  it("counts constraints across all shapes and names the shape count", () => {
+    render(<SchemaView schema={schema} shapes={twoShapes} />);
+    const badge = screen.getByTestId("shacl-badge-Person");
+    // Before the fix `shapes.find` saw PersonBasic only: 1 constraint.
+    expect(badge).toHaveTextContent("SHACL: 3 constraints, 2 shapes");
+    expect(badge).toHaveAttribute("data-shape-count", "2");
+    expect(badge).toHaveAttribute("data-constraint-count", "3");
+    expect(badge).toHaveAttribute("data-severity", "none");
+    // Both shapes' constraints are listed, under their shape ids.
+    const list = screen.getByTestId("shacl-constraints-Person");
+    expect(list).toContainElement(
+      screen.getByTestId("shacl-shape-PersonBasic"),
+    );
+    expect(list).toContainElement(
+      screen.getByTestId("shacl-shape-PersonContact"),
+    );
+    expect(list).toHaveTextContent("email min:1");
+    expect(list).toHaveTextContent("phone max:1");
+  });
+
+  it("reports the most severe status across the targeting shapes' results", () => {
+    const result = (
+      shapeId: string,
+      severity: "violation" | "warning" | "info",
+    ) => ({
+      nodeId: "p1",
+      shapeId,
+      shapeName: shapeId,
+      targetClass: "Person",
+      valid: false,
+      violations: [{ path: "x", message: "m", severity }],
+    });
+    const { rerender } = render(
+      <SchemaView
+        schema={schema}
+        shapes={twoShapes}
+        validationResults={[
+          result("PersonBasic", "info"),
+          result("PersonContact", "warning"),
+        ]}
+      />,
+    );
+    let badge = screen.getByTestId("shacl-badge-Person");
+    expect(badge).toHaveAttribute("data-severity", "warning");
+    expect(badge).toHaveTextContent("warning");
+    expect(badge.getAttribute("style")).toContain("var(--g3t-warning");
+
+    rerender(
+      <SchemaView
+        schema={schema}
+        shapes={twoShapes}
+        validationResults={[
+          result("PersonBasic", "info"),
+          result("PersonContact", "violation"),
+        ]}
+      />,
+    );
+    badge = screen.getByTestId("shacl-badge-Person");
+    expect(badge).toHaveAttribute("data-severity", "violation");
+    expect(badge.getAttribute("style")).toContain("var(--g3t-error");
+
+    // Results given, nothing failing: conforms.
+    rerender(
+      <SchemaView
+        schema={schema}
+        shapes={twoShapes}
+        validationResults={[
+          { ...result("PersonBasic", "info"), valid: true, violations: [] },
+        ]}
+      />,
+    );
+    badge = screen.getByTestId("shacl-badge-Person");
+    expect(badge).toHaveAttribute("data-severity", "conforms");
+    expect(badge.getAttribute("style")).toContain("var(--g3t-success");
+  });
+
+  it("draws cards, text and the default badge from theme tokens, not literals", () => {
+    render(
+      <SchemaView
+        schema={{ ...schema, nodeProperties: { Person: ["name"] } }}
+        shapes={twoShapes}
+      />,
+    );
+    const badge = screen.getByTestId("shacl-badge-Person");
+    expect(badge.getAttribute("style")).toContain("var(--g3t-accent-muted");
+    expect(badge.getAttribute("style")).toContain("var(--g3t-accent-primary");
+    const card = screen.getByTestId("schema-class-Person");
+    expect(card.getAttribute("style")).toContain("var(--g3t-border");
+    const html = screen.getByTestId("schema-view").innerHTML;
+    // The former hard-coded pair may survive only as var() fallbacks.
+    expect(html).not.toMatch(/(?<!var\([^)]*)#e0f2fe/);
+    expect(html).not.toMatch(/(?<!var\([^)]*)#0369a1/);
+  });
+});
+
 // ── E2.T3: Diff engine ──────────────────────────────────────────────
 
 describe("diffGraphs (M6.E2.T3)", () => {

@@ -348,8 +348,30 @@ const BUDGETS = {
   // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
   // styles, controlled drag offsets, the renderer-neutral editor
   // target) and R-13.3 (one legend serving both renderers).
-  react: 395 * 1024,
+  react: 402 * 1024,
   // React ledger:
+  // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
+  //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the
+  //   previous entry recorded. Sourcemap attribution over every
+  //   react dist map first, per the 2026-07-03 core rule: ZERO
+  //   node_modules source bytes, so all of it is first-party. Two
+  //   files carry it, read off the same attribution:
+  //   TreeView.tsx 8.55 KB generated (was ~4.8 KB by the same
+  //   generated/source ratio): the expanded set is now seeded from
+  //   initialDepth and XORed with user toggles so rows inside the seed
+  //   collapse (the #36 defect), several roots render as a forest,
+  //   the [type] prefix is optional, and the rows form a WAI-ARIA
+  //   tree with a roving tab stop and the arrow/Home/End/Enter model
+  //   handled once at the tree root over a visible-row list. The
+  //   keyboard model is the largest share and is the capability the
+  //   host had to build for itself.
+  //   SchemaView.tsx 5.72 KB generated (was ~2.7 KB): rdfs:subClassOf
+  //   nesting with cycle promotion, one badge per class over EVERY
+  //   targeting shape (count, shape count, worst validation status),
+  //   and per-shape constraint lists. Both are tree-shakeable named
+  //   exports; a host that never references them pays nothing.
+  //   TreeView.css (0.6 KB) ships in style.css, which this gate does
+  //   not sum. New headroom is 3.5 KB, set modestly as before.
   // - NO RAISE, 2026-08-28 (core stopped being external): measured
   //   651.7 KB, 167% of the 390 KB budget in force at the time. The
   //   261.7 KB over was not growth and the correct response was a
