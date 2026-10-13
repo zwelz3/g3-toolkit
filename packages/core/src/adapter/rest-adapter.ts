@@ -28,6 +28,18 @@ export interface RestNodeMapping {
 }
 
 export interface RestEdgeMapping {
+  /**
+   * Stable edge id from the source record, used as the UGM edge id
+   * (issue #48). Omitted, the graph generates one and a host that
+   * reloads through this adapter gets a different id for the same
+   * edge on every load. The id must be unique across every edge of
+   * the response, and should not reuse a node id: the canvas hands
+   * Cytoscape one id space for nodes and edges, and the edge loses
+   * that collision. A duplicate id is handled the way a dangling
+   * endpoint already is: the first record wins and the later one is
+   * skipped, so one bad record cannot fail the whole load.
+   */
+  id?: string;
   source: string;
   target: string;
   type: string;
@@ -152,12 +164,14 @@ export class RestAdapter implements GraphAdapter {
     }
 
     for (const edge of mapped.edges) {
-      if (ugm.hasNode(edge.source) && ugm.hasNode(edge.target)) {
-        ugm.addEdge(edge.source, edge.target, {
-          type: edge.type,
-          properties: edge.properties,
-        });
-      }
+      if (!ugm.hasNode(edge.source) || !ugm.hasNode(edge.target)) continue;
+      // First record wins on a duplicate id; see `RestEdgeMapping.id`.
+      if (edge.id !== undefined && ugm.hasEdge(edge.id)) continue;
+      ugm.addEdge(edge.source, edge.target, {
+        key: edge.id,
+        type: edge.type,
+        properties: edge.properties,
+      });
     }
 
     return ugm;

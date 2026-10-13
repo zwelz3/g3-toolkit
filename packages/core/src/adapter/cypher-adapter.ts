@@ -34,7 +34,15 @@ interface Neo4jResult {
           properties: Record<string, unknown>;
         }>;
         relationships: Array<{
+          /**
+           * Legacy numeric id, serialized as a JSON string. It is a
+           * per-entity-type counter, so relationship "0" and node "0"
+           * coexist in nearly every result; see `resultToUGM` for why
+           * that rules it out as an edge key.
+           */
           id: string;
+          /** Neo4j 5+ element id (`5:<db-uuid>:<n>`); absent on 4.x. */
+          elementId?: string;
           type: string;
           startNode: string;
           endNode: string;
@@ -216,6 +224,7 @@ export class CypherAdapter implements GraphAdapter {
   private resultToUGM(result: Neo4jResult): UGM {
     const ugm = new UGM();
     const addedNodes = new Set<string>();
+    const addedRels = new Set<string>();
 
     for (const res of result.results) {
       for (const d of res.data) {
@@ -232,12 +241,34 @@ export class CypherAdapter implements GraphAdapter {
         }
 
         for (const rel of d.graph.relationships) {
-          if (addedNodes.has(rel.startNode) && addedNodes.has(rel.endNode)) {
-            ugm.addEdge(rel.startNode, rel.endNode, {
-              type: rel.type,
-              properties: rel.properties,
-            });
-          }
+          if (!addedNodes.has(rel.startNode) || !addedNodes.has(rel.endNode))
+            continue;
+          // A path query returns the same relationship in every row
+          // whose path crosses it. Before relationships were tracked,
+          // each row added a fresh edge, so a 3-row result over one
+          // relationship rendered three parallel edges. First
+          // occurrence wins and later ones are skipped, the same
+          // treatment a repeated node id gets above.
+          const identity = rel.elementId ?? rel.id;
+          if (addedRels.has(identity)) continue;
+          addedRels.add(identity);
+          // The element id is the edge key (issue #48), so a host that
+          // reloads through this adapter sees the same edge ids per
+          // load. ONLY the Neo4j 5 `elementId` qualifies: its leading
+          // entity-type tag (4 = node, 5 = relationship) keeps it
+          // disjoint from every node id, while the legacy `id` is a
+          // per-type counter, so relationship "0" and node "0" coexist
+          // in nearly every result. The canvas gives Cytoscape one id
+          // space for nodes and edges, and Cytoscape drops the second
+          // element it sees with an id, so keying on the legacy id
+          // would erase most edges of a typical result from the
+          // canvas. A 4.x response (no `elementId`) keeps generated
+          // ids, exactly as before.
+          ugm.addEdge(rel.startNode, rel.endNode, {
+            key: rel.elementId,
+            type: rel.type,
+            properties: rel.properties,
+          });
         }
       }
     }
