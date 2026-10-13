@@ -88,6 +88,7 @@ import {
   FloatingLegend,
   TableView,
   getCsv,
+  type TableSort,
   MatrixView,
   PaginationControl,
   resolveLabelCollisions,
@@ -1499,6 +1500,117 @@ describe("table view recipes (guide: Table view recipes)", () => {
     fireEvent.click(screen.getByTestId("table-export-csv"));
     const csv = download.mock.calls[0]![0] as string;
     expect(csv.split("\r\n").filter((l) => l !== "")).toHaveLength(301);
+  });
+
+  it("sorting, hidden columns, CSV values, empty state, toolbar slot (guide: Sorting, hidden columns, CSV values, empty state, toolbar slot)", () => {
+    interface Subject {
+      iri: string;
+      label: string;
+      statements: number;
+      graph: string;
+    }
+    const subjects: Subject[] = [
+      { iri: "urn:a", label: "Alpha", statements: 3, graph: "g1" },
+      { iri: "urn:b", label: "Beta", statements: 12, graph: "g1" },
+      { iri: "urn:c", label: "Gamma", statements: 7, graph: "g2" },
+    ];
+    const subjectColumns: DataGridColumn<Subject>[] = [
+      {
+        id: "label",
+        header: "Label",
+        title: "The rdfs:label, or the IRI's local name",
+        value: (r) => r.label,
+        csv: (r) => r.iri,
+        width: 240,
+      },
+      {
+        id: "statements",
+        header: "N",
+        value: (r) => r.statements,
+        align: "num",
+      },
+      { id: "graph", header: "Graph", value: (r) => r.graph, hidden: true },
+    ];
+    const download = vi.fn();
+    const exportJson = vi.fn();
+    let lastSorting: TableSort[] = [];
+    function Register() {
+      const [sorting, setSorting] = useState<TableSort[]>([
+        { id: "statements", desc: true },
+      ]);
+      const [pageSize, setPageSize] = useState(25);
+      lastSorting = sorting;
+      return (
+        <TableView
+          rows={subjects}
+          columns={subjectColumns}
+          rowId={(r) => r.iri}
+          selection="none"
+          sorting={sorting}
+          onSortingChange={setSorting}
+          pageSize={pageSize}
+          pageSizeOptions={[25, 100, 500]}
+          onPageSizeChange={setPageSize}
+          emptyMessage="No subjects match. Clear a filter to widen the set."
+          exportCsv={{ filename: "subjects.csv", download }}
+          toolbar={
+            <button type="button" onClick={() => exportJson(subjects)}>
+              Export JSON
+            </button>
+          }
+        />
+      );
+    }
+    render(<Register />);
+    const rowIds = () =>
+      [...document.querySelectorAll("[data-testid^='table-row-']")].map((tr) =>
+        String(tr.getAttribute("data-testid")).replace("table-row-", ""),
+      );
+    // Controlled sort applied from the host's state; the hidden column
+    // is not in the header row but is in the column menu.
+    expect(rowIds()).toEqual(["urn:b", "urn:c", "urn:a"]);
+    expect(screen.queryByTestId("column-sort-graph")).toBeNull();
+    fireEvent.click(screen.getByTestId("column-visibility-toggle"));
+    expect(screen.getByTestId("column-menu-row-graph")).toBeDefined();
+    fireEvent.keyDown(document, { key: "Escape" });
+    // A header click (or Enter on the focused header) reports the next
+    // sort, the host stores it, the table follows.
+    fireEvent.keyDown(screen.getByTestId("column-sort-label"), {
+      key: "Enter",
+    });
+    expect(lastSorting).toEqual([{ id: "label", desc: false }]);
+    expect(rowIds()).toEqual(["urn:a", "urn:b", "urn:c"]);
+    // The numeric column was inferred as a range filter and is
+    // right-aligned; the header carries the tooltip and width.
+    expect(screen.getByTestId("column-filter-statements-min")).toBeDefined();
+    const labelTh = screen.getByTestId("column-sort-label").closest("th")!;
+    expect(labelTh.style.width).toBe("240px");
+    expect(screen.getByTestId("column-sort-label").getAttribute("title")).toBe(
+      "The rdfs:label, or the IRI's local name",
+    );
+    // The export writes the IRI, not the rendered label.
+    fireEvent.click(screen.getByTestId("table-export-csv"));
+    expect(download).toHaveBeenCalledWith(
+      "Label,N\r\nurn:a,3\r\nurn:b,12\r\nurn:c,7\r\n",
+      "subjects.csv",
+    );
+    // The host's own button sits in the same toolbar end.
+    fireEvent.click(screen.getByRole("button", { name: "Export JSON" }));
+    expect(exportJson).toHaveBeenCalledWith(subjects);
+    // Rows-per-page goes through the host's state.
+    fireEvent.change(screen.getByTestId("table-page-size"), {
+      target: { value: "100" },
+    });
+    expect(
+      (screen.getByTestId("table-page-size") as HTMLSelectElement).value,
+    ).toBe("100");
+    // The empty state names the host's message.
+    fireEvent.change(screen.getByTestId("column-filter-statements-min"), {
+      target: { value: "99" },
+    });
+    expect(screen.getByRole("status").textContent).toBe(
+      "No subjects match. Clear a filter to widen the set.",
+    );
   });
 
   it("getCsv is the pure half, callable with a row model's rows and leaf columns (guide: Export, search, reorder, multi-value filters)", () => {

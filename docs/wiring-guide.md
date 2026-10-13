@@ -990,9 +990,13 @@ from the property registry), but tabular data that is not a graph
 (SPARQL SELECT bindings, a named-graph register, a validation-result
 list) does not need converting first. Pass `rows` and `columns`; a
 column names a `value` reader, optionally a `render`, and an inline
-filter kind (`"text"` default, `"values"` for a checklist over the
-distinct values with counts, `"range"` for a numeric min/max,
-`"none"`). `renderCell` is a table-wide override on either path
+filter kind (`"text"` for a substring match, `"values"` for a
+checklist over the distinct values with counts, `"range"` for a
+numeric min/max, `"none"`). Leave `filter` out and the kind is
+inferred from the column's values: `"range"` when every present value
+is a number, `"values"` when the distinct values number at most 20
+and at most half the rows, `"text"` otherwise; an explicit kind
+always wins. `renderCell` is a table-wide override on either path
 (return `undefined` to fall back to the column). `selection` decides
 where a row click goes: `"store"` (default, the shared selection
 store, right for a view linked to a canvas), `"none"` for a standalone
@@ -1041,10 +1045,14 @@ the FILTERED rows in the current sort, the visible columns in their
 current order, as RFC 4180 text from cell values (not rendered
 nodes); pass `{ filename, download }` to name the file or to replace
 the browser download with your own sink. `search` adds one box above
-the per-column filters: a case-insensitive substring match over the
-VISIBLE columns only (hidden columns and `filter: "none"` columns are
-skipped, and hiding a column drops its matches at once), stacked on
-the per-column filters, with the "N of M rows" count following it.
+the per-column filters, over the VISIBLE columns only (hidden columns
+and `filter: "none"` columns are skipped, and hiding a column drops
+its matches at once), stacked on the per-column filters, with the
+"N of M rows" count following it. The query is split on whitespace
+and every word must appear, as a case-insensitive substring,
+somewhere in the row, not necessarily in the same cell (`alice acme`
+finds the row whose name is Alice and whose org is Acme); wrap a
+phrase in double quotes to match it as one substring.
 The column menu's move buttons reorder columns; hand the table a
 `columnOrder` (TanStack's shape: listed ids first, the rest after in
 definition order) and `onColumnOrderChange` to persist it, or omit
@@ -1102,6 +1110,95 @@ const csv = getCsv(
   hostTable.getSortedRowModel().rows,
   hostTable.getVisibleLeafColumns(),
 );
+```
+
+### Sorting, hidden columns, CSV values, empty state, toolbar slot
+
+What a host replacing its own TanStack table needs beyond the recipes
+above. `sorting` and `onSortingChange` control the sort (TanStack's
+shape, `{ id, desc }[]`, first rule outermost) the way `columnOrder`
+does, so it can live in the URL; `initialSorting` seeds an
+uncontrolled table instead. A column with `hidden: true` starts
+toggled off but stays in the column menu. A column's `csv` reader
+replaces the cell value in the export (a cell that renders a local
+name exports the full IRI); `getCsv` takes the same hook as its third
+argument, `{ value: (row, column) => ... }`. `emptyMessage` is what
+the body shows when nothing matches (a `role="status"` row; the
+default names the path's noun). `toolbar` renders your own controls
+beside the Export CSV button. `pageSizeOptions` adds a rows-per-page
+select to the pagination bar, which also carries first/last buttons
+now; pass `onPageSizeChange` and set `pageSize` yourself, or leave it
+out and the pick is held internally. Per column, `align: "num"`
+right-aligns on tabular figures, `width` sizes the header, and
+`title` is the header tooltip. Two things happen without a prop:
+repeated `rowId`s are suffixed `#2`, `#3` in data order so every row
+stays addressable, and when the column SET changes (one SPARQL result
+replacing another with different variables) filters and the internal
+sort on columns that left are dropped, so they do not resurface when
+the variable comes back; a controlled sort is reported back pruned
+through `onSortingChange`.
+
+```tsx
+import { useState } from "react";
+import {
+  TableView,
+  type DataGridColumn,
+  type TableSort,
+} from "@g3-toolkit/react";
+
+interface Binding {
+  iri: string;
+  label: string;
+  statements: number;
+  graph: string;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  {
+    id: "label",
+    header: "Label",
+    title: "The rdfs:label, or the IRI's local name",
+    value: (r) => r.label,
+    csv: (r) => r.iri, // the export carries the full IRI
+    width: 240,
+  },
+  {
+    id: "statements",
+    header: "N",
+    title: "Statements about the subject",
+    value: (r) => r.statements,
+    align: "num", // right-aligned, tabular figures; filter inferred as range
+  },
+  { id: "graph", header: "Graph", value: (r) => r.graph, hidden: true },
+];
+
+function Register({ rows }: { rows: Binding[] }) {
+  // The sort lives wherever your URL state does (here: local state).
+  const [sorting, setSorting] = useState<TableSort[]>([
+    { id: "statements", desc: true },
+  ]);
+  const [pageSize, setPageSize] = useState(25);
+  return (
+    <TableView
+      rows={rows}
+      columns={columns}
+      rowId={(r) => r.iri}
+      selection="none"
+      sorting={sorting}
+      onSortingChange={setSorting}
+      pageSize={pageSize}
+      pageSizeOptions={[25, 100, 500]}
+      onPageSizeChange={setPageSize}
+      emptyMessage="No subjects match. Clear a filter to widen the set."
+      exportCsv={{ filename: "subjects.csv" }}
+      toolbar={
+        <button type="button" onClick={() => exportJson(rows)}>
+          Export JSON
+        </button>
+      }
+    />
+  );
+}
 ```
 
 ### Fill a sized host (dock panel)

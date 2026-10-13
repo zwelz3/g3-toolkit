@@ -21,6 +21,14 @@
  * `@tanstack/react-table`, opt-in through `virtualize`, active only
  * past a per-page row threshold so a small table's DOM is unchanged.
  *
+ * Issue #58 (what a host with its own TanStack table still lacked):
+ * controlled or seeded sorting, per-column `hidden`, `csv`, `align`,
+ * `width` and `title`, an empty-state row, a toolbar slot, filter-kind
+ * inference from the column's values, first/last page buttons with a
+ * rows-per-page select, unique row ids, and pruning of filters and
+ * sorts on columns that leave when the column set changes. Keyboard
+ * sorting is #57.
+ *
  * @see specs/01-functional-views.md R1.7
  * @see specs/02-functional-interaction.md R2.1, R2.5
  * @see specs/07-ux-defaults-accessibility.md R7.4
@@ -93,12 +101,86 @@ export interface DataGridColumn<T> {
    *  null/undefined shown as a dash. A table-wide `renderCell` that
    *  returns a non-undefined node takes precedence. */
   render?: (value: unknown, row: T) => ReactNode;
-  /** Inline header filter kind. "text" (default) is a substring
-   *  match, "values" a checklist over the distinct values with counts
-   *  (#47: several at once, exact match on the value's string form),
-   *  "range" a numeric min/max pair, "none" no filter (and no
-   *  cross-column search over it either). */
+  /** Inline header filter kind. "text" is a substring match, "values"
+   *  a checklist over the distinct values with counts (#47: several at
+   *  once, exact match on the value's string form), "range" a numeric
+   *  min/max pair, "none" no filter (and no cross-column search over
+   *  it either). Omit it and the kind is INFERRED from the column's
+   *  values (#58): "range" when every present value is a finite number
+   *  (and there is at least one); "values" when the distinct string
+   *  forms of the present values number at most 20
+   *  (`VALUES_FILTER_MAX_DISTINCT`) and at most half the present rows,
+   *  so the checklist is shorter than the column it filters; "text"
+   *  otherwise, including an empty table. Null and undefined do not
+   *  count as present. An explicit kind always wins; the inference
+   *  re-runs when `rows` changes, and a column whose inferred kind
+   *  flips drops its filter value (the two kinds store different
+   *  shapes). Rows path only: UGM columns stay "text". */
   filter?: "text" | "values" | "range" | "none";
+  /** Hidden by default (#58): the column starts toggled off in column
+   *  visibility, so the column menu still lists it and the user can
+   *  show it. A column that arrives hidden in a later column set is
+   *  hidden too; a visibility change made by the user is kept. */
+  hidden?: boolean;
+  /** CSV value (#58): what the export writes for this column instead
+   *  of the cell value, so a cell that renders a local name can export
+   *  the full IRI. Quoted per RFC 4180 as needed. */
+  csv?: (row: T) => string;
+  /** "num" right-aligns the header and cells and uses tabular figures
+   *  (#58). Default left. */
+  align?: "num";
+  /** Column width (#58): px as a number, or any CSS width. Applied to
+   *  the header cell; the table otherwise sizes to content. */
+  width?: number | string;
+  /** Header tooltip (#58): the `title` attribute on the sort trigger,
+   *  for a longer description of a short header. */
+  title?: string;
+}
+
+/** One sort rule (#58): a column id and its direction, TanStack's
+ *  `ColumnSort` shape, so a host can store it as-is (a URL, a
+ *  workspace snapshot). */
+export interface TableSort {
+  id: string;
+  desc: boolean;
+}
+
+/** Options for `getCsv` (#58). */
+export interface TableCsvOptions<T> {
+  /** The value written for a cell instead of `row.getValue(column.id)`.
+   *  Return undefined to fall back to the cell value; TableView passes
+   *  the column's `csv` reader through here. */
+  value?: (row: Row<T>, column: Column<T, unknown>) => unknown;
+}
+
+/** Filter inference (#58) thresholds: a "values" checklist is offered
+ *  when the distinct string forms are at most this many AND at most
+ *  `VALUES_FILTER_MAX_RATIO` of the present rows. */
+const VALUES_FILTER_MAX_DISTINCT = 20;
+const VALUES_FILTER_MAX_RATIO = 0.5;
+
+/** Infer a column's filter kind from its values (#58); see the
+ *  `filter` field for the rule. */
+function inferFilterKind(
+  values: readonly unknown[],
+): "text" | "values" | "range" {
+  let present = 0;
+  let numeric = true;
+  const distinct = new Set<string>();
+  for (const v of values) {
+    if (v === undefined || v === null) continue;
+    present += 1;
+    if (typeof v !== "number" || !Number.isFinite(v)) numeric = false;
+    if (distinct.size <= VALUES_FILTER_MAX_DISTINCT) distinct.add(cellText(v));
+  }
+  if (present === 0) return "text";
+  if (numeric) return "range";
+  if (
+    distinct.size <= VALUES_FILTER_MAX_DISTINCT &&
+    distinct.size <= present * VALUES_FILTER_MAX_RATIO
+  )
+    return "values";
+  return "text";
 }
 
 /** CSV export options (#47) for the toolbar button. */
@@ -183,11 +265,43 @@ export interface TableViewProps<T = TableNodeRow> {
   columnOrder?: readonly string[];
   /** Receives the full next order after every move. */
   onColumnOrderChange?: (order: string[]) => void;
+  /** Sorting (#58), controlled: TanStack's shape, first rule outermost.
+   *  Omit it to let the table own the sort (every change still reports
+   *  through `onSortingChange`, so a host can persist without
+   *  controlling, the `columnOrder` pattern). A controlled sort that
+   *  names a column no longer in the column set is reported back
+   *  pruned; an uncontrolled one is pruned in place. */
+  sorting?: readonly TableSort[];
+  /** Receives the full next sort after every header toggle. */
+  onSortingChange?: (sorting: TableSort[]) => void;
+  /** Uncontrolled seed (#58): the sort the table starts with. Read
+   *  once at mount; use `sorting` to change it later. */
+  initialSorting?: readonly TableSort[];
+  /** What the body shows when no row is visible (#58): a single row
+   *  spanning the table with a `role="status"` message. Default "No
+   *  rows match the current filters." (nodes on the UGM path), or "No
+   *  rows." when the table has no data at all. */
+  emptyMessage?: ReactNode;
+  /** Toolbar slot (#58): rendered at the trailing end of the toolbar,
+   *  beside the Export CSV button, for a host control such as a JSON
+   *  export. */
+  toolbar?: ReactNode;
+  /** Rows-per-page select (#58) in the pagination bar with these
+   *  options; the current size is listed even when absent. The pick
+   *  goes to `onPageSizeChange` when given (the host then sets
+   *  `pageSize`); otherwise it is held internally until the `pageSize`
+   *  prop next changes. Pointless with `autoPageSize`, which measures
+   *  the size. Default off. */
+  pageSizeOptions?: readonly number[];
+  onPageSizeChange?: (pageSize: number) => void;
   /** Cross-column search box (#47) in the toolbar, above the
-   *  per-column filters: a case-insensitive substring match over the
-   *  VISIBLE columns only (hidden and `filter: "none"` columns are
-   *  skipped), on top of the per-column filters. The "N of M" count
-   *  reflects it. Default off, so the chrome is unchanged. */
+   *  per-column filters, over the VISIBLE columns only (hidden and
+   *  `filter: "none"` columns are skipped), on top of the per-column
+   *  filters. Since #58 the query is split on whitespace and EVERY
+   *  word must match, as a case-insensitive substring, somewhere in
+   *  the row, not necessarily in the same cell; a double-quoted
+   *  phrase matches as one substring. The "N of M" count reflects it.
+   *  Default off, so the chrome is unchanged. */
   search?: boolean;
   /** Optional menu manager for right-click (R2.1 universality). */
   menuManager?: ContextMenuManager;
@@ -292,16 +406,51 @@ interface SearchFilter {
   columnIds: readonly string[];
 }
 
+/** The query split into terms (#58, maintainer ruling): whitespace
+ *  separates words, a double-quoted run is one phrase (an unclosed
+ *  quote runs to the end), empty terms are dropped. */
+function parseSearchTerms(query: string): string[] {
+  const terms: string[] = [];
+  for (const m of query.matchAll(/"([^"]*)(?:"|$)|(\S+)/g)) {
+    const term = (m[1] ?? m[2] ?? "").trim();
+    if (term !== "") terms.push(term);
+  }
+  return terms;
+}
+
+/** Search semantics (#58, maintainer ruling 2026-10-13): EVERY term
+ *  must appear, as a case-insensitive substring, somewhere in the
+ *  row across the visible searchable columns, not necessarily in the
+ *  same cell; a double-quoted phrase is one term. Until then the
+ *  whole query had to be a substring of ONE cell, so "alice acme"
+ *  matched nothing in a table with a name column and an org column.
+ *
+ *  TanStack calls a global filter once per searchable column and
+ *  keeps the row when any call passes. The answer here is a property
+ *  of the row, so it is computed on the first searchable column only
+ *  and the other calls return false, which keeps the cost at one
+ *  evaluation per row. The terms are parsed once per filter run via
+ *  `resolveFilterValue`, so the stored `SearchFilter` keeps its shape. */
 function searchVisibleColumns(
   row: Row<unknown>,
   columnId: string,
-  filterValue: SearchFilter,
+  filterValue: SearchFilter & { terms: readonly string[] },
 ): boolean {
-  if (!filterValue.columnIds.includes(columnId)) return false;
-  const v = row.getValue(columnId);
-  if (v === undefined || v === null) return false;
-  return cellText(v).toLowerCase().includes(filterValue.query);
+  if (columnId !== filterValue.columnIds[0]) return false;
+  if (filterValue.terms.length === 0) return true;
+  const cells: string[] = [];
+  for (const id of filterValue.columnIds) {
+    const v = row.getValue(id);
+    if (v !== undefined && v !== null) cells.push(cellText(v).toLowerCase());
+  }
+  return filterValue.terms.every((term) =>
+    cells.some((cell) => cell.includes(term)),
+  );
 }
+searchVisibleColumns.resolveFilterValue = (filterValue: SearchFilter) => ({
+  ...filterValue,
+  terms: parseSearchTerms(filterValue.query),
+});
 
 /** RFC 4180 field: quoted when it holds a quote, a comma, CR or LF,
  *  with embedded quotes doubled. */
@@ -326,18 +475,26 @@ function csvField(v: unknown): string {
  * (or wires its own button) can call it; TableView's `exportCsv`
  * button passes `table.getSortedRowModel().rows` (the filtered rows
  * in the current sort) and `table.getVisibleLeafColumns()` (column
- * visibility and order applied).
+ * visibility and order applied). `options.value` (#58) replaces the
+ * cell value per cell; TableView routes a column's `csv` reader
+ * through it.
  */
 export function getCsv<T>(
   rows: readonly Row<T>[],
   columns: readonly Column<T, unknown>[],
+  options: TableCsvOptions<T> = {},
 ): string {
   const header = columns.map((c) => {
     const h = c.columnDef.header;
     return csvField(typeof h === "string" ? h : c.id);
   });
   const records = rows.map((row) =>
-    columns.map((c) => csvField(row.getValue(c.id))).join(","),
+    columns
+      .map((c) => {
+        const custom = options.value?.(row, c);
+        return csvField(custom !== undefined ? custom : row.getValue(c.id));
+      })
+      .join(","),
   );
   return [header.join(","), ...records].join("\r\n") + "\r\n";
 }
@@ -525,6 +682,15 @@ function ValuesFilter({
 
 const EMPTY_ROWS: readonly never[] = [];
 
+/** Visibility seed from `hidden` columns (#58). */
+function hiddenDefaults<T>(
+  cols: readonly DataGridColumn<T>[] | undefined,
+): VisibilityState {
+  const out: VisibilityState = {};
+  for (const c of cols ?? []) if (c.hidden === true) out[c.id] = false;
+  return out;
+}
+
 export function TableView<T = TableNodeRow>({
   ugm,
   rows = EMPTY_ROWS,
@@ -535,6 +701,13 @@ export function TableView<T = TableNodeRow>({
   exportCsv = false,
   columnOrder: columnOrderProp,
   onColumnOrderChange,
+  sorting: sortingProp,
+  onSortingChange,
+  initialSorting,
+  emptyMessage,
+  toolbar,
+  pageSizeOptions,
+  onPageSizeChange,
   search = false,
   menuManager,
   pageSize = 50,
@@ -548,8 +721,27 @@ export function TableView<T = TableNodeRow>({
   hideBuiltinColumns,
   selectable = true,
 }: TableViewProps<T>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  // #58: sorting follows the `columnOrder` pattern: controlled when
+  // `sorting` is given, internal (seeded by `initialSorting`) otherwise,
+  // and every change reports the full next value either way.
+  const [internalSorting, setInternalSorting] = useState<SortingState>(() =>
+    initialSorting === undefined ? [] : [...initialSorting],
+  );
+  const sorting: SortingState =
+    sortingProp !== undefined ? (sortingProp as SortingState) : internalSorting;
+  const handleSortingChange = useCallback<OnChangeFn<SortingState>>(
+    (updater) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      if (sortingProp === undefined) setInternalSorting(next);
+      onSortingChange?.(next);
+    },
+    [sorting, sortingProp, onSortingChange],
+  );
+  // #58: `hidden` columns start toggled off; the user's later toggles
+  // are kept (this is a seed, not a controlled value).
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    () => hiddenDefaults(gridColumns),
+  );
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [searchQuery, setSearchQuery] = useState("");
   // #47: column order is controlled from the host when `columnOrder`
@@ -670,10 +862,21 @@ export function TableView<T = TableNodeRow>({
   // filter kind decides the filter function here and the header
   // control below (looked up by id; TanStack's ColumnMeta would need
   // a module augmentation that leaks into every consumer's types).
+  // #58: the inferred kinds, one pass over the rows per column, redone
+  // when the rows or the columns change (hosts hold both in useMemo).
+  const inferredKinds = useMemo(() => {
+    const out = new Map<string, "text" | "values" | "range">();
+    if (ugm !== undefined || gridColumns === undefined) return out;
+    for (const col of gridColumns) {
+      if (col.filter !== undefined) continue;
+      out.set(col.id, inferFilterKind(rows.map((row) => col.value(row))));
+    }
+    return out;
+  }, [ugm, gridColumns, rows]);
   const dataColumns = useMemo<ColumnDef<T>[]>(() => {
     if (ugm !== undefined || gridColumns === undefined) return [];
     return gridColumns.map((col) => {
-      const kind = col.filter ?? "text";
+      const kind = col.filter ?? inferredKinds.get(col.id) ?? "text";
       return {
         id: col.id,
         accessorFn: (row: T) => col.value(row),
@@ -692,7 +895,7 @@ export function TableView<T = TableNodeRow>({
             : cellText(getValue()),
       };
     });
-  }, [ugm, gridColumns]);
+  }, [ugm, gridColumns, inferredKinds]);
   const gridColumnById = useMemo(
     () => new Map((gridColumns ?? []).map((c) => [c.id, c] as const)),
     [gridColumns],
@@ -712,13 +915,78 @@ export function TableView<T = TableNodeRow>({
         : dataColumns,
     [ugm, nodeColumns, dataColumns],
   );
+  // #58: duplicate row ids (a SPARQL result with a repeated binding,
+  // a register keyed on a non-unique field) are made unique with a
+  // "#2", "#3" suffix in data order, so selection and the
+  // `table-row-{id}` test ids address every row. The suffix loops
+  // until free in case the data already holds "x#2". UGM node ids are
+  // unique by construction and are used as-is.
+  const rowIds = useMemo<readonly string[] | null>(() => {
+    if (ugm !== undefined) return null;
+    const taken = new Set<string>();
+    return data.map((row, index) => {
+      const base = rowId?.(row, index) ?? String(index);
+      let id = base;
+      for (let n = 2; taken.has(id); n++) id = `${base}#${n}`;
+      taken.add(id);
+      return id;
+    });
+  }, [ugm, data, rowId]);
   const getRowId = useCallback(
     (row: T, index: number): string =>
-      ugm !== undefined
+      rowIds === null
         ? (row as unknown as TableNodeRow).id
-        : (rowId?.(row, index) ?? String(index)),
-    [ugm, rowId],
+        : (rowIds[index] ?? String(index)),
+    [rowIds],
   );
+
+  // #58: when the column SET changes (a SPARQL result with different
+  // variables replaces the last one), filters and the internal sort on
+  // columns that left are dropped, as is a filter on a column whose
+  // inferred kind flipped (the two kinds store different shapes), and
+  // columns that arrived with `hidden` start toggled off. Reconciled
+  // during render, like the page size below, so no frame renders with
+  // the stale state; a CONTROLLED sort is the host's, so it is pruned
+  // through `onSortingChange` in an effect instead.
+  const columnKinds = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const c of columns) {
+      const id = c.id ?? (c as { accessorKey?: string }).accessorKey ?? "";
+      if (id === "") continue;
+      const col = gridColumnById.get(id);
+      out.set(id, col?.filter ?? inferredKinds.get(id) ?? "text");
+    }
+    return out;
+  }, [columns, gridColumnById, inferredKinds]);
+  const columnKey = [...columnKinds]
+    .map(([id, k]) => `${id}\u0001${k}`)
+    .join("\u0000");
+  const [seenColumns, setSeenColumns] = useState({
+    key: columnKey,
+    kinds: columnKinds,
+  });
+  if (seenColumns.key !== columnKey) {
+    const known = seenColumns.kinds;
+    setSeenColumns({ key: columnKey, kinds: columnKinds });
+    setColumnFilters((f) =>
+      f.filter((x) => columnKinds.get(x.id) === known.get(x.id)),
+    );
+    if (sortingProp === undefined)
+      setInternalSorting((s) => s.filter((x) => columnKinds.has(x.id)));
+    setColumnVisibility((v) => {
+      const next: VisibilityState = {};
+      for (const [id, shown] of Object.entries(v))
+        if (columnKinds.has(id)) next[id] = shown;
+      for (const [id, shown] of Object.entries(hiddenDefaults(gridColumns)))
+        if (!known.has(id) && !(id in next)) next[id] = shown;
+      return next;
+    });
+  }
+  useEffect(() => {
+    if (sortingProp === undefined) return;
+    const pruned = sortingProp.filter((x) => columnKinds.has(x.id));
+    if (pruned.length !== sortingProp.length) onSortingChange?.(pruned);
+  }, [sortingProp, onSortingChange, columnKinds]);
 
   // #21(c): in fill mode the scroll region's height is the host's,
   // not the content's, so it can be measured without a feedback
@@ -760,8 +1028,20 @@ export function TableView<T = TableNodeRow>({
     observer.observe(el);
     return () => observer.disconnect();
   }, [measuring, rowHeight]);
+  // #58: the rows-per-page select is internal only without
+  // `onPageSizeChange`; the pick lasts until the prop next changes.
+  const [userPageSize, setUserPageSize] = useState<number | null>(null);
+  const [seenPageSize, setSeenPageSize] = useState(pageSize);
+  if (seenPageSize !== pageSize) {
+    setSeenPageSize(pageSize);
+    setUserPageSize(null);
+  }
+  const requestedPageSize =
+    onPageSizeChange === undefined ? (userPageSize ?? pageSize) : pageSize;
   const effectivePageSize =
-    measuring && measuredPageSize !== null ? measuredPageSize : pageSize;
+    measuring && measuredPageSize !== null
+      ? measuredPageSize
+      : requestedPageSize;
 
   // #47: the search travels as one object with the visible, searchable
   // column ids (see SearchFilter for why visibility cannot be read at
@@ -814,7 +1094,7 @@ export function TableView<T = TableNodeRow>({
       pagination,
       globalFilter: searchFilter,
     },
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnFiltersChange: setColumnFilters,
     onColumnOrderChange: handleColumnOrderChange,
@@ -855,6 +1135,12 @@ export function TableView<T = TableNodeRow>({
     const csv = getCsv(
       table.getSortedRowModel().rows,
       table.getVisibleLeafColumns(),
+      // #58: a column's `csv` reader wins over the cell value; the
+      // UGM path has no grid columns, so every cell falls through.
+      {
+        value: (row, column) =>
+          gridColumnById.get(column.id)?.csv?.(row.original),
+      },
     );
     const filename = csvOptions.filename ?? "table.csv";
     (csvOptions.download ?? downloadCsv)(csv, filename);
@@ -1067,6 +1353,7 @@ export function TableView<T = TableNodeRow>({
             id,
             cell.column.id,
           )?.definitionId;
+          const numeric = gridColumnById.get(cell.column.id)?.align === "num";
           return (
             <td
               key={cell.id}
@@ -1077,6 +1364,10 @@ export function TableView<T = TableNodeRow>({
               style={{
                 padding: density === "compact" ? "2px 6px" : "4px 8px",
                 borderBottom: "1px solid #eee",
+                // #58: numeric columns right-align on tabular figures
+                // so digits line up down the column.
+                textAlign: numeric ? "right" : undefined,
+                fontVariantNumeric: numeric ? "tabular-nums" : undefined,
               }}
             >
               {custom !== undefined
@@ -1236,19 +1527,34 @@ export function TableView<T = TableNodeRow>({
             }}
           />
         )}
-        {csvOptions !== null && (
-          <button
-            type="button"
-            data-testid="table-export-csv"
-            className="g3t-btn g3t-btn-ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleExportCsv();
+        {(csvOptions !== null || toolbar !== undefined) && (
+          <div
+            className="g3t-table-toolbar-end"
+            data-testid="table-toolbar-end"
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
-            style={{ fontSize: 11, marginLeft: "auto" }}
           >
-            Export CSV
-          </button>
+            {csvOptions !== null && (
+              <button
+                type="button"
+                data-testid="table-export-csv"
+                className="g3t-btn g3t-btn-ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleExportCsv();
+                }}
+                style={{ fontSize: 11 }}
+              >
+                Export CSV
+              </button>
+            )}
+            {/* #58: the host's own controls sit beside the export. */}
+            {toolbar}
+          </div>
         )}
       </div>
 
@@ -1268,9 +1574,12 @@ export function TableView<T = TableNodeRow>({
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
                 {hg.headers.map((header) => {
+                  const gridColumn = gridColumnById.get(header.column.id);
                   const filterKind =
                     ugm === undefined
-                      ? (gridColumnById.get(header.column.id)?.filter ?? "text")
+                      ? (gridColumn?.filter ??
+                        inferredKinds.get(header.column.id) ??
+                        "text")
                       : "text";
                   const filterInputStyle = {
                     fontSize: 10,
@@ -1299,9 +1608,11 @@ export function TableView<T = TableNodeRow>({
                       style={{
                         padding: density === "compact" ? "2px 6px" : "6px 8px",
                         borderBottom: "2px solid var(--g3t-border, #ddd)",
-                        textAlign: "left",
+                        textAlign:
+                          gridColumn?.align === "num" ? "right" : "left",
                         userSelect: "none",
                         whiteSpace: "nowrap",
+                        width: gridColumn?.width,
                       }}
                     >
                       <button
@@ -1331,6 +1642,7 @@ export function TableView<T = TableNodeRow>({
                         className="g3t-table-sort"
                         data-testid={`column-sort-${header.id}`}
                         disabled={!header.column.getCanSort()}
+                        title={gridColumn?.title}
                         style={{
                           display: "block",
                           width: "100%",
@@ -1487,6 +1799,30 @@ export function TableView<T = TableNodeRow>({
                   return out;
                 })
               : visibleRows.map((row, rowIndex) => renderRow(row, rowIndex))}
+            {/* #58: an empty body said nothing; a filter that matched
+                no row looked like a broken table. One spanning row
+                with a status message (the role, not the row, is what
+                a screen reader announces). */}
+            {visibleRows.length === 0 && (
+              <tr data-testid="table-empty">
+                <td
+                  colSpan={Math.max(1, leafColumnCount)}
+                  style={{
+                    padding: density === "compact" ? "8px 6px" : "12px 8px",
+                    textAlign: "center",
+                    color: "var(--g3t-text-muted, #888)",
+                  }}
+                >
+                  <div role="status">
+                    {emptyMessage !== undefined
+                      ? emptyMessage
+                      : data.length === 0
+                        ? `No ${noun}.`
+                        : `No ${noun} match the current filters.`}
+                  </div>
+                </td>
+              </tr>
+            )}
             {/* LR-48 (owner review 2026-07-22): the last page has fewer
                 rows, so the grid (and the Prev/Next controls under it)
                 jumped height on every page change, making the buttons a
@@ -1536,6 +1872,19 @@ export function TableView<T = TableNodeRow>({
         }}
         data-testid="table-pagination"
       >
+        {/* #58: first/last beside prev/next. setPageIndex rather than
+            firstPage/lastPage, which the ^8.0.0 peer range does not
+            guarantee. */}
+        <button
+          type="button"
+          className="g3t-btn"
+          data-testid="table-page-first"
+          aria-label="First page"
+          onClick={() => table.setPageIndex(0)}
+          disabled={!table.getCanPreviousPage()}
+        >
+          « First
+        </button>
         <button
           className="g3t-btn"
           onClick={() => table.previousPage()}
@@ -1554,6 +1903,43 @@ export function TableView<T = TableNodeRow>({
         >
           Next →
         </button>
+        <button
+          type="button"
+          className="g3t-btn"
+          data-testid="table-page-last"
+          aria-label="Last page"
+          onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+          disabled={!table.getCanNextPage()}
+        >
+          Last »
+        </button>
+        {pageSizeOptions !== undefined && (
+          <label
+            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+          >
+            Per page
+            <select
+              className="g3t-select"
+              data-testid="table-page-size"
+              aria-label={`${noun.charAt(0).toUpperCase() + noun.slice(1)} per page`}
+              value={effectivePageSize}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (onPageSizeChange !== undefined) onPageSizeChange(n);
+                else setUserPageSize(n);
+              }}
+            >
+              {(pageSizeOptions.includes(effectivePageSize)
+                ? [...pageSizeOptions]
+                : [...pageSizeOptions, effectivePageSize].sort((a, b) => a - b)
+              ).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <span
           style={{ marginLeft: "auto", color: "var(--g3t-text-muted, #888)" }}
         >

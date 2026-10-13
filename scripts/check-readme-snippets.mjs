@@ -119,6 +119,8 @@ const PLACEHOLDERS = {
   // @tanstack/react-table is a peer of @g3-toolkit/react and is not
   // installed at the repo root, so the snippet cannot import its types.
   hostTable: "any",
+  // The adopter's own JSON export (wiring guide, TableView toolbar slot).
+  exportJson: "any",
 };
 const dir = resolve(root, ".verify-snippets");
 rmSync(dir, { recursive: true, force: true });

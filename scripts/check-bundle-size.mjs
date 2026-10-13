@@ -427,7 +427,23 @@ const BUDGETS = {
   // (457,103 bytes after; +0.8 KB), one `viewClass(...)` call per
   // root across 48 files plus the helper, no new dependency and no
   // vendored bytes. Headroom back to about 3.5 KB, same posture.
-  react: 450 * 1024,
+  // Issues #57 and #58 (2026-10-13): 450 -> 456. TableView adoption
+  // gaps for a host replacing its own TanStack table. Measured
+  // 446.3 -> 452.7 KB (457,028 -> 463,583 bytes, +6.4 KB), all of it
+  // TableView.tsx in the StatsPanel chunk, so a host that never
+  // references the table pays nothing: the native-button sort trigger
+  // with keyboard multi-sort (#57); controlled/seeded sorting, the
+  // per-column hidden/csv/align/width/title fields, the empty-state
+  // row, the toolbar slot, filter-kind inference, first/last page
+  // buttons with the rows-per-page select, unique row ids, and the
+  // column-set reconciliation that drops filters and sorts on columns
+  // that left (#58); and the every-word search semantics the
+  // maintainer ruled on (a term parser and the row-level match).
+  // Sourcemap audit as the 2026-07-03 core entry requires: ZERO
+  // node_modules source bytes across react's 16 dist maps (965,030
+  // source bytes, all first-party). Headroom about 3.3 KB, same
+  // posture as the entries above.
+  react: 456 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the
