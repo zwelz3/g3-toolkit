@@ -42,9 +42,11 @@ library-mode output) and the bundle does not import it for you:
 auto-injection breaks strict CSP setups and server rendering, so
 the decision stays with your bundler. Without this line every view
 renders unstyled, with no error and no warning. In development the
-canvas logs a one-time warning when the design tokens are absent
-from the document, which is the fastest way to spot a missing
-import.
+canvas logs a one-time warning when the `--g3t-*` design tokens are
+absent from its own container (they inherit from wherever the theme
+was applied, `<html>` or a `setThemeTarget` container). The tokens
+come from the theme, not from `style.css`, so the warning names an
+unapplied or wrongly scoped theme first and the import second.
 
 `style.css` styles the toolkit's own elements only: every rule is
 scoped to a `g3t-` class, it sets nothing on `html`, `body` or `*`,

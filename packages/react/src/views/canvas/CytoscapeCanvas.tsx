@@ -2026,20 +2026,30 @@ export function CytoscapeCanvas({
     // Upstream P1 (prm-analyzer, 2026-07-28): the packed bundle does
     // not auto-load style.css, and unstyled rendering is silent.
     // Dev-only discovery aid: warn ONCE when the design tokens are
-    // absent from the document.
+    // absent. Issue #62: the probe reads the canvas's OWN container,
+    // not <html>. style.css carries no color tokens (its :root rule
+    // is transitions only); applyTheme writes them, and a scoped
+    // theme (setThemeTarget) writes them on a container, where a
+    // probe of <html> never sees them. Custom properties inherit, so
+    // the container reports whichever ancestor received the theme.
+    // <html> is the fallback only when the ref is unset. The
+    // `typeof process` guard is deliberate: a bundler that leaves
+    // `process` undefined skips the aid instead of throwing.
     if (
       typeof process !== "undefined" &&
       process.env?.NODE_ENV !== "production" &&
       typeof getComputedStyle === "function" &&
       !stylesheetWarnedRef.current
     ) {
-      const probe = getComputedStyle(document.documentElement)
+      const probe = getComputedStyle(
+        containerRef.current ?? document.documentElement,
+      )
         .getPropertyValue("--g3t-bg-primary")
         .trim();
       if (probe === "") {
         stylesheetWarnedRef.current = true;
         console.warn(
-          '[g3t] design tokens not found on :root. Did you forget `import "@g3-toolkit/react/style.css"`? Components will render unstyled without it.',
+          '[g3t] design tokens (--g3t-*) not found on this canvas\'s container. The theme has probably not been applied (useThemeStore / applyTheme), or was applied through setThemeTarget to a container that does not contain this canvas. Also check `import "@g3-toolkit/react/style.css"`. Components will render unstyled without both.',
         );
       }
     }
