@@ -858,9 +858,6 @@ function Register({ rows }: { rows: Binding[] }) {
 }
 ```
 
-Not in this slice: virtualization past a few hundred rows (pagination
-is the scaling lever; it needs a dependency ruling).
-
 ### Export, search, reorder, multi-value filters
 
 Four toolbar affordances, each off by default so the chrome you have
@@ -952,6 +949,61 @@ import { TableView } from "@g3-toolkit/react";
 <div style={{ height: 480 }}>
   <TableView ugm={ugm} fill rowHeight={28} autoPageSize density="compact" />
 </div>;
+```
+
+### Virtualize a long page
+
+Pagination bounds the DOM by default, which is the wrong lever when
+the analyst wants to scroll one long list (a SPARQL result of a few
+thousand bindings) rather than page through it. `virtualize` renders
+only the rows in and around the scroll window of the `fill` body,
+with spacer rows holding the table's height so the scrollbar is
+honest and the header stays sticky; it is `@tanstack/react-virtual`
+underneath, a regular dependency of `@g3-toolkit/react`, nothing to
+install. It engages per page once the page holds more than
+`threshold` rows (default 150), so a small table's DOM is exactly the
+unvirtualized one; `overscan` (default 10) is the rows rendered
+beyond the window on each side. Give it a large `pageSize` (the
+working-set limit is 10,000) and a scrolling body: `fill`, or your own
+height and overflow on `.g3t-table-scroll`. `rowHeight` is the size
+estimate when given; without it rows are measured as they mount.
+`autoPageSize` is ignored while `virtualize` is set, because it sizes
+the page to the viewport and that is the one thing virtualization
+makes unnecessary. Selection, `renderCell`, the per-column filters
+and their value counts, search and the CSV export all read the row
+model, not the DOM, so they see every row on the page; a row holding
+keyboard focus (a link or button in a cell) stays mounted while you
+scroll.
+
+```tsx
+import { TableView, type DataGridColumn } from "@g3-toolkit/react";
+
+interface Binding {
+  s: string;
+  label: string;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  { id: "s", header: "Subject", value: (r) => r.s },
+  { id: "label", header: "Label", value: (r) => r.label },
+];
+
+function LongRegister({ rows }: { rows: Binding[] }) {
+  return (
+    <div style={{ height: 480 }}>
+      <TableView
+        rows={rows}
+        columns={columns}
+        rowId={(r) => r.s}
+        fill
+        rowHeight={24}
+        pageSize={10_000}
+        virtualize={{ overscan: 20 }}
+        exportCsv
+      />
+    </div>
+  );
+}
 ```
 
 ## Box (lasso) selection: the gesture

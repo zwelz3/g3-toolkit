@@ -15,8 +15,11 @@
  * export of the filtered rows (`getCsv`, a pure helper, plus an
  * optional toolbar button), a checklist "values" filter, menu-based
  * column reorder over TanStack `columnOrder` (host-controllable), and
- * a cross-column search over the visible columns. Virtualization
- * stays deferred: it needs a dependency decision.
+ * a cross-column search over the visible columns. The last #47 item,
+ * row virtualization, landed with the maintainer's dependency ruling:
+ * `@tanstack/react-virtual` as a regular dependency beside
+ * `@tanstack/react-table`, opt-in through `virtualize`, active only
+ * past a per-page row threshold so a small table's DOM is unchanged.
  *
  * @see specs/01-functional-views.md R1.7
  * @see specs/02-functional-interaction.md R2.1, R2.5
@@ -51,6 +54,12 @@ import {
   type PaginationState,
   type Row,
 } from "@tanstack/react-table";
+import {
+  useVirtualizer,
+  defaultRangeExtractor,
+  type Range,
+  type VirtualItem,
+} from "@tanstack/react-virtual";
 import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import type {
@@ -98,6 +107,19 @@ export interface TableCsvExport {
   /** Replaces the browser download (an anchor with an object URL):
    *  hosts that save elsewhere, and tests, read the text here. */
   download?: (csv: string, filename: string) => void;
+}
+
+/** Row virtualization options (#47). */
+export interface TableVirtualize {
+  /** Rows rendered beyond the visible window on each side (default
+   *  10). Also the number of rows rendered before the scroll region
+   *  has been measured (first paint, or an environment without
+   *  layout). */
+  overscan?: number;
+  /** Virtualize only when the CURRENT PAGE holds more rows than this
+   *  (default 150): below it the DOM is exactly the unvirtualized
+   *  table, so small tables keep their row-by-row semantics. */
+  threshold?: number;
 }
 
 /** What a table-wide cell renderer receives, on either path. */
@@ -193,6 +215,21 @@ export interface TableViewProps<T = TableNodeRow> {
    *  so rows meet the bottom edge and re-fit on resize without a
    *  remount. No-op where ResizeObserver is absent (jsdom). */
   autoPageSize?: boolean;
+  /** Row virtualization (#47) through @tanstack/react-virtual over
+   *  the `g3t-table-scroll` region: once the current page holds more
+   *  rows than `threshold` (default 150), only the rows in and around
+   *  the scroll window are in the DOM, with spacer rows holding the
+   *  table's height so the scrollbar is honest and the sticky header
+   *  stays. Needs a scrolling body: `fill` (or your own height and
+   *  overflow on `.g3t-table-scroll`). `rowHeight` is the size
+   *  estimate when given; otherwise rows are measured as they mount.
+   *  Pagination still applies, so pair it with a large `pageSize`;
+   *  `autoPageSize` is IGNORED while this is set, because it sizes the
+   *  page to the viewport, which is the one thing virtualization makes
+   *  unnecessary. Selection, `renderCell`, filters, search and CSV
+   *  export read the row model, not the DOM, so they are unaffected.
+   *  Default off. */
+  virtualize?: boolean | TableVirtualize;
   /** Display-only formatter for the built-in ID column (review 5.18:
    *  a projection whose node ids are IRIs can show local names while
    *  selection keeps the full id; the cell title carries it). */
@@ -505,6 +542,7 @@ export function TableView<T = TableNodeRow>({
   fill = false,
   rowHeight,
   autoPageSize = false,
+  virtualize = false,
   idFormatter,
   hideBuiltinColumns,
   selectable = true,
@@ -690,8 +728,25 @@ export function TableView<T = TableNodeRow>({
   const scrollRef = useRef<HTMLDivElement>(null);
   const theadRef = useRef<HTMLTableSectionElement>(null);
   const [measuredPageSize, setMeasuredPageSize] = useState<number | null>(null);
+  // #47: virtualization resolved to its defaults once; null is off.
+  const virtualOptions: Required<TableVirtualize> | null =
+    virtualize === false
+      ? null
+      : {
+          overscan: 10,
+          threshold: 150,
+          ...(virtualize === true ? {} : virtualize),
+        };
+  // autoPageSize fits the page to the viewport; virtualization exists
+  // so the page need not fit. With both set the page would never
+  // exceed the threshold, so the measured page size is not applied
+  // and `pageSize` governs (documented on the prop).
   const measuring =
-    fill && autoPageSize && rowHeight !== undefined && rowHeight > 0;
+    fill &&
+    autoPageSize &&
+    rowHeight !== undefined &&
+    rowHeight > 0 &&
+    virtualOptions === null;
   useEffect(() => {
     if (!measuring) return;
     const el = scrollRef.current;
@@ -879,6 +934,147 @@ export function TableView<T = TableNodeRow>({
   const visibleRows = table.getRowModel().rows;
   const filteredCount = table.getFilteredRowModel().rows.length;
   const noun = ugm !== undefined ? "nodes" : "rows";
+
+  // #47: virtualization is decided per page, on the rendered row
+  // count, so a table that paginates below the threshold renders
+  // exactly what it did before. The hook is unconditional (rules of
+  // hooks) and disabled when inactive, which detaches its observers.
+  const virtualActive =
+    virtualOptions !== null && visibleRows.length > virtualOptions.threshold;
+  // `rowHeight` is the estimate when given (rows then have a fixed
+  // height, so they are not measured); otherwise an estimate per
+  // density that measurement corrects as rows mount.
+  const rowEstimate = rowHeight ?? (density === "compact" ? 22 : 29);
+  // Keyboard focus survives scrolling: a row holding the focused
+  // element (a link or button a `render` put in a cell) stays mounted
+  // however far the window moves, so focus is not dropped to body.
+  // Tracked on the tbody (React focus events bubble) and pinned
+  // through the range extractor, which runs whenever the window moves.
+  const focusedIndexRef = useRef<number | null>(null);
+  const rangeExtractor = useCallback((range: Range) => {
+    const base = defaultRangeExtractor(range);
+    const pinned = focusedIndexRef.current;
+    if (pinned === null || pinned >= range.count || base.includes(pinned))
+      return base;
+    return [...base, pinned].sort((a, b) => a - b);
+  }, []);
+  const virtualizer = useVirtualizer({
+    count: virtualActive ? visibleRows.length : 0,
+    enabled: virtualActive,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => rowEstimate,
+    overscan: virtualOptions?.overscan ?? 0,
+    // Keyed by row id so a measured height follows its row across a
+    // re-sort or a filter change rather than sticking to a slot.
+    getItemKey: (index) => visibleRows[index]?.id ?? index,
+    rangeExtractor,
+  });
+  let virtualItems: readonly VirtualItem[] = [];
+  let virtualTotal = 0;
+  if (virtualActive) {
+    virtualItems = virtualizer.getVirtualItems();
+    virtualTotal = virtualizer.getTotalSize();
+    // Before the scroll region has a measured height (the first
+    // commit, or jsdom, where every box is 0) the virtualizer has no
+    // window and returns nothing. Render the first `overscan` rows
+    // from the estimate instead of an empty body, so the first paint
+    // is not blank and a headless test sees rows.
+    if (virtualItems.length === 0) {
+      const n = Math.min(
+        visibleRows.length,
+        Math.max(1, virtualOptions?.overscan ?? 1),
+      );
+      virtualItems = Array.from({ length: n }, (_, index) => ({
+        key: visibleRows[index]?.id ?? index,
+        index,
+        start: index * rowEstimate,
+        end: (index + 1) * rowEstimate,
+        size: rowEstimate,
+        lane: 0,
+      }));
+    }
+  }
+  // LR-48 filler count (see the filler rows below); in virtual mode it
+  // becomes height on the trailing spacer rather than DOM rows.
+  const fillerCount =
+    table.getPageCount() > 1
+      ? Math.max(0, effectivePageSize - visibleRows.length)
+      : 0;
+  const leafColumnCount = table.getAllLeafColumns().length;
+  const spacerRow = (key: string, height: number) =>
+    height > 0 ? (
+      <tr
+        key={key}
+        aria-hidden
+        data-testid="table-virtual-spacer"
+        style={{ height }}
+      >
+        <td colSpan={leafColumnCount} style={{ padding: 0, border: "none" }} />
+      </tr>
+    ) : null;
+
+  const renderRow = (row: Row<T>, rowIndex: number, virtual?: VirtualItem) => {
+    const id = row.id;
+    const isSelected = isRowSelected(id);
+    return (
+      <tr
+        key={id}
+        data-testid={`table-row-${id}`}
+        data-selected={isSelected ? "true" : undefined}
+        data-index={virtual !== undefined ? virtual.index : undefined}
+        // Measured rows only when no rowHeight fixes them: measuring
+        // is a ResizeObserver per mounted row, which fixed-height rows
+        // do not need.
+        ref={
+          virtual !== undefined && rowHeight === undefined
+            ? virtualizer.measureElement
+            : undefined
+        }
+        onClick={
+          interactive ? (e) => handleRowClick(id, rowIndex, e) : undefined
+        }
+        onContextMenu={
+          selectable ? (e) => handleRowContextMenu(e, id) : undefined
+        }
+        style={{
+          cursor: interactive ? "pointer" : "default",
+          height: rowHeight,
+          // C1 selection signature: accent bar + tinted fill,
+          // geometry from tokens, color from the active theme
+          // (the previous literals were a different blue than
+          // the theme accent entirely).
+          backgroundColor: isSelected
+            ? "color-mix(in srgb, var(--g3t-accent-primary, #0072b2) 10%, transparent)"
+            : undefined,
+          borderLeft: isSelected
+            ? "var(--g3t-selection-bar-width, 3px) solid var(--g3t-accent-primary, #0072b2)"
+            : "var(--g3t-selection-bar-width, 3px) solid transparent",
+        }}
+      >
+        {row.getVisibleCells().map((cell) => {
+          const custom = renderCell?.({
+            columnId: cell.column.id,
+            value: cell.getValue(),
+            row: row.original,
+            rowId: id,
+          });
+          return (
+            <td
+              key={cell.id}
+              style={{
+                padding: density === "compact" ? "2px 6px" : "4px 8px",
+                borderBottom: "1px solid #eee",
+              }}
+            >
+              {custom !== undefined
+                ? custom
+                : flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  };
 
   return (
     <div
@@ -1193,66 +1389,55 @@ export function TableView<T = TableNodeRow>({
               </tr>
             ))}
           </thead>
-          <tbody>
-            {visibleRows.map((row, rowIndex) => {
-              const id = row.id;
-              const isSelected = isRowSelected(id);
-              return (
-                <tr
-                  key={id}
-                  data-testid={`table-row-${id}`}
-                  data-selected={isSelected ? "true" : undefined}
-                  onClick={
-                    interactive
-                      ? (e) => handleRowClick(id, rowIndex, e)
-                      : undefined
-                  }
-                  onContextMenu={
-                    selectable ? (e) => handleRowContextMenu(e, id) : undefined
-                  }
-                  style={{
-                    cursor: interactive ? "pointer" : "default",
-                    height: rowHeight,
-                    // C1 selection signature: accent bar + tinted fill,
-                    // geometry from tokens, color from the active theme
-                    // (the previous literals were a different blue than
-                    // the theme accent entirely).
-                    backgroundColor: isSelected
-                      ? "color-mix(in srgb, var(--g3t-accent-primary, #0072b2) 10%, transparent)"
-                      : undefined,
-                    borderLeft: isSelected
-                      ? "var(--g3t-selection-bar-width, 3px) solid var(--g3t-accent-primary, #0072b2)"
-                      : "var(--g3t-selection-bar-width, 3px) solid transparent",
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const custom = renderCell?.({
-                      columnId: cell.column.id,
-                      value: cell.getValue(),
-                      row: row.original,
-                      rowId: id,
-                    });
-                    return (
-                      <td
-                        key={cell.id}
-                        style={{
-                          padding:
-                            density === "compact" ? "2px 6px" : "4px 8px",
-                          borderBottom: "1px solid #eee",
-                        }}
-                      >
-                        {custom !== undefined
-                          ? custom
-                          : flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                      </td>
+          <tbody
+            onFocus={
+              virtualActive
+                ? (e) => {
+                    const tr = (e.target as HTMLElement).closest(
+                      "tr[data-index]",
                     );
-                  })}
-                </tr>
-              );
-            })}
+                    const index = tr?.getAttribute("data-index");
+                    focusedIndexRef.current =
+                      index === null || index === undefined
+                        ? null
+                        : Number(index);
+                  }
+                : undefined
+            }
+            onBlur={
+              virtualActive
+                ? () => {
+                    focusedIndexRef.current = null;
+                  }
+                : undefined
+            }
+          >
+            {virtualActive
+              ? // #47: only the windowed rows, with spacer rows holding
+                // the height of everything else (a gap before the
+                // first row, between non-adjacent rows when a focused
+                // row is pinned, and after the last one, the filler
+                // height folded in). Real <tr> elements, so the table
+                // keeps its semantics and the sticky header its
+                // scrolling context.
+                virtualItems.flatMap((item, i) => {
+                  const row = visibleRows[item.index];
+                  if (row === undefined) return [];
+                  const prevEnd = i === 0 ? 0 : (virtualItems[i - 1]?.end ?? 0);
+                  const out = [
+                    spacerRow(`gap-${item.index}`, item.start - prevEnd),
+                    renderRow(row, item.index, item),
+                  ];
+                  if (i === virtualItems.length - 1)
+                    out.push(
+                      spacerRow(
+                        "gap-end",
+                        virtualTotal - item.end + fillerCount * rowEstimate,
+                      ),
+                    );
+                  return out;
+                })
+              : visibleRows.map((row, rowIndex) => renderRow(row, rowIndex))}
             {/* LR-48 (owner review 2026-07-22): the last page has fewer
                 rows, so the grid (and the Prev/Next controls under it)
                 jumped height on every page change, making the buttons a
@@ -1264,10 +1449,8 @@ export function TableView<T = TableNodeRow>({
                 // Fillers only when the data actually paginates: a
                 // single-page table has no jump to prevent (and a huge
                 // pageSize would otherwise render thousands of fillers).
-                length:
-                  table.getPageCount() > 1
-                    ? Math.max(0, effectivePageSize - visibleRows.length)
-                    : 0,
+                // In virtual mode the height rides on the end spacer.
+                length: virtualActive ? 0 : fillerCount,
               },
               (_, i) => (
                 <tr
@@ -1277,7 +1460,7 @@ export function TableView<T = TableNodeRow>({
                   style={{ height: rowHeight }}
                 >
                   <td
-                    colSpan={table.getAllLeafColumns().length}
+                    colSpan={leafColumnCount}
                     style={{
                       padding: density === "compact" ? "2px 6px" : "6px 8px",
                       border: "none",
