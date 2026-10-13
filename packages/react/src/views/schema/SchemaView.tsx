@@ -5,7 +5,10 @@
  * `subClassOf` prop; classes without a parent keep the flat sorted
  * order) with property annotations. SHACL shapes display as one
  * constraint badge per target class, covering EVERY shape that targets
- * it, with the most severe validation status when results are given.
+ * it (by `targetClass` or any `targets` entry of kind `class`, issue
+ * #56) and every shape declared on one of its superclasses (marked as
+ * inherited: `sh:targetClass` selects subclass instances too), with the
+ * most severe validation status when results are given.
  *
  * @see specs/01-functional-views.md R1.5
  */
@@ -15,6 +18,7 @@ import type { UGM } from "@g3-toolkit/core";
 import type {
   SchemaModel,
   ShaclShape,
+  ShaclShapeTarget,
   ShaclValidationResult,
 } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
@@ -34,6 +38,10 @@ import { viewClass } from "../../theme/view-class";
 export interface SchemaViewShape {
   id: string;
   targetClass: string;
+  /** Further targets, as on core's `ShaclShape`; entries of kind
+   *  `class` badge their class too (other kinds are not classes and
+   *  are ignored here). Optional so existing values keep working. */
+  targets?: ShaclShapeTarget[];
   constraints: Array<{
     path: string;
     minCount?: number;
@@ -59,6 +67,29 @@ function constraintsOf(shape: ShaclShape | SchemaViewShape): ViewConstraints {
   return "properties" in shape ? shape.properties : shape.constraints;
 }
 
+/**
+ * Every class a shape targets directly: `targetClass` plus each
+ * `targets` entry of kind `class`, deduplicated so a class named both
+ * ways badges once (issue #56: the view used to read `targetClass`
+ * alone, so a shape targeting 13 classes badged one). An empty
+ * `targetClass` (a shape targeted only by subjects-of or SPARQL, #54)
+ * names no class and is dropped.
+ */
+function targetClassesOf(shape: ShaclShape | SchemaViewShape): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (name: string): void => {
+    if (name === "" || seen.has(name)) return;
+    seen.add(name);
+    out.push(name);
+  };
+  push(shape.targetClass);
+  for (const t of shape.targets ?? []) {
+    if (t.kind === "class") push(t.value);
+  }
+  return out;
+}
+
 export interface SchemaViewProps {
   ugm?: UGM;
   schema?: SchemaModel;
@@ -66,8 +97,12 @@ export interface SchemaViewProps {
    * SHACL shapes to badge target classes with. Accepts `@g3-toolkit/core`'s
    * `ShaclShape` (what `ShaclValidator` and `ShaclShapeBrowser` use) or
    * this view's display-only {@link SchemaViewShape}. Every shape whose
-   * `targetClass` matches a class counts toward that class's badge
-   * (issue #37: the first match alone used to win).
+   * `targetClass` or `targets` (kind `class`) names a class counts
+   * toward that class's badge (issue #37: the first match alone used to
+   * win; issue #56: `targets` was ignored). With `subClassOf`, a shape
+   * declared on a superclass also counts toward each subclass, listed
+   * after the direct shapes and marked inherited, because SHACL's
+   * `sh:targetClass` selects instances of subclasses as well.
    */
   shapes?: Array<ShaclShape | SchemaViewShape>;
   /**
@@ -94,11 +129,21 @@ export interface SchemaViewProps {
 /** Badge status: the three SHACL tiers, a clean pass, or no results. */
 type ShapeStatus = ShaclSeverityLevel | "conforms" | "none";
 
+/** One shape as a class card lists it. */
+interface ClassShape {
+  id: string;
+  constraints: ViewConstraints;
+  /** The superclass the shape was declared on when the class only
+   *  inherits it; absent for a shape that targets the class itself. */
+  inheritedFrom?: string;
+}
+
 interface ClassNode {
   name: string;
   properties: string[];
-  /** Every shape targeting this class, in `shapes` order. */
-  shapes: Array<{ id: string; constraints: ViewConstraints }>;
+  /** Every shape applying to this class: direct targets first, in
+   *  `shapes` order, then inherited ones, nearest superclass first. */
+  shapes: ClassShape[];
   status: ShapeStatus;
   children: ClassNode[];
   depth: number;
@@ -146,12 +191,13 @@ export function SchemaView({
   className,
 }: SchemaViewProps) {
   const roots = useMemo<ClassNode[]>(() => {
-    // 1. Flat class list, each with every targeting shape.
+    // 1. Flat class list, each with every shape targeting it directly
+    //    (targetClass or a class entry in targets).
     const flat = new Map<string, ClassNode>();
     const add = (name: string, properties: string[]): void => {
       if (flat.has(name)) return;
       const targeting = shapes
-        .filter((s) => s.targetClass === name)
+        .filter((s) => targetClassesOf(s).includes(name))
         .map((s) => ({ id: s.id, constraints: constraintsOf(s) }));
       flat.set(name, {
         name,
@@ -174,28 +220,7 @@ export function SchemaView({
       }
     }
 
-    // 2. Status: worst failing result over the shapes targeting the
-    //    class (by shape id, or by target class for results whose
-    //    shape is not in `shapes`); conforms when results were given
-    //    and none failed. Mirrors shaclRowSeverities' worst-wins rank.
-    if (validationResults) {
-      for (const cls of flat.values()) {
-        const shapeIds = new Set(cls.shapes.map((s) => s.id));
-        let worst: ShaclSeverityLevel | null = null;
-        for (const r of validationResults) {
-          if (r.valid) continue;
-          if (r.targetClass !== cls.name && !shapeIds.has(r.shapeId)) continue;
-          for (const v of r.violations) {
-            if (!worst || SEVERITY_RANK[v.severity] > SEVERITY_RANK[worst]) {
-              worst = v.severity;
-            }
-          }
-        }
-        cls.status = worst ?? "conforms";
-      }
-    }
-
-    // 3. Nesting. First listed parent that is a known class wins;
+    // 2. Nesting. First listed parent that is a known class wins;
     //    anything unreachable from a root (a subclass cycle) is
     //    promoted to a root rather than dropped.
     const byName = (a: ClassNode, b: ClassNode) => a.name.localeCompare(b.name);
@@ -237,6 +262,64 @@ export function SchemaView({
       setDepth(cls, 0);
     }
 
+    // 3. Inheritance: a shape declared on a superclass applies to the
+    //    subclass too (sh:targetClass selects subclass instances), so
+    //    each class also lists the shapes of its ancestors, nearest
+    //    first, marked with the class they were declared on. A shape
+    //    the class already targets directly is not listed twice, and
+    //    one declared on two ancestors is attributed to the nearest.
+    //    The walk is through `parentsOf`, the one place a class's
+    //    superclasses are read, so showing a class under several
+    //    parents later changes that function and nothing here.
+    const parentsOf = (node: ClassNode): string[] =>
+      node.parent === null ? [] : [node.parent];
+    for (const cls of flat.values()) {
+      const have = new Set(cls.shapes.map((s) => s.id));
+      const visited = new Set<string>([cls.name]);
+      // Breadth-first so a nearer ancestor's declaration wins.
+      let frontier = parentsOf(cls);
+      while (frontier.length > 0) {
+        const next: string[] = [];
+        for (const name of frontier) {
+          if (visited.has(name)) continue;
+          visited.add(name);
+          const ancestor = flat.get(name);
+          if (!ancestor) continue;
+          for (const shape of ancestor.shapes) {
+            if (shape.inheritedFrom !== undefined || have.has(shape.id)) {
+              continue;
+            }
+            have.add(shape.id);
+            cls.shapes.push({ ...shape, inheritedFrom: ancestor.name });
+          }
+          next.push(...parentsOf(ancestor));
+        }
+        frontier = next;
+      }
+    }
+
+    // 4. Status: worst failing result over the shapes applying to the
+    //    class, inherited included (by shape id, or by target class for
+    //    results whose shape is not in `shapes`); conforms when results
+    //    were given and none failed. Mirrors shaclRowSeverities'
+    //    worst-wins rank.
+    if (validationResults) {
+      for (const cls of flat.values()) {
+        const shapeIds = new Set(cls.shapes.map((s) => s.id));
+        let worst: ShaclSeverityLevel | null = null;
+        for (const r of validationResults) {
+          if (r.valid) continue;
+          if (r.targetClass !== cls.name && !shapeIds.has(r.shapeId)) continue;
+          for (const v of r.violations) {
+            if (!worst || SEVERITY_RANK[v.severity] > SEVERITY_RANK[worst]) {
+              worst = v.severity;
+            }
+          }
+        }
+        cls.status = worst ?? "conforms";
+      }
+    }
+
     return rootList.sort(byName);
   }, [ugm, schema, shapes, subClassOf, validationResults]);
 
@@ -276,13 +359,21 @@ function ClassCard({ cls }: { cls: ClassNode }): ReactNode {
     (n, s) => n + s.constraints.length,
     0,
   );
+  const inheritedCount = cls.shapes.filter(
+    (s) => s.inheritedFrom !== undefined,
+  ).length;
   const tone = STATUS_TONE[cls.status];
   // "SHACL: N constraints" stays contiguous: it is the badge's
   // historical text and what hosts' tests match on.
   const badgeText =
     `SHACL: ${constraintCount} constraints` +
     (cls.shapes.length > 1 ? `, ${cls.shapes.length} shapes` : "") +
+    (inheritedCount > 0 ? `, ${inheritedCount} inherited` : "") +
     (cls.status === "none" ? "" : `, ${cls.status}`);
+  const shapeTitle = (s: ClassShape): string =>
+    s.inheritedFrom === undefined
+      ? s.id
+      : `${s.id} (inherited from ${s.inheritedFrom})`;
 
   return (
     <div
@@ -302,9 +393,10 @@ function ClassCard({ cls }: { cls: ClassNode }): ReactNode {
           <span
             data-testid={`shacl-badge-${cls.name}`}
             data-shape-count={cls.shapes.length}
+            data-inherited-count={inheritedCount}
             data-constraint-count={constraintCount}
             data-severity={cls.status}
-            title={`Shapes: ${cls.shapes.map((s) => s.id).join(", ")}`}
+            title={`Shapes: ${cls.shapes.map(shapeTitle).join(", ")}`}
             style={{
               marginLeft: 8,
               padding: "1px 6px",
@@ -333,12 +425,32 @@ function ClassCard({ cls }: { cls: ClassNode }): ReactNode {
           }}
         >
           {cls.shapes.map((shape) => (
-            <div key={shape.id} data-testid={`shacl-shape-${shape.id}`}>
-              {/* One shape: the historical flat list. Several: each
-                  list under its shape id so a reader can tell which
-                  shape asks for what. */}
-              {cls.shapes.length > 1 && (
-                <div style={{ fontWeight: 600 }}>{shape.id}</div>
+            <div
+              key={shape.id}
+              data-testid={`shacl-shape-${shape.id}`}
+              data-inherited-from={shape.inheritedFrom}
+              className={
+                shape.inheritedFrom === undefined
+                  ? undefined
+                  : "g3t-schema-shape-inherited"
+              }
+              title={
+                shape.inheritedFrom === undefined
+                  ? undefined
+                  : `Inherited from ${shape.inheritedFrom}`
+              }
+              style={
+                shape.inheritedFrom === undefined
+                  ? undefined
+                  : { fontStyle: "italic" }
+              }
+            >
+              {/* One direct shape: the historical flat list. Several,
+                  or an inherited one: each list under its shape id so
+                  a reader can tell which shape asks for what and
+                  where it was declared. */}
+              {(cls.shapes.length > 1 || shape.inheritedFrom !== undefined) && (
+                <div style={{ fontWeight: 600 }}>{shapeTitle(shape)}</div>
               )}
               {shape.constraints.map((c, i) => (
                 <div key={i}>
