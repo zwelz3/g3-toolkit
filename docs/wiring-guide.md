@@ -1695,6 +1695,48 @@ const view: PathGraph = {
 findShortestPath(view, "a", "c");
 ```
 
+Endpoints follow one rule in all three searches: a node the graph does
+not report via `hasNode` is never found, not even as its own zero-hop
+path, so a `PathGraph` that indexes only nodes with edges answers the
+same way from every search. Source equals target on an existing node
+is the one zero-hop path (`nodeIds: [id]`, `edgeIds: []`, `length: 0`;
+`pathCount: 1` from `allShortestPaths`; a one-element array from
+`kShortestPaths`).
+
+`kShortestPaths` costs up to k × L bounded searches on the full graph
+(L is the hop count of the longest listed route), so on a large index
+it is the expensive one of the three. When the listing only needs the
+routes that TIE for shortest, run it over the edge union
+`allShortestPaths` returns, bounded at the shortest length: the union
+holds every shortest route and nothing else, and `maxHops` at that
+length keeps a walk from doubling back through the union to a longer
+one. Each spur search then reads the union instead of the whole graph.
+
+```ts
+import {
+  allShortestPaths,
+  kShortestPaths,
+  type PathGraph,
+} from "@g3-toolkit/core";
+const union = allShortestPaths(ugm, "a", "c");
+if (union.found) {
+  const nodes = new Set(union.nodeIds);
+  const edges = new Set(union.edgeIds);
+  const unionView: PathGraph = {
+    hasNode: (id) => nodes.has(id),
+    getNodeEdges: (id) => ugm.getNodeEdges(id).filter((e) => edges.has(e)),
+    getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+    getEdge: (id) => ugm.getEdge(id),
+  };
+  // Only the routes of length union.length, up to the count cap.
+  const shortestRoutes = kShortestPaths(unionView, "a", "c", {
+    k: union.pathCount,
+    maxHops: union.length,
+  });
+  // shortestRoutes[i].nodeIds, shortestRoutes[i].edgeIds
+}
+```
+
 ### Subgraph export
 
 ```ts

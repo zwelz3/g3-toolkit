@@ -343,3 +343,80 @@ describe("kShortestPaths (issue #30)", () => {
     ]);
   });
 });
+
+/**
+ * Issue #65: the three searches checked the same-node case in
+ * different orders, so a host whose PathGraph reports `hasNode` false
+ * for an isolated node (an adjacency index that holds only nodes with
+ * edges) got a zero-hop path from findShortestPath and nothing from
+ * the other two. One rule now: a node the graph does not report is
+ * never found, not even as its own path; an existing node IS its own
+ * zero-hop path in every search, with the same shape.
+ */
+describe("source equals target (issue #65)", () => {
+  /** An adjacency-style view: `hasNode` is true only for nodes that
+   *  carry at least one edge, which is where the three searches used
+   *  to disagree. */
+  function edgeIndexedView(g: UGM): PathGraph {
+    return {
+      hasNode: (id) => g.hasNode(id) && g.getNodeEdges(id).length > 0,
+      getNodeEdges: (id) => g.getNodeEdges(id),
+      getEdgeEndpoints: (id) => g.getEdgeEndpoints(id),
+      getEdge: (id) => g.getEdge(id),
+    };
+  }
+
+  it("a node the graph does not report is never found, even as its own path", () => {
+    const g = pathGraph();
+    g.addNode("lone", { types: ["N"] });
+    const view = edgeIndexedView(g);
+    expect(view.hasNode("lone")).toBe(false);
+    for (const id of ["lone", "missing"]) {
+      expect(findShortestPath(view, id, id)).toEqual({
+        nodeIds: [],
+        edgeIds: [],
+        length: 0,
+        found: false,
+      });
+      expect(allShortestPaths(view, id, id)).toEqual({
+        nodeIds: [],
+        edgeIds: [],
+        length: 0,
+        found: false,
+        pathCount: 0,
+      });
+      expect(kShortestPaths(view, id, id, { k: 3 })).toEqual([]);
+    }
+    // The plain UGM answers the same way for a node it never had.
+    expect(findShortestPath(g, "missing", "missing").found).toBe(false);
+  });
+
+  it("an existing node is its own zero-hop path in all three searches", () => {
+    const g = pathGraph();
+    const view = edgeIndexedView(g);
+    for (const graph of [g, view]) {
+      expect(findShortestPath(graph, "b", "b")).toEqual({
+        nodeIds: ["b"],
+        edgeIds: [],
+        length: 0,
+        found: true,
+      });
+      expect(allShortestPaths(graph, "b", "b")).toEqual({
+        nodeIds: ["b"],
+        edgeIds: [],
+        length: 0,
+        found: true,
+        pathCount: 1,
+      });
+      expect(kShortestPaths(graph, "b", "b", { k: 3 })).toEqual([
+        { nodeIds: ["b"], edgeIds: [] },
+      ]);
+    }
+    // Options do not change the answer: the endpoints are exempt from
+    // nodeFilter and a zero-hop path is within any maxHops.
+    const opts = { maxHops: 0, directed: true, nodeFilter: () => false };
+    expect(findShortestPath(g, "b", "b", opts).found).toBe(true);
+    expect(allShortestPaths(g, "b", "b", opts).pathCount).toBe(1);
+    expect(kShortestPaths(g, "b", "b", { ...opts, k: 1 })).toHaveLength(1);
+  });
+});
