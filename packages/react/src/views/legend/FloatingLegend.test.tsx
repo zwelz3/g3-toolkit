@@ -9,7 +9,7 @@
  * hand. These tests pin the forwarding.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { UGM } from "@g3-toolkit/core";
 import { FloatingLegend } from "./FloatingLegend";
@@ -53,5 +53,50 @@ describe("FloatingLegend collapse forwarding", () => {
       screen.queryByTestId("legend-collapse-toggle"),
     ).not.toBeInTheDocument();
     expect(screen.getAllByText(/Asset/).length).toBeGreaterThan(0);
+  });
+});
+
+describe("FloatingLegend forwards the #38 wording props", () => {
+  it("passes sectionTitle and the channel-aware labelFor through", () => {
+    const ugm = graph();
+    ugm.addEdge("a", "b", { type: "feeds" });
+    const sectionTitle = vi.fn((channel: string) =>
+      channel === "edge.color" ? "Relation" : "Node type",
+    );
+    const labelFor = vi.fn((value: string, channel: string) =>
+      channel === "edge.color" ? value.toUpperCase() : value,
+    );
+    render(
+      <FloatingLegend
+        ugm={ugm}
+        spec={{
+          version: 1,
+          node: {
+            color: {
+              driver: "types",
+              scale: { kind: "categorical", palette: "okabe-ito" },
+            },
+          },
+          edge: {
+            color: {
+              driver: "type",
+              scale: { kind: "categorical", palette: "okabe-ito" },
+            },
+          },
+        }}
+        sectionTitle={sectionTitle}
+        labelFor={labelFor}
+      />,
+    );
+    const titles = Array.from(
+      document.querySelectorAll(".g3t-legend-title"),
+    ).map((el) => el.textContent);
+    expect(titles).toContain("Node type");
+    expect(titles).toContain("Relation");
+    expect(screen.getByTestId("legend-edge-color-feeds").textContent).toContain(
+      "FEEDS",
+    );
+    expect(labelFor).toHaveBeenCalledWith("Asset", "node.color");
+    expect(sectionTitle).toHaveBeenCalledWith("edge.color", "type");
   });
 });
