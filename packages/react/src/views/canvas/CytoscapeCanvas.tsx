@@ -209,6 +209,13 @@ export const ENCODING_NODE_RULES: CyStylesheet[] = [
   },
 ];
 
+/** The neutral overlay-member green every built-in preset carries as
+ *  `overlayColor`, and the fallback for a consumer theme that omits
+ *  the field. ONE literal: the static rules below and the
+ *  theme-derived overlayThemeRules must agree, and a test pins both
+ *  to this constant. */
+export const DEFAULT_OVERLAY_COLOR = "#2f9e44";
+
 /** Algorithm overlay rendering (round 21): the reserved borderWeight
  *  owner, realized. Members of active overlays carry emphasized
  *  borders/lines via the g3t-ov-member class; with any overlay
@@ -216,20 +223,26 @@ export const ENCODING_NODE_RULES: CyStylesheet[] = [
  *  strips them and the prior styling returns by construction.
  *  Documented precedence note: instance pins (bypass styles) shadow
  *  overlay borders on the pinned element, deliberately: an explicit
- *  per-node act outranks a computed emphasis. */
+ *  per-node act outranks a computed emphasis.
+ *  COLORS here are the theme-less defaults only. The composed canvas
+ *  stylesheet re-states every overlay color from the theme AFTER this
+ *  block (overlayThemeRules), because these rules sit after the theme
+ *  block (the dim must beat encoding) and cytoscape gives the property
+ *  to the later rule: with the literals last, no theme ever reached an
+ *  emphasized member (issue #32, the fixed green in a dark host). */
 export const OVERLAY_RULES: CyStylesheet[] = [
   {
     selector: "node.g3t-ov-member",
 
-    style: { "border-width": 3, "border-color": "#2f9e44" } as any,
+    style: { "border-width": 3, "border-color": DEFAULT_OVERLAY_COLOR } as any,
   },
   {
     selector: "edge.g3t-ov-member",
 
     style: {
       width: 3.5,
-      "line-color": "#2f9e44",
-      "target-arrow-color": "#2f9e44",
+      "line-color": DEFAULT_OVERLAY_COLOR,
+      "target-arrow-color": DEFAULT_OVERLAY_COLOR,
     } as any,
   },
   {
@@ -353,17 +366,34 @@ export function themeColorRules(theme: G3tTheme): CyStylesheet[] {
         color: theme.textPrimary,
       } as any,
     },
+  ];
+}
+
+/** Theme-resolved OVERLAY colors (issue #32). Kept apart from
+ *  themeColorRules because of WHERE they must land in the merge: the
+ *  static OVERLAY_RULES sit after the theme block (the dim has to beat
+ *  encoding), so overlay colors declared inside themeColorRules were
+ *  clobbered by the static literals in every theme, neutral green and
+ *  the 2026-08-27 tones alike. composeCanvasStylesheet pushes these
+ *  right after OVERLAY_RULES, so the theme wins the color and the
+ *  static block keeps supplying geometry (border width, line width,
+ *  dim opacity). Neutral members take `overlayColor`, defaulting to
+ *  the historical green when a consumer theme omits the optional
+ *  field; tones take the semantic trio. */
+export function overlayThemeRules(theme: G3tTheme): CyStylesheet[] {
+  const member = theme.overlayColor ?? DEFAULT_OVERLAY_COLOR;
+  return [
     {
       selector: "node.g3t-ov-member",
 
-      style: { "border-color": theme.success } as any,
+      style: { "border-color": member } as any,
     },
     {
       selector: "edge.g3t-ov-member",
 
       style: {
-        "line-color": theme.success,
-        "target-arrow-color": theme.success,
+        "line-color": member,
+        "target-arrow-color": member,
       } as any,
     },
     // Tone overrides, theme-driven (2026-08-27). Declared after the
@@ -638,6 +668,8 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
  *  so the theme's plain `edge { line-color }` clobbered
  *  `edge[_ecolor]` in every theme and color-by-confidence never
  *  painted) -> OVERLAY rules (emphasis dim must beat encoding) ->
+ *  OVERLAY theme colors (issue #32: the static overlay literals used
+ *  to be the last word, so no theme reached a member) ->
  *  user stylesheet (user wins ties) -> svg-overlay transparency ->
  *  hidden filter last. */
 /** Upstream P1 (prm-analyzer, 2026-07-28) + the 64b regression it
@@ -726,6 +758,9 @@ export function composeCanvasStylesheet(
     // Emphasis/overlay dim still beats encoding (the 9.10
     // contract: a trace-route dim must fade encoded elements too).
     ...OVERLAY_RULES,
+    // Overlay COLORS from the theme, after the static block so they
+    // win the property (issue #32); the user stylesheet still follows.
+    ...overlayThemeRules(theme),
   );
   if (opts?.userStylesheet) {
     merged.push(...opts.userStylesheet);
@@ -792,7 +827,15 @@ export interface CytoscapeCanvasProps {
    *  passed (an unwired Inspect is omitted, never rendered dead);
    *  app-specific items go through manager.register(). */
   menuManager?: ContextMenuManager;
-  /** Callback when the Cytoscape core is ready. */
+  /** Callback when the Cytoscape core is ready. ORDERING GUARANTEE
+   *  (issue #27): fires synchronously after construction and after the
+   *  initial layout was STARTED. A `preset` layout (the `layout` prop,
+   *  a structural scene, or the LR-45 same-graph replay) is never
+   *  animated and has therefore FINISHED by then, so positions set
+   *  here hold; nothing moves them afterwards. A force layout (fcose,
+   *  cose) is asynchronous and still running when this fires, so
+   *  positions set here are overwritten when it settles; do
+   *  post-layout work on `cy.one("layoutstop", ...)` instead. */
   onReady?: (cy: Core) => void;
   /** CSS class for the container div. */
   className?: string;
@@ -848,7 +891,10 @@ export interface CytoscapeCanvasProps {
    *  The host forwards this to the compartment-collapse store's toggleAll
    *  (and re-runs layoutStructural with the new collapsed set). When
    *  omitted, the chip still renders but tapping it is a no-op. */
-  /** F1: Animate layout transitions. Default true. */
+  /** F1: Animate layout transitions. Default true. Never applied to a
+   *  `preset` layout (issue #27): preset positions are already decided,
+   *  and an animated preset tweened nodes back toward the positions
+   *  captured at construction, undoing whatever `onReady` placed. */
   animate?: boolean;
   /** F1: Animation duration in ms. Default 400. */
   animationDuration?: number;
@@ -1310,16 +1356,26 @@ export function CytoscapeCanvas({
         // construction so a collapse rebuild can preserve pan/zoom; the
         // preset layout must not fit on its own. LAST: no caller
         // option may re-enable preset fit.
-        ...(layoutName === "preset" ? { fit: false } : {}),
+        // Nor preset ANIMATION (issue #27): a preset layout means the
+        // positions are decided, and cytoscape's preset animates each
+        // node from its current position to the position captured when
+        // the layout STARTED, over animationDuration. onReady fires
+        // synchronously after the constructor, so a host that placed
+        // nodes there watched the tween drag them back to the initial
+        // scatter. Forcing animate:false is also what makes the
+        // settlement claim below true: a preset layout finishes inside
+        // the constructor only when it does not animate.
+        ...(layoutName === "preset" ? { fit: false, animate: false } : {}),
       } as cytoscape.LayoutOptions,
     });
 
     // Layout settlement (see layoutSettledRef). A preset layout places
-    // every node from geometry we already hold and finishes inside the
-    // constructor above, so it is settled on arrival; anything else runs
-    // asynchronously and is settled at layoutstop. `one` is deliberate:
-    // the first completion is what makes the camera meaningful, and
-    // later reheats keep it settled.
+    // every node from geometry we already hold and, never animated (the
+    // override above), finishes inside the constructor, so it is
+    // settled on arrival and onReady's position guarantee holds;
+    // anything else runs asynchronously and is settled at layoutstop.
+    // `one` is deliberate: the first completion is what makes the
+    // camera meaningful, and later reheats keep it settled.
     layoutSettledRef.current = layoutName === "preset";
     if (!layoutSettledRef.current) {
       cy.one("layoutstop", () => {

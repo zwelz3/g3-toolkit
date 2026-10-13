@@ -205,7 +205,7 @@ const GROUPS = [
     "Color: accent and semantic",
     /^--g3t-(accent|success|warning|error|selection-highlight|color-scheme)/,
   ],
-  ["Color: graph elements", /^--g3t-(node|edge)/],
+  ["Color: graph elements", /^--g3t-(node|edge|overlay)/],
   ["Color: data scales", /^--g3t-(seq|div|type)-/],
   ["Typography", /^--g3t-(font|line-height)/],
   ["Spacing", /^--g3t-space-/],
@@ -273,10 +273,11 @@ per theme.
 - **Names are stable within a major.** Treat them as public API.
 - **Theme-driven tokens change at runtime.** Read them through
   \`var()\`; do not snapshot them into JS.
-- \`--g3t-success-muted\`, \`--g3t-warning-muted\`, and
-  \`--g3t-error-muted\` are optional on \`G3tTheme\`. A custom theme may
-  omit them, in which case they are not emitted at all and your
-  \`var()\` fallback applies. Always pass a fallback for these three.
+- \`--g3t-success-muted\`, \`--g3t-warning-muted\`,
+  \`--g3t-error-muted\`, and \`--g3t-overlay-color\` are optional on
+  \`G3tTheme\`. A custom theme may omit them, in which case they are not
+  emitted at all and your \`var()\` fallback applies. Always pass a
+  fallback for these four.
 - **Element-scoped properties are not tokens.** A component may set a
   custom property on its own subtree (\`--g3t-toggle-accent\` on
   \`PropertyField\`). Those are implementation detail, not vocabulary,

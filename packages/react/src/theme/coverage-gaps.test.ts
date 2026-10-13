@@ -398,3 +398,24 @@ describe("createTheme", () => {
     warn.mockRestore();
   });
 });
+
+describe("overlay color token (issue #32)", () => {
+  it("emits --g3t-overlay-color from the theme's overlayColor", () => {
+    apply(DARK_THEME);
+    const root = document.documentElement.style;
+    expect(root.getPropertyValue("--g3t-overlay-color")).toBe(
+      DARK_THEME.overlayColor,
+    );
+    expect(DARK_THEME.overlayColor).toBe("#2f9e44");
+  });
+
+  it("skips the token for a theme that omits the optional field", () => {
+    const root = document.documentElement.style;
+    root.removeProperty("--g3t-overlay-color");
+    const bare: G3tTheme = { ...LIGHT_THEME };
+    delete bare.overlayColor;
+    apply(bare);
+    expect(root.getPropertyValue("--g3t-overlay-color")).toBe("");
+    apply(LIGHT_THEME);
+  });
+});
