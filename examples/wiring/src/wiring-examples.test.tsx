@@ -74,8 +74,11 @@ import {
   ShaclShapeBrowser,
   FloatingLegend,
   TableView,
+  resolveLabelCollisions,
+  composeLabelPriority,
   type EncodingSpec,
   type LegendChannel,
+  type LabelCandidate,
   type ProvenanceChain,
   type ShaclShape,
   type DataGridColumn,
@@ -945,6 +948,53 @@ describe("scaling (guide: Scaling: collapse large graphs to clusters)", () => {
     );
     expect(truncated).toBe(true);
     expect(sub.getNodeIds().length).toBe(25);
+  });
+});
+
+describe("dense labels (guide: Dense graphs: let labels yield to each other)", () => {
+  it("resolves overprinting labels by the canvas's priority rule", () => {
+    const selectedIds = new Set(["p2"]);
+    const labels: LabelCandidate[] = [
+      {
+        id: "p1",
+        kind: "node" as const,
+        text: "Deep residual learning",
+        box: { x: 0, y: 0, w: 140, h: 12 },
+        priority: 0,
+      },
+      {
+        id: "p2",
+        kind: "node" as const,
+        text: "Attention is all you need",
+        box: { x: 120, y: 4, w: 160, h: 12 },
+        priority: 0,
+      },
+    ].map((l) => ({
+      ...l,
+      priority: composeLabelPriority({
+        kind: l.kind,
+        selected: selectedIds.has(l.id),
+        explicit: 0,
+      }),
+    }));
+    const { decisions, shortened } = resolveLabelCollisions(labels, {
+      mode: "shorten",
+      maxLength: 14,
+    });
+    // The selected paper keeps its full label; the other is truncated
+    // (14 of 22 chars: 89px centered on x=70 ends at 115, clear of
+    // p2 at x>=120).
+    expect(decisions.get("p2")).toBe("show");
+    expect(decisions.get("p1")).toBe("shorten");
+    expect(shortened.get("p1")).toBe("Deep residual\u2026");
+    // Same input in any order, same answer.
+    const again = resolveLabelCollisions([...labels].reverse(), {
+      mode: "shorten",
+      maxLength: 14,
+    });
+    expect([...again.decisions.entries()].sort()).toEqual(
+      [...decisions.entries()].sort(),
+    );
   });
 });
 

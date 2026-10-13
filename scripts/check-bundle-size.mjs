@@ -363,9 +363,9 @@ const BUDGETS = {
   // branches of the same round (theme target and dispose #33, legend
   // edge rows #38, encoding re-apply and stylesheet restyle #13/#14/
   // #28, overlay theme rules #32, SHACL browser #34/#35), the dist
-  // measures 410.7 KB, so the budget is 418 (about 7 KB headroom,
-  // same posture as the entries above).
-  react: 418 * 1024,
+  // measures 411.5 KB; with wave 2 (#40 label collision +5.7 KB, #26
+  // additive updates) the budget is 425, a few KB of headroom as before.
+  react: 425 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the
@@ -389,6 +389,24 @@ const BUDGETS = {
   //   exports; a host that never references them pays nothing.
   //   TreeView.css (0.6 KB) ships in style.css, which this gate does
   //   not sum. New headroom is 3.5 KB, set modestly as before.
+  // - +5.7 KB, 2026-10-13 (issue #40, label collision), measured on
+  //   its branch by building with and without the change's files:
+  //   views/canvas/label-collision.ts (the pure greedy resolver,
+  //   shorten strategy and priority composition; tree-shakeable
+  //   named exports, so a host with its own renderer pays only what
+  //   it imports), views/canvas/apply-label-collision.ts (measure
+  //   rendered label boxes, apply class/field decisions), and in
+  //   CytoscapeCanvas the three props, one effect, and three
+  //   stylesheet rules. The canvas-side bytes are reached by every
+  //   CytoscapeCanvas import; the DEFAULT mode ("none") registers no
+  //   listener and does no per-render work, so the cost to a host
+  //   that never opts in is bytes only. Sourcemap audit run first as
+  //   the 2026-07-03 core entry requires: ZERO node_modules source
+  //   bytes across react's 15 dist maps (808,139 source bytes, all
+  //   first-party). Budgets are unminified by policy, and roughly
+  //   half of the 5.7 KB is the docblocks that explain the overlay
+  //   mechanism and why `label` is never written. New headroom is
+  //   folded into the integration budget above.
   // - NO RAISE, 2026-08-28 (core stopped being external): measured
   //   651.7 KB, 167% of the 390 KB budget in force at the time. The
   //   261.7 KB over was not growth and the correct response was a

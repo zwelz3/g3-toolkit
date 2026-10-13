@@ -306,6 +306,42 @@ this round: #41 (publishing is the maintainer's), #5, #6, #9, #12,
   test console output in this container, so the before/after counts
   (15 to 0) were taken with `--disableConsoleIntercept`.
 
+- **Labels overprinted in dense graphs with no way to thin them (#40).**
+  Cytoscape draws every label at its element and never moves one out
+  of another's way, so a layered citation network (59 publications,
+  223 relations) overprinted same-layer labels until zoomed in; density
+  caps, `text-max-width` and a minimum zoomed font size reduced but did
+  not remove the overlap. The canvas now takes `labelCollision: "none"
+  | "hide" | "shorten"` ("none" is the default and the previous
+  behavior). After layout settles, after a node drop, on zoom end (a
+  120 ms trailing debounce, since cytoscape has no zoom-end event), and
+  on every selection or hover change, it measures each visible
+  element's rendered label box, visits them by priority (selected,
+  with incident edges counting; then hovered; then a `labelPriority`
+  accessor or the `_labelPriority` data field; then node before edge;
+  then degree or edge `weight`) and hides a label whose box overlaps
+  one already placed, or in "shorten" mode first truncates it to
+  `labelMaxLength` characters with an ellipsis and hides it only if the
+  shortened box still overlaps. It is an overlay restyle: hide is the
+  `g3t-label-hidden` class (`label: ""`), shorten is a `_labelShort`
+  field read by `[_labelShort]`-scoped rules, and `label` itself is
+  never written, so the encoding spec's label restore (#14) and this
+  pass cannot fight. No re-init, refit, or node move on any trigger,
+  and no work at all in the default mode. The decision rule is a pure
+  module exported as `resolveLabelCollisions` and `composeLabelPriority`
+  for hosts with their own renderer. Tests cover the resolver (overlap,
+  priority order, permutation-stable output, shorten placement) and the
+  canvas (rules field-scoped, "none" touches nothing, "hide" applies on
+  layoutstop to the lower-priority element, selection and hover re-run
+  the pass, the accessor wins over the data field, switching back to
+  "none" restores, an instance without a bounding-box API is a no-op).
+  Wiring-guide section "Dense graphs: let labels yield to each other"
+  with an executable twin. OPEN: node bodies are not obstacles (the
+  old SVG renderer treated them as such; adding them would hide many
+  edge labels near endpoints), hover re-runs synchronously, and the
+  real rendered boxes (rotated edge labels, `min-zoomed-font-size`)
+  need a look in the playground; no demo shell opts in yet.
+
 - **Bundle ledger.** React publish weight 392.0 to 411.5 KB across the
   round (TableView rows path and fill mode, TreeView keyboard model and
   forests, SchemaView nesting and per-shape badges, the theme target

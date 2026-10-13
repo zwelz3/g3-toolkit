@@ -952,6 +952,84 @@ of planning/large-graph-design.md; Approach 4 (worker layout with
 viewport culling, for drilled sets past ~5k) is designed but not yet
 implemented.
 
+## Dense graphs: let labels yield to each other
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx` (the pure
+rule; the prop is covered by the canvas tests). Cytoscape draws every
+label at its element and never moves one out of another's way, so a
+dense graph (a citation network in layered rows, say) overprints labels
+until the user zooms in. `labelCollision` is an overlay pass over the
+rendered label boxes: after layout settles, after a zoom ends, after a
+node is dropped, and on every selection or hover change, the canvas
+measures each visible label, walks them by priority, and hides (or in
+`"shorten"` mode first truncates) a label whose box overlaps one already
+placed. Priority is selected (an edge counts when either endpoint is) >
+hovered (`hoveredNodeId` in the selection store, incident edges
+included) > your rank > node before edge > node degree or edge `weight`.
+Restyle only: no re-init, no refit, no node moves, and the `label` field
+itself is never written (hide is a class, shorten is a `_labelShort`
+field read by a scoped rule), so the encoding spec's label channel and
+this pass cannot fight.
+
+```tsx
+import { CytoscapeCanvas } from "@g3-toolkit/react";
+
+<CytoscapeCanvas
+  ugm={ugm}
+  labelCollision="shorten" // or "hide"; "none" is the default
+  labelMaxLength={14} // characters, ellipsis included
+  // Your rank within a tier. Omit it to read the `_labelPriority`
+  // element data field instead (0 when absent).
+  labelPriority={(ele) =>
+    typeof ele.data("citations") === "number" ? ele.data("citations") : 0
+  }
+/>;
+```
+
+Hosts with their own renderer get the same decision rule without the
+canvas: measure your label boxes in any one coordinate space, compose
+the priority the canvas uses, and apply the decisions yourself.
+
+```ts
+import {
+  resolveLabelCollisions,
+  composeLabelPriority,
+  type LabelCandidate,
+} from "@g3-toolkit/react";
+
+const labels: LabelCandidate[] = [
+  {
+    id: "p1",
+    kind: "node" as const,
+    text: "Deep residual learning",
+    box: { x: 0, y: 0, w: 140, h: 12 },
+    priority: 0,
+  },
+  {
+    id: "p2",
+    kind: "node" as const,
+    text: "Attention is all you need",
+    box: { x: 120, y: 4, w: 160, h: 12 },
+    priority: 0,
+  },
+].map((l) => ({
+  ...l,
+  priority: composeLabelPriority({
+    kind: l.kind,
+    selected: selectedIds.has(l.id),
+    explicit: 0,
+  }),
+}));
+
+const { decisions, shortened } = resolveLabelCollisions(labels, {
+  mode: "shorten",
+  maxLength: 14,
+});
+// decisions: Map<id, "show" | "hide" | "shorten">; shortened holds the
+// truncated text for every "shorten". Deterministic: equal priorities
+// break node before edge, then by id.
+```
+
 ## When a view fails to render
 
 A render-phase throw unmounts every React ancestor, so without a
