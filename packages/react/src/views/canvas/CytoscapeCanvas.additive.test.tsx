@@ -1,14 +1,16 @@
 /**
- * CytoscapeCanvas `graphUpdate="additive"` (issue #26).
+ * CytoscapeCanvas `graphUpdate="additive"` (issues #26 and #64).
  *
  * Growing a drawn graph one neighborhood at a time re-created the
  * instance on every ugm identity change, so every expansion scrambled
- * positions and reset the camera. In additive mode a ugm whose node set
- * is a superset of the live instance's grows it in place: only the new
- * elements are added, only the new nodes are laid out (one fcose pass
- * with every existing node held by fixedNodeConstraint, no fit), and
- * the instance survives. Isolated mock with element stores seeded from
- * the constructor and kept current by add/remove, in the shape of
+ * positions and reset the camera. In additive mode a ugm that shares a
+ * node with the live instance updates it in place: nodes the ugm lacks
+ * leave with their edges (#64: a collapse or a type filter is the same
+ * scene minus some nodes), only the new elements are added, only the
+ * new nodes are laid out (one fcose pass with every existing node held
+ * by fixedNodeConstraint, no fit; a pure removal runs none), and the
+ * instance survives. Isolated mock with element stores seeded from the
+ * constructor and kept current by add/remove, in the shape of
  * CytoscapeCanvas.encoding.test.tsx.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -22,6 +24,7 @@ type Def = { group: "nodes" | "edges"; data: Data; position?: Pos };
 const nodeStore = new Map<string, { data: Data; position: Pos }>();
 const edgeStore = new Map<string, Data>();
 const classCalls = new Map<string, string[]>();
+const moveCalls: { id: string; parent: string | null }[] = [];
 const pushClass = (id: string, c: string) => {
   if (!classCalls.has(id)) classCalls.set(id, []);
   classCalls.get(id)!.push(c);
@@ -63,6 +66,13 @@ function fakeNode(id: string) {
     removeClass: (c: string) => pushClass(id, "-" + c),
     remove: () => {
       nodeStore.delete(id);
+    },
+    // Cytoscape's eles.move keeps the element object (position,
+    // classes, bypasses) and rewrites `parent`; null means top level.
+    move: ({ parent }: { parent: string | null }) => {
+      moveCalls.push({ id, parent });
+      if (parent === null) delete rec.data.parent;
+      else rec.data.parent = parent;
     },
     lock: vi.fn(),
     unlock: vi.fn(),
@@ -195,8 +205,12 @@ describe('CytoscapeCanvas graphUpdate="additive" (#26)', () => {
     cy.layout.mockClear();
     cy.fit.mockClear();
     cy.destroy.mockClear();
+    cy.viewport.mockClear();
+    cy.pan.mockClear();
+    cy.zoom.mockClear();
     layoutRun.mockClear();
     classCalls.clear();
+    moveCalls.length = 0;
   });
 
   it("grows a superset ugm in place: no new instance, only the new elements, old nodes held, no fit", () => {
@@ -255,14 +269,96 @@ describe('CytoscapeCanvas graphUpdate="additive" (#26)', () => {
     expect(cy.fit).not.toHaveBeenCalled();
   });
 
-  it("falls back to a rebuild when the new ugm drops a node", () => {
+  it("shrinks in place (#64): the dropped node and its edges leave, no new instance, no layout, positions and camera untouched", () => {
+    const onReady = vi.fn();
+    const g0 = grow(base(), addC);
+    const { rerender } = render(
+      <CytoscapeCanvas ugm={g0} graphUpdate="additive" onReady={onReady} />,
+    );
+    expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+    expect(onReady).toHaveBeenCalledTimes(1);
+    place("a", 100, 0);
+    place("b", 300, 0);
+    place("c", 200, 150);
+    // A collapse: c goes, with both of its edges; a, b and ab stay.
+    const g1 = grow(g0, (g) => g.removeNode("c"));
+    expect(g1.hasEdge("ac")).toBe(false);
+    act(() => {
+      rerender(
+        <CytoscapeCanvas ugm={g1} graphUpdate="additive" onReady={onReady} />,
+      );
+    });
+    // The instance survived (the init callback did not run again) ...
+    expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+    expect(cy.destroy).not.toHaveBeenCalled();
+    expect(onReady).toHaveBeenCalledTimes(1);
+    // ... exactly c and its incident edges left, in one batch ...
+    expect(nodeStore.has("c")).toBe(false);
+    expect(edgeStore.has("ac")).toBe(false);
+    expect(edgeStore.has("bc")).toBe(false);
+    expect([...nodeStore.keys()].sort()).toEqual(["a", "b"]);
+    expect([...edgeStore.keys()]).toEqual(["ab"]);
+    expect(cy.add).not.toHaveBeenCalled();
+    // ... no layout ran, so the survivors hold exactly ...
+    expect(cy.layout).not.toHaveBeenCalled();
+    expect(nodeStore.get("a")!.position).toEqual({ x: 100, y: 0 });
+    expect(nodeStore.get("b")!.position).toEqual({ x: 300, y: 0 });
+    // ... and the camera was never written (no fit, no viewport, no
+    // pan/zoom setter).
+    expect(cy.fit).not.toHaveBeenCalled();
+    expect(cy.viewport).not.toHaveBeenCalled();
+    for (const call of [...cy.pan.mock.calls, ...cy.zoom.mock.calls])
+      expect(call).toHaveLength(0);
+  });
+
+  it("shrinks and grows in one update (#64): the dropped node leaves, the new one joins beside its surviving neighbor, survivors held", () => {
+    const g0 = grow(base(), addC);
+    const { rerender } = render(
+      <CytoscapeCanvas ugm={g0} graphUpdate="additive" animate={false} />,
+    );
+    place("a", 100, 0);
+    place("b", 300, 0);
+    place("c", 900, 900);
+    // c leaves, d arrives on a.
+    const g1 = grow(g0, (g) => {
+      g.removeNode("c");
+      g.addNode("d", { types: ["U"], properties: {} });
+      g.addEdge("a", "d", { type: "knows", key: "ad" });
+    });
+    act(() => {
+      rerender(
+        <CytoscapeCanvas ugm={g1} graphUpdate="additive" animate={false} />,
+      );
+    });
+    expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+    expect([...nodeStore.keys()].sort()).toEqual(["a", "b", "d"]);
+    expect([...edgeStore.keys()].sort()).toEqual(["ab", "ad"]);
+    expect(addedIds().sort()).toEqual(["ad", "d"]);
+    // d was seeded beside a (its only placed neighbor), not pulled
+    // toward where c used to be.
+    const d = nodeStore.get("d")!.position;
+    expect(Math.hypot(d.x - 100, d.y)).toBeLessThanOrEqual(40 + 1e-9);
+    // One growth pass, holding exactly the survivors; c is not in the
+    // constraint list (a constraint on an unknown node yields NaN).
+    expect(cy.layout).toHaveBeenCalledTimes(1);
+    expect(layoutOpts().fixedNodeConstraint).toEqual([
+      { nodeId: "a", position: { x: 100, y: 0 } },
+      { nodeId: "b", position: { x: 300, y: 0 } },
+    ]);
+    expect(layoutOpts().fit).toBe(false);
+    expect(cy.fit).not.toHaveBeenCalled();
+    expect(cy.viewport).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a rebuild when the new ugm shares no node with the drawn one (#64 boundary)", () => {
     const g0 = base();
     const { rerender } = render(
       <CytoscapeCanvas ugm={g0} graphUpdate="additive" />,
     );
     const g1 = new UGM();
-    g1.addNode("a", { types: ["T"], properties: {} });
-    g1.addNode("c", { types: ["U"], properties: {} });
+    g1.addNode("x", { types: ["T"], properties: {} });
+    g1.addNode("y", { types: ["U"], properties: {} });
+    g1.addEdge("x", "y", { type: "knows", key: "xy" });
     act(() => {
       rerender(<CytoscapeCanvas ugm={g1} graphUpdate="additive" />);
     });
@@ -270,7 +366,113 @@ describe('CytoscapeCanvas graphUpdate="additive" (#26)', () => {
     expect(cy.add).not.toHaveBeenCalled();
     expect(cy.layout).not.toHaveBeenCalled();
     const built = cytoscapeFn.mock.calls[1]![0].elements.map((d) => d.data.id);
-    expect(built.sort()).toEqual(["a", "c"]);
+    expect(built.sort()).toEqual(["x", "xy", "y"]);
+  });
+
+  it("falls back to a rebuild for an empty ugm (#64: no scene to keep)", () => {
+    const g0 = base();
+    const { rerender } = render(
+      <CytoscapeCanvas ugm={g0} graphUpdate="additive" />,
+    );
+    act(() => {
+      rerender(<CytoscapeCanvas ugm={new UGM()} graphUpdate="additive" />);
+    });
+    expect(cytoscapeFn).toHaveBeenCalledTimes(2);
+    expect(cytoscapeFn.mock.calls[1]![0].elements).toEqual([]);
+    expect(nodeStore.size).toBe(0);
+  });
+
+  it("removing a compound parent keeps its surviving children, moved to the top level in place (#64)", () => {
+    const containment = {
+      edgeType: "contains",
+      direction: "parentToChild",
+    } as const;
+    const g0 = grow(base(), (g) => {
+      g.addNode("p", { types: ["Group"], properties: {} });
+      g.addEdge("p", "a", { type: "contains", key: "pa" });
+    });
+    const { rerender } = render(
+      <CytoscapeCanvas
+        ugm={g0}
+        graphUpdate="additive"
+        containment={containment}
+      />,
+    );
+    expect(nodeStore.get("a")!.data.parent).toBe("p");
+    place("a", 50, 60);
+    // The group dissolves: p and its containment edge go, a stays.
+    const g1 = grow(g0, (g) => g.removeNode("p"));
+    act(() => {
+      rerender(
+        <CytoscapeCanvas
+          ugm={g1}
+          graphUpdate="additive"
+          containment={containment}
+        />,
+      );
+    });
+    expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+    // a was moved out BEFORE p was removed (cytoscape's remove takes
+    // a parent's descendants with it), and kept its position.
+    expect(moveCalls).toEqual([{ id: "a", parent: null }]);
+    expect(nodeStore.has("p")).toBe(false);
+    expect(nodeStore.has("a")).toBe(true);
+    expect(nodeStore.get("a")!.data.parent).toBeUndefined();
+    expect(nodeStore.get("a")!.position).toEqual({ x: 50, y: 60 });
+    expect(edgeStore.has("pa")).toBe(false);
+    expect(edgeStore.has("ab")).toBe(true);
+    expect(cy.layout).not.toHaveBeenCalled();
+  });
+
+  it("a store entry naming a removed node is left to the host; the re-apply passes skip it (#64)", async () => {
+    const { usePositionPinStore } =
+      await import("../../state/position-pin-store");
+    const { useOverlayStore } = await import("../../state/overlay-store");
+    const { useSelectionStore } = await import("../../state/selection-store");
+    usePositionPinStore.getState().pin("c");
+    usePositionPinStore.getState().pin("a");
+    useOverlayStore.getState().register({
+      id: "o",
+      label: "o",
+      nodeIds: ["c", "b"],
+      edgeIds: [],
+      tone: "warning",
+    });
+    useSelectionStore.getState().selectNodes(["c"]);
+    try {
+      const g0 = grow(base(), addC);
+      const hidden = new Set(["c"]);
+      const { rerender } = render(
+        <CytoscapeCanvas ugm={g0} graphUpdate="additive" hidden={hidden} />,
+      );
+      classCalls.clear();
+      act(() => {
+        rerender(
+          <CytoscapeCanvas
+            ugm={grow(g0, (g) => g.removeNode("c"))}
+            graphUpdate="additive"
+            hidden={hidden}
+          />,
+        );
+      });
+      expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+      expect(nodeStore.has("c")).toBe(false);
+      // The survivors were re-dressed; nothing was written to c.
+      expect(classCalls.get("a") ?? []).toContain("+g3t-pinned");
+      expect(classCalls.get("b") ?? []).toContain("+g3t-ov-member");
+      expect(classCalls.has("c")).toBe(false);
+      // Host state untouched: the stores still name c.
+      expect(usePositionPinStore.getState().pinnedIds).toEqual(["c", "a"]);
+      expect(useOverlayStore.getState().overlays[0]?.nodeIds).toEqual([
+        "c",
+        "b",
+      ]);
+      expect(useSelectionStore.getState().selectedNodeIds.has("c")).toBe(true);
+    } finally {
+      usePositionPinStore.getState().clear();
+      useOverlayStore.getState().clear();
+      useSelectionStore.getState().clear();
+    }
   });
 
   it("the default mode is unchanged: a superset ugm rebuilds", () => {
@@ -481,22 +683,40 @@ describe("planAdditiveUpdate (pure)", () => {
     { group: "edges", data: { id: "bc", source: "b", target: "c" } },
   ] as const;
 
-  it("partitions adds, updates and stale edges; nodes are never removed", () => {
+  it("partitions adds, updates and stale edges", () => {
     const plan = planAdditiveUpdate(
       new Set(["a", "b"]),
       new Set(["ab", "old"]),
       defs,
     );
-    expect(plan.superset).toBe(true);
+    expect(plan.sameScene).toBe(true);
     expect(plan.addNodeIdx).toEqual([2]);
     expect(plan.addEdgeIdx).toEqual([4]);
     expect(plan.updateIdx).toEqual([0, 1, 3]);
+    expect(plan.removeNodeIds).toEqual([]);
     expect(plan.removeEdgeIds).toEqual(["old"]);
   });
 
-  it("flags a live node the next graph lacks", () => {
-    const plan = planAdditiveUpdate(new Set(["a", "z"]), new Set(), defs);
-    expect(plan.superset).toBe(false);
+  it("lists a live node the next graph lacks for removal; the scene is the same while a node is shared (#64)", () => {
+    const plan = planAdditiveUpdate(new Set(["a", "z"]), new Set(["az"]), defs);
+    expect(plan.sameScene).toBe(true);
+    expect(plan.removeNodeIds).toEqual(["z"]);
+    expect(plan.removeEdgeIds).toEqual(["az"]);
+    expect(plan.addNodeIdx).toEqual([1, 2]);
+  });
+
+  it("a disjoint next graph is a different scene (#64 boundary); so is an empty one", () => {
+    expect(
+      planAdditiveUpdate(new Set(["y", "z"]), new Set(), defs).sameScene,
+    ).toBe(false);
+    expect(planAdditiveUpdate(new Set(["a"]), new Set(), []).sameScene).toBe(
+      false,
+    );
+    // An empty live instance shares nothing either: the first graph
+    // builds and fits normally.
+    expect(planAdditiveUpdate(new Set(), new Set(), defs).sameScene).toBe(
+      false,
+    );
   });
 });
 
