@@ -95,7 +95,13 @@ const BUDGETS = {
   // with the security fix above (+6.9 KB, measured on main the same
   // day) core is 173.0 KB, so the two raises stack: 176 keeps about
   // 3 KB of headroom, the posture both entries set.
-  core: 176.0 * 1024,
+  // Round-2 integration (2026-10-13): 176 -> 180. The derivation
+  // registry and version-2 snapshot (#17, +2.8 KB: sidecar map, the
+  // engine's version counter, recompute and listStale, fromJSON's typed
+  // document errors) and tripleEdgeKey (#48, +0.7 KB) were measured on
+  // separate branches; merged, core measures 177.3 KB. About 2.7 KB
+  // headroom, same posture as the entries above.
+  core: 180.0 * 1024,
   // Core ledger:
   // - NO RAISE, 2026-08-15 (the @g3-toolkit/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against
