@@ -66,6 +66,8 @@ import {
   createCameraController,
   ProvenanceTrace,
   Minimap,
+  SchemaView,
+  TreeView,
   createDefaultMenuManager,
   registerToolkitActions,
   ViewErrorBoundary,
@@ -636,6 +638,111 @@ describe("wiring guide: shape browser from a deep link or an aggregated report",
         .getByTestId("shape-toggle-ex:QuoteShape")
         .getAttribute("aria-expanded"),
     ).toBe("false");
+  });
+});
+
+describe("wiring guide: class hierarchy (SchemaView nesting, TreeView forests)", () => {
+  it("SchemaView nests subclasses and badges every targeting shape with the worst status", () => {
+    const shapes = [
+      {
+        id: "PersonBasic",
+        targetClass: "Person",
+        properties: [{ path: "name", minCount: 1 }],
+      },
+      {
+        id: "PersonContact",
+        targetClass: "Person",
+        properties: [{ path: "email", minCount: 1 }],
+      },
+    ];
+    const ugm = new UGM();
+    ugm.addNode("p1", { types: ["Person"], properties: { name: "Ada" } });
+    // p1 has no email: PersonContact fails with a violation.
+    const validationResults = validateShacl(ugm, shapes);
+
+    render(
+      <SchemaView
+        schema={{
+          nodeTypes: ["Agent", "Person"],
+          edgeTypes: [],
+          nodeProperties: { Person: ["name", "email"] },
+          edgeProperties: {},
+        }}
+        subClassOf={{ Person: "Agent" }}
+        shapes={shapes}
+        validationResults={validationResults}
+      />,
+    );
+    expect(screen.getByTestId("schema-class-Person")).toHaveAttribute(
+      "data-parent",
+      "Agent",
+    );
+    expect(screen.getByTestId("schema-subclasses-Agent")).toContainElement(
+      screen.getByTestId("schema-class-Person"),
+    );
+    const badge = screen.getByTestId("shacl-badge-Person");
+    expect(badge).toHaveTextContent(
+      "SHACL: 2 constraints, 2 shapes, violation",
+    );
+    expect(badge).toHaveAttribute("data-severity", "violation");
+  });
+
+  it("TreeView renders a forest, seeds expansion, drops the type prefix, and moves by keyboard", () => {
+    const ugm = new UGM();
+    ugm.addNode("owl:Thing", {
+      types: ["Class"],
+      properties: { name: "Thing" },
+    });
+    ugm.addNode("prov:Agent", {
+      types: ["Class"],
+      properties: { name: "Agent" },
+    });
+    ugm.addNode("prov:Entity", {
+      types: ["Class"],
+      properties: { name: "Entity" },
+    });
+    ugm.addNode("prov:Plan", {
+      types: ["Class"],
+      properties: { name: "Plan" },
+    });
+    ugm.addEdge("owl:Thing", "prov:Agent", { type: "subClassOf" });
+    ugm.addEdge("prov:Entity", "prov:Plan", { type: "subClassOf" });
+
+    render(
+      <TreeView
+        ugm={ugm}
+        rootIds={["owl:Thing", "prov:Entity"]}
+        initialDepth={1}
+        showType={false}
+      />,
+    );
+    // Two top-level rows, no synthetic parent, children seeded open.
+    expect(screen.getByTestId("tree-node-owl:Thing")).toHaveAttribute(
+      "aria-level",
+      "1",
+    );
+    expect(screen.getByTestId("tree-node-prov:Entity")).toHaveAttribute(
+      "aria-level",
+      "1",
+    );
+    expect(screen.getByTestId("tree-node-prov:Plan")).toHaveAttribute(
+      "aria-level",
+      "2",
+    );
+    expect(screen.getByTestId("tree-node-owl:Thing")).not.toHaveTextContent(
+      "[Class]",
+    );
+    // A seeded row collapses (impossible before issue #36).
+    fireEvent.click(screen.getByTestId("tree-toggle-owl:Thing"));
+    expect(screen.queryByTestId("tree-node-prov:Agent")).toBeNull();
+    // Keyboard: ArrowDown moves the roving tab stop to the next row.
+    const thing = screen.getByTestId("tree-node-owl:Thing");
+    thing.focus();
+    fireEvent.keyDown(thing, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(
+      screen.getByTestId("tree-node-prov:Entity"),
+    );
+    expect(screen.getByRole("tree")).toBeInTheDocument();
   });
 });
 
