@@ -12,6 +12,7 @@
 import { useState } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 export interface DetailInspectorProps {
   /** The UGM instance to read data from. */
@@ -30,7 +31,7 @@ export function DetailInspector({
 }: DetailInspectorProps) {
   if (!selection) {
     return (
-      <div className={className} data-testid="detail-inspector">
+      <div className={viewClass(className)} data-testid="detail-inspector">
         <p style={{ color: "#888", padding: 12 }}>
           Right-click an element and select &quot;Inspect properties&quot;
         </p>
@@ -42,16 +43,22 @@ export function DetailInspector({
     const attrs = ugm.getNode(selection.id);
     if (!attrs) {
       return (
-        <div className={className} data-testid="detail-inspector">
+        <div className={viewClass(className)} data-testid="detail-inspector">
           <p>Node not found: {selection.id}</p>
         </div>
       );
     }
     return (
-      <div className={className} data-testid="detail-inspector">
+      <div className={viewClass(className)} data-testid="detail-inspector">
         <h3 style={{ margin: "8px 12px" }}>Node: {selection.id}</h3>
         <PropertySection label="Types" value={attrs.types} />
-        <PropertySection label="Properties" value={attrs.properties} />
+        <PropertySection
+          label="Properties"
+          value={attrs.properties}
+          derivedBy={(key) =>
+            ugm.getDerivation(selection.id, key)?.definitionId
+          }
+        />
       </div>
     );
   }
@@ -61,13 +68,13 @@ export function DetailInspector({
   const endpoints = ugm.getEdgeEndpoints(selection.id);
   if (!attrs || !endpoints) {
     return (
-      <div className={className} data-testid="detail-inspector">
+      <div className={viewClass(className)} data-testid="detail-inspector">
         <p>Edge not found: {selection.id}</p>
       </div>
     );
   }
   return (
-    <div className={className} data-testid="detail-inspector">
+    <div className={viewClass(className)} data-testid="detail-inspector">
       <h3 style={{ margin: "8px 12px" }}>
         Edge: {endpoints.source} → {endpoints.target}
       </h3>
@@ -82,7 +89,16 @@ export function DetailInspector({
 
 // ── Sub-components ──────────────────────────────────────────────────
 
-function PropertyRow({ label, value }: { label: string; value: unknown }) {
+function PropertyRow({
+  label,
+  value,
+  derivedBy,
+}: {
+  label: string;
+  value: unknown;
+  /** Issue #17: the definition that produced a derived value. */
+  derivedBy?: string;
+}) {
   return (
     <div
       style={{
@@ -91,14 +107,34 @@ function PropertyRow({ label, value }: { label: string; value: unknown }) {
         fontSize: 13,
         gap: 8,
       }}
+      data-derived={derivedBy}
     >
       <span style={{ fontWeight: 600, minWidth: 100 }}>{label}:</span>
       <span data-testid={`prop-${label}`}>{formatValue(value)}</span>
+      {derivedBy !== undefined && (
+        <span
+          className="g3t-prop-derived"
+          data-testid={`prop-${label}-derived`}
+          title={`Derived value, computed by the definition "${derivedBy}"`}
+        >
+          derived by {derivedBy}
+        </span>
+      )}
     </div>
   );
 }
 
-function PropertySection({ label, value }: { label: string; value: unknown }) {
+function PropertySection({
+  label,
+  value,
+  derivedBy,
+}: {
+  label: string;
+  value: unknown;
+  /** Issue #17: per-key lookup of the producing definition; only the
+   *  node Properties section passes one. */
+  derivedBy?: (key: string) => string | undefined;
+}) {
   const [expanded, setExpanded] = useState(true);
 
   if (value === null || value === undefined) return null;
@@ -120,7 +156,12 @@ function PropertySection({ label, value }: { label: string; value: unknown }) {
         {expanded && (
           <div className="g3t-panel-section-content">
             {entries.map(([k, v]) => (
-              <PropertyRow key={k} label={k} value={v} />
+              <PropertyRow
+                key={k}
+                label={k}
+                value={v}
+                derivedBy={derivedBy?.(k)}
+              />
             ))}
           </div>
         )}

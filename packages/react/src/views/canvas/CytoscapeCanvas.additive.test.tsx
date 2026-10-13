@@ -389,6 +389,53 @@ describe('CytoscapeCanvas graphUpdate="additive" (#26)', () => {
     expect(built).toContain("bc");
   });
 
+  it("pins and overlays reach the grown instance exactly once (issue #44: growth is not a rebuild)", async () => {
+    const { usePositionPinStore } =
+      await import("../../state/position-pin-store");
+    const { useOverlayStore } = await import("../../state/overlay-store");
+    usePositionPinStore.getState().pin("a");
+    // c is not drawn yet; a is, so this canvas is a participant.
+    useOverlayStore.getState().register({
+      id: "o",
+      label: "o",
+      nodeIds: ["a", "c"],
+      edgeIds: [],
+      tone: "warning",
+    });
+    try {
+      const g0 = base();
+      const { rerender } = render(
+        <CytoscapeCanvas ugm={g0} graphUpdate="additive" />,
+      );
+      // Mount: the init path applied each layer once; the ugm-keyed
+      // effects skipped what it just did.
+      const once = (id: string, c: string) =>
+        (classCalls.get(id) ?? []).filter((x) => x === c).length;
+      expect(once("a", "+g3t-pinned")).toBe(1);
+      expect(once("a", "+g3t-ov-member")).toBe(1);
+      expect(once("a", "+g3t-ov-warning")).toBe(1);
+      expect(once("b", "+g3t-ov-dim")).toBe(1);
+      classCalls.clear();
+      act(() => {
+        rerender(
+          <CytoscapeCanvas ugm={grow(g0, addC)} graphUpdate="additive" />,
+        );
+      });
+      // Growth kept the instance; the ugm-keyed effects re-dressed it
+      // ONCE (the init path did not run, so nothing applied twice).
+      expect(cytoscapeFn).toHaveBeenCalledTimes(1);
+      expect(once("a", "+g3t-pinned")).toBe(1);
+      expect(once("c", "+g3t-pinned")).toBe(0);
+      expect(once("a", "+g3t-ov-member")).toBe(1);
+      expect(once("c", "+g3t-ov-member")).toBe(1);
+      expect(once("c", "+g3t-ov-warning")).toBe(1);
+      expect(once("b", "+g3t-ov-dim")).toBe(1);
+    } finally {
+      usePositionPinStore.getState().clear();
+      useOverlayStore.getState().clear();
+    }
+  });
+
   it("a containment change that re-parents an existing node falls back to a rebuild", () => {
     const containment = {
       edgeType: "contains",

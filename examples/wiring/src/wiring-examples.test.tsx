@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useEffect, useRef, useState } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
   UGM,
@@ -37,13 +37,20 @@ import {
   type PathGraph,
   exportSubgraphJson,
   exportSubgraphCsv,
+  DerivedPropertyEngine,
   createPresetPipeline,
   ProjectionPipeline,
   typeCollapse,
+  tripleEdgeKey,
   collapseByCluster,
   buildSubgraph,
   G3tEventBus,
+  WorkingSetManager,
+  pageNodes,
+  pageCount,
+  parseWorkingSetConfig,
   type RDFGraph,
+  type PageWindow,
 } from "@g3-toolkit/core";
 import {
   usePositionPinStore,
@@ -66,7 +73,12 @@ import {
   themeFromCssVariables,
   createCameraController,
   ProvenanceTrace,
+  AriaCompanion,
+  useAnnouncer,
   Minimap,
+  useOverlaySequence,
+  OverlayTransport,
+  computeSequenceActiveIds,
   SchemaView,
   TreeView,
   createDefaultMenuManager,
@@ -75,8 +87,14 @@ import {
   ShaclShapeBrowser,
   FloatingLegend,
   TableView,
+  getCsv,
+  MatrixView,
+  PaginationControl,
   resolveLabelCollisions,
   composeLabelPriority,
+  WorkingSetProvider,
+  useWorkingSetManager,
+  workingSetLimitMessage,
   type EncodingSpec,
   type LegendChannel,
   type LabelCandidate,
@@ -296,6 +314,26 @@ describe("wiring guide: toolkit state driving the host", () => {
     usePositionPinStore.getState().clear();
     applyWorkspace(parseWorkspace(stored), { cy: null });
     expect(usePositionPinStore.getState().pinnedIds).toEqual(["asset-1"]);
+  });
+});
+
+describe("wiring guide: style the toolkit's text (the g3t-view root class)", () => {
+  it("every view root carries g3t-view after the host class and the component's own class", () => {
+    render(
+      <>
+        <TableView ugm={graph()} className="host-table" />
+        <SchemaView ugm={graph()} className="host-schema" />
+        <FacetFilter ugm={graph()} onFilterChange={vi.fn()} />
+      </>,
+    );
+    expect(screen.getByTestId("table-view").className).toBe(
+      "g3t-table host-table g3t-view",
+    );
+    expect(screen.getByTestId("schema-view").className).toBe(
+      "host-schema g3t-view",
+    );
+    // No host class: the view still carries the toolkit's root class.
+    expect(screen.getByTestId("facet-filter").className).toBe("g3t-view");
   });
 });
 
@@ -533,6 +571,86 @@ describe("wiring guide: SHACL validation report over the data graph", () => {
     expect(ugm.getNode("c1")!.properties._shacl_maxSeverity).toBe("violation");
     // The conforming node carries no driver props.
     expect(ugm.getNode("c2")!.properties._shacl_resultCount).toBeUndefined();
+  });
+});
+
+describe("wiring guide: step through overlays in order", () => {
+  beforeEach(() => {
+    useOverlayStore.getState().clear();
+  });
+
+  it("the sequence sets only the ids it owns; a foreign overlay keeps its state throughout", () => {
+    const store = useOverlayStore.getState();
+    const tier = (id: string, nodeIds: string[]) => ({
+      id,
+      label: id,
+      nodeIds,
+      edgeIds: [],
+    });
+    // Three tiers registered inactive, as the SHACL recipe does...
+    store.register(tier("shacl-info", ["asset-1"]), false);
+    store.register(tier("shacl-warning", ["asset-2"]), false);
+    store.register(tier("shacl-violation", ["asset-1"]), false);
+    // ...and a path overlay another part of the app owns, ACTIVE.
+    store.register(tier("path-1", ["asset-1", "asset-2"]), true);
+    expect(useOverlayStore.getState().activeIds).toEqual(["path-1"]);
+
+    const TIER_ORDER = ["shacl-info", "shacl-warning", "shacl-violation"];
+    function SeverityWalkthrough() {
+      const [speedMs, setSpeedMs] = useState(1500);
+      const [loop, setLoop] = useState(false);
+      const sequence = useOverlaySequence({
+        ids: TIER_ORDER,
+        mode: "cumulative",
+        speedMs,
+        loop,
+      });
+      return (
+        <OverlayTransport
+          sequence={sequence}
+          speedMs={speedMs}
+          onSpeedChange={setSpeedMs}
+          loop={loop}
+          onLoopChange={setLoop}
+        />
+      );
+    }
+    const { unmount } = render(<SeverityWalkthrough />);
+
+    // Mount: step 0 active, the foreign overlay untouched.
+    expect(useOverlayStore.getState().activeIds).toEqual([
+      "path-1",
+      "shacl-info",
+    ]);
+    expect(screen.getByTestId("overlay-transport-readout").textContent).toBe(
+      "1 of 3",
+    );
+    fireEvent.click(screen.getByLabelText("Next step"));
+    fireEvent.click(screen.getByLabelText("Next step"));
+    // Cumulative: every earlier tier rides along; matches the pure rule.
+    expect(useOverlayStore.getState().activeIds).toEqual([
+      "path-1",
+      ...computeSequenceActiveIds(TIER_ORDER, 2, "cumulative"),
+    ]);
+    expect(screen.getByTestId("overlay-transport-readout").textContent).toBe(
+      "3 of 3",
+    );
+    // At the end without loop the next button is a hard stop.
+    expect(screen.getByLabelText("Next step")).toBeDisabled();
+
+    // The host toggling its own overlay mid-walk is respected.
+    useOverlayStore.getState().toggle("path-1");
+    fireEvent.click(screen.getByLabelText("Previous step"));
+    expect(useOverlayStore.getState().activeIds).toEqual([
+      "shacl-info",
+      "shacl-warning",
+    ]);
+    useOverlayStore.getState().toggle("path-1");
+
+    // Unmount hands the owned ids back as it found them (all inactive)
+    // and leaves the foreign overlay active.
+    unmount();
+    expect(useOverlayStore.getState().activeIds).toEqual(["path-1"]);
   });
 });
 
@@ -888,6 +1006,31 @@ describe("projection pipeline (guide: Projection pipeline)", () => {
     // Steps are inspectable (BioShell renders these names in its caption).
     expect(p.getSteps().map((st) => st.name)).toEqual(["Type Collapse"]);
   });
+
+  it("edge ids are the triple's key, stable across runs and deduped on a repeated triple", () => {
+    const regulates = tinyRdf.triples[2]!;
+    const edgeId = tripleEdgeKey(
+      regulates.subject,
+      regulates.predicate,
+      regulates.object,
+    );
+    expect(edgeId).toBe(`<${EX}p53> <${EX}regulates> <${EX}mdm2>`);
+    const ugm = createPresetPipeline("standard").project(tinyRdf);
+    expect(ugm.getEdge(edgeId)?.type).toBe("regulates");
+    // Same input, second run: same id.
+    expect(
+      createPresetPipeline("standard").project(tinyRdf).hasEdge(edgeId),
+    ).toBe(true);
+    // The triple bound twice (two SELECT rows) is one edge, first wins.
+    const twice = createPresetPipeline("standard").project({
+      triples: [...tinyRdf.triples, regulates],
+    });
+    expect(twice.getEdgesBetween(`${EX}p53`, `${EX}mdm2`).length).toBe(1);
+    // An edge id never equals a node id.
+    expect(ugm.hasNode(edgeId)).toBe(false);
+    // A named graph is opt-in and makes a distinct key.
+    expect(tripleEdgeKey("s", "p", "o", "g")).toBe("<s> <p> <o> <g>");
+  });
 });
 
 describe("context menu base contract (guide: Add your action to the canvas context menu)", () => {
@@ -1088,6 +1231,75 @@ describe("provenance trace (guide: Render a provenance trace)", () => {
   });
 });
 
+describe("screen-reader narration (guide: Announce graph state to a screen reader)", () => {
+  it("host announcements reach the companion's live region, debounced, muted while playing, hidden mirrored", () => {
+    vi.useFakeTimers();
+    try {
+      const ugm = graph();
+      const hidden = new Set<string>();
+      function Narrated({ playing }: { playing: boolean }) {
+        const selectedId = useSelectionStore(
+          (s) => [...s.selectedNodeIds][0] ?? null,
+        );
+        const { announcement, announce } = useAnnouncer();
+        useEffect(() => {
+          if (selectedId === null) return;
+          const name = String(ugm.getNode(selectedId)?.properties.name);
+          announce(`Selected ${name}`);
+        }, [selectedId, announce]);
+        return (
+          <AriaCompanion
+            ugm={ugm}
+            hidden={hidden}
+            label="Provenance nodes"
+            instructions="Focusing a node selects it on the canvas; arrow right follows an edge."
+            summarizeNode={(g, id) =>
+              `${String(g.getNode(id)?.properties.name)}, ${g.getNodeEdges(id).length} provenance edges`
+            }
+            announcement={announcement}
+            announceDebounceMs={300}
+            muted={playing}
+          />
+        );
+      }
+      const { rerender } = render(<Narrated playing={false} />);
+      const list = screen.getByRole("listbox", { name: "Provenance nodes" });
+      expect(
+        document.getElementById(list.getAttribute("aria-describedby")!)
+          ?.textContent,
+      ).toContain("arrow right follows an edge");
+      expect(
+        screen.getByTestId("aria-node-asset-1").getAttribute("aria-label"),
+      ).toBe("Pump, 1 provenance edges");
+      const live = () => screen.getByTestId("aria-live-region").textContent;
+      act(() => {
+        useSelectionStore.getState().selectNodes(["asset-1"]);
+      });
+      expect(live()).toBe("");
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(live()).toBe("Selected Pump");
+      // Muted while playing: the region holds; the latest commits on stop.
+      rerender(<Narrated playing />);
+      act(() => {
+        useSelectionStore.getState().selectNodes(["asset-2"]);
+      });
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(live()).toBe("Selected Pump");
+      rerender(<Narrated playing={false} />);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(live()).toBe("Selected Valve");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("table view recipes (guide: Table view recipes)", () => {
   interface Binding {
     s: string;
@@ -1143,6 +1355,229 @@ describe("table view recipes (guide: Table view recipes)", () => {
     expect(screen.getByTestId("table-pagination").textContent).toContain(
       "Page 1 of 1",
     );
+  });
+
+  it("export, search, reorder and multi-value filters (guide: Export, search, reorder, multi-value filters)", () => {
+    interface Tagged extends Binding {
+      kind: string;
+    }
+    const tagged: Tagged[] = [
+      { s: "urn:1", label: "one", count: 1, kind: "A" },
+      { s: "urn:2", label: "two", count: 2, kind: "B" },
+      { s: "urn:3", label: "three", count: 3, kind: "A" },
+    ];
+    const taggedColumns: DataGridColumn<Tagged>[] = [
+      { id: "s", header: "Subject", value: (r) => r.s },
+      { id: "label", header: "Label", value: (r) => r.label },
+      { id: "kind", header: "Kind", value: (r) => r.kind, filter: "values" },
+    ];
+    const download = vi.fn();
+    function Register() {
+      const [order, setOrder] = useState<string[]>(["kind", "label", "s"]);
+      return (
+        <TableView
+          rows={tagged}
+          columns={taggedColumns}
+          rowId={(r) => r.s}
+          selection="none"
+          search
+          exportCsv={{ filename: "bindings.csv", download }}
+          columnOrder={order}
+          onColumnOrderChange={setOrder}
+        />
+      );
+    }
+    render(<Register />);
+    const headers = () =>
+      [...document.querySelectorAll("thead th")].map((th) =>
+        String(th.textContent)
+          .replace(/All.*$/, "")
+          .trim(),
+      );
+    expect(headers()).toEqual(["Kind", "Label", "Subject"]);
+
+    // Reorder from the column menu; the host's state follows.
+    fireEvent.click(screen.getByTestId("column-visibility-toggle"));
+    fireEvent.click(screen.getByTestId("column-move-right-kind"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(headers()).toEqual(["Label", "Kind", "Subject"]);
+
+    // Multi-value filter: tick A only (None, then A).
+    fireEvent.click(screen.getByTestId("column-filter-kind"));
+    fireEvent.click(screen.getByTestId("column-filter-kind-none"));
+    fireEvent.click(screen.getByTestId("column-filter-kind-option-A"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "2 of 3 rows",
+    );
+
+    // Search stacks on it and the count follows.
+    fireEvent.change(screen.getByTestId("table-search"), {
+      target: { value: "thr" },
+    });
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "1 of 3 rows",
+    );
+
+    // Export: the filtered rows, the columns in their current order.
+    fireEvent.click(screen.getByTestId("table-export-csv"));
+    expect(download).toHaveBeenCalledWith(
+      "Label,Kind,Subject\r\nthree,A,urn:3\r\n",
+      "bindings.csv",
+    );
+  });
+
+  it("virtualize mounts a window of a long page and the export still sees every row (guide: Virtualize a long page)", () => {
+    const bindings: Binding[] = Array.from({ length: 300 }, (_, i) => ({
+      s: `urn:${i}`,
+      label: `row ${i}`,
+      count: i,
+    }));
+    const download = vi.fn();
+    render(
+      <div style={{ height: 480 }}>
+        <TableView
+          rows={bindings}
+          columns={columns}
+          rowId={(r) => r.s}
+          fill
+          rowHeight={24}
+          pageSize={10_000}
+          virtualize={{ overscan: 20 }}
+          exportCsv={{ download }}
+        />
+      </div>,
+    );
+    // jsdom has no layout, so the body is unmeasured and the table
+    // renders the first `overscan` rows; a browser windows on scroll.
+    const mounted = document.querySelectorAll("[data-testid^='table-row-']");
+    expect(mounted).toHaveLength(20);
+    const spacer = screen.getByTestId("table-virtual-spacer");
+    expect(spacer.style.height).toBe(`${(300 - 20) * 24}px`);
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "300 rows",
+    );
+    fireEvent.click(screen.getByTestId("table-export-csv"));
+    const csv = download.mock.calls[0]![0] as string;
+    expect(csv.split("\r\n").filter((l) => l !== "")).toHaveLength(301);
+  });
+
+  it("getCsv is the pure half, callable with a row model's rows and leaf columns (guide: Export, search, reorder, multi-value filters)", () => {
+    // @tanstack/react-table is a peer of @g3-toolkit/react and is not
+    // installed at this example's root, so the rows and columns here
+    // are the shape getCsv reads (`row.getValue(id)`, `column.id`,
+    // `column.columnDef.header`); the real-table case runs in
+    // packages/react/src/views/table/table-followups.test.tsx.
+    type CsvRows = Parameters<typeof getCsv>[0];
+    type CsvColumns = Parameters<typeof getCsv>[1];
+    const records = [...rows].reverse();
+    const csvRows = records.map((r) => ({
+      getValue: (id: string) => r[id as keyof Binding],
+    })) as unknown as CsvRows;
+    const csvColumns = [
+      { id: "s", columnDef: { header: "Subject" } },
+      { id: "label", columnDef: { header: "Label, long" } },
+    ] as unknown as CsvColumns;
+    expect(getCsv(csvRows, csvColumns)).toBe(
+      'Subject,"Label, long"\r\nurn:2,two\r\nurn:1,one\r\n',
+    );
+  });
+});
+
+describe("working-set limits (guide: Working-set limits: page past them)", () => {
+  function typed(n: number): UGM {
+    const ugm = new UGM();
+    for (let i = 0; i < n; i++) {
+      ugm.addNode(`n${String(i).padStart(3, "0")}`, {
+        types: [`T${String(i).padStart(3, "0")}`],
+        properties: {},
+      });
+    }
+    for (let i = 0; i < n - 1; i++) {
+      ugm.addEdge(
+        `n${String(i).padStart(3, "0")}`,
+        `n${String(i + 1).padStart(3, "0")}`,
+        { type: "rel", properties: {} },
+      );
+    }
+    return ugm;
+  }
+
+  it("checkLimit names the strategy and page size; pageNodes cuts a stable, described window", () => {
+    const ugm = typed(350);
+    const limits = new WorkingSetManager();
+    const check = limits.checkLimit("matrix", 350);
+    expect(check).toEqual({
+      allowed: false,
+      limit: 200,
+      requested: 350,
+      strategy: "page",
+      pageSize: 200,
+    });
+    expect(limits.checkLimit("canvas", 600).strategy).toBe("refuse");
+    expect(limits.checkLimit("canvas", 600, "page").strategy).toBe("page");
+    expect(limits.checkLimit("matrix", 100).strategy).toBe("allow");
+
+    const page = pageNodes(ugm, { offset: 0, size: check.pageSize });
+    const window: PageWindow = page.window;
+    expect(window).toEqual({
+      offset: 0,
+      size: 200,
+      total: 350,
+      totalExact: true,
+    });
+    expect(pageCount(window)).toBe(2);
+    const next = pageNodes(ugm, { offset: window.size, size: window.size });
+    expect(next.items).toHaveLength(150);
+    expect(next.items[0]).toBe("n200");
+    // Stable: the same request names the same ids on every call.
+    expect(pageNodes(ugm, { offset: 0, size: 200 })).toEqual(page);
+  });
+
+  it("MatrixView pages per axis at the manager's limit; PaginationControl pages a host list", () => {
+    const ugm = typed(7);
+    const limits = new WorkingSetManager({ matrix: 4 });
+    render(<MatrixView ugm={ugm} maxSize={limits.getLimit("matrix")} />);
+    expect(
+      screen.getByTestId("matrix-rows-pagination-summary").textContent,
+    ).toBe("rows 1 to 4 of 7");
+    expect(screen.queryByTestId("matrix-cell-T003-T004")).toBeNull();
+    fireEvent.click(screen.getByTestId("matrix-columns-pagination-next"));
+    expect(screen.getByTestId("matrix-cell-T003-T004").textContent).toBe("1");
+
+    function NodeRegister() {
+      const [page, setPage] = useState(0);
+      const size = 3;
+      const { items, window } = pageNodes(ugm, { offset: page * size, size });
+      return (
+        <>
+          <ul>
+            {items.map((id) => (
+              <li key={id}>{id}</li>
+            ))}
+          </ul>
+          <PaginationControl
+            page={page}
+            pageSize={size}
+            total={window.total}
+            totalExact={window.totalExact}
+            noun="nodes"
+            onPageChange={setPage}
+          />
+        </>
+      );
+    }
+    render(<NodeRegister />);
+    expect(screen.getByTestId("pagination-control-summary").textContent).toBe(
+      "nodes 1 to 3 of 7",
+    );
+    const nav = screen.getByRole("navigation", { name: "Nodes pagination" });
+    fireEvent.keyDown(nav, { key: "End" });
+    expect(screen.getByTestId("pagination-control-summary").textContent).toBe(
+      "nodes 7 to 7 of 7",
+    );
+    expect(screen.getByText("n006")).toBeDefined();
+    expect(screen.queryByText("n000")).toBeNull();
   });
 });
 
@@ -1258,6 +1693,83 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(csv.split("\n").length).toBeGreaterThan(3);
   });
 
+  it("derived properties carry their provenance (guide: Derived properties carry their provenance)", () => {
+    const ugm = new UGM();
+    ugm.addNode("pump-1", { types: ["Asset"], properties: { risk: 0.4 } });
+    ugm.addNode("pump-2", { types: ["Asset"], properties: { risk: 0.9 } });
+
+    const engine = new DerivedPropertyEngine();
+    engine.define({
+      name: "riskScore",
+      expression: "risk * 100",
+      reactive: false,
+    });
+    engine.compute(ugm);
+
+    const stamp = ugm.getDerivation("pump-1", "riskScore");
+    expect(stamp).toMatchObject({
+      definitionId: "riskScore",
+      version: 1,
+      expression: "risk * 100",
+    });
+    expect(stamp?.computedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(ugm.getDerivation("pump-1", "risk")).toBeUndefined();
+    expect(ugm.listDerivations()).toHaveLength(2);
+    expect(ugm.listDerivations("pump-2")).toHaveLength(1);
+
+    // The value is a plain property; only the sidecar knows it is derived.
+    expect(ugm.getNode("pump-1")?.properties.riskScore).toBeCloseTo(40);
+
+    // Snapshot round-trip (version 2) keeps the stamp; a pre-2 snapshot loads.
+    const snapshot = ugm.toJSON();
+    expect(snapshot.version).toBe(2);
+    expect(UGM.fromJSON(snapshot).getDerivation("pump-1", "riskScore")).toEqual(
+      stamp,
+    );
+    const legacy = UGM.fromJSON({
+      nodes: snapshot.nodes,
+      edges: snapshot.edges,
+    });
+    expect(legacy.nodeCount).toBe(2);
+    expect(legacy.listDerivations()).toEqual([]);
+
+    // A changed rule leaves the old values stale until recomputed.
+    engine.define({
+      name: "riskScore",
+      expression: "risk * 1000",
+      reactive: false,
+    });
+    expect(
+      engine
+        .listStale(ugm)
+        .map((r) => r.nodeId)
+        .sort(),
+    ).toEqual(["pump-1", "pump-2"]);
+    engine.recompute(ugm, "riskScore");
+    expect(engine.listStale(ugm)).toEqual([]);
+    expect(ugm.getDerivation("pump-1", "riskScore")?.version).toBe(2);
+
+    // A source write clears the stamp.
+    ugm.updateNodeProperties("pump-2", { riskScore: 1 });
+    expect(ugm.getDerivation("pump-2", "riskScore")).toBeUndefined();
+
+    // The JSON export carries it; CSV does not.
+    const doc = JSON.parse(exportSubgraphJson(ugm)) as {
+      nodes: Array<{
+        id: string;
+        derivations?: Record<string, { definitionId: string }>;
+      }>;
+    };
+    expect(
+      doc.nodes.find((n) => n.id === "pump-1")?.derivations?.riskScore
+        ?.definitionId,
+    ).toBe("riskScore");
+    expect(
+      doc.nodes.find((n) => n.id === "pump-2")?.derivations,
+    ).toBeUndefined();
+    expect(exportSubgraphCsv(ugm)).not.toContain("computedAt");
+  });
+
   it("applyEncodingSpec resolves a spec into per-element visual patches", () => {
     const ugm = tinyGraph();
     const patch = applyEncodingSpec(
@@ -1338,5 +1850,105 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(fit.mock.calls.length + animate.mock.calls.length).toBeGreaterThan(
       0,
     );
+  });
+});
+
+describe("wiring guide: set deployment working-set limits", () => {
+  const deploymentConfigText = JSON.stringify({
+    version: 1,
+    limits: {
+      canvas: { default: 300, ceiling: 800 },
+      tree: { ceiling: 2000 },
+      matrix: { default: 3 },
+    },
+  });
+
+  function ringOfTypes(n: number): UGM {
+    const ugm = new UGM();
+    for (let i = 0; i < n; i++) {
+      ugm.addNode(`n${i}`, { types: [`T${i}`], properties: {} });
+    }
+    for (let i = 0; i < n; i++) {
+      ugm.addEdge(`n${i}`, `n${(i + 1) % n}`, { type: "next" });
+    }
+    return ugm;
+  }
+
+  it("R7.7: the administrator's 300 canvas limit applies through the provider", () => {
+    const manager = WorkingSetManager.fromConfig(
+      parseWorkingSetConfig(deploymentConfigText),
+    );
+    let seen: WorkingSetManager | null = null;
+    function Probe() {
+      seen = useWorkingSetManager();
+      return null;
+    }
+    render(
+      <WorkingSetProvider manager={manager}>
+        <Probe />
+        <MatrixView ugm={ringOfTypes(5)} />
+      </WorkingSetProvider>,
+    );
+    expect(seen).toBe(manager);
+    expect(manager.getLimit("canvas")).toBe(300);
+    expect(manager.checkLimit("canvas", 301).allowed).toBe(false);
+    // The matrix read its limit from the same document: it pages at 3
+    // per axis (#6 replaced the truncation notice with paging).
+    expect(
+      screen.getByTestId("matrix-rows-pagination-summary").textContent,
+    ).toBe("rows 1 to 3 of 5");
+  });
+
+  it("the explicit action to exceed: a prompt under the ceiling, a refusal above it", () => {
+    const manager = WorkingSetManager.fromConfig(
+      parseWorkingSetConfig(deploymentConfigText),
+    );
+    function ShowAllNotice({ requested }: { requested: number }) {
+      const mgr = useWorkingSetManager();
+      const notice = workingSetLimitMessage(mgr, "canvas", requested);
+      if (notice.kind === "within") return null;
+      if (notice.kind === "refused") {
+        return <p role="status">{notice.message}</p>;
+      }
+      return (
+        <p role="status">
+          {notice.message}{" "}
+          <button onClick={() => mgr.setUserOverride("canvas", requested)}>
+            Show all
+          </button>
+        </p>
+      );
+    }
+    const { rerender } = render(
+      <WorkingSetProvider manager={manager}>
+        <ShowAllNotice requested={650} />
+      </WorkingSetProvider>,
+    );
+    expect(screen.getByRole("status").textContent).toMatch(/Show all\?/);
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(manager.getLimit("canvas")).toBe(650);
+
+    rerender(
+      <WorkingSetProvider manager={manager}>
+        <ShowAllNotice requested={801} />
+      </WorkingSetProvider>,
+    );
+    expect(screen.getByRole("status").textContent).toMatch(
+      /exceeds this deployment's canvas ceiling of 800/,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(manager.canRaise("canvas", 801)).toMatchObject({
+      ok: false,
+      reason: "above-ceiling",
+    });
+    expect(manager.getCeiling("canvas")).toBe(800);
+  });
+
+  it("a malformed document fails at setup with the shared typed error", () => {
+    expect(() =>
+      parseWorkingSetConfig(
+        JSON.stringify({ version: 1, limits: { canvass: { ceiling: 1 } } }),
+      ),
+    ).toThrow(/unknown view type "canvass"/);
   });
 });

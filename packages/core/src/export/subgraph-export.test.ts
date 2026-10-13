@@ -174,3 +174,47 @@ describe("stable edge ids in the export (issue #31)", () => {
     expect(exportSubgraphCsv(ugm)).toContain("host:a-b,a,b,feeds");
   });
 });
+
+describe("subgraph export: derivation stamps (issue #17)", () => {
+  const stamp = {
+    definitionId: "pressureBar",
+    version: 1,
+    computedAt: "2026-10-13T00:00:00.000Z",
+    expression: "pressure / 1.01325",
+  };
+
+  it("JSON carries each exported node's stamps; nodes without any have no field", () => {
+    const ugm = graph();
+    ugm.updateNodeProperties("a", { pressureBar: 4.14 });
+    ugm.setDerivation("a", "pressureBar", stamp);
+    const json = JSON.parse(
+      exportSubgraphJson(ugm, { nodeIds: ["a", "c"] }),
+    ) as {
+      version: number;
+      nodes: Array<{
+        id: string;
+        properties: Record<string, unknown>;
+        derivations?: unknown;
+      }>;
+    };
+    expect(json.version).toBe(1);
+    const a = json.nodes.find((n) => n.id === "a");
+    const c = json.nodes.find((n) => n.id === "c");
+    expect(a?.derivations).toEqual({ pressureBar: stamp });
+    // The value is still a plain property beside its stamp.
+    expect(a?.properties.pressureBar).toBe(4.14);
+    expect(c).toBeDefined();
+    expect("derivations" in (c ?? {})).toBe(false);
+  });
+
+  it("CSV is unchanged: the value appears, the stamp does not", () => {
+    const ugm = graph();
+    ugm.updateNodeProperties("a", { pressureBar: 4.14 });
+    ugm.setDerivation("a", "pressureBar", stamp);
+    const csv = exportSubgraphCsv(ugm, { nodeIds: ["a"] });
+    expect(csv.split("\n")[0]).toBe("id,types,name,pressure,pressureBar");
+    expect(csv).toContain("4.14");
+    expect(csv).not.toContain("derivation");
+    expect(csv).not.toContain("computedAt");
+  });
+});

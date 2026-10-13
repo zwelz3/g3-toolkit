@@ -14,6 +14,7 @@ import {
   fireEvent,
   cleanup,
   act,
+  within,
 } from "@testing-library/react";
 import type { UGM } from "@g3-toolkit/core";
 
@@ -53,7 +54,15 @@ vi.mock("@g3-toolkit/react", async (importOriginal) => {
 
 import { AuditShell } from "./AuditShell";
 import { buildProvenance } from "./model";
-import { provenanceEvents, timeBounds, hiddenForRange } from "./timeline";
+import {
+  provenanceEvents,
+  timeBounds,
+  hiddenForRange,
+  provenanceReport,
+} from "./timeline";
+import { provenanceShapes } from "./shapes";
+import { provenanceChainFor } from "./chain";
+import { describeSelection } from "./announce";
 import { useSelectionStore, useOverlayStore } from "@g3-toolkit/react";
 
 beforeEach(() => {
@@ -191,5 +200,163 @@ describe("AuditShell slider-to-graph wiring", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * Issue #16: what the screen-reader live region receives. Debounce is
+ * 300 ms on the companion, so each case advances fake timers past it;
+ * the expected strings are computed from a fresh fixture through the
+ * same pure formatters, and literal fragments pin the wording.
+ */
+describe("AuditShell screen-reader narration (#16)", () => {
+  const live = () => screen.getByTestId("aria-live-region").textContent;
+  const settle = () =>
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("names the canvas region and describes it as decorative with the way to the list", () => {
+    render(<AuditShell onBack={() => {}} />);
+    const region = screen.getByRole("main", { name: "Provenance graph" });
+    const descId = region.getAttribute("aria-describedby");
+    expect(descId).toBe("au-canvas-instructions");
+    expect(document.getElementById(descId!)?.textContent).toContain(
+      "decorative for assistive technology",
+    );
+    const list = screen.getByRole("listbox", { name: "Provenance nodes" });
+    expect(
+      document.getElementById(list.getAttribute("aria-describedby")!)
+        ?.textContent,
+    ).toContain("follows a provenance edge");
+  });
+
+  it("announces the selection with directed PROV-O edge counts and SHACL standing", () => {
+    const ugm = buildProvenance();
+    const report = provenanceReport(ugm, provenanceShapes);
+    render(<AuditShell onBack={() => {}} />);
+    expect(live()).toBe("");
+    act(() => {
+      useSelectionStore.getState().selectNodes(["ent:release"]);
+    });
+    // Debounced: nothing until the window elapses.
+    expect(live()).toBe("");
+    settle();
+    expect(live()).toBe(describeSelection(ugm, "ent:release", report));
+    expect(live()).toContain("Signed approval, Entity");
+    expect(live()).toMatch(/\d+ incoming and \d+ outgoing provenance edges/);
+    expect(live()).toContain("no SHACL findings");
+  });
+
+  it("clicking a SHACL finding announces the count and worst severity", () => {
+    render(<AuditShell onBack={() => {}} />);
+    // Hazard log is the planted missing-generation-time violation.
+    fireEvent.click(screen.getAllByText("Hazard log")[0]!);
+    settle();
+    expect(live()).toContain("Hazard log, Entity");
+    expect(live()).toMatch(/\d+ SHACL findings?, worst severity violation/);
+  });
+
+  it("announces the lineage step when a trace opens and when a hop is clicked", () => {
+    render(<AuditShell onBack={() => {}} />);
+    const manager = captured.menuManagers.at(-1)!;
+    const target = {
+      type: "node" as const,
+      id: "ent:release",
+      position: { x: 0, y: 0 },
+    };
+    act(() => {
+      manager
+        .resolve(target)
+        .find((i) => i.label === "Inspect lineage")!
+        .action(target);
+    });
+    settle();
+    const chain = provenanceChainFor(buildProvenance(), "ent:release");
+    expect(live()).toContain(`Lineage step 1 of ${chain.length}: Signed approval`);
+    // Advance: click the second hop in the trace.
+    const second = chain[1]!;
+    fireEvent.click(
+      within(screen.getByTestId("g3t-provenance-trace")).getByText(
+        second.label,
+      ),
+    );
+    settle();
+    expect(live()).toContain(
+      `Lineage step 2 of ${chain.length}: ${second.label}, via ${second.detail}`,
+    );
+  });
+
+  it("an unchanged re-render and a same-node re-selection do not re-announce", () => {
+    const { rerender } = render(<AuditShell onBack={() => {}} />);
+    act(() => {
+      useSelectionStore.getState().selectNodes(["agent:alice"]);
+    });
+    settle();
+    const text = live();
+    expect(text).toContain("Alice Chen, Agent");
+    const node = screen.getByTestId("aria-live-region").firstChild;
+    rerender(<AuditShell onBack={() => {}} />);
+    act(() => {
+      useSelectionStore.getState().selectNodes(["agent:alice"]);
+    });
+    settle();
+    expect(live()).toBe(text);
+    // Same DOM text node: nothing for a screen reader to re-utter.
+    expect(screen.getByTestId("aria-live-region").firstChild).toBe(node);
+  });
+
+  it("a window move announces the window once; play mutes until it stops", () => {
+    const ugm = buildProvenance();
+    const events = provenanceEvents(ugm);
+    const bounds = timeBounds(events);
+    render(<AuditShell onBack={() => {}} />);
+    const start = events
+      .map((e) => e.time)
+      .find((t) => hiddenForRange(ugm, t, bounds.max).size > 0)!;
+    fireEvent.change(screen.getByLabelText("Window start"), {
+      target: { value: String(start) },
+    });
+    settle();
+    expect(live()).toContain("Time window");
+    const hiddenCount = hiddenForRange(ugm, start, bounds.max).size;
+    expect(live()).toContain(
+      `${hiddenCount} node${hiddenCount === 1 ? "" : "s"} hidden`,
+    );
+    const afterMove = live();
+    // Play: the sweep advances the end every 250 ms; the region holds.
+    fireEvent.click(screen.getByTestId("au-play"));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(live()).toBe(afterMove);
+    // Pause: the latest window commits after the debounce.
+    fireEvent.click(screen.getByTestId("au-play"));
+    settle();
+    expect(live()).not.toBe(afterMove);
+    expect(live()).toContain("Time window");
+  });
+
+  it("the companion list mirrors the canvas hidden set", () => {
+    const ugm = buildProvenance();
+    const events = provenanceEvents(ugm);
+    const bounds = timeBounds(events);
+    render(<AuditShell onBack={() => {}} />);
+    const start = events
+      .map((e) => e.time)
+      .find((t) => hiddenForRange(ugm, t, bounds.max).size > 0)!;
+    const hiddenId = [...hiddenForRange(ugm, start, bounds.max)][0]!;
+    expect(screen.getByTestId(`aria-node-${hiddenId}`)).toBeDefined();
+    fireEvent.change(screen.getByLabelText("Window start"), {
+      target: { value: String(start) },
+    });
+    expect(screen.queryByTestId(`aria-node-${hiddenId}`)).toBeNull();
   });
 });

@@ -7,6 +7,11 @@
  * standing notice states plainly that this executor is a demo subset and a
  * production build should bundle a real engine.
  *
+ * The canvas carries two review opt-ins: a Labels control over the
+ * collision pass (issue #40; "All" is the previous behavior) and an
+ * Explore view that grows a drawn subset one neighborhood at a time
+ * through additive updates (issue #26).
+ *
  * Rendering and interaction are browser-verified; the data behind the tables,
  * charts, and explorer comes from tested pure functions.
  */
@@ -18,6 +23,7 @@ import {
 } from "@g3-toolkit/react";
 import type { EncodingSpec } from "@g3-toolkit/react";
 import { bioGraph, rdfToUgm, rawTripleUgm, shorten } from "./rdf";
+import { expandNeighborhood, induceSubgraph, nodesOfType } from "./explore";
 import { createPresetPipeline } from "@g3-toolkit/core";
 import {
   executeSparql,
@@ -38,12 +44,38 @@ const SPEC: EncodingSpec = {
   node: {
     color: {
       driver: "types",
-      scale: { kind: "categorical", palette: "okabe-ito" },
+      scale: {
+        kind: "categorical",
+        palette: "okabe-ito",
+        // Pinned in the projected graph's encounter order (so nothing
+        // changes in the Projected view): the Explore view starts from
+        // a subset that lacks most classes, and an encounter-order
+        // domain would hand Disease the first slot there and reshuffle
+        // every color as neighborhoods arrive.
+        domain: ["Gene", "Protein", "Disease", "Drug", "Pathway"],
+      },
     },
     label: { driver: "name" },
   },
   edge: { label: { driver: "type" } },
 };
+
+/** The Labels control's values, in display order. "all" is the
+ *  canvas default ("none": every label drawn, the pre-#40 behavior),
+ *  kept so the reviewer can compare against it on the same scene. */
+const LABEL_MODES = [
+  { id: "none", title: "All" },
+  { id: "shorten", title: "Shorten" },
+  { id: "hide", title: "Hide" },
+] as const;
+type LabelMode = (typeof LABEL_MODES)[number]["id"];
+
+type CanvasView = "projected" | "raw" | "explore";
+const CANVAS_VIEWS: { id: CanvasView; title: string }[] = [
+  { id: "projected", title: "Projected" },
+  { id: "raw", title: "Raw triples" },
+  { id: "explore", title: "Explore" },
+];
 
 function cellText(term: Term | undefined): string {
   if (!term) return "";
@@ -59,11 +91,31 @@ export function BioShell({ onBack }: { onBack: () => void }) {
   // first-class nodes); Projected is the LPG view every panel binds to.
   // The caption lists the standard preset's steps via the live pipeline
   // API, so the collapse names on screen come from @g3-toolkit/core, not copy.
-  const [canvasView, setCanvasView] = useState<"projected" | "raw">(
-    "projected",
-  );
+  const [canvasView, setCanvasView] = useState<CanvasView>("projected");
   const rawUgm = useMemo(() => rawTripleUgm(bioGraph), []);
-  const canvasUgm = canvasView === "raw" ? rawUgm : ugm;
+
+  // Explore view (the demo opt-in for additive graph updates, issue
+  // #26). The drawn graph is the subgraph of the projected UGM induced
+  // by `drawn`, seeded with the diseases (no edges among them, so the
+  // first expansions show the seeding plainly). Expand adds the
+  // selected node's neighborhood; each step is a superset ugm with
+  // stable edge ids, which is what lets the canvas grow the instance
+  // in place instead of re-laying it out. Reset shrinks the set, so it
+  // takes the ordinary rebuild path on purpose. The subset is only
+  // induced in this view; `graphUpdate` is "additive" only here too,
+  // so the other two views keep their rebuild-on-switch behavior.
+  const seed = useMemo(() => nodesOfType(ugm, "Disease"), [ugm]);
+  const [drawn, setDrawn] = useState<readonly string[]>(seed);
+  const exploreUgm = useMemo(
+    () => (canvasView === "explore" ? induceSubgraph(ugm, drawn) : null),
+    [ugm, drawn, canvasView],
+  );
+  const canvasUgm = canvasView === "raw" ? rawUgm : (exploreUgm ?? ugm);
+
+  // Label collision (issue #40): a canvas restyle pass, so switching
+  // modes never moves a node; the default is "shorten" and "All" is
+  // the previous behavior for comparison on the same scene.
+  const [labelMode, setLabelMode] = useState<LabelMode>("shorten");
   const pipelineSteps = useMemo(
     () =>
       createPresetPipeline("standard")
@@ -115,6 +167,16 @@ export function BioShell({ onBack }: { onBack: () => void }) {
   const select = (ids: string[]) =>
     useSelectionStore.getState().selectNodes(ids);
 
+  // The next explorer step from the current selection, or null when
+  // it would add nothing (nothing selected, or the selected node and
+  // its neighbors are already drawn); the Expand button disables on
+  // null so a click always grows the graph.
+  const nextDrawn = useMemo(() => {
+    if (selectedId === null) return null;
+    const next = expandNeighborhood(ugm, drawn, selectedId);
+    return next === drawn ? null : next;
+  }, [ugm, drawn, selectedId]);
+
   const pickQuery = (id: string) => {
     const q = defaultQueries.find((x) => x.id === id);
     if (!q) return;
@@ -151,33 +213,100 @@ export function BioShell({ onBack }: { onBack: () => void }) {
         </aside>
 
         <main className="bio-canvas-wrap">
-          <div
-            className="bio-view-toggle"
-            role="group"
-            aria-label="Canvas view"
-          >
-            {(["projected", "raw"] as const).map((v) => (
-              <button
-                key={v}
-                className={
-                  canvasView === v ? "bio-view-btn active" : "bio-view-btn"
-                }
-                onClick={() => setCanvasView(v)}
+          <div className="bio-view-toggle">
+            <div
+              className="bio-toggle-row"
+              role="group"
+              aria-label="Canvas view"
+            >
+              {CANVAS_VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className={
+                    canvasView === v.id ? "bio-view-btn active" : "bio-view-btn"
+                  }
+                  onClick={() => setCanvasView(v.id)}
+                >
+                  {v.title}
+                </button>
+              ))}
+              <span className="bio-view-caption" data-testid="bio-view-caption">
+                {canvasView === "explore"
+                  ? `${canvasUgm.getNodeIds().length} of ${ugm.nodeCount} nodes drawn; select a node and Expand: its neighbors join in place, seeded beside it and settled by one fcose pass with the drawn nodes held, camera untouched. Reset rebuilds from the three diseases.`
+                  : `${canvasUgm.getNodeIds().length} nodes · ${
+                      canvasView === "raw"
+                        ? "every triple an edge; literals and rdf:type as nodes"
+                        : `standard projection (${pipelineSteps.join(", ")}); panels always query this view`
+                    }`}
+              </span>
+            </div>
+            <div className="bio-toggle-row">
+              <span
+                className="bio-toggle-group"
+                role="group"
+                aria-label="Labels"
+                title="Label collision: All draws every label (the previous behavior); Shorten truncates a losing label before hiding it; Hide drops it. Compare on the same scene: the pass is a restyle, nothing moves."
               >
-                {v === "projected" ? "Projected" : "Raw triples"}
-              </button>
-            ))}
-            <span className="bio-view-caption" data-testid="bio-view-caption">
-              {canvasUgm.getNodeIds().length} nodes ·{" "}
-              {canvasView === "raw"
-                ? "every triple an edge; literals and rdf:type as nodes"
-                : `standard projection (${pipelineSteps.join(", ")}); panels always query this view`}
-            </span>
+                <span className="bio-toggle-label">Labels</span>
+                {LABEL_MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={
+                      labelMode === m.id
+                        ? "bio-view-btn active"
+                        : "bio-view-btn"
+                    }
+                    onClick={() => setLabelMode(m.id)}
+                  >
+                    {m.title}
+                  </button>
+                ))}
+              </span>
+              {canvasView === "explore" && (
+                <span
+                  className="bio-toggle-group"
+                  role="group"
+                  aria-label="Explore"
+                >
+                  <span className="bio-toggle-label">Explore</span>
+                  <button
+                    type="button"
+                    className="bio-view-btn"
+                    disabled={nextDrawn === null}
+                    title={
+                      selectedId === null
+                        ? "Select a node on the canvas, in the explorer, or from a chart bar"
+                        : nextDrawn === null
+                          ? "The selected node and its neighbors are already drawn"
+                          : "Add the selected node's neighbors to the drawn graph"
+                    }
+                    onClick={() => {
+                      if (nextDrawn !== null) setDrawn(nextDrawn);
+                    }}
+                  >
+                    Expand selected
+                  </button>
+                  <button
+                    type="button"
+                    className="bio-view-btn"
+                    disabled={drawn === seed}
+                    onClick={() => setDrawn(seed)}
+                  >
+                    Reset
+                  </button>
+                </span>
+              )}
+            </div>
           </div>
           <CytoscapeCanvas
             ugm={canvasUgm}
             encodingSpec={SPEC}
             animate={!reducedMotion}
+            labelCollision={labelMode}
+            labelMaxLength={14}
+            graphUpdate={canvasView === "explore" ? "additive" : "rebuild"}
           />
         </main>
 
@@ -234,6 +363,16 @@ export function BioShell({ onBack }: { onBack: () => void }) {
                   mechanism: "encodingSpec",
                   anchor: "drive-the-encoding-from-app-state",
                   how: "colors nodes by rdf:type with the shared categorical palette.",
+                },
+                {
+                  mechanism: "labelCollision",
+                  anchor: "dense-graphs-let-labels-yield-to-each-other",
+                  how: "thins overprinted labels after layout, zoom, drop, selection, and hover; the Labels control compares all, shorten, and hide on the same scene.",
+                },
+                {
+                  mechanism: 'graphUpdate="additive"',
+                  anchor: "grow-a-drawn-graph-without-rebuilding-it",
+                  how: "grows the Explore view one neighborhood at a time in place: new nodes seed beside their neighbors, one fixed-node fcose pass settles them, and the camera holds.",
                 },
               ]}
             />

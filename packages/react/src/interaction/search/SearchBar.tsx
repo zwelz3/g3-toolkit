@@ -12,6 +12,7 @@ import type { FuseResult } from "fuse.js";
 import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 export interface SearchResult {
   matchingIds: string[];
@@ -21,7 +22,13 @@ export interface SearchResult {
 
 export interface SearchBarProps {
   ugm: UGM;
-  onSearchChange: (result: SearchResult) => void;
+  /** Fires on every keystroke with the match set (for a host that dims
+   *  or filters on it). OPTIONAL (issue #18): the common case is the
+   *  bar driving the selection store on an explicit pick, which it
+   *  does regardless of this prop, so callers no longer pass a no-op
+   *  to satisfy it. GraphToolbar's internal SearchBar relies on
+   *  exactly this default. */
+  onSearchChange?: (result: SearchResult) => void;
   /** Fires when the user EXPLICITLY picks a result (dropdown click or
    *  Enter). 12.9: camera moves belong here, not on onSearchChange;
    *  centering the first match on every keystroke made the view jump
@@ -101,7 +108,7 @@ export function SearchBar({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([]);
       setShowDropdown(false);
-      onSearchChangeRef.current({
+      onSearchChangeRef.current?.({
         matchingIds: [],
         nonMatchingIds: [],
         query: "",
@@ -118,7 +125,7 @@ export function SearchBar({
     const allIds: string[] = [];
     ugm.forEachNode((id) => allIds.push(id));
     const nonMatchingIds = allIds.filter((id) => !matchingIds.includes(id));
-    onSearchChangeRef.current({ matchingIds, nonMatchingIds, query });
+    onSearchChangeRef.current?.({ matchingIds, nonMatchingIds, query });
     // Bugfix 11: onSearchChange intentionally NOT in deps - read via
     // ref so inline-lambda callers don't cause infinite loops.
   }, [query, fuse, ugm]);
@@ -162,7 +169,7 @@ export function SearchBar({
   return (
     <div
       data-testid="search-bar"
-      className={className}
+      className={viewClass(className)}
       style={{ position: "relative" }}
     >
       <input

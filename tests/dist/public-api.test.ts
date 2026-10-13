@@ -187,6 +187,25 @@ describe("the component stylesheet styles g3t elements only", () => {
     expect(selectorsOf(css).length).toBeGreaterThan(50);
   });
 
+  it("dist/style.css carries the toolkit text on .g3t-view, the shared view root (#45)", () => {
+    // #24 left size, line-height and ink off the per-element rule (it
+    // would have overridden inline child sizes), which meant a view
+    // whose root was an unclassed inline-styled element inherited the
+    // host's. Every view root now composes `g3t-view`, and this rule
+    // is where the toolkit's text starts. Still scoped: the previous
+    // test keeps asserting there is no body/html/* rule beside it.
+    const css = codeOf(readFileSync(resolve(reactDist, "style.css"), "utf8"));
+    expect(selectorsOf(css)).toContain(".g3t-view");
+    const rule = /\.g3t-view\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/font-size:\s*var\(--g3t-font-md/);
+    expect(rule).toMatch(/line-height:\s*var\(--g3t-line-height/);
+    expect(rule).toMatch(/color:\s*var\(--g3t-text-primary/);
+    // The face, smoothing and border-box rule names the class too, so
+    // a root whose only class is g3t-view is covered by construction.
+    // The minifier drops the attribute quotes, so they are optional here.
+    expect(css).toMatch(/\.g3t-view\s*,\s*\[class\^="?g3t-"?\]/);
+  });
+
   /** The stylesheet with comments removed: prose may NAME @import. */
   function codeOf(css: string): string {
     return css.replace(/\/\*[\s\S]*?\*\//g, "");

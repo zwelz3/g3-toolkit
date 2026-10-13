@@ -20,6 +20,7 @@ import {
 } from "../middleware/middleware";
 import { assertSafeIri, coerceDepth } from "./query-safety";
 import { assertOk } from "./adapter-error";
+import { tripleEdgeKey } from "../projection/triple-edge-key";
 
 /**
  * A single RDF term as it appears in a SPARQL 1.2 JSON results binding.
@@ -236,6 +237,17 @@ export class SparqlAdapter implements GraphAdapter {
     return JSON.parse(response.body) as SparqlResult;
   }
 
+  /**
+   * Resource-object triples become edges keyed by `tripleEdgeKey`
+   * (issue #48), so a host reloading through this adapter sees the
+   * same edge ids per load. A SELECT over a property path, or over a
+   * dataset where the triple sits in more than one named graph, binds
+   * the same triple in several rows; each row used to add a parallel
+   * edge. First occurrence wins and later ones are skipped, the same
+   * treatment a repeated subject gets. The skip is silent: `query`
+   * returns a bare UGM and the adapter has no diagnostics object to
+   * carry a count.
+   */
   private bindingsToUGM(bindings: SparqlBinding[]): UGM {
     const ugm = new UGM();
     const addedNodes = new Set<string>();
@@ -267,7 +279,9 @@ export class SparqlAdapter implements GraphAdapter {
           ugm.addNode(o, { types: ["Resource"], properties: {} });
           addedNodes.add(o);
         }
-        ugm.addEdge(s, o, { type: predLocal });
+        const key = tripleEdgeKey(s, p, o);
+        if (ugm.hasEdge(key)) continue;
+        ugm.addEdge(s, o, { key, type: predLocal });
       } else if (oTerm.type === "triple") {
         // RDF 1.2 triple term (PROV-O fold on rdf:type, quoted triples in
         // general). Preserve subject/predicate/object structure recursively

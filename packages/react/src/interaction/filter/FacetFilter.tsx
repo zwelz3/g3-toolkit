@@ -11,6 +11,7 @@
 import { useState, useMemo, useCallback } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { OKABE_ITO_COLORS } from "../../views/canvas/palette";
+import { viewClass } from "../../theme/view-class";
 
 export interface FacetFilterProps {
   ugm: UGM;
@@ -72,7 +73,7 @@ export function FacetFilter({
 
   return (
     <div
-      className={className}
+      className={viewClass(className)}
       data-testid="facet-filter"
       style={{ padding: "8px 0" }}
     >

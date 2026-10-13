@@ -27,20 +27,65 @@ import {
 
 // ── Gremlin Response Types ──────────────────────────────────────────
 
+/**
+ * An element id as a Gremlin Server may serialize it. Plain strings
+ * and numbers are the untyped GraphSON shape (Cosmos, Neptune); a
+ * GraphSON 2/3 typed value is `{ "@type": "g:Int64", "@value": 5 }`;
+ * JanusGraph wraps its relation ids as `{ "relationId": "4rv-39s-9hx" }`.
+ */
+type GremlinId = string | number | Record<string, unknown>;
+
 interface GremlinVertex {
-  id: string | number;
+  id: GremlinId;
   label: string;
-  properties?: Record<string, Array<{ id?: string | number; value: unknown }>>;
+  properties?: Record<string, Array<{ id?: GremlinId; value: unknown }>>;
 }
 
 interface GremlinEdge {
-  id: string | number;
+  id: GremlinId;
   label: string;
-  inV: string | number;
-  outV: string | number;
+  inV: GremlinId;
+  outV: GremlinId;
   inVLabel?: string;
   outVLabel?: string;
   properties?: Record<string, unknown>;
+}
+
+/**
+ * Stable string form of a Gremlin element id.
+ *
+ * `String(id)` was the previous rule, and for an object id it yields
+ * "[object Object]" for every element, which collapses a whole typed
+ * GraphSON result into one node. The typed wrapper is serialization,
+ * not identity, so it is unwrapped; a JanusGraph relation id is the
+ * string it carries; any other object id (a Cosmos composite, a custom
+ * id type) becomes JSON with its keys sorted, so the order a server
+ * happens to emit the keys in cannot change the id between loads. The
+ * same function names vertices, edges and edge endpoints, which keeps
+ * an edge's `outV` in the same id space as the vertex it refers to.
+ */
+function gremlinIdToString(id: unknown): string {
+  if (typeof id === "string") return id;
+  if (id === null || id === undefined) return "";
+  if (typeof id !== "object") return String(id);
+  const obj = id as Record<string, unknown>;
+  if ("@value" in obj) return gremlinIdToString(obj["@value"]);
+  if (typeof obj.relationId === "string") return obj.relationId;
+  return canonicalJson(obj);
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (typeof value === "object" && value !== null) {
+    const obj = value as Record<string, unknown>;
+    const entries = Object.keys(obj)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`);
+    return `{${entries.join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
 }
 
 interface GremlinResponse {
@@ -201,7 +246,7 @@ export class GremlinAdapter implements GraphAdapter {
 
     for (const item of data) {
       if (this.isVertex(item)) {
-        const id = String(item.id);
+        const id = gremlinIdToString(item.id);
         if (!addedNodes.has(id)) {
           ugm.addNode(id, {
             types: [item.label],
@@ -210,8 +255,15 @@ export class GremlinAdapter implements GraphAdapter {
           addedNodes.add(id);
         }
       } else if (this.isEdge(item)) {
-        const src = String(item.outV);
-        const tgt = String(item.inV);
+        // The edge id is the edge key (issue #48), so a host that
+        // reloads through this adapter sees the same edge ids per
+        // load. A path or repeat traversal returns the same edge once
+        // per path that crosses it; first occurrence wins and later
+        // ones are skipped, the same treatment a repeated vertex gets.
+        const key = gremlinIdToString(item.id);
+        if (ugm.hasEdge(key)) continue;
+        const src = gremlinIdToString(item.outV);
+        const tgt = gremlinIdToString(item.inV);
         // Ensure endpoints exist
         if (!addedNodes.has(src)) {
           ugm.addNode(src, {
@@ -228,6 +280,7 @@ export class GremlinAdapter implements GraphAdapter {
           addedNodes.add(tgt);
         }
         ugm.addEdge(src, tgt, {
+          key,
           type: item.label,
           properties: (item.properties ?? {}) as Record<string, unknown>,
         });
@@ -262,7 +315,7 @@ export class GremlinAdapter implements GraphAdapter {
   }
 
   private extractVertexProperties(vertex: GremlinVertex): PropertyMap {
-    const props: PropertyMap = { name: String(vertex.id) };
+    const props: PropertyMap = { name: gremlinIdToString(vertex.id) };
     if (!vertex.properties) return props;
 
     for (const [key, values] of Object.entries(vertex.properties)) {
@@ -288,7 +341,7 @@ export class GremlinAdapter implements GraphAdapter {
     addedNodes: Set<string>,
     map: Record<string, unknown>,
   ): void {
-    const id = String(map.id ?? "");
+    const id = gremlinIdToString(map.id);
     if (!id) return;
 
     if (!addedNodes.has(id)) {

@@ -170,3 +170,99 @@ describe("Subgraph pinning", () => {
     expect(vf.pinnedNodeIds.size).toBe(2);
   });
 });
+
+// ── Derivation stamps (issue #17) ───────────────────────────────────
+
+describe("DerivedPropertyEngine: provenance stamps (issue #17)", () => {
+  function graph(): UGM {
+    const ugm = new UGM();
+    ugm.addNode("n1", { types: ["X"], properties: { risk: 0.8, score: 60 } });
+    ugm.addNode("n2", { types: ["X"], properties: { risk: 0.3 } });
+    return ugm;
+  }
+
+  it("stamps every value it writes with the definition, version, time and expression", () => {
+    const ugm = graph();
+    const engine = new DerivedPropertyEngine();
+    engine.define({
+      name: "combined",
+      expression: "risk * 100 + score",
+      reactive: false,
+    });
+    engine.compute(ugm);
+
+    const stamp = ugm.getDerivation("n1", "combined");
+    expect(stamp).toMatchObject({
+      definitionId: "combined",
+      version: 1,
+      expression: "risk * 100 + score",
+    });
+    expect(stamp?.computedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    // n2 has no score, so no value was written and nothing is stamped.
+    expect(ugm.getNode("n2")?.properties.combined).toBeUndefined();
+    expect(ugm.getDerivation("n2", "combined")).toBeUndefined();
+    // Source properties are never stamped.
+    expect(ugm.getDerivation("n1", "risk")).toBeUndefined();
+  });
+
+  it("a source write after compute clears the stamp (the value is no longer derived)", () => {
+    const ugm = graph();
+    const engine = new DerivedPropertyEngine();
+    engine.define({ name: "double", expression: "risk * 2", reactive: false });
+    engine.compute(ugm);
+    expect(ugm.getDerivation("n1", "double")).toBeDefined();
+    ugm.updateNodeProperties("n1", { double: 42 });
+    expect(ugm.getDerivation("n1", "double")).toBeUndefined();
+    // Recomputing re-stamps it.
+    engine.compute(ugm);
+    expect(ugm.getDerivation("n1", "double")?.definitionId).toBe("double");
+  });
+
+  it("define bumps the version only when the expression changes; stale stamps are reported", () => {
+    const ugm = graph();
+    const engine = new DerivedPropertyEngine();
+    engine.define({ name: "d", expression: "risk * 2", reactive: false });
+    expect(engine.getVersion("d")).toBe(1);
+    engine.define({ name: "d", expression: "risk * 2", reactive: true });
+    expect(engine.getVersion("d")).toBe(1); // same rule, not a new version
+    engine.compute(ugm);
+    expect(engine.listStale(ugm)).toEqual([]);
+
+    engine.define({ name: "d", expression: "risk * 3", reactive: false });
+    expect(engine.getVersion("d")).toBe(2);
+    const stale = engine.listStale(ugm);
+    expect(stale.map((r) => [r.nodeId, r.property, r.stamp.version])).toEqual([
+      ["n1", "d", 1],
+      ["n2", "d", 1],
+    ]);
+    // The old value is still there, identifiable, until recomputed.
+    expect(ugm.getNode("n1")?.properties.d).toBeCloseTo(1.6);
+
+    engine.recompute(ugm, "d");
+    expect(ugm.getNode("n1")?.properties.d).toBeCloseTo(2.4);
+    expect(ugm.getDerivation("n1", "d")?.version).toBe(2);
+    expect(engine.listStale(ugm)).toEqual([]);
+  });
+
+  it("remove keeps the counter, so a re-defined name continues monotonically", () => {
+    const ugm = graph();
+    const engine = new DerivedPropertyEngine();
+    engine.define({ name: "d", expression: "risk", reactive: false });
+    engine.compute(ugm);
+    engine.remove("d");
+    expect(engine.getVersion("d")).toBeUndefined();
+    // Orphaned, not stale: no current rule to be behind.
+    expect(engine.listStale(ugm)).toEqual([]);
+    expect(ugm.listDerivations("n1")).toHaveLength(1);
+
+    engine.define({ name: "d", expression: "risk + 1", reactive: false });
+    expect(engine.getVersion("d")).toBe(2);
+    expect(engine.listStale(ugm)).toHaveLength(2);
+  });
+
+  it("recompute of an unknown name is a no-op", () => {
+    const ugm = graph();
+    new DerivedPropertyEngine().recompute(ugm, "nope");
+    expect(ugm.listDerivations()).toEqual([]);
+  });
+});

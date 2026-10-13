@@ -81,7 +81,16 @@ const SCENARIOS = [
     // library at all, so growth here is paid by every single adopter.
     // Measured 4.8 KB. Budget 6.0 KB: tight on purpose, because every
     // adopter pays this one and it should be hard to grow quietly.
-    budget: 6 * 1024,
+    // 2026-10-13 (issue #17): 7.4 KB, budget 8.0 KB. The derivation
+    // registry (set/get/list/clear, the clearing hooks in the mutators,
+    // and the version-2 snapshot) is part of the data model, and
+    // `fromJSON` now rejects an unreadable version or a stamp for a
+    // missing node with the typed errors of `model/document-errors.ts`,
+    // which pulls that module (about 1.3 KB) onto the floor. The typed
+    // errors are the versioned-document convention a host handles once;
+    // a plain `Error` would save that 1.3 KB at the cost of the one
+    // snapshot parser that does not answer to `DocumentParseError`.
+    budget: 8 * 1024,
     code: `import { UGM } from "@g3-toolkit/core";\nexport const g = new UGM();\n`,
   },
   {
@@ -89,7 +98,9 @@ const SCENARIOS = [
     label: "UGM + SparqlAdapter",
     // The README quickstart's core half.
     // Measured 11.3 KB.
-    budget: 13 * 1024,
+    // 2026-10-13 (issue #17): 13.9 KB, budget 15.0 KB; the same growth
+    // as core-ugm above, nothing adapter-side changed.
+    budget: 15 * 1024,
     code:
       `import { UGM, SparqlAdapter } from "@g3-toolkit/core";\n` +
       `export const g = new UGM();\n` +
@@ -115,7 +126,14 @@ const SCENARIOS = [
     // Worst case for core: an adopter who imports the barrel and uses
     // everything. Close to publish weight by construction.
     // Measured 141.3 KB.
-    budget: 155 * 1024,
+    // Round 2 (2026-10-13): 155 -> 160. Measured 156.4 KB after the
+    // working-set configuration (#5: WorkingSetConfig validator and the
+    // default/ceiling/override resolution), paging helpers and the
+    // strategy table (#6), the derivation registry and version-2
+    // snapshot (#17) and tripleEdgeKey (#48). All first-party core, all
+    // reachable from the root barrel by construction; the narrower
+    // scenarios above are the ones that measure what an adopter pays.
+    budget: 160 * 1024,
     code: `export * from "@g3-toolkit/core";\n`,
   },
   {

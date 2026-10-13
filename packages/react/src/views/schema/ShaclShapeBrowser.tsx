@@ -19,6 +19,7 @@ import type {
 import { summarizeValidation } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 /** Local name of an IRI for compact display (full IRI via title). */
 function localName(iri: string): string {
@@ -190,7 +191,7 @@ export function ShaclShapeBrowser({
   return (
     <div
       data-testid="shacl-shape-browser"
-      className={className}
+      className={viewClass(className)}
       style={{ fontSize: "var(--g3t-font-sm, 12px)" }}
     >
       {shapes.map((shape) => {

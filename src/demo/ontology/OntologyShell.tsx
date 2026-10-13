@@ -674,7 +674,7 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                   <GraphToolbar
                     key={inferenceOn ? "force" : "hierarchy"}
                     ugm={hierUgm}
-                    cy={viewCore}
+                    core={viewCore}
                     // VR-5: the hierarchy tab mounts breadthfirst
                     // (fcose only when inferred cross-edges are on);
                     // the dropdown now says so.
@@ -750,7 +750,7 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                       >
                         <GraphToolbar
                           ugm={neighborhood}
-                          cy={viewCore}
+                          core={viewCore}
                           // G4 (owner 2026-07-28): the tab now mounts
                           // hierarchic; the dropdown says so.
                           initialLayout="hierarchy"
@@ -834,7 +834,7 @@ export function OntologyShell({ onBack }: { onBack: () => void }) {
                       zIndex: 5,
                     }}
                   >
-                    <GraphToolbar ugm={instUgm} cy={viewCore} />
+                    <GraphToolbar ugm={instUgm} core={viewCore} />
                   </div>
                   <CytoscapeCanvas
                     ugm={instUgm}

@@ -325,7 +325,7 @@ export function AnalyticsDashboard({ className }: AnalyticsDashboardProps) {
             zIndex: 20,
           }}
         >
-          <GraphToolbar ugm={ugm} cy={core} />
+          <GraphToolbar ugm={ugm} core={core} />
         </div>
         <CytoscapeCanvas
           ugm={ugm}

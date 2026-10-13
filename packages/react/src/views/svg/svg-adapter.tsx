@@ -35,6 +35,7 @@ import {
   useElementPointerEvents,
   type ElementPointerHandlers,
 } from "../../interaction/element-pointer-events";
+import { viewClass } from "../../theme/view-class";
 
 export interface SvgSceneNode {
   id: string;
@@ -256,6 +257,7 @@ export function SvgAdapter({
   return (
     <svg
       {...pointerProps}
+      className={viewClass()}
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}

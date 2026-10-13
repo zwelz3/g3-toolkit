@@ -27,6 +27,7 @@ import { useThemeStore } from "../../theme/ThemeManager";
 import { useInspectorSectionStore } from "../../state/inspector-section-store";
 import { resolveFields, type PropertyInspectorSpec } from "./property-spec";
 import { PropertyField } from "./PropertyField";
+import { viewClass } from "../../theme/view-class";
 import "./NodePropertyInspector.css";
 
 export interface NodePropertyInspectorProps {
@@ -152,7 +153,7 @@ export function NodePropertyInspector({
     return (
       <div
         data-testid="node-property-inspector"
-        className={className}
+        className={viewClass(className)}
         style={card}
       >
         <Header
@@ -177,7 +178,11 @@ export function NodePropertyInspector({
     );
   }
 
-  const propsSection = (properties: Record<string, unknown>): ReactNode => {
+  const propsSection = (
+    properties: Record<string, unknown>,
+    // Issue #17: the derivation registry is per node; edges have none.
+    derivedBy?: (key: string) => string | undefined,
+  ): ReactNode => {
     const fields = resolveFields(properties, spec);
     return (
       <CollapsibleSection
@@ -200,6 +205,7 @@ export function NodePropertyInspector({
               editable={mode === "edit" && !f.readOnly}
               accent={accent}
               onChange={(v) => onPropertyChange?.(f.key, v)}
+              derivedBy={derivedBy?.(f.key)}
             />
           ))
         )}
@@ -225,7 +231,10 @@ export function NodePropertyInspector({
       "node",
       selection.id,
       <div style={{ padding: "0 12px 4px" }}>
-        {propsSection(attrs.properties)}
+        {propsSection(
+          attrs.properties,
+          (key) => ugm.getDerivation(selection.id, key)?.definitionId,
+        )}
 
         <CollapsibleSection id="type" title="Type">
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

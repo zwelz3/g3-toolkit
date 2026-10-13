@@ -21,6 +21,8 @@ import { AdapterArgumentError } from "./query-safety";
 import type { HolonicDataset } from "./holonic-adapter";
 import { ingestAlgorithmResults } from "../algorithm-adapter";
 import { bearerAuth } from "../middleware";
+import { exportSubgraphJson } from "../export";
+import { tripleEdgeKey } from "../projection/triple-edge-key";
 
 // GremlinAdapter response type (mirrors internal type)
 interface GremlinResponse {
@@ -885,5 +887,433 @@ describe("GremlinAdapter (M10.5.E2.T3)", () => {
       middleware: [bearerAuth(() => "iam-token")],
     });
     expect(adapter.name).toContain("neptune");
+  });
+});
+
+// ── Stable edge keys from the adapters (issue #48) ─────────────────
+
+/**
+ * #31 made `UGM.addEdge` take a key and `fromJSON` restore it; every
+ * adapter still let graphology generate edge ids, so a host reloading
+ * through an adapter got different ids per load. These tests pin, per
+ * adapter: the source id becomes the edge id, a second load of the
+ * same records yields the same ids, a duplicate source id keeps the
+ * first record and skips the later one without failing the load, and
+ * the snapshot and export paths carry the id through unchanged.
+ */
+describe("adapters pass stable edge keys (issue #48)", () => {
+  const edgeIds = (ugm: UGM): string[] => ugm.toJSON().edges.map((e) => e.id);
+
+  /** Snapshot round-trip and subgraph export both keep the ids. */
+  const expectIdsSurvive = (ugm: UGM, ids: string[]): void => {
+    expect(edgeIds(UGM.fromJSON(ugm.toJSON()))).toEqual(ids);
+    const exported = JSON.parse(exportSubgraphJson(ugm)) as {
+      edges: Array<{ id: string }>;
+    };
+    expect(exported.edges.map((e) => e.id)).toEqual(ids);
+  };
+
+  const installFetcher = (adapter: object, body: unknown): void => {
+    (
+      adapter as unknown as { fetcher: (req: unknown) => Promise<unknown> }
+    ).fetcher = vi.fn(async () => ({
+      status: 200,
+      ok: true,
+      body: JSON.stringify(body),
+      headers: {},
+    }));
+  };
+
+  describe("CypherAdapter", () => {
+    // Neo4j 5 graph format: the legacy `id` is a per-type counter, so
+    // node "0" and relationship "0" both appear; `elementId` carries
+    // the entity-type tag (4 node, 5 relationship). A path query
+    // returns the relationship once per row whose path crosses it.
+    const db = "e1ec3f6a-9d2b-4c1f-8a7e-2f6d1c0b9a84";
+    const nodes = [
+      {
+        id: "0",
+        elementId: `4:${db}:0`,
+        labels: ["Person"],
+        properties: { name: "Alice" },
+      },
+      {
+        id: "1",
+        elementId: `4:${db}:1`,
+        labels: ["Person"],
+        properties: { name: "Bob" },
+      },
+    ];
+    const rel = (props: Record<string, unknown>) => ({
+      id: "0",
+      elementId: `5:${db}:0`,
+      type: "KNOWS",
+      startNode: "0",
+      endNode: "1",
+      properties: props,
+    });
+    const neo4j5 = {
+      results: [
+        {
+          columns: ["path"],
+          data: [
+            {
+              row: [],
+              graph: { nodes, relationships: [rel({ since: 2020 })] },
+            },
+            {
+              row: [],
+              graph: { nodes, relationships: [rel({ since: 1999 })] },
+            },
+          ],
+        },
+      ],
+      errors: [],
+    };
+
+    const load = async (body: unknown): Promise<UGM> => {
+      const adapter = new CypherAdapter(
+        "http://test:7474/db/neo4j/tx",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify(body)),
+        }) as unknown as typeof fetch,
+      );
+      return adapter.query("MATCH path = (n)-[r]->(m) RETURN path");
+    };
+
+    it("keys the edge on the Neo4j 5 elementId, never the legacy id", async () => {
+      const ugm = await load(neo4j5);
+      expect(ugm.hasNode("0")).toBe(true);
+      expect(edgeIds(ugm)).toEqual([`5:${db}:0`]);
+      // The legacy relationship id "0" is also node "0": keying on it
+      // would hand Cytoscape two elements with one id.
+      expect(ugm.hasEdge("0")).toBe(false);
+    });
+
+    it("yields the same edge ids on a second load", async () => {
+      expect(edgeIds(await load(neo4j5))).toEqual(edgeIds(await load(neo4j5)));
+    });
+
+    it("keeps the first row of a relationship repeated across rows", async () => {
+      const ugm = await load(neo4j5);
+      expect(ugm.edgeCount).toBe(1);
+      expect(ugm.getEdge(`5:${db}:0`)?.properties.since).toBe(2020);
+    });
+
+    it("dedupes by legacy id on a 4.x response and keeps generated ids", async () => {
+      const strip = (n: { elementId?: string }) => {
+        const rest = { ...n };
+        delete rest.elementId;
+        return rest;
+      };
+      const neo4j4 = {
+        ...neo4j5,
+        results: neo4j5.results.map((r) => ({
+          ...r,
+          data: r.data.map((d) => ({
+            row: d.row,
+            graph: {
+              nodes: d.graph.nodes.map(strip),
+              relationships: d.graph.relationships.map(strip),
+            },
+          })),
+        })),
+      };
+      const ugm = await load(neo4j4);
+      expect(ugm.edgeCount).toBe(1);
+      expect(ugm.hasEdge("0")).toBe(false);
+    });
+
+    it("survives snapshot and export", async () => {
+      expectIdsSurvive(await load(neo4j5), [`5:${db}:0`]);
+    });
+  });
+
+  describe("GremlinAdapter", () => {
+    const load = async (data: unknown[]): Promise<UGM> => {
+      const adapter = new GremlinAdapter({
+        endpoint: "http://localhost:8182/gremlin",
+      });
+      installFetcher(adapter, {
+        result: { data },
+        status: { code: 200, message: "OK" },
+      });
+      return adapter.query("g.E()");
+    };
+    const edge = (id: unknown, label = "worksAt") => ({
+      id,
+      label,
+      outV: "v1",
+      inV: "v2",
+    });
+
+    it("uses a string edge id as the edge id, stable across loads", async () => {
+      const first = await load([edge("e1")]);
+      expect(edgeIds(first)).toEqual(["e1"]);
+      expect(edgeIds(await load([edge("e1")]))).toEqual(["e1"]);
+    });
+
+    it("unwraps GraphSON typed ids for vertices, edges and endpoints", async () => {
+      const typed = (n: number) => ({ "@type": "g:Int64", "@value": n });
+      const ugm = await load([
+        {
+          id: typed(1),
+          label: "Person",
+          properties: { name: [{ value: "A" }] },
+        },
+        { id: typed(7), label: "knows", outV: typed(1), inV: typed(2) },
+      ]);
+      expect(ugm.getNodeIds().sort()).toEqual(["1", "2"]);
+      expect(ugm.getEdgesBetween("1", "2")).toEqual(["7"]);
+    });
+
+    it("uses the JanusGraph relation id string", async () => {
+      const ugm = await load([
+        edge({
+          "@type": "janusgraph:RelationIdentifier",
+          "@value": { relationId: "4rv-39s-9hx-3bk" },
+        }),
+      ]);
+      expect(edgeIds(ugm)).toEqual(["4rv-39s-9hx-3bk"]);
+    });
+
+    it("stringifies an object id independent of key order", async () => {
+      const a = await load([edge({ pk: "tenant-1", seq: 5 })]);
+      const b = await load([edge({ seq: 5, pk: "tenant-1" })]);
+      expect(edgeIds(a)).toEqual(['{"pk":"tenant-1","seq":5}']);
+      expect(edgeIds(b)).toEqual(edgeIds(a));
+    });
+
+    it("keeps the first of two edges with one id", async () => {
+      const ugm = await load([edge("e1", "first"), edge("e1", "second")]);
+      expect(ugm.edgeCount).toBe(1);
+      expect(ugm.getEdge("e1")?.type).toBe("first");
+    });
+
+    it("survives snapshot and export", async () => {
+      expectIdsSurvive(await load([edge("e1")]), ["e1"]);
+    });
+  });
+
+  describe("RestAdapter", () => {
+    type Rec = { id?: string; from: string; to: string; rel: string };
+    const load = async (edges: Rec[]): Promise<UGM> => {
+      const adapter = new RestAdapter({
+        url: "http://api/graph",
+        mapResponse: (json) => {
+          const body = json as { edges: Rec[] };
+          return {
+            nodes: [
+              { id: "n1", types: ["Person"], properties: {} },
+              { id: "n2", types: ["Org"], properties: {} },
+            ],
+            edges: body.edges.map((e) => ({
+              id: e.id,
+              source: e.from,
+              target: e.to,
+              type: e.rel,
+            })),
+          };
+        },
+      });
+      installFetcher(adapter, { edges });
+      return adapter.query("{}");
+    };
+
+    it("uses the mapped id as the edge id, stable across loads", async () => {
+      const recs = [{ id: "api:42", from: "n1", to: "n2", rel: "worksAt" }];
+      expect(edgeIds(await load(recs))).toEqual(["api:42"]);
+      expect(edgeIds(await load(recs))).toEqual(["api:42"]);
+    });
+
+    it("keeps the first record of a duplicate id and finishes the load", async () => {
+      const ugm = await load([
+        { id: "api:42", from: "n1", to: "n2", rel: "first" },
+        { id: "api:42", from: "n2", to: "n1", rel: "second" },
+        { id: "api:43", from: "n2", to: "n1", rel: "third" },
+      ]);
+      expect(edgeIds(ugm)).toEqual(["api:42", "api:43"]);
+      expect(ugm.getEdge("api:42")?.type).toBe("first");
+    });
+
+    it("still generates ids for a mapping without id", async () => {
+      const ugm = await load([
+        { from: "n1", to: "n2", rel: "worksAt" },
+        { from: "n1", to: "n2", rel: "worksAt" },
+      ]);
+      expect(ugm.edgeCount).toBe(2);
+      const ids = edgeIds(ugm);
+      expect(new Set(ids).size).toBe(2);
+      for (const id of ids) expect(typeof id).toBe("string");
+    });
+
+    it("survives snapshot and export", async () => {
+      expectIdsSurvive(
+        await load([{ id: "api:42", from: "n1", to: "n2", rel: "worksAt" }]),
+        ["api:42"],
+      );
+    });
+  });
+
+  describe("HolonicAdapter", () => {
+    const interior = (
+      edges: Array<{
+        id?: string;
+        source: string;
+        target: string;
+        type: string;
+      }>,
+      portals: Array<{ id: string; label: string }> = [],
+    ): HolonicDataset => ({
+      holons: [
+        {
+          id: "h1",
+          label: "A",
+          types: ["Cell"],
+          properties: {},
+          interiorNodes: [
+            { id: "a", types: ["Signal"], properties: {} },
+            { id: "b", types: ["Signal"], properties: {} },
+          ],
+          interiorEdges: edges,
+          portals: portals.map((p) => ({
+            ...p,
+            sourceHolonId: "h1",
+            targetHolonId: "h2",
+          })),
+        },
+        { id: "h2", label: "B", types: ["Cell"], properties: {}, portals: [] },
+      ],
+    });
+
+    it("uses the interior edge id, stable across projections", async () => {
+      const adapter = new HolonicAdapter(
+        interior([
+          { id: "ie:1", source: "a", target: "b", type: "corroborates" },
+        ]),
+      );
+      const first = await adapter.expandNeighborhood("h1", 1);
+      const second = await adapter.expandNeighborhood("h1", 1);
+      expect(edgeIds(first)).toEqual(["ie:1"]);
+      expect(edgeIds(second)).toEqual(["ie:1"]);
+      expectIdsSurvive(first, ["ie:1"]);
+    });
+
+    it("keeps the first interior edge of a duplicate id", async () => {
+      const adapter = new HolonicAdapter(
+        interior([
+          { id: "ie:1", source: "a", target: "b", type: "first" },
+          { id: "ie:1", source: "b", target: "a", type: "second" },
+        ]),
+      );
+      const ugm = await adapter.expandNeighborhood("h1", 1);
+      expect(ugm.edgeCount).toBe(1);
+      expect(ugm.getEdge("ie:1")?.type).toBe("first");
+    });
+
+    it("still generates ids for interior edges without id", async () => {
+      const adapter = new HolonicAdapter(
+        interior([
+          { source: "a", target: "b", type: "x" },
+          { source: "a", target: "b", type: "x" },
+        ]),
+      );
+      const ugm = await adapter.expandNeighborhood("h1", 1);
+      expect(ugm.edgeCount).toBe(2);
+    });
+
+    it("keys holarchy edges on the portal id, first portal wins", async () => {
+      const adapter = new HolonicAdapter(
+        interior(
+          [],
+          [
+            { id: "portal-1", label: "feeds" },
+            { id: "portal-1", label: "mirror" },
+            { id: "portal-2", label: "shares" },
+          ],
+        ),
+      );
+      const ugm = adapter.projectToLPG();
+      expect(edgeIds(ugm)).toEqual(["portal-1", "portal-2"]);
+      expect(ugm.getEdge("portal-1")?.type).toBe("feeds");
+      expect(edgeIds(adapter.projectToLPG())).toEqual(["portal-1", "portal-2"]);
+      expectIdsSurvive(ugm, ["portal-1", "portal-2"]);
+    });
+  });
+
+  describe("SparqlAdapter", () => {
+    // A SELECT over a property path (what `expandNeighborhood` sends)
+    // binds the same triple in every row whose path crosses it, and so
+    // does a dataset that holds the triple in two named graphs, since
+    // the adapter binds only ?s ?p ?o and never a graph. Each such row
+    // used to add a parallel edge.
+    const uri = (value: string) => ({ type: "uri" as const, value });
+    const alice = "http://ex.org/alice";
+    const bob = "http://ex.org/bob";
+    const knows = "http://ex.org/knows";
+    const likes = "http://ex.org/likes";
+    const rows = {
+      results: {
+        bindings: [
+          { s: uri(alice), p: uri(knows), o: uri(bob) },
+          { s: uri(alice), p: uri(knows), o: uri(bob) },
+          { s: uri(alice), p: uri(likes), o: uri(bob) },
+          // A blank-node subject is a node too; its key must not
+          // collide with it or with any IRI.
+          {
+            s: { type: "bnode" as const, value: "b0" },
+            p: uri(knows),
+            o: uri(alice),
+          },
+        ],
+      },
+    };
+    const expectedIds = [
+      tripleEdgeKey(alice, knows, bob),
+      tripleEdgeKey(alice, likes, bob),
+      tripleEdgeKey("b0", knows, alice),
+    ];
+
+    const load = async (body: unknown): Promise<UGM> => {
+      const adapter = new SparqlAdapter(
+        "http://test/sparql",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify(body)),
+        }) as unknown as typeof fetch,
+      );
+      return adapter.query("SELECT ?s ?p ?o WHERE { ?s ?p ?o }");
+    };
+
+    it("keys each edge on its triple and keeps the first of a repeated row", async () => {
+      const ugm = await load(rows);
+      expect(edgeIds(ugm)).toEqual(expectedIds);
+      expect(ugm.edgeCount).toBe(3);
+      expect(
+        ugm
+          .getEdgesBetween(alice, bob)
+          .map((id) => ugm.getEdge(id)?.type)
+          .sort(),
+      ).toEqual(["knows", "likes"]);
+    });
+
+    it("yields the same edge ids on a second load", async () => {
+      expect(edgeIds(await load(rows))).toEqual(edgeIds(await load(rows)));
+    });
+
+    it("no edge key equals a node id (Cytoscape has one id space)", async () => {
+      const ugm = await load(rows);
+      const nodeIds = new Set(ugm.toJSON().nodes.map((n) => n.id));
+      expect(nodeIds.has("b0")).toBe(true);
+      for (const id of edgeIds(ugm)) {
+        expect(nodeIds.has(id)).toBe(false);
+        expect(id.startsWith("<")).toBe(true);
+      }
+    });
+
+    it("survives snapshot and export", async () => {
+      expectIdsSurvive(await load(rows), expectedIds);
+    });
   });
 });

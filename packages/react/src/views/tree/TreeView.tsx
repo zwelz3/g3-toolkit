@@ -22,9 +22,11 @@ import {
 } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
+import { useWorkingSetManager } from "../../state/working-set-context";
 import type { WorkingSetManager } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 import { EmptyState } from "../../interaction/feedback";
+import { viewClass } from "../../theme/view-class";
 import "./TreeView.css";
 
 export interface TreeViewProps {
@@ -67,7 +69,8 @@ export interface TreeViewProps {
    * the prefix is noise.
    */
   showType?: boolean;
-  /** Working-set manager for limit enforcement. */
+  /** Working-set manager for limit enforcement. Wins over the nearest
+   *  `WorkingSetProvider`; absent both, the module default applies. */
   workingSetManager?: WorkingSetManager;
   className?: string;
 }
@@ -108,6 +111,7 @@ export function TreeView({
   className,
 }: TreeViewProps) {
   const { selectedNodeIds, selectNodes } = useSelectionStore();
+  const workingSet = useWorkingSetManager(workingSetManager);
   // User toggles, NOT the expanded set. A row is expanded when its
   // seed membership XOR its toggle membership holds (see `isExpanded`
   // below). Before issue #36 the row test was
@@ -180,7 +184,7 @@ export function TreeView({
     const rootSet = new Set(roots);
     const visited = new Set<string>();
     let nodeCount = 0;
-    const limit = workingSetManager?.getLimit("tree") ?? 1000;
+    const limit = workingSet.getLimit("tree");
     const isExpanded = (id: string): boolean =>
       seedIds.has(id) !== toggledIds.has(id);
 
@@ -211,7 +215,7 @@ export function TreeView({
     }
 
     return roots.map((r) => build(r, 0));
-  }, [ugm, roots, childrenOf, seedIds, toggledIds, workingSetManager]);
+  }, [ugm, roots, childrenOf, seedIds, toggledIds, workingSet]);
 
   const toggleExpand = useCallback((nodeId: string) => {
     setToggledIds((prev) => {
@@ -370,7 +374,7 @@ export function TreeView({
   return (
     <div
       data-testid="tree-view"
-      className={className}
+      className={viewClass(className)}
       style={{
         fontSize: 13,
         overflow: "auto",

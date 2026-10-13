@@ -18,6 +18,7 @@ import type {
   ShaclValidationResult,
 } from "@g3-toolkit/core";
 import { EmptyState } from "../../interaction/feedback";
+import { viewClass } from "../../theme/view-class";
 
 /**
  * The display-only shape this view reads.
@@ -253,7 +254,7 @@ export function SchemaView({
   return (
     <div
       data-testid="schema-view"
-      className={className}
+      className={viewClass(className)}
       style={{
         padding: 8,
         fontSize: 13,

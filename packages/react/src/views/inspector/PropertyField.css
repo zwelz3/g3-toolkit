@@ -35,6 +35,20 @@
   color: var(--g3t-text-primary, #1a1a1a);
 }
 
+/* Issue #17: a derived value's provenance marker, after the control. */
+.g3t-prop-derived {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+  color: var(--g3t-text-secondary, #495057);
+  background: var(--g3t-bg-secondary, #f1f3f5);
+  border: 1px dashed var(--g3t-border, #ced4da);
+}
+
 .g3t-prop-input {
   font: inherit;
   width: 100%;

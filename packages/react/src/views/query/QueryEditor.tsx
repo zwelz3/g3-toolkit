@@ -10,6 +10,7 @@
 import { useState, useCallback } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import type { GraphAdapter } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 
 export type QueryLanguage = "sparql" | "cypher" | "gql";
 
@@ -69,7 +70,7 @@ export function QueryEditor({
   return (
     <div
       data-testid="query-editor"
-      className={className}
+      className={viewClass(className)}
       style={{ display: "flex", flexDirection: "column", gap: 4, padding: 8 }}
     >
       {/* Language selector */}

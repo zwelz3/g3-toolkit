@@ -41,9 +41,9 @@ CAPS = {
     "R2.12": "in-progress",  # validation callback only; no commit-time SHACL
     "R2.10": "in-progress",  # timeline renders; playback animation absent
     "R2.11": "in-progress",  # serialization only; export formats absent (M10)
-    "R1.4": "in-progress",  # gradient + limit-notice verified; type-pair
-    # selection absent and R7.3 aggregation is truncation-with-notice
-    # (matrix-acceptance.test documents both gaps)
+    "R1.4": "in-progress",  # gradient verified and R7.3 paging landed
+    # (issue #6: rows/columns page independently past 200); type-pair
+    # selection is still absent (matrix-acceptance.test documents it)
     "R1.3": "in-progress",  # colocated map-selection.test verifies the C1
     # signature only; R1.3's own acceptance (tiled basemap, region
     # drawing, measurement) remains unverified per view-acceptance.md

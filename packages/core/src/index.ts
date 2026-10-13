@@ -36,6 +36,8 @@ export type {
   AttributeUpdatePayload,
   SerializedUGM,
   PropertyMap,
+  DerivationStamp,
+  DerivationRecord,
 } from "./ugm";
 
 // ── Adapters ────────────────────────────────────────────────────────
@@ -152,6 +154,10 @@ export type {
   ProjectionStepConfig,
 } from "./projection";
 export { typeCollapse } from "./projection";
+// The id every triple-derived edge gets, from the pipeline and the
+// SPARQL adapter alike, so a host can address an edge by its triple
+// without reading the graph (issue #48).
+export { tripleEdgeKey } from "./projection";
 export { createPresetPipeline } from "./projection";
 export type {
   PresetName,
@@ -284,8 +290,32 @@ export { ComboManager } from "./combo";
 export type { Combo } from "./combo";
 
 // ── Working set (limits per view; D6 logic) ─────────────────────────
-export { WorkingSetManager } from "./working-set-manager";
-export type { ViewType, LimitCheckResult } from "./working-set-manager";
+export {
+  WorkingSetManager,
+  DEFAULT_LIMIT_STRATEGIES,
+  parseWorkingSetConfig,
+  validateWorkingSetConfig,
+} from "./working-set-manager";
+export type {
+  ViewType,
+  LimitCheckResult,
+  LimitStrategy,
+  RaiseAllowed,
+  RaiseRefused,
+  RaiseResult,
+  WorkingSetConfig,
+  WorkingSetViewLimit,
+} from "./working-set-manager";
+
+// ── Paging over query results (issue #6; D6 logic) ──────────────────
+export {
+  pageItems,
+  pageNodes,
+  pageCategories,
+  pageCount,
+  pageIndex,
+} from "./pagination";
+export type { PageWindow, PageRequest, PageResult } from "./pagination";
 
 // ── Undo/redo stack (D6 pure logic; reclassified from @g3-toolkit/react in P3.2) ──
 export { UndoRedoStack } from "./undo-redo";

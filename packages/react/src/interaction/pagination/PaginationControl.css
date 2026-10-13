@@ -1,0 +1,33 @@
+/* PaginationControl: the same row TableView's bar draws (gap 8, 8px
+   vertical padding, muted count pushed to the right), as classes so a
+   host can override the regions. */
+.g3t-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--g3t-space-2, 8px);
+  padding: var(--g3t-space-2, 8px) 0;
+  font-size: var(--g3t-font-md, 13px);
+  color: var(--g3t-text-primary, #1a1a1a);
+}
+
+.g3t-pagination-status {
+  white-space: nowrap;
+}
+
+.g3t-pagination-size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--g3t-space-1, 4px);
+}
+
+.g3t-pagination-size-label {
+  font-size: var(--g3t-font-sm, 12px);
+  color: var(--g3t-text-secondary, #666);
+}
+
+.g3t-pagination-summary {
+  margin-left: auto;
+  color: var(--g3t-text-muted, #888);
+  white-space: nowrap;
+}

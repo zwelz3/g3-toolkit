@@ -42,14 +42,14 @@ removed.
    requirement text: expect gaps; scope them here when found.
 3. **P1 R1.4 Matrix: verification executed (matrix-acceptance.test).**
    Verified: co-occurrence counts with a monotonic gradient (now on
-   the viridis tokens) and a truncation notice replacing the previous
-   silent slice. Two gaps found and scoped, R1.4 stays in-progress:
-   (a) no type-pair selection input ("for two selected node types" in
-   the acceptance text); (b) R7.3's aggregation/pagination is
-   truncation-with-notice, not aggregation. Closing work: a
-   `typeFilter` prop (pair or subset) and aggregate-remainder-into-
-   "other" beyond maxSize; the gap test in the acceptance file flips
-   when the prop lands.
+   the viridis tokens) and, since issue #6, R7.3's paging: a 350x350
+   request opens at 200x200 and rows/columns page independently
+   through the shared PaginationControl (the earlier
+   truncation-with-notice is gone). One gap remains and R1.4 stays
+   in-progress: no type-pair selection input ("for two selected node
+   types" in the acceptance text). Closing work: a `typeFilter` prop
+   (pair or subset); the gap test in the acceptance file flips when
+   the prop lands.
 4. **P1 R1.6 Tree:** 5,000-node containment fixture; first two levels
    render, deeper levels lazy-load on expand (R7.2 boundary asserted
    in the same test).

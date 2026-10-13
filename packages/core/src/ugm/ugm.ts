@@ -11,6 +11,10 @@
  */
 
 import { MultiGraph } from "graphology";
+import {
+  MalformedDocumentError,
+  UnsupportedVersionError,
+} from "../model/document-errors";
 import type {
   NodeAttributes,
   EdgeAttributes,
@@ -23,9 +27,14 @@ import type {
   EdgeEventPayload,
   AttributeUpdatePayload,
   SerializedUGM,
+  DerivationStamp,
+  DerivationRecord,
 } from "./types";
 
 type EventHandler<T> = (payload: T) => void;
+
+/** Snapshot versions `fromJSON` reads; an absent `version` is 1. */
+const SNAPSHOT_VERSIONS: readonly number[] = [1, 2];
 
 export class UGM {
   /** The underlying Graphology MultiGraph. */
@@ -36,6 +45,20 @@ export class UGM {
   private readonly _edgeTypes = new Set<string>();
   private readonly _nodePropertyKeys = new Set<string>();
   private readonly _edgePropertyKeys = new Set<string>();
+
+  /**
+   * Derivation registry (issue #17): node id -> property -> stamp. A
+   * sidecar, not node attributes, so a stamp never becomes a property
+   * (see `DerivationStamp`). Kept in step with the graph by the
+   * mutators below: a removed node drops its stamps, `clear` drops
+   * them all, and a plain write to a stamped property clears that one
+   * stamp, because after a non-derived write the value is no longer
+   * derived.
+   */
+  private readonly _derivations = new Map<
+    string,
+    Map<string, DerivationStamp>
+  >();
 
   /** Typed event listeners. */
   private readonly listeners = new Map<
@@ -86,10 +109,20 @@ export class UGM {
   removeNode(id: string): void {
     const attributes = this.graph.getNodeAttributes(id);
     this.graph.dropNode(id);
+    this._derivations.delete(id);
     this.emit("nodeRemoved", { nodeId: id, attributes });
   }
 
-  /** Update properties on an existing node. Merges with existing. */
+  /**
+   * Update properties on an existing node. Merges with existing.
+   *
+   * This is a SOURCE write as far as the derivation registry is
+   * concerned: every key written here loses its stamp, since whatever
+   * value is there afterwards was not produced by the stamped
+   * definition. `DerivedPropertyEngine` writes through this method too
+   * and re-stamps immediately after, which is the only ordering that
+   * keeps the registry honest without a second, privileged write path.
+   */
   updateNodeProperties(id: string, properties: Record<string, unknown>): void {
     const attrs = this.graph.getNodeAttributes(id);
     const updatedKeys = Object.keys(properties);
@@ -97,6 +130,11 @@ export class UGM {
     this.graph.setNodeAttribute(id, "properties", attrs.properties);
 
     for (const key of updatedKeys) this._nodePropertyKeys.add(key);
+    const stamps = this._derivations.get(id);
+    if (stamps) {
+      for (const key of updatedKeys) stamps.delete(key);
+      if (stamps.size === 0) this._derivations.delete(id);
+    }
 
     this.emit("nodeAttributesUpdated", {
       elementId: id,
@@ -286,6 +324,65 @@ export class UGM {
     };
   }
 
+  // ── Derivation registry (issue #17) ──────────────────────────────
+
+  /**
+   * Record that `property` on `nodeId` currently holds a DERIVED value
+   * written by `stamp.definitionId`. Replaces any earlier stamp for the
+   * pair. The value itself is written through `updateNodeProperties`
+   * first (which clears the old stamp), then stamped.
+   * @throws when the node does not exist
+   */
+  setDerivation(
+    nodeId: string,
+    property: string,
+    stamp: DerivationStamp,
+  ): void {
+    if (!this.graph.hasNode(nodeId)) {
+      throw new Error(
+        `UGM.setDerivation: node "${nodeId}" does not exist in the graph`,
+      );
+    }
+    let stamps = this._derivations.get(nodeId);
+    if (!stamps) {
+      stamps = new Map();
+      this._derivations.set(nodeId, stamps);
+    }
+    stamps.set(property, { ...stamp });
+  }
+
+  /** The stamp for a derived property, or undefined when the value is
+   *  a source value (never derived, or overwritten since). */
+  getDerivation(nodeId: string, property: string): DerivationStamp | undefined {
+    return this._derivations.get(nodeId)?.get(property);
+  }
+
+  /** Every stamp, or the stamps of one node. Insertion order. */
+  listDerivations(nodeId?: string): DerivationRecord[] {
+    const out: DerivationRecord[] = [];
+    const push = (id: string, stamps: Map<string, DerivationStamp>) => {
+      for (const [property, stamp] of stamps) {
+        out.push({ nodeId: id, property, stamp: { ...stamp } });
+      }
+    };
+    if (nodeId !== undefined) {
+      const stamps = this._derivations.get(nodeId);
+      if (stamps) push(nodeId, stamps);
+    } else {
+      for (const [id, stamps] of this._derivations) push(id, stamps);
+    }
+    return out;
+  }
+
+  /** Drop the stamp for one property. The value stays; it is now a
+   *  source value as far as every reader is concerned. */
+  clearDerivation(nodeId: string, property: string): void {
+    const stamps = this._derivations.get(nodeId);
+    if (!stamps) return;
+    stamps.delete(property);
+    if (stamps.size === 0) this._derivations.delete(nodeId);
+  }
+
   // ── Event bus (T3) ───────────────────────────────────────────────
 
   /** Subscribe to a UGM event. Returns an unsubscribe function. */
@@ -341,7 +438,10 @@ export class UGM {
       });
     });
 
-    return { nodes, edges };
+    const derivations = this.listDerivations();
+    return derivations.length > 0
+      ? { version: 2, nodes, edges, derivations }
+      : { version: 2, nodes, edges };
   }
 
   /**
@@ -349,8 +449,22 @@ export class UGM {
    * restored as keys, so a snapshot round-trip keeps every edge id
    * (host-supplied or generated); before issue #31 the restore
    * regenerated them, and an undo step silently renamed every edge.
+   *
+   * Reads versions 1 (no `version` field, or `version: 1`) and 2
+   * (`derivations`); any other version throws `UnsupportedVersionError`
+   * and a stamp naming a node the document does not contain throws
+   * `MalformedDocumentError`, the throwing convention of
+   * `model/document-errors.ts` (a snapshot has no useful partial
+   * reading).
    */
   static fromJSON(data: SerializedUGM): UGM {
+    const version: unknown = data.version;
+    if (
+      version !== undefined &&
+      !SNAPSHOT_VERSIONS.includes(version as number)
+    ) {
+      throw new UnsupportedVersionError("ugm", version, SNAPSHOT_VERSIONS);
+    }
     const ugm = new UGM();
     for (const node of data.nodes) {
       ugm.addNode(node.id, {
@@ -366,14 +480,25 @@ export class UGM {
         ...edge.attributes.meta,
       });
     }
+    (data.derivations ?? []).forEach((record, i) => {
+      if (!ugm.hasNode(record.nodeId)) {
+        throw new MalformedDocumentError({
+          documentKind: "ugm",
+          message: `derivation ${i} names node "${record.nodeId}", which the document does not contain`,
+          path: `/derivations/${i}/nodeId`,
+        });
+      }
+      ugm.setDerivation(record.nodeId, record.property, record.stamp);
+    });
     return ugm;
   }
 
   // ── Utility ──────────────────────────────────────────────────────
 
-  /** Remove all nodes and edges. */
+  /** Remove all nodes, edges and derivation stamps. */
   clear(): void {
     this.graph.clear();
+    this._derivations.clear();
     this.emit("cleared", null);
   }
 }

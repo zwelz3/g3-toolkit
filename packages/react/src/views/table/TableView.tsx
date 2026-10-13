@@ -11,6 +11,16 @@
  * UGM path keeps its behavior and test ids; the rows path reuses the
  * same chrome (sort, filters, column menu, pagination).
  *
+ * Issue #47 (the #39 deferrals that needed no dependency ruling): CSV
+ * export of the filtered rows (`getCsv`, a pure helper, plus an
+ * optional toolbar button), a checklist "values" filter, menu-based
+ * column reorder over TanStack `columnOrder` (host-controllable), and
+ * a cross-column search over the visible columns. The last #47 item,
+ * row virtualization, landed with the maintainer's dependency ruling:
+ * `@tanstack/react-virtual` as a regular dependency beside
+ * `@tanstack/react-table`, opt-in through `virtualize`, active only
+ * past a per-page row threshold so a small table's DOM is unchanged.
+ *
  * @see specs/01-functional-views.md R1.7
  * @see specs/02-functional-interaction.md R2.1, R2.5
  * @see specs/07-ux-defaults-accessibility.md R7.4
@@ -34,13 +44,22 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   flexRender,
+  type Column,
   type ColumnDef,
+  type ColumnOrderState,
+  type OnChangeFn,
   type SortingState,
   type VisibilityState,
   type ColumnFiltersState,
   type PaginationState,
   type Row,
 } from "@tanstack/react-table";
+import {
+  useVirtualizer,
+  defaultRangeExtractor,
+  type Range,
+  type VirtualItem,
+} from "@tanstack/react-virtual";
 import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import type {
@@ -49,6 +68,7 @@ import type {
 } from "../../interaction/context-menu";
 import { ContextMenu } from "../../interaction/context-menu";
 import { Icon } from "../../icons";
+import { viewClass } from "../../theme/view-class";
 
 /** A flat row representation of a UGM node (what `renderCell` sees
  *  on the UGM path: built-in `id` and `types`, then one key per
@@ -74,9 +94,33 @@ export interface DataGridColumn<T> {
    *  returns a non-undefined node takes precedence. */
   render?: (value: unknown, row: T) => ReactNode;
   /** Inline header filter kind. "text" (default) is a substring
-   *  match, "values" a select over the distinct values with counts,
-   *  "range" a numeric min/max pair, "none" no filter. */
+   *  match, "values" a checklist over the distinct values with counts
+   *  (#47: several at once, exact match on the value's string form),
+   *  "range" a numeric min/max pair, "none" no filter (and no
+   *  cross-column search over it either). */
   filter?: "text" | "values" | "range" | "none";
+}
+
+/** CSV export options (#47) for the toolbar button. */
+export interface TableCsvExport {
+  /** Download name; default "table.csv". */
+  filename?: string;
+  /** Replaces the browser download (an anchor with an object URL):
+   *  hosts that save elsewhere, and tests, read the text here. */
+  download?: (csv: string, filename: string) => void;
+}
+
+/** Row virtualization options (#47). */
+export interface TableVirtualize {
+  /** Rows rendered beyond the visible window on each side (default
+   *  10). Also the number of rows rendered before the scroll region
+   *  has been measured (first paint, or an environment without
+   *  layout). */
+  overscan?: number;
+  /** Virtualize only when the CURRENT PAGE holds more rows than this
+   *  (default 150): below it the DOM is exactly the unvirtualized
+   *  table, so small tables keep their row-by-row semantics. */
+  threshold?: number;
 }
 
 /** What a table-wide cell renderer receives, on either path. */
@@ -125,6 +169,26 @@ export interface TableViewProps<T = TableNodeRow> {
    *  older `selectable={false}` is equivalent to "none" and also
    *  drops the context menu. */
   selection?: TableSelection;
+  /** Toolbar "Export CSV" button (#47): the FILTERED rows in the
+   *  current sort, the visible columns in their current order, cell
+   *  values rather than rendered nodes (see `getCsv`). Default off.
+   *  The download is a no-op where `URL.createObjectURL` is absent
+   *  (jsdom) unless `download` is given. */
+  exportCsv?: boolean | TableCsvExport;
+  /** Column order (#47) as TanStack `columnOrder`: column ids first
+   *  in this order, the rest after in definition order. Omit it to
+   *  let the table own the order (the column menu's move buttons
+   *  still report through `onColumnOrderChange`, so a host can
+   *  persist it without controlling it). */
+  columnOrder?: readonly string[];
+  /** Receives the full next order after every move. */
+  onColumnOrderChange?: (order: string[]) => void;
+  /** Cross-column search box (#47) in the toolbar, above the
+   *  per-column filters: a case-insensitive substring match over the
+   *  VISIBLE columns only (hidden and `filter: "none"` columns are
+   *  skipped), on top of the per-column filters. The "N of M" count
+   *  reflects it. Default off, so the chrome is unchanged. */
+  search?: boolean;
   /** Optional menu manager for right-click (R2.1 universality). */
   menuManager?: ContextMenuManager;
   /** Page size (default 50; max working-set limit R7.4 is 10,000).
@@ -152,6 +216,21 @@ export interface TableViewProps<T = TableNodeRow> {
    *  so rows meet the bottom edge and re-fit on resize without a
    *  remount. No-op where ResizeObserver is absent (jsdom). */
   autoPageSize?: boolean;
+  /** Row virtualization (#47) through @tanstack/react-virtual over
+   *  the `g3t-table-scroll` region: once the current page holds more
+   *  rows than `threshold` (default 150), only the rows in and around
+   *  the scroll window are in the DOM, with spacer rows holding the
+   *  table's height so the scrollbar is honest and the sticky header
+   *  stays. Needs a scrolling body: `fill` (or your own height and
+   *  overflow on `.g3t-table-scroll`). `rowHeight` is the size
+   *  estimate when given; otherwise rows are measured as they mount.
+   *  Pagination still applies, so pair it with a large `pageSize`;
+   *  `autoPageSize` is IGNORED while this is set, because it sizes the
+   *  page to the viewport, which is the one thing virtualization makes
+   *  unnecessary. Selection, `renderCell`, filters, search and CSV
+   *  export read the row model, not the DOM, so they are unaffected.
+   *  Default off. */
+  virtualize?: boolean | TableVirtualize;
   /** Display-only formatter for the built-in ID column (review 5.18:
    *  a projection whose node ids are IRIs can show local names while
    *  selection keeps the full id; the cell title carries it). */
@@ -178,17 +257,271 @@ function cellText(v: unknown): string {
   return String(v);
 }
 
-/** Exact-match filter for "values" columns. TanStack's equalsString
- *  lowercases the row value, which throws on numbers; the faceted
- *  select hands back the value's string form, so compare that. */
-function equalsValueString(
+/** Exact-match SET filter for "values" columns (#47). TanStack's
+ *  equalsString lowercases the row value, which throws on numbers;
+ *  the faceted checklist hands back the values' string forms, so
+ *  compare those. The value is the list of ticked strings (an empty
+ *  list matches nothing: "none", then tick a few); a single string
+ *  still works for a host that sets one value. `undefined` is "all"
+ *  and is auto-removed. */
+function includesValueString(
   row: Row<unknown>,
   columnId: string,
   filterValue: unknown,
 ): boolean {
-  return String(row.getValue(columnId)) === String(filterValue);
+  const wanted = Array.isArray(filterValue)
+    ? (filterValue as unknown[])
+    : [filterValue];
+  const actual = String(row.getValue(columnId));
+  return wanted.some((v) => String(v) === actual);
 }
-equalsValueString.autoRemove = (v: unknown) => v === undefined || v === "";
+includesValueString.autoRemove = (v: unknown) => v === undefined || v === "";
+
+/** What the search box stores as TanStack `globalFilter` (#47). The
+ *  searchable column ids travel WITH the query because the filtered
+ *  row model memoizes on `globalFilter` (and column filters and the
+ *  data), not on column visibility: a filter function that consulted
+ *  `column.getIsVisible()` at evaluation time would keep matching on
+ *  a column after it was hidden until the next query edit. The object
+ *  is memoized in the component so identity changes exactly when the
+ *  query or the visible set does. */
+interface SearchFilter {
+  /** Lowercased query. */
+  query: string;
+  /** Visible, searchable column ids. */
+  columnIds: readonly string[];
+}
+
+function searchVisibleColumns(
+  row: Row<unknown>,
+  columnId: string,
+  filterValue: SearchFilter,
+): boolean {
+  if (!filterValue.columnIds.includes(columnId)) return false;
+  const v = row.getValue(columnId);
+  if (v === undefined || v === null) return false;
+  return cellText(v).toLowerCase().includes(filterValue.query);
+}
+
+/** RFC 4180 field: quoted when it holds a quote, a comma, CR or LF,
+ *  with embedded quotes doubled. */
+function csvField(v: unknown): string {
+  const text =
+    v === undefined || v === null
+      ? ""
+      : typeof v === "object"
+        ? JSON.stringify(v)
+        : String(v);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * CSV text (#47) for TanStack rows and columns, RFC 4180: CRLF
+ * records, a header record from each column's header text (its id
+ * when the header is not a string), fields quoted and quote-doubled
+ * only where needed, cell VALUES (`row.getValue`, so null is empty
+ * and objects are JSON) rather than rendered nodes.
+ *
+ * It is pure and headless so a host that owns its own TanStack table
+ * (or wires its own button) can call it; TableView's `exportCsv`
+ * button passes `table.getSortedRowModel().rows` (the filtered rows
+ * in the current sort) and `table.getVisibleLeafColumns()` (column
+ * visibility and order applied).
+ */
+export function getCsv<T>(
+  rows: readonly Row<T>[],
+  columns: readonly Column<T, unknown>[],
+): string {
+  const header = columns.map((c) => {
+    const h = c.columnDef.header;
+    return csvField(typeof h === "string" ? h : c.id);
+  });
+  const records = rows.map((row) =>
+    columns.map((c) => csvField(row.getValue(c.id))).join(","),
+  );
+  return [header.join(","), ...records].join("\r\n") + "\r\n";
+}
+
+/** Browser download through an object URL. Silently a no-op where
+ *  `URL.createObjectURL` is missing (jsdom): the helper above is the
+ *  testable part, this is the browser-only part. */
+function downloadCsv(csv: string, filename: string): void {
+  if (
+    typeof document === "undefined" ||
+    typeof URL === "undefined" ||
+    typeof URL.createObjectURL !== "function"
+  )
+    return;
+  const url = URL.createObjectURL(
+    new Blob([csv], { type: "text/csv;charset=utf-8" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+const SELECT_STYLE = {
+  fontSize: 10,
+  padding: "1px 4px",
+  marginTop: 2,
+  border: "1px solid var(--g3t-border, #dee2e6)",
+} as const;
+
+/** Checklist filter for a "values" column (#47): a button showing the
+ *  current pick opens a popover of checkboxes with per-value counts
+ *  from the faceted row model (so the counts follow the OTHER
+ *  filters and the search), with All/None shortcuts. Closes on
+ *  Escape or an outside pointerdown, like the column menu. The
+ *  filter value is `undefined` for "all" or the list of ticked
+ *  string forms; unticking from "all" materializes the list. */
+function ValuesFilter({
+  column,
+  testId,
+}: {
+  column: Column<unknown, unknown>;
+  testId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const options = [...column.getFacetedUniqueValues()]
+    .map(([v, n]) => [cellText(v), n] as const)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  const raw = column.getFilterValue();
+  const picked: readonly string[] | undefined =
+    raw === undefined || raw === ""
+      ? undefined
+      : Array.isArray(raw)
+        ? raw.map(String)
+        : [String(raw)];
+  const isChecked = (v: string) => picked === undefined || picked.includes(v);
+  const toggle = (v: string) => {
+    const current = picked ?? options.map(([o]) => o);
+    const next = current.includes(v)
+      ? current.filter((x) => x !== v)
+      : [...current, v];
+    column.setFilterValue(next);
+  };
+  const label =
+    picked === undefined
+      ? "All"
+      : picked.length === 0
+        ? "None"
+        : picked.length === 1
+          ? picked[0]
+          : `${picked.length} selected`;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        data-testid={testId}
+        className="g3t-btn g3t-btn-ghost"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+        style={{
+          ...SELECT_STYLE,
+          width: "100%",
+          textAlign: "left",
+          fontWeight: "normal",
+        }}
+      >
+        {label} ▾
+      </button>
+      {open && (
+        <div
+          data-testid={`${testId}-menu`}
+          role="listbox"
+          aria-multiselectable
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            marginTop: 2,
+            zIndex: 100,
+            background: "var(--g3t-bg-primary, white)",
+            border: "1px solid var(--g3t-border, #dee2e6)",
+            borderRadius: 4,
+            padding: 6,
+            boxShadow: "var(--g3t-shadow-md, 0 2px 8px rgba(0,0,0,0.1))",
+            maxHeight: 240,
+            overflow: "auto",
+            minWidth: 140,
+            fontWeight: "normal",
+            fontSize: 11,
+          }}
+        >
+          <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            <button
+              type="button"
+              data-testid={`${testId}-all`}
+              className="g3t-btn g3t-btn-ghost"
+              style={{ fontSize: 10 }}
+              onClick={() => column.setFilterValue(undefined)}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              data-testid={`${testId}-none`}
+              className="g3t-btn g3t-btn-ghost"
+              style={{ fontSize: 10 }}
+              onClick={() => column.setFilterValue([])}
+            >
+              None
+            </button>
+          </div>
+          {options.map(([v, n]) => (
+            <label
+              key={v}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "1px 0",
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                data-testid={`${testId}-option-${v}`}
+                checked={isChecked(v)}
+                onChange={() => toggle(v)}
+              />
+              {v} ({n})
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const EMPTY_ROWS: readonly never[] = [];
 
@@ -199,6 +532,10 @@ export function TableView<T = TableNodeRow>({
   rowId,
   renderCell,
   selection = "store",
+  exportCsv = false,
+  columnOrder: columnOrderProp,
+  onColumnOrderChange,
+  search = false,
   menuManager,
   pageSize = 50,
   density = "comfortable",
@@ -206,6 +543,7 @@ export function TableView<T = TableNodeRow>({
   fill = false,
   rowHeight,
   autoPageSize = false,
+  virtualize = false,
   idFormatter,
   hideBuiltinColumns,
   selectable = true,
@@ -213,6 +551,24 @@ export function TableView<T = TableNodeRow>({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  // #47: column order is controlled from the host when `columnOrder`
+  // is given, internal otherwise; either way every move reports the
+  // full next order so a host can persist without controlling.
+  const [internalOrder, setInternalOrder] = useState<ColumnOrderState>([]);
+  const columnOrder: ColumnOrderState =
+    columnOrderProp !== undefined
+      ? (columnOrderProp as ColumnOrderState)
+      : internalOrder;
+  const handleColumnOrderChange = useCallback<OnChangeFn<ColumnOrderState>>(
+    (updater) => {
+      const next =
+        typeof updater === "function" ? updater(columnOrder) : updater;
+      if (columnOrderProp === undefined) setInternalOrder(next);
+      onColumnOrderChange?.(next);
+    },
+    [columnOrder, columnOrderProp, onColumnOrderChange],
+  );
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const columnMenuRef = useRef<HTMLDivElement>(null);
   // Close the column-visibility menu on an outside click or Escape
@@ -323,9 +679,10 @@ export function TableView<T = TableNodeRow>({
         accessorFn: (row: T) => col.value(row),
         header: col.header,
         enableColumnFilter: kind !== "none",
+        enableGlobalFilter: kind !== "none",
         filterFn:
           kind === "values"
-            ? (equalsValueString as ColumnDef<T>["filterFn"])
+            ? (includesValueString as ColumnDef<T>["filterFn"])
             : kind === "range"
               ? "inNumberRange"
               : "includesString",
@@ -372,8 +729,25 @@ export function TableView<T = TableNodeRow>({
   const scrollRef = useRef<HTMLDivElement>(null);
   const theadRef = useRef<HTMLTableSectionElement>(null);
   const [measuredPageSize, setMeasuredPageSize] = useState<number | null>(null);
+  // #47: virtualization resolved to its defaults once; null is off.
+  const virtualOptions: Required<TableVirtualize> | null =
+    virtualize === false
+      ? null
+      : {
+          overscan: 10,
+          threshold: 150,
+          ...(virtualize === true ? {} : virtualize),
+        };
+  // autoPageSize fits the page to the viewport; virtualization exists
+  // so the page need not fit. With both set the page would never
+  // exceed the threshold, so the measured page size is not applied
+  // and `pageSize` governs (documented on the prop).
   const measuring =
-    fill && autoPageSize && rowHeight !== undefined && rowHeight > 0;
+    fill &&
+    autoPageSize &&
+    rowHeight !== undefined &&
+    rowHeight > 0 &&
+    virtualOptions === null;
   useEffect(() => {
     if (!measuring) return;
     const el = scrollRef.current;
@@ -388,6 +762,24 @@ export function TableView<T = TableNodeRow>({
   }, [measuring, rowHeight]);
   const effectivePageSize =
     measuring && measuredPageSize !== null ? measuredPageSize : pageSize;
+
+  // #47: the search travels as one object with the visible, searchable
+  // column ids (see SearchFilter for why visibility cannot be read at
+  // evaluation time). `undefined` when empty, so TanStack skips the
+  // global pass entirely.
+  const searchFilter = useMemo<SearchFilter | undefined>(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!search || query === "") return undefined;
+    const columnIds = columns
+      .map((c) => c.id ?? (c as { accessorKey?: string }).accessorKey ?? "")
+      .filter(
+        (id) =>
+          id !== "" &&
+          columnVisibility[id] !== false &&
+          (ugm !== undefined || gridColumnById.get(id)?.filter !== "none"),
+      );
+    return { query, columnIds };
+  }, [search, searchQuery, columns, columnVisibility, ugm, gridColumnById]);
 
   // #21(b): pagination is CONTROLLED state like sorting, visibility
   // and filters, so the pageSize prop stays live. (It was passed
@@ -414,11 +806,26 @@ export function TableView<T = TableNodeRow>({
     data,
     columns,
     getRowId,
-    state: { sorting, columnVisibility, columnFilters, pagination },
+    state: {
+      sorting,
+      columnVisibility,
+      columnFilters,
+      columnOrder,
+      pagination,
+      globalFilter: searchFilter,
+    },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnFiltersChange: setColumnFilters,
+    onColumnOrderChange: handleColumnOrderChange,
     onPaginationChange: setPagination,
+    // The search box owns the query; TanStack never sets it itself.
+    onGlobalFilterChange: () => {},
+    globalFilterFn: searchVisibleColumns as never,
+    // TanStack's default admits only columns whose FIRST row holds a
+    // string or number; the visible/searchable set is decided per
+    // render in `searchFilter` instead.
+    getColumnCanGlobalFilter: () => true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -426,6 +833,32 @@ export function TableView<T = TableNodeRow>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
+
+  // #47: swap a column with its neighbor in the leaf order (hidden
+  // columns included, so the move is visible in the menu's own list).
+  // The full order is written, not a delta, so a controlled host
+  // receives something it can store as-is.
+  const moveColumn = (id: string, delta: -1 | 1) => {
+    const ids = table.getAllLeafColumns().map((c) => c.id);
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    const [moved] = ids.splice(i, 1);
+    ids.splice(j, 0, moved as string);
+    table.setColumnOrder(ids);
+  };
+
+  const csvOptions: TableCsvExport | null =
+    exportCsv === false ? null : exportCsv === true ? {} : exportCsv;
+  const handleExportCsv = () => {
+    if (csvOptions === null) return;
+    const csv = getCsv(
+      table.getSortedRowModel().rows,
+      table.getVisibleLeafColumns(),
+    );
+    const filename = csvOptions.filename ?? "table.csv";
+    (csvOptions.download ?? downloadCsv)(csv, filename);
+  };
 
   // Track last-clicked row index for shift-click range selection
   const lastClickedIndexRef = useRef<number>(-1);
@@ -503,14 +936,165 @@ export function TableView<T = TableNodeRow>({
   const filteredCount = table.getFilteredRowModel().rows.length;
   const noun = ugm !== undefined ? "nodes" : "rows";
 
+  // #47: virtualization is decided per page, on the rendered row
+  // count, so a table that paginates below the threshold renders
+  // exactly what it did before. The hook is unconditional (rules of
+  // hooks) and disabled when inactive, which detaches its observers.
+  const virtualActive =
+    virtualOptions !== null && visibleRows.length > virtualOptions.threshold;
+  // `rowHeight` is the estimate when given (rows then have a fixed
+  // height, so they are not measured); otherwise an estimate per
+  // density that measurement corrects as rows mount.
+  const rowEstimate = rowHeight ?? (density === "compact" ? 22 : 29);
+  // Keyboard focus survives scrolling: a row holding the focused
+  // element (a link or button a `render` put in a cell) stays mounted
+  // however far the window moves, so focus is not dropped to body.
+  // Tracked on the tbody (React focus events bubble) and pinned
+  // through the range extractor, which runs whenever the window moves.
+  const focusedIndexRef = useRef<number | null>(null);
+  const rangeExtractor = useCallback((range: Range) => {
+    const base = defaultRangeExtractor(range);
+    const pinned = focusedIndexRef.current;
+    if (pinned === null || pinned >= range.count || base.includes(pinned))
+      return base;
+    return [...base, pinned].sort((a, b) => a - b);
+  }, []);
+  const virtualizer = useVirtualizer({
+    count: virtualActive ? visibleRows.length : 0,
+    enabled: virtualActive,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => rowEstimate,
+    overscan: virtualOptions?.overscan ?? 0,
+    // Keyed by row id so a measured height follows its row across a
+    // re-sort or a filter change rather than sticking to a slot.
+    getItemKey: (index) => visibleRows[index]?.id ?? index,
+    rangeExtractor,
+  });
+  let virtualItems: readonly VirtualItem[] = [];
+  let virtualTotal = 0;
+  if (virtualActive) {
+    virtualItems = virtualizer.getVirtualItems();
+    virtualTotal = virtualizer.getTotalSize();
+    // Before the scroll region has a measured height (the first
+    // commit, or jsdom, where every box is 0) the virtualizer has no
+    // window and returns nothing. Render the first `overscan` rows
+    // from the estimate instead of an empty body, so the first paint
+    // is not blank and a headless test sees rows.
+    if (virtualItems.length === 0) {
+      const n = Math.min(
+        visibleRows.length,
+        Math.max(1, virtualOptions?.overscan ?? 1),
+      );
+      virtualItems = Array.from({ length: n }, (_, index) => ({
+        key: visibleRows[index]?.id ?? index,
+        index,
+        start: index * rowEstimate,
+        end: (index + 1) * rowEstimate,
+        size: rowEstimate,
+        lane: 0,
+      }));
+    }
+  }
+  // LR-48 filler count (see the filler rows below); in virtual mode it
+  // becomes height on the trailing spacer rather than DOM rows.
+  const fillerCount =
+    table.getPageCount() > 1
+      ? Math.max(0, effectivePageSize - visibleRows.length)
+      : 0;
+  const leafColumnCount = table.getAllLeafColumns().length;
+  const spacerRow = (key: string, height: number) =>
+    height > 0 ? (
+      <tr
+        key={key}
+        aria-hidden
+        data-testid="table-virtual-spacer"
+        style={{ height }}
+      >
+        <td colSpan={leafColumnCount} style={{ padding: 0, border: "none" }} />
+      </tr>
+    ) : null;
+
+  const renderRow = (row: Row<T>, rowIndex: number, virtual?: VirtualItem) => {
+    const id = row.id;
+    const isSelected = isRowSelected(id);
+    return (
+      <tr
+        key={id}
+        data-testid={`table-row-${id}`}
+        data-selected={isSelected ? "true" : undefined}
+        data-index={virtual !== undefined ? virtual.index : undefined}
+        // Measured rows only when no rowHeight fixes them: measuring
+        // is a ResizeObserver per mounted row, which fixed-height rows
+        // do not need.
+        ref={
+          virtual !== undefined && rowHeight === undefined
+            ? virtualizer.measureElement
+            : undefined
+        }
+        onClick={
+          interactive ? (e) => handleRowClick(id, rowIndex, e) : undefined
+        }
+        onContextMenu={
+          selectable ? (e) => handleRowContextMenu(e, id) : undefined
+        }
+        style={{
+          cursor: interactive ? "pointer" : "default",
+          height: rowHeight,
+          // C1 selection signature: accent bar + tinted fill,
+          // geometry from tokens, color from the active theme
+          // (the previous literals were a different blue than
+          // the theme accent entirely).
+          backgroundColor: isSelected
+            ? "color-mix(in srgb, var(--g3t-accent-primary, #0072b2) 10%, transparent)"
+            : undefined,
+          borderLeft: isSelected
+            ? "var(--g3t-selection-bar-width, 3px) solid var(--g3t-accent-primary, #0072b2)"
+            : "var(--g3t-selection-bar-width, 3px) solid transparent",
+        }}
+      >
+        {row.getVisibleCells().map((cell) => {
+          const custom = renderCell?.({
+            columnId: cell.column.id,
+            value: cell.getValue(),
+            row: row.original,
+            rowId: id,
+          });
+          // Issue #17: a derived cell carries the producing
+          // definition's id, so a reader (and a host style) can tell
+          // computed from measured. UGM path only; the rows path has
+          // no registry.
+          const derivedBy = ugm?.getDerivation(
+            id,
+            cell.column.id,
+          )?.definitionId;
+          return (
+            <td
+              key={cell.id}
+              className={
+                derivedBy !== undefined ? "g3t-table-cell-derived" : undefined
+              }
+              data-derived={derivedBy}
+              style={{
+                padding: density === "compact" ? "2px 6px" : "4px 8px",
+                borderBottom: "1px solid #eee",
+              }}
+            >
+              {custom !== undefined
+                ? custom
+                : flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  };
+
   return (
     <div
       // #21(a): a stable class structure so a host can style each
       // region without selecting on test ids; g3t-table-fill is the
       // opt-in layout (packages/react/src/theme/g3t-base.css).
-      className={["g3t-table", fill ? "g3t-table-fill" : "", className ?? ""]
-        .filter((c) => c !== "")
-        .join(" ")}
+      className={viewClass("g3t-table", fill && "g3t-table-fill", className)}
       data-testid="table-view"
       onClick={() => setMenuState(null)}
     >
@@ -576,28 +1160,96 @@ export function TableView<T = TableNodeRow>({
                   ✕
                 </button>
               </div>
-              {table.getAllLeafColumns().map((col) => (
-                <label
+              {table.getAllLeafColumns().map((col, i, all) => (
+                <div
                   key={col.id}
+                  data-testid={`column-menu-row-${col.id}`}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 4,
                     padding: "2px 0",
-                    cursor: selectable ? "pointer" : "default",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={col.getIsVisible()}
-                    onChange={col.getToggleVisibilityHandler()}
-                  />
-                  {String(col.columnDef.header ?? col.id)}
-                </label>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      flex: 1,
+                      cursor: selectable ? "pointer" : "default",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={col.getIsVisible()}
+                      onChange={col.getToggleVisibilityHandler()}
+                    />
+                    {String(col.columnDef.header ?? col.id)}
+                  </label>
+                  {/* #47: reorder lives beside show/hide; the buttons
+                      sit OUTSIDE the label so a click does not also
+                      toggle visibility. */}
+                  <button
+                    type="button"
+                    data-testid={`column-move-left-${col.id}`}
+                    className="g3t-btn g3t-btn-ghost"
+                    aria-label={`Move ${String(col.columnDef.header ?? col.id)} left`}
+                    disabled={i === 0}
+                    onClick={() => moveColumn(col.id, -1)}
+                    style={{ fontSize: 10, padding: "0 3px", lineHeight: 1 }}
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`column-move-right-${col.id}`}
+                    className="g3t-btn g3t-btn-ghost"
+                    aria-label={`Move ${String(col.columnDef.header ?? col.id)} right`}
+                    disabled={i === all.length - 1}
+                    onClick={() => moveColumn(col.id, 1)}
+                    style={{ fontSize: 10, padding: "0 3px", lineHeight: 1 }}
+                  >
+                    ▶
+                  </button>
+                </div>
               ))}
             </div>
           )}
         </div>
+        {/* #47: cross-column search, above the per-column filters. */}
+        {search && (
+          <input
+            data-testid="table-search"
+            className="g3t-input"
+            type="search"
+            aria-label="Search visible columns"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              fontSize: 11,
+              padding: "1px 4px",
+              border: "1px solid var(--g3t-border, #dee2e6)",
+              minWidth: 140,
+            }}
+          />
+        )}
+        {csvOptions !== null && (
+          <button
+            type="button"
+            data-testid="table-export-csv"
+            className="g3t-btn g3t-btn-ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleExportCsv();
+            }}
+            style={{ fontSize: 11, marginLeft: "auto" }}
+          >
+            Export CSV
+          </button>
+        )}
       </div>
 
       <div className="g3t-table-scroll" ref={scrollRef}>
@@ -695,28 +1347,15 @@ export function TableView<T = TableNodeRow>({
                         )}
                       {header.column.getCanFilter() &&
                         filterKind === "values" && (
-                          <select
-                            data-testid={`column-filter-${header.id}`}
-                            className="g3t-select"
-                            value={String(header.column.getFilterValue() ?? "")}
-                            onChange={(e) =>
-                              header.column.setFilterValue(
-                                e.target.value || undefined,
-                              )
+                          <ValuesFilter
+                            column={
+                              header.column as unknown as Column<
+                                unknown,
+                                unknown
+                              >
                             }
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ ...filterInputStyle, width: "100%" }}
-                          >
-                            <option value="">All</option>
-                            {[...header.column.getFacetedUniqueValues()]
-                              .map(([v, n]) => [cellText(v), n] as const)
-                              .sort((a, b) => a[0].localeCompare(b[0]))
-                              .map(([v, n]) => (
-                                <option key={v} value={v}>
-                                  {v} ({n})
-                                </option>
-                              ))}
-                          </select>
+                            testId={`column-filter-${header.id}`}
+                          />
                         )}
                       {header.column.getCanFilter() &&
                         filterKind === "range" &&
@@ -761,66 +1400,55 @@ export function TableView<T = TableNodeRow>({
               </tr>
             ))}
           </thead>
-          <tbody>
-            {visibleRows.map((row, rowIndex) => {
-              const id = row.id;
-              const isSelected = isRowSelected(id);
-              return (
-                <tr
-                  key={id}
-                  data-testid={`table-row-${id}`}
-                  data-selected={isSelected ? "true" : undefined}
-                  onClick={
-                    interactive
-                      ? (e) => handleRowClick(id, rowIndex, e)
-                      : undefined
-                  }
-                  onContextMenu={
-                    selectable ? (e) => handleRowContextMenu(e, id) : undefined
-                  }
-                  style={{
-                    cursor: interactive ? "pointer" : "default",
-                    height: rowHeight,
-                    // C1 selection signature: accent bar + tinted fill,
-                    // geometry from tokens, color from the active theme
-                    // (the previous literals were a different blue than
-                    // the theme accent entirely).
-                    backgroundColor: isSelected
-                      ? "color-mix(in srgb, var(--g3t-accent-primary, #0072b2) 10%, transparent)"
-                      : undefined,
-                    borderLeft: isSelected
-                      ? "var(--g3t-selection-bar-width, 3px) solid var(--g3t-accent-primary, #0072b2)"
-                      : "var(--g3t-selection-bar-width, 3px) solid transparent",
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const custom = renderCell?.({
-                      columnId: cell.column.id,
-                      value: cell.getValue(),
-                      row: row.original,
-                      rowId: id,
-                    });
-                    return (
-                      <td
-                        key={cell.id}
-                        style={{
-                          padding:
-                            density === "compact" ? "2px 6px" : "4px 8px",
-                          borderBottom: "1px solid #eee",
-                        }}
-                      >
-                        {custom !== undefined
-                          ? custom
-                          : flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                      </td>
+          <tbody
+            onFocus={
+              virtualActive
+                ? (e) => {
+                    const tr = (e.target as HTMLElement).closest(
+                      "tr[data-index]",
                     );
-                  })}
-                </tr>
-              );
-            })}
+                    const index = tr?.getAttribute("data-index");
+                    focusedIndexRef.current =
+                      index === null || index === undefined
+                        ? null
+                        : Number(index);
+                  }
+                : undefined
+            }
+            onBlur={
+              virtualActive
+                ? () => {
+                    focusedIndexRef.current = null;
+                  }
+                : undefined
+            }
+          >
+            {virtualActive
+              ? // #47: only the windowed rows, with spacer rows holding
+                // the height of everything else (a gap before the
+                // first row, between non-adjacent rows when a focused
+                // row is pinned, and after the last one, the filler
+                // height folded in). Real <tr> elements, so the table
+                // keeps its semantics and the sticky header its
+                // scrolling context.
+                virtualItems.flatMap((item, i) => {
+                  const row = visibleRows[item.index];
+                  if (row === undefined) return [];
+                  const prevEnd = i === 0 ? 0 : (virtualItems[i - 1]?.end ?? 0);
+                  const out = [
+                    spacerRow(`gap-${item.index}`, item.start - prevEnd),
+                    renderRow(row, item.index, item),
+                  ];
+                  if (i === virtualItems.length - 1)
+                    out.push(
+                      spacerRow(
+                        "gap-end",
+                        virtualTotal - item.end + fillerCount * rowEstimate,
+                      ),
+                    );
+                  return out;
+                })
+              : visibleRows.map((row, rowIndex) => renderRow(row, rowIndex))}
             {/* LR-48 (owner review 2026-07-22): the last page has fewer
                 rows, so the grid (and the Prev/Next controls under it)
                 jumped height on every page change, making the buttons a
@@ -832,10 +1460,8 @@ export function TableView<T = TableNodeRow>({
                 // Fillers only when the data actually paginates: a
                 // single-page table has no jump to prevent (and a huge
                 // pageSize would otherwise render thousands of fillers).
-                length:
-                  table.getPageCount() > 1
-                    ? Math.max(0, effectivePageSize - visibleRows.length)
-                    : 0,
+                // In virtual mode the height rides on the end spacer.
+                length: virtualActive ? 0 : fillerCount,
               },
               (_, i) => (
                 <tr
@@ -845,7 +1471,7 @@ export function TableView<T = TableNodeRow>({
                   style={{ height: rowHeight }}
                 >
                   <td
-                    colSpan={table.getAllLeafColumns().length}
+                    colSpan={leafColumnCount}
                     style={{
                       padding: density === "compact" ? "2px 6px" : "6px 8px",
                       border: "none",

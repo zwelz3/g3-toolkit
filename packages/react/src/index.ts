@@ -118,6 +118,8 @@ export { SearchBar } from "./interaction/search/SearchBar";
 export type { SearchBarProps } from "./interaction/search/SearchBar";
 export * from "./interaction/toolbar";
 export * from "./interaction/camera";
+export * from "./interaction/overlay";
+export * from "./interaction/pagination";
 export * from "./interaction/context-menu";
 export {
   registerToolkitActions,

@@ -37,6 +37,7 @@ import {
   shortenPolyline,
   type UmlEdgeKind,
 } from "../canvas/structural-edge-overlay";
+import { viewClass } from "../../theme/view-class";
 
 export interface StructuralSvgTheme {
   background: string;
@@ -674,6 +675,7 @@ export function StructuralSvgView({
 
   return (
     <svg
+      className={viewClass()}
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}

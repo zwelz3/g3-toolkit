@@ -30,6 +30,11 @@ export interface PropertyFieldProps {
   accent: string;
   /** Called with the coerced new value when an editable widget changes. */
   onChange?: (value: unknown) => void;
+  /** Issue #17: the id of the definition that produced this value
+   *  (`ugm.getDerivation(nodeId, key)?.definitionId`). Set, the field
+   *  shows a "derived by" marker so a computed value does not read as
+   *  a measured one. */
+  derivedBy?: string;
 }
 
 function asText(value: unknown): string {
@@ -49,6 +54,7 @@ export function PropertyField({
   editable,
   accent,
   onChange,
+  derivedBy,
 }: PropertyFieldProps): ReactNode {
   const emit = (raw: string | boolean) =>
     onChange?.(coerceWidgetValue(widget, raw));
@@ -155,11 +161,23 @@ export function PropertyField({
       className="g3t-prop-field"
       data-testid={`inspector-prop-${fieldKey}`}
       data-widget={widget}
+      data-derived={derivedBy}
     >
       <span className="g3t-prop-label" title={label}>
         {label}
       </span>
-      <span className="g3t-prop-control">{control}</span>
+      <span className="g3t-prop-control">
+        {control}
+        {derivedBy !== undefined && (
+          <span
+            className="g3t-prop-derived"
+            data-testid={`inspector-prop-${fieldKey}-derived`}
+            title={`Derived value, computed by the definition "${derivedBy}"`}
+          >
+            derived by {derivedBy}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

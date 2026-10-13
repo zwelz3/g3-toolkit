@@ -103,11 +103,11 @@ export const SCENARIOS: Scenario[] = [
     title: "Provenance Auditor",
     subtitle: "PROV-O audit trail with SHACL",
     description:
-      "Audit a PROV-O trail of artifacts, activities, and agents. SHACL flags provenance defects as violations and warnings and projects them onto the graph; a timeline lists every generation, start, and end; and a dual-range slider filters both the timeline and the graph to a time window.",
+      "Audit a PROV-O trail of artifacts, activities, and agents. SHACL flags provenance defects as violations and warnings and projects them onto the graph; a timeline lists every generation, start, and end; and a dual-range slider filters both the timeline and the graph to a time window. The canvas is narrated for screen readers: selection, lineage step, SHACL standing, and the time window.",
     accent: "#2dd4bf",
     accentGlow: "rgba(45, 212, 191, 0.15)",
     icon: "◈",
-    tags: ["PROV-O", "SHACL", "timeline slider"],
+    tags: ["PROV-O", "SHACL", "timeline slider", "screen reader"],
   },
   {
     id: "mbse",
@@ -136,7 +136,7 @@ export const SCENARIOS: Scenario[] = [
     title: "Biomedical Knowledge Graph",
     subtitle: "RDF ontology with in-browser SPARQL",
     description:
-      "Query an RDF gene / protein / disease / drug / pathway graph with a curated in-browser SPARQL executor. Browse the class ontology and its object and data properties, run the default queries or edit your own, and see numeric results in a linked bar or scatter panel whose bars select the matching node.",
+      "Query an RDF gene / protein / disease / drug / pathway graph with a curated in-browser SPARQL executor. Browse the class ontology and its object and data properties, run the default queries or edit your own, and see numeric results in a linked bar or scatter panel whose bars select the matching node. The canvas compares label-collision modes on one scene, and its Explore view grows the drawn graph one neighborhood at a time without re-laying it out.",
     accent: "#b17ef0",
     accentGlow: "rgba(177, 126, 240, 0.15)",
     icon: "◉",

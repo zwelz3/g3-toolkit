@@ -33,6 +33,7 @@
  * `retry` fires (see src/demo/Demo.tsx for that pattern).
  */
 import { Component, Fragment, type ErrorInfo, type ReactNode } from "react";
+import { viewClass } from "../../theme/view-class";
 
 export interface ViewErrorFallbackArgs {
   /** What was thrown, normalized: a non-Error throw arrives wrapped. */
@@ -98,7 +99,7 @@ export class ViewErrorBoundary extends Component<
     return (
       <div
         role="alert"
-        className="g3t-view-error"
+        className={viewClass("g3t-view-error")}
         style={{ padding: 16, font: "14px/1.5 system-ui, sans-serif" }}
       >
         <p className="g3t-view-error__message" style={{ margin: "0 0 8px" }}>

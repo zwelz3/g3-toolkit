@@ -78,10 +78,19 @@ your own `SearchBar` beside the toolbar ships two search fields that
 both drive the selection store, which is an easy and confusing
 duplicate. Use one or the other.
 
-**Two names for one handle.** `GraphToolbar` takes the Cytoscape
-instance as `cy`; `Minimap` takes the same instance as `core`. Both
-are the value `onReady` hands you. The inconsistency is real and
-frozen for 1.x, since renaming either is a breaking change.
+**One name for the handle: `core`.** Every component that takes the
+Cytoscape instance `onReady` hands you (`GraphToolbar`, `Minimap`)
+takes it as `core`. `GraphToolbar` shipped it as `cy`; that name is
+still accepted as a deprecated alias through 1.x and is removed in
+the next major, so migrate to `core` when convenient. Resolution is
+`core ?? cy`: when both are supplied, `core` wins. Development builds
+warn once per component when only `cy` is given; production builds
+are silent.
+
+**`SearchBar` needs no callback.** `onSearchChange` is optional; the
+bar drives the selection store on an explicit pick either way (this
+is what `GraphToolbar`'s internal `SearchBar` relies on). Pass it only
+when your host also wants the live match set on every keystroke.
 
 ## Patterns (which components pair, and why)
 
@@ -236,6 +245,33 @@ follow the theme wherever the target is. `injectDesignTokens` (the
 spatial and typographic constants from `@g3-toolkit/core`) is separate
 and still writes to `<html>`; nothing in it changes with the theme
 except the dark shadow set.
+
+### Style the toolkit's text (the `g3t-view` root class)
+
+Every view and panel root carries the class `g3t-view`, composed after
+your own `className` and after the component's own class (`g3t-table`,
+`g3t-minimap`), so selectors on those keep working. `style.css` sets
+the toolkit face, size, line-height and ink on `.g3t-view` and nowhere
+outside it: a view reads in the toolkit face whether or not the host
+imports `style.base.css`, inline sizes inside a view still win, and
+nothing on your page changes. Style the toolkit's text through it,
+with one rule for every view or a scoped one for a region:
+
+```css
+.g3t-view {
+  font-size: 14px;
+}
+.sidebar .g3t-view {
+  font-size: 12px;
+}
+```
+
+```tsx
+import { TableView } from "@g3-toolkit/react";
+
+<TableView ugm={ugm} className="host-table" />;
+// renders <div class="g3t-table host-table g3t-view" ...>
+```
 
 ### Drive the encoding from app state
 
@@ -446,6 +482,81 @@ async function showCommunities(ugm: UGM) {
   // them (color by community) and the legend follows.
 }
 ```
+
+### Step through overlays in order (tiers, phases, time slices)
+
+Overlays are the natural unit for a staged narrative: SHACL severity
+tiers, algorithm phases, time slices, provenance steps. The store has
+no notion of order, so sequencing is a layer over it:
+`useOverlaySequence` holds the index and the transport, and on every
+step it sets active EXACTLY the ids it owns. Every other overlay (a
+path overlay, a tier registered elsewhere) keeps its state before,
+during and after, because the hook merges into `activeIds` rather
+than replacing them. Registration stays yours, and happens before the
+sequence takes the ids:
+
+```tsx
+import {
+  reportFromValidationResults,
+  severityOverlays,
+} from "@g3-toolkit/core";
+import {
+  useOverlayStore,
+  useOverlaySequence,
+  OverlayTransport,
+} from "@g3-toolkit/react";
+import { useEffect, useState } from "react";
+
+// Worst tier last, so the cumulative walk ends on the full picture.
+const TIER_ORDER = ["shacl-info", "shacl-warning", "shacl-violation"];
+
+function SeverityWalkthrough() {
+  const [speedMs, setSpeedMs] = useState(1500);
+  const [loop, setLoop] = useState(false);
+  useEffect(() => {
+    const report = reportFromValidationResults(validationResults);
+    const tiers = severityOverlays(report);
+    for (const overlay of tiers) {
+      useOverlayStore.getState().register(overlay, false);
+    }
+    return () => {
+      for (const overlay of tiers) {
+        useOverlayStore.getState().unregister(overlay.id);
+      }
+    };
+  }, []);
+  // "cumulative": step N shows tiers 0..N; "single" shows only step N.
+  const sequence = useOverlaySequence({
+    ids: TIER_ORDER,
+    mode: "cumulative",
+    speedMs,
+    loop,
+  });
+  // Speed and loop controls render only when wired; drop them (and
+  // showReadout) to reduce the control to prev / play / next.
+  return (
+    <OverlayTransport
+      sequence={sequence}
+      speedMs={speedMs}
+      onSpeedChange={setSpeedMs}
+      loop={loop}
+      onLoopChange={setLoop}
+    />
+  );
+}
+```
+
+`sequence` carries `index`, `length`, `isPlaying`, `play`, `pause`,
+`next`, `prev` and `goTo` for your own controls. Playback runs on
+`setInterval`, cleared on pause and unmount; without `loop` the last
+step holds for one interval and playback pauses. When the sequence
+unmounts (or its `ids` change) it RESTORES the ids it owned to the
+active state they had when it took them, so a tier the reviewer had
+toggled on by hand comes back; it never touches the others. The
+index-to-ids rule is the pure `computeSequenceActiveIds(ids, index,
+mode)`, and `stepSequence(index, direction, length, loop)` is the
+transport arithmetic, both exported for hosts that drive the store
+from their own loop.
 
 ### Add your action to the canvas context menu
 
@@ -803,9 +914,73 @@ const chain: ProvenanceChain = [
 />;
 ```
 
+### Announce graph state to a screen reader
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`;
+demonstrated in the Provenance Auditor shell. A graph canvas is
+opaque to assistive technology, so `AriaCompanion` renders the same
+graph as a hidden, focusable, degree-ordered node list (focus selects,
+arrow right follows an edge) and one polite live region. The host owns
+the wording that only it knows: pass it as `announcement` (here through
+`useAnnouncer`), let the component debounce rapid changes, mute it
+while an animation plays, mirror the canvas `hidden` set so the list
+and the canvas agree, and name the list for your domain:
+
+```tsx
+import { useEffect } from "react";
+import {
+  AriaCompanion,
+  useAnnouncer,
+  useSelectionStore,
+} from "@g3-toolkit/react";
+
+// Your chain, however you derive it (the auditor walks PROV-O edges).
+const chain: string[] = ["ent:release", "act:approve", "ent:review"];
+// The same set you pass to CytoscapeCanvas `hidden`.
+const hidden = new Set<string>();
+
+function Narrated({ playing }: { playing: boolean }) {
+  const selectedId = useSelectionStore(
+    (s) => [...s.selectedNodeIds][0] ?? null,
+  );
+  const { announcement, announce } = useAnnouncer();
+  useEffect(() => {
+    if (selectedId === null) return;
+    const name = String(ugm.getNode(selectedId)?.properties.name);
+    const step = chain.indexOf(selectedId) + 1;
+    announce(
+      step > 0
+        ? `Lineage step ${step} of ${chain.length}: ${name}`
+        : `Selected ${name}`,
+    );
+  }, [selectedId, announce]);
+  return (
+    <AriaCompanion
+      ugm={ugm}
+      hidden={hidden}
+      label="Provenance nodes"
+      instructions="Focusing a node selects it on the canvas; arrow right follows an edge."
+      summarizeNode={(g, id) =>
+        `${String(g.getNode(id)?.properties.name)}, ${g.getNodeEdges(id).length} provenance edges`
+      }
+      announcement={announcement}
+      announceDebounceMs={300}
+      muted={playing}
+    />
+  );
+}
+```
+
+The region only speaks on a DOM change, so an unchanged re-render and
+a repeated identical message are silent by construction. Give the
+canvas region itself an accessible name (`aria-label` on the element
+that wraps the canvas) and a one-line `aria-describedby` saying the
+canvas is decorative and how to reach the list. `useAnnounce` (the
+older export) is deprecated: it never reached a region.
+
 ## Table view recipes
 
-Both run under CI in `examples/wiring/src/wiring-examples.test.tsx`
+All of these run under CI in `examples/wiring/src/wiring-examples.test.tsx`
 ("table view recipes" describe).
 
 ### Table without a UGM
@@ -815,7 +990,7 @@ from the property registry), but tabular data that is not a graph
 (SPARQL SELECT bindings, a named-graph register, a validation-result
 list) does not need converting first. Pass `rows` and `columns`; a
 column names a `value` reader, optionally a `render`, and an inline
-filter kind (`"text"` default, `"values"` for a select over the
+filter kind (`"text"` default, `"values"` for a checklist over the
 distinct values with counts, `"range"` for a numeric min/max,
 `"none"`). `renderCell` is a table-wide override on either path
 (return `undefined` to fall back to the column). `selection` decides
@@ -858,8 +1033,76 @@ function Register({ rows }: { rows: Binding[] }) {
 }
 ```
 
-Not in this slice: virtualization past a few hundred rows (pagination
-is the scaling lever) and CSV export of the filtered rows.
+### Export, search, reorder, multi-value filters
+
+Four toolbar affordances, each off by default so the chrome you have
+does not change. `exportCsv` adds an "Export CSV" button that writes
+the FILTERED rows in the current sort, the visible columns in their
+current order, as RFC 4180 text from cell values (not rendered
+nodes); pass `{ filename, download }` to name the file or to replace
+the browser download with your own sink. `search` adds one box above
+the per-column filters: a case-insensitive substring match over the
+VISIBLE columns only (hidden columns and `filter: "none"` columns are
+skipped, and hiding a column drops its matches at once), stacked on
+the per-column filters, with the "N of M rows" count following it.
+The column menu's move buttons reorder columns; hand the table a
+`columnOrder` (TanStack's shape: listed ids first, the rest after in
+definition order) and `onColumnOrderChange` to persist it, or omit
+`columnOrder` and only listen. A `"values"` column is a checklist
+with All/None shortcuts; several ticks are a union within the column,
+and the counts follow the other filters and the search.
+
+```tsx
+import { useState } from "react";
+import { TableView, type DataGridColumn } from "@g3-toolkit/react";
+
+interface Binding {
+  s: string;
+  label: string;
+  kind: string;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  { id: "s", header: "Subject", value: (r) => r.s },
+  { id: "label", header: "Label", value: (r) => r.label },
+  { id: "kind", header: "Kind", value: (r) => r.kind, filter: "values" },
+];
+
+function Register({ rows }: { rows: Binding[] }) {
+  // Persist the order wherever your settings live (here: local state).
+  const [order, setOrder] = useState<string[]>(["kind", "label", "s"]);
+  return (
+    <TableView
+      rows={rows}
+      columns={columns}
+      rowId={(r) => r.s}
+      selection="none"
+      search
+      exportCsv={{ filename: "bindings.csv" }}
+      columnOrder={order}
+      onColumnOrderChange={setOrder}
+    />
+  );
+}
+```
+
+`getCsv` is the pure half of the export, exported for a host that
+owns its own TanStack table or wires its own button: give it the rows
+of a row model (`table.getSortedRowModel().rows` is the filtered set
+in the current sort) and the columns to write (`table
+.getVisibleLeafColumns()` applies visibility and order), and it
+returns the text. It is headless, so it runs in a test; the browser
+download is the only part that needs a DOM.
+
+```ts
+import { getCsv } from "@g3-toolkit/react";
+
+// hostTable: your own useReactTable(...) instance.
+const csv = getCsv(
+  hostTable.getSortedRowModel().rows,
+  hostTable.getVisibleLeafColumns(),
+);
+```
 
 ### Fill a sized host (dock panel)
 
@@ -882,6 +1125,158 @@ import { TableView } from "@g3-toolkit/react";
   <TableView ugm={ugm} fill rowHeight={28} autoPageSize density="compact" />
 </div>;
 ```
+
+### Virtualize a long page
+
+Pagination bounds the DOM by default, which is the wrong lever when
+the analyst wants to scroll one long list (a SPARQL result of a few
+thousand bindings) rather than page through it. `virtualize` renders
+only the rows in and around the scroll window of the `fill` body,
+with spacer rows holding the table's height so the scrollbar is
+honest and the header stays sticky; it is `@tanstack/react-virtual`
+underneath, a regular dependency of `@g3-toolkit/react`, nothing to
+install. It engages per page once the page holds more than
+`threshold` rows (default 150), so a small table's DOM is exactly the
+unvirtualized one; `overscan` (default 10) is the rows rendered
+beyond the window on each side. Give it a large `pageSize` (the
+working-set limit is 10,000) and a scrolling body: `fill`, or your own
+height and overflow on `.g3t-table-scroll`. `rowHeight` is the size
+estimate when given; without it rows are measured as they mount.
+`autoPageSize` is ignored while `virtualize` is set, because it sizes
+the page to the viewport and that is the one thing virtualization
+makes unnecessary. Selection, `renderCell`, the per-column filters
+and their value counts, search and the CSV export all read the row
+model, not the DOM, so they see every row on the page; a row holding
+keyboard focus (a link or button in a cell) stays mounted while you
+scroll.
+
+```tsx
+import { TableView, type DataGridColumn } from "@g3-toolkit/react";
+
+interface Binding {
+  s: string;
+  label: string;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  { id: "s", header: "Subject", value: (r) => r.s },
+  { id: "label", header: "Label", value: (r) => r.label },
+];
+
+function LongRegister({ rows }: { rows: Binding[] }) {
+  return (
+    <div style={{ height: 480 }}>
+      <TableView
+        rows={rows}
+        columns={columns}
+        rowId={(r) => r.s}
+        fill
+        rowHeight={24}
+        pageSize={10_000}
+        virtualize={{ overscan: 20 }}
+        exportCsv
+      />
+    </div>
+  );
+}
+```
+
+## Working-set limits: page past them
+
+`WorkingSetManager` owns every per-view limit (canvas 500, table
+10,000, tree 1,000, matrix 200, sankey 100, streaming 500), and since
+issue #6 its answer says what to DO about an excess, not only whether
+there is one. `checkLimit` returns `strategy` ("allow" within the
+limit; otherwise the view type's row of `DEFAULT_LIMIT_STRATEGIES`:
+canvas, tree and streaming "refuse", table and matrix "page", sankey
+"truncate") and `pageSize` (the limit), with `allowed` kept for the
+callers that only ask the old question. Pass a third argument to
+override the row for one call. Both run under CI in
+`examples/wiring/src/wiring-examples.test.tsx` ("working-set limits"
+describe).
+
+```ts
+import {
+  WorkingSetManager,
+  pageNodes,
+  pageCount,
+  type PageWindow,
+} from "@g3-toolkit/core";
+
+const limits = new WorkingSetManager();
+const check = limits.checkLimit("matrix", 350);
+// { allowed: false, limit: 200, requested: 350, strategy: "page", pageSize: 200 }
+
+if (check.strategy === "page") {
+  const page = pageNodes(ugm, { offset: 0, size: check.pageSize });
+  const window: PageWindow = page.window;
+  // { offset: 0, size: 200, total: 350, totalExact: true }
+  const pages = pageCount(window); // 2
+  const next = pageNodes(ugm, { offset: window.size, size: window.size });
+  void pages;
+  void next;
+}
+```
+
+A page is only meaningful over an ordered result, so `pageNodes` and
+`pageCategories` sort by id (a code-unit comparison, the same in every
+locale) before cutting; the same request returns the same page on
+every call, and a comparator in `order` replaces the sort with id as
+the tie-break. The descriptor is offset-based: the in-memory UGM has
+no cursor layer, and `totalExact: false` is reserved for a backend
+that answers with an estimate (the control below then says "about").
+
+### Page a matrix
+
+`MatrixView` pages itself: past `maxSize` types (default 200, the
+R7.3 number) it renders a `maxSize` x `maxSize` window with one
+`PaginationControl` per axis, rows and columns independent, so a
+350x350 request opens at 200x200 and every cell is two clicks away at
+most. Feed it the limit from your manager so a deployment override
+reaches the view. The same control pages anything of yours; it holds
+no state, so a zero-based `page`, the `pageSize` and the `total` are
+all it needs, and ArrowLeft/ArrowRight/Home/End work from anywhere
+inside it.
+
+```tsx
+import { useState } from "react";
+import { WorkingSetManager, pageNodes } from "@g3-toolkit/core";
+import { MatrixView, PaginationControl } from "@g3-toolkit/react";
+
+const limits = new WorkingSetManager();
+
+function TypeMatrix() {
+  return <MatrixView ugm={ugm} maxSize={limits.getLimit("matrix")} />;
+}
+
+function NodeRegister() {
+  const [page, setPage] = useState(0);
+  const size = 50;
+  const { items, window } = pageNodes(ugm, { offset: page * size, size });
+  return (
+    <>
+      <ul>
+        {items.map((id) => (
+          <li key={id}>{id}</li>
+        ))}
+      </ul>
+      <PaginationControl
+        page={page}
+        pageSize={size}
+        total={window.total}
+        totalExact={window.totalExact}
+        noun="nodes"
+        onPageChange={setPage}
+      />
+    </>
+  );
+}
+```
+
+Not in this slice: `TableView` keeps its own TanStack bar (adopting
+the shared control there is the follow-up), and canvas and tree still
+refuse past their limits, because paging a layout is a different
+problem from paging a list.
 
 ## Box (lasso) selection: the gesture
 
@@ -957,6 +1352,29 @@ const p = new ProjectionPipeline();
 p.addStep({ name: "Type Collapse", transform: typeCollapse, enabled: true });
 const ugm = p.project(rdfGraph);
 p.getSteps(); // inspectable, so a UI can show or toggle steps
+```
+
+Edge ids are a function of the triple, not of the projection run.
+Every resource-object triple becomes one edge whose id is
+`tripleEdgeKey(subject, predicate, object)`, the same key the SPARQL
+adapter uses, so projecting the same input twice gives the same ids,
+a triple listed twice (a SELECT that binds it in two rows) is one
+edge rather than two parallel ones (first occurrence wins), and a host
+can address an edge by its triple without reading the graph. The key
+begins with `<`, which no IRI, CURIE or blank-node label can, so it
+never collides with a node id in the one id space Cytoscape gives
+nodes and edges. The optional fourth argument is a named graph: the
+pipeline and the adapter merge graphs and never pass one, so it is for
+a host that keys its own quads and keeps graphs distinct.
+
+```ts
+import { tripleEdgeKey } from "@g3-toolkit/core";
+const edgeId = tripleEdgeKey(
+  "http://example.org/p53",
+  "http://example.org/regulates",
+  "http://example.org/mdm2",
+);
+ugm.getEdge(edgeId); // the projected edge, by its triple
 ```
 
 The biomedical playground shell renders this live: its canvas toggle
@@ -1136,6 +1554,92 @@ The error belongs to the input that produced it: switching inputs
 clears it, and a later successful layout of the same input clears it
 too.
 
+## Set deployment working-set limits
+
+Working-set limits (canvas 500, table 10,000, tree 1,000, matrix 200,
+sankey 100, streaming 500 by default) are a property of the hardware a
+deployment runs on, so they are configuration, not code. A platform
+administrator writes one versioned document per deployment; the host
+resolves it once at setup into a manager and mounts a provider around
+the views. Every view that enforces a limit (TreeView, MatrixView, and
+`expandNeighbors` through the manager you hand it) reads it from the
+nearest provider; an explicit `workingSetManager` prop wins over the
+provider, and with neither the module default keeps today's behavior.
+
+```tsx
+import { WorkingSetManager, parseWorkingSetConfig } from "@g3-toolkit/core";
+import { WorkingSetProvider, TreeView, MatrixView } from "@g3-toolkit/react";
+
+// Resolve ONCE at host setup, outside render: the manager's identity
+// is what carries any user override.
+const manager = WorkingSetManager.fromConfig(
+  parseWorkingSetConfig(deploymentConfigText),
+);
+
+function Workbench() {
+  return (
+    <WorkingSetProvider manager={manager}>
+      <TreeView ugm={ugm} />
+      <MatrixView ugm={ugm} />
+    </WorkingSetProvider>
+  );
+}
+```
+
+The document (every view and every field optional):
+
+```json
+{
+  "version": 1,
+  "limits": {
+    "canvas": { "default": 300, "ceiling": 800 },
+    "tree": { "ceiling": 2000 },
+    "matrix": { "default": 150 }
+  }
+}
+```
+
+Two numbers per view, from spec decision D5: `default` is the soft
+limit an analyst may raise with an explicit acknowledgment; `ceiling`
+is the hard limit no user action can exceed. Precedence, lowest to
+highest: built-in defaults, then the deployment document (whose
+ceiling also bounds everything beneath it), then a per-user override.
+`parseWorkingSetConfig` throws the same typed `DocumentParseError`
+subclasses as the other versioned documents (unknown view names and a
+`default` above its own `ceiling` are rejected rather than ignored),
+so a broken document fails at setup instead of configuring nothing.
+
+The "explicit user action to exceed" rule goes through the manager,
+which answers with a typed result rather than a throw:
+
+```tsx
+import {
+  useWorkingSetManager,
+  workingSetLimitMessage,
+} from "@g3-toolkit/react";
+
+function ShowAllNotice({ requested }: { requested: number }) {
+  const manager = useWorkingSetManager();
+  const notice = workingSetLimitMessage(manager, "canvas", requested);
+  if (notice.kind === "within") return null;
+  if (notice.kind === "refused") return <p role="status">{notice.message}</p>;
+  // "prompt": the request is above the soft default but under the ceiling.
+  return (
+    <p role="status">
+      {notice.message}{" "}
+      <button onClick={() => manager.setUserOverride("canvas", requested)}>
+        Show all
+      </button>
+    </p>
+  );
+}
+```
+
+`canRaise(view, n)` is the pure form of the same check; `getCeiling`
+reports the administrator bound (undefined when unbounded); and
+`setUserOverride` refuses above the ceiling with
+`{ ok: false, reason: "above-ceiling" }` and leaves the limit in force.
+
 ## Programmatic APIs
 
 Every snippet here runs under CI in
@@ -1202,6 +1706,53 @@ const csv = exportSubgraphCsv(ugm, selection); // or a selection
 Turtle export (`exportSubgraphTurtle`) is demonstrated in
 `examples/decision-dashboards`.
 
+### Derived properties carry their provenance
+
+`DerivedPropertyEngine` writes a computed value as a plain node
+property, so every reader keeps working, and stamps it in a SIDECAR
+registry on the UGM (never on the node's attributes) with the
+definition that produced it, the definition's version, the write time
+and the expression. The stamp survives `toJSON`/`fromJSON` (snapshot
+version 2; an older snapshot without the field still loads) and the
+JSON subgraph export (each node gains `derivations` keyed by property;
+CSV is unchanged). `TableView` marks a derived cell with
+`data-derived="<definitionId>"` and the `g3t-table-cell-derived`
+class, and both inspectors show "derived by <definitionId>" next to
+the value. A plain write to the property through
+`ugm.updateNodeProperties` clears the stamp, since the value is no
+longer derived.
+
+```ts
+import { DerivedPropertyEngine, exportSubgraphJson } from "@g3-toolkit/core";
+
+const engine = new DerivedPropertyEngine();
+engine.define({ name: "riskScore", expression: "risk * 100", reactive: false });
+engine.compute(ugm);
+
+// Where did this value come from?
+const stamp = ugm.getDerivation("pump-1", "riskScore");
+// stamp?.definitionId === "riskScore", stamp?.version === 1,
+// stamp?.expression === "risk * 100", stamp?.computedAt is ISO-8601.
+// A source property has no stamp: ugm.getDerivation("pump-1", "risk")
+// is undefined. ugm.listDerivations() lists every stamp (or one node's).
+
+// Change the rule: the version bumps and the old values become STALE
+// (stamp version older than the definition's current version).
+engine.define({
+  name: "riskScore",
+  expression: "risk * 1000",
+  reactive: false,
+});
+const stale = engine.listStale(ugm); // [{ nodeId, property, stamp }, ...]
+engine.recompute(ugm, "riskScore"); // stale is now []
+
+// The JSON export carries it; a consumer can tell computed from measured.
+const doc = JSON.parse(exportSubgraphJson(ugm)) as {
+  nodes: Array<{ derivations?: Record<string, { definitionId: string }> }>;
+};
+// doc.nodes[i].derivations?.riskScore?.definitionId === "riskScore"
+```
+
 ### Applying an encoding spec without the panel
 
 ```ts
@@ -1263,11 +1814,13 @@ camera.frameAll(); // fit everything
 ```
 
 `cy` is the Cytoscape core the canvas hands you through `onReady`.
-The same core feeds the `Minimap` component (an overview inset whose
-viewport rectangle tracks and drives the camera): store the core from
-`onReady` in state and render `<Minimap core={core} />`; while the
-core is null it shows a disabled placeholder, so it mounts safely
-before the canvas is ready.
+The same core feeds the `Minimap` and `GraphToolbar` components, both
+under the `core` prop: store the core from `onReady` in state and
+render `<Minimap core={core} />` (an overview inset whose viewport
+rectangle tracks and drives the camera) and
+`<GraphToolbar ugm={ugm} core={core} />`; while the core is null the
+minimap shows a disabled placeholder and the toolbar's controls
+no-op, so both mount safely before the canvas is ready.
 
 ## Where the rest lives
 

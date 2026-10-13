@@ -25,7 +25,11 @@ import {
   LABEL_SHORT_FIELD,
 } from "./apply-label-collision";
 import fcose from "cytoscape-fcose";
-import type { UGM } from "@g3-toolkit/core";
+import type {
+  UGM,
+  NodeStyleOverride,
+  StructuralOverlay,
+} from "@g3-toolkit/core";
 import { applyEncodingSpec } from "../../interaction/encoding/spec-apply";
 import { useStyleOverrideStore } from "../../state/style-override-store";
 import {
@@ -152,6 +156,7 @@ import type {
   StructuralGeometry,
 } from "@g3-toolkit/core";
 import { prefersReducedMotion } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 
 export type CyStylesheet = cytoscape.StylesheetCSS | cytoscape.StylesheetStyle;
 
@@ -1112,6 +1117,210 @@ function applyEncodingPatch(cy: Core, spec: EncodingSpec, ugm: UGM): void {
   });
 }
 
+/** What the override pass wrote to ONE instance: the elements carrying
+ *  a bypass it set and, per LR-37, the `_icon` uri it stamped on each
+ *  (so restore can tell its own stamps from the spec's). Reset when the
+ *  instance is rebuilt: a fresh instance carries nothing to restore. */
+interface OverrideBookkeeping {
+  ids: Set<string>;
+  icons: Map<string, string>;
+}
+
+/** Per-instance style overrides (M12): the precedence layer ABOVE the
+ *  spec, applied as Cytoscape BYPASS styles, which win over every
+ *  stylesheet mapper (so a pinned node survives spec re-application)
+ *  and restore lower layers cleanly on removal. Restores everything
+ *  previously bypassed on this instance, then applies the current
+ *  list. Called from the init path for every (re)built instance AND
+ *  from the override effect for store changes over a live instance
+ *  (issue #44: same shape as applyEncodingPatch above). Reserved
+ *  channels stay safe: overrides never touch outline-* (the selection
+ *  gasket). Restyle only: no layout, no camera change. */
+function applyStyleOverrides(
+  cy: Core,
+  overrides: readonly NodeStyleOverride[],
+  book: OverrideBookkeeping,
+): void {
+  // Nothing applied and nothing to apply: skip the batch entirely
+  // (also keeps minimal test mocks honest about what mount needs).
+  if (book.ids.size === 0 && overrides.length === 0) return;
+  const badge = pinBadgeUri(useThemeStore.getState().theme);
+  cy.batch(() => {
+    // Restore everything previously bypassed, then apply current.
+    for (const id of book.ids) {
+      const ele = cy.getElementById(id);
+      if (ele.nonempty()) {
+        ele.removeStyle();
+        // Clear only OUR icon stamp (a spec re-stamp wins and
+        // stays). Nodes whose SPEC icon was shadowed by an
+        // override get it back on the spec effect's next run;
+        // immediate restoration would mean re-running the spec
+        // patch here, deliberately out of this pass's scope.
+        const stamped = book.icons.get(id);
+        if (stamped !== undefined && ele.data("_icon") === stamped) {
+          ele.removeData("_icon");
+        }
+      }
+    }
+    book.ids.clear();
+    book.icons.clear();
+    for (const override of overrides) {
+      const entry = overridesToCytoscapeStyles([override])[0];
+      if (!entry) continue;
+      // LR-37 ROOT CAUSE: icon overrides used to ship as a FLAT
+      // background-image style bypass: invisible to
+      // composePinStack (which reads _icon data) and clobbering
+      // its multi-image array on pinned nodes. Hence "icon
+      // replaces pin" and, on unpin/pin, "pin change removes the
+      // icon until other changes re-apply it". splitIcon... moves
+      // the icon to _icon DATA; background-* leaves the bypass.
+      const { style, iconUri } = splitIconFromOverrideStyle(
+        entry.style as Record<string, unknown>,
+      );
+      const targets =
+        "nodeId" in override.scope
+          ? cy.getElementById(override.scope.nodeId)
+          : cy.nodes().filter(
+              // LR-47 (owner review 2026-07-22): a type-scoped
+              // override applies to ANY membership, not just the
+              // primary type: multi-type nodes (most of the
+              // ontology) previously ignored "Any {Type}" unless
+              // the type happened to be first.
+              (n) =>
+                ((n.data("types") as string[] | undefined) ?? []).includes(
+                  (override.scope as { type: string }).type,
+                ),
+            );
+      targets.forEach((ele) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ele.style(style as any);
+        if (iconUri !== undefined) {
+          ele.data("_icon", iconUri);
+          book.icons.set(ele.id(), iconUri);
+        }
+        book.ids.add(ele.id());
+      });
+    }
+    // Pinned nodes render from the composed stack: re-compose so
+    // badge AND (any) icon coexist after every override pass.
+    cy.nodes().forEach((n) => {
+      if (n.hasClass("g3t-pinned")) composePinStack(n, badge);
+    });
+  });
+}
+
+/** Position pins (round 17): lock exactly the derived set, unlock the
+ *  rest, and carry the subtle indicator class. Pin-all composes as the
+ *  union; releasing it returns to the per-node set (computeLockedIds
+ *  is the pure, tested rule). `previouslyLocked` is what the last pass
+ *  locked on THIS instance (empty for a fresh one); returns the set
+ *  this pass locked, for the caller to keep. Called from the init path
+ *  for every (re)built instance AND from the pin effect (issue #44).
+ *  Runs AFTER the override pass so the stack composes over an
+ *  override-stamped icon. Restyle only: no layout, no camera change. */
+function applyPinLocks(
+  cy: Core,
+  pinnedIds: readonly string[],
+  allPinned: boolean,
+  previouslyLocked: ReadonlySet<string>,
+): Set<string> {
+  // Nothing locked and nothing to lock: skip entirely (also keeps
+  // minimal test mocks honest about what a bare mount needs).
+  if (!allPinned && pinnedIds.length === 0 && previouslyLocked.size === 0)
+    return new Set();
+  const allIds: string[] = [];
+  cy.nodes().forEach((n) => {
+    allIds.push(n.id());
+  });
+  const locked = computeLockedIds(allPinned, [...pinnedIds], allIds);
+  const badge = pinBadgeUri(useThemeStore.getState().theme);
+  cy.batch(() => {
+    cy.nodes().forEach((n) => {
+      if (locked.has(n.id())) {
+        n.lock();
+        composePinStack(n, badge);
+        n.addClass("g3t-pinned");
+      } else {
+        n.unlock();
+        n.removeClass("g3t-pinned");
+        n.removeStyle(PIN_BYPASS_PROPS.join(" "));
+      }
+    });
+  });
+  return locked;
+}
+
+/** Algorithm overlays (round 21): classes only, computed from the pure
+ *  union rule; deactivating every overlay strips both classes,
+ *  restoring the prior styling exactly (the acceptance criterion).
+ *  `touched` is whether a pass classed THIS instance before (false for
+ *  a fresh one); returns the new value for the caller to keep. Called
+ *  from the init path for every (re)built instance AND from the
+ *  overlay effect (issue #44). Last of the three passes, so the dims
+ *  land over the override and pin bypasses. Restyle only. */
+function applyOverlayClasses(
+  cy: Core,
+  overlays: StructuralOverlay[],
+  activeIds: string[],
+  touched: boolean,
+): boolean {
+  const { anyActive, memberNodes, memberEdges, nodeTones, edgeTones } =
+    computeOverlayMembership(overlays, activeIds);
+  // Scope to THIS canvas (round 40): the overlay store is a global
+  // singleton, so on a page with several canvases an overlay
+  // registered for one canvas's nodes would otherwise fire every
+  // canvas's effect and dim the others wholesale (none of their
+  // nodes are members). Only react when an active overlay actually
+  // references an element present here; otherwise this canvas is
+  // not a participant and must be left untouched. A single-canvas
+  // app is unaffected: its overlays always reference its own nodes.
+  let touchesThisCanvas = false;
+  if (anyActive) {
+    const present = (id: string): boolean => cy.getElementById(id).nonempty();
+    for (const id of memberNodes) {
+      if (present(id)) {
+        touchesThisCanvas = true;
+        break;
+      }
+    }
+    if (!touchesThisCanvas) {
+      for (const id of memberEdges) {
+        if (present(id)) {
+          touchesThisCanvas = true;
+          break;
+        }
+      }
+    }
+  }
+  const effectiveActive = anyActive && touchesThisCanvas;
+  if (!effectiveActive && !touched) return false;
+  // Every tone class is stripped alongside the member class, so
+  // deactivation still restores by construction (the round-21
+  // property this pass is built on).
+  const TONE_CLASSES = "g3t-ov-danger g3t-ov-warning g3t-ov-info";
+  cy.batch(() => {
+    cy.nodes().forEach((n) => {
+      n.removeClass(`g3t-ov-member g3t-ov-dim ${TONE_CLASSES}`);
+      if (!effectiveActive) return;
+      if (memberNodes.has(n.id())) {
+        n.addClass("g3t-ov-member");
+        const tone = nodeTones.get(n.id());
+        if (tone) n.addClass(`g3t-ov-${tone}`);
+      } else n.addClass("g3t-ov-dim");
+    });
+    cy.edges().forEach((e) => {
+      e.removeClass(`g3t-ov-member g3t-ov-dim ${TONE_CLASSES}`);
+      if (!effectiveActive) return;
+      if (memberEdges.has(e.id())) {
+        e.addClass("g3t-ov-member");
+        const tone = edgeTones.get(e.id());
+        if (tone) e.addClass(`g3t-ov-${tone}`);
+      } else e.addClass("g3t-ov-dim");
+    });
+  });
+  return effectiveActive;
+}
+
 /**
  * Same-graph scene patch (MR-1 flash fix, G3L:CNT-003). A same-graph
  * structural rebuild (collapse/expand, re-layout) previously destroyed
@@ -1601,6 +1810,40 @@ export function CytoscapeCanvas({
   const lastEncodingPatchRef = useRef<{
     cy: Core;
     spec: EncodingSpec;
+    ugm: UGM;
+  } | null>(null);
+  // Issue #44: the three decoration layers get the SAME treatment as
+  // the spec. The init path applies the current store state to every
+  // (re)built instance (overrides, then pins, then overlays: the pin
+  // stack composes over an override-stamped icon and the overlay dims
+  // land last), and each effect below skips the application the init
+  // path just made for the same instance and inputs. The per-instance
+  // bookkeeping (what the last pass wrote) is reset at init: a rebuilt
+  // instance carries none of it, so "restoring" it would be a no-op
+  // over elements that were never bypassed, locked or classed.
+  const overrideBookRef = useRef<OverrideBookkeeping>({
+    ids: new Set(),
+    icons: new Map(),
+  });
+  const lastOverridesRef = useRef<{
+    cy: Core;
+    overrides: readonly NodeStyleOverride[];
+    spec: EncodingSpec | undefined;
+    ugm: UGM;
+  } | null>(null);
+  const lockedIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const lastPinsRef = useRef<{
+    cy: Core;
+    pinnedIds: readonly string[];
+    allPinned: boolean;
+    ugm: UGM;
+    theme: G3tTheme;
+  } | null>(null);
+  const overlayTouchedRef = useRef(false);
+  const lastOverlaysRef = useRef<{
+    cy: Core;
+    overlays: StructuralOverlay[];
+    activeIds: string[];
     ugm: UGM;
   } | null>(null);
   // Issue #28: the stylesheet prop restyles by CONTENT (see
@@ -2120,6 +2363,26 @@ export function CytoscapeCanvas({
       applyEncodingPatch(cy, spec, ugm);
       lastEncodingPatchRef.current = { cy, spec, ugm };
     }
+    // Issue #44: overrides, pins and overlays too, in the order their
+    // effects run (see the refs' comment). Store reads, not hook
+    // values: the init callback is keyed on data + config only, and
+    // a store value selected by a hook IS the store's current value.
+    overrideBookRef.current = { ids: new Set(), icons: new Map() };
+    const overrides = useStyleOverrideStore.getState().overrides;
+    applyStyleOverrides(cy, overrides, overrideBookRef.current);
+    lastOverridesRef.current = { cy, overrides, spec, ugm };
+    const { pinnedIds, allPinned } = usePositionPinStore.getState();
+    const pinTheme = useThemeStore.getState().theme;
+    lockedIdsRef.current = applyPinLocks(cy, pinnedIds, allPinned, new Set());
+    lastPinsRef.current = { cy, pinnedIds, allPinned, ugm, theme: pinTheme };
+    const { overlays, activeIds } = useOverlayStore.getState();
+    overlayTouchedRef.current = applyOverlayClasses(
+      cy,
+      overlays,
+      activeIds,
+      false,
+    );
+    lastOverlaysRef.current = { cy, overlays, activeIds, ugm };
     // The merged stylesheet composed above read stylesheetRef.current,
     // which is the stylesheet this key describes (issue #28).
     stylesheetAppliedKeyRef.current = stylesheetContentKey(
@@ -2313,97 +2576,43 @@ export function CytoscapeCanvas({
   }, [hidden]);
 
   // Per-instance style overrides (M12): the precedence layer ABOVE
-  // the spec. Applied as Cytoscape BYPASS styles, which win over
-  // every stylesheet mapper (so a pinned node survives spec
-  // re-application) and restore lower layers cleanly on removal.
-  // The store previously had no canvas consumer at all (round-14
-  // finding): NodeStyleEditor and the context-menu actions wrote
-  // overrides nothing read. Reserved channels stay safe: overrides
-  // never touch outline-* (the selection gasket).
+  // the spec (applyStyleOverrides has the mechanism). The store
+  // previously had no canvas consumer at all (round-14 finding):
+  // NodeStyleEditor and the context-menu actions wrote overrides
+  // nothing read. The INITIAL list, and the list on every rebuilt
+  // instance, is applied by the init path (issue #44); this effect
+  // handles store, spec and ugm changes over a live instance and skips
+  // an application that path just made for the same inputs.
   const styleOverrides = useStyleOverrideStore((s) => s.overrides);
-  const overriddenIdsRef = useRef<Set<string>>(new Set());
-  // LR-37 (owner review 2026-07-22): id -> the _icon uri THIS effect
-  // stamped, so restore can tell its own stamps from the spec's.
-  const overrideIconRef = useRef<Map<string, string>>(new Map());
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
-    // Nothing applied and nothing to apply: skip the batch entirely
-    // (also keeps minimal test mocks honest about what mount needs).
-    if (overriddenIdsRef.current.size === 0 && styleOverrides.length === 0)
+    const last = lastOverridesRef.current;
+    if (
+      last &&
+      last.cy === cy &&
+      last.overrides === styleOverrides &&
+      last.spec === encodingSpec &&
+      last.ugm === ugm
+    )
       return;
-    const badge = pinBadgeUri(useThemeStore.getState().theme);
-    cy.batch(() => {
-      // Restore everything previously bypassed, then apply current.
-      for (const id of overriddenIdsRef.current) {
-        const ele = cy.getElementById(id);
-        if (ele.nonempty()) {
-          ele.removeStyle();
-          // Clear only OUR icon stamp (a spec re-stamp wins and
-          // stays). Nodes whose SPEC icon was shadowed by an
-          // override get it back on the spec effect's next run;
-          // immediate restoration would mean re-running the spec
-          // patch here, deliberately out of this effect's scope.
-          const stamped = overrideIconRef.current.get(id);
-          if (stamped !== undefined && ele.data("_icon") === stamped) {
-            ele.removeData("_icon");
-          }
-        }
-      }
-      overriddenIdsRef.current.clear();
-      overrideIconRef.current.clear();
-      for (const override of styleOverrides) {
-        const entry = overridesToCytoscapeStyles([override])[0];
-        if (!entry) continue;
-        // LR-37 ROOT CAUSE: icon overrides used to ship as a FLAT
-        // background-image style bypass: invisible to
-        // composePinStack (which reads _icon data) and clobbering
-        // its multi-image array on pinned nodes. Hence "icon
-        // replaces pin" and, on unpin/pin, "pin change removes the
-        // icon until other changes re-apply it". splitIcon... moves
-        // the icon to _icon DATA; background-* leaves the bypass.
-        const { style, iconUri } = splitIconFromOverrideStyle(
-          entry.style as Record<string, unknown>,
-        );
-        const targets =
-          "nodeId" in override.scope
-            ? cy.getElementById(override.scope.nodeId)
-            : cy.nodes().filter(
-                // LR-47 (owner review 2026-07-22): a type-scoped
-                // override applies to ANY membership, not just the
-                // primary type: multi-type nodes (most of the
-                // ontology) previously ignored "Any {Type}" unless
-                // the type happened to be first.
-                (n) =>
-                  ((n.data("types") as string[] | undefined) ?? []).includes(
-                    (override.scope as { type: string }).type,
-                  ),
-              );
-        targets.forEach((ele) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ele.style(style as any);
-          if (iconUri !== undefined) {
-            ele.data("_icon", iconUri);
-            overrideIconRef.current.set(ele.id(), iconUri);
-          }
-          overriddenIdsRef.current.add(ele.id());
-        });
-      }
-      // Pinned nodes render from the composed stack: re-compose so
-      // badge AND (any) icon coexist after every override pass.
-      cy.nodes().forEach((n) => {
-        if (n.hasClass("g3t-pinned")) composePinStack(n, badge);
-      });
-    });
+    applyStyleOverrides(cy, styleOverrides, overrideBookRef.current);
+    lastOverridesRef.current = {
+      cy,
+      overrides: styleOverrides,
+      spec: encodingSpec,
+      ugm,
+    };
   }, [styleOverrides, encodingSpec, ugm]);
 
   // Position pins (round 17): lock exactly the derived set, unlock
-  // the rest, and carry the subtle indicator class. Pin-all composes
-  // as the union; releasing it returns to the per-node set
-  // (computeLockedIds is the pure, tested rule).
+  // the rest, and carry the subtle indicator class (applyPinLocks has
+  // the mechanism). The INITIAL set, and the set on every rebuilt
+  // instance, is applied by the init path (issue #44); this effect
+  // handles pin, ugm and theme (badge color) changes over a live
+  // instance and skips an application that path just made.
   const pinnedIds = usePositionPinStore((s) => s.pinnedIds);
   const allPinned = usePositionPinStore((s) => s.allPinned);
-  const lockedIdsRef = useRef<Set<string>>(new Set());
   // Declared here (above the pin effect) because the badge color is
   // theme-resolved; the round-20 theme restyle effect below shares
   // this subscription.
@@ -2411,30 +2620,23 @@ export function CytoscapeCanvas({
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
-    // Nothing locked and nothing to lock: skip entirely (also keeps
-    // minimal test mocks honest about what a bare mount needs).
-    if (!allPinned && pinnedIds.length === 0 && lockedIdsRef.current.size === 0)
+    const last = lastPinsRef.current;
+    if (
+      last &&
+      last.cy === cy &&
+      last.pinnedIds === pinnedIds &&
+      last.allPinned === allPinned &&
+      last.ugm === ugm &&
+      last.theme === theme
+    )
       return;
-    const allIds: string[] = [];
-    cy.nodes().forEach((n) => {
-      allIds.push(n.id());
-    });
-    const locked = computeLockedIds(allPinned, pinnedIds, allIds);
-    const badge = pinBadgeUri(useThemeStore.getState().theme);
-    cy.batch(() => {
-      cy.nodes().forEach((n) => {
-        if (locked.has(n.id())) {
-          n.lock();
-          composePinStack(n, badge);
-          n.addClass("g3t-pinned");
-        } else {
-          n.unlock();
-          n.removeClass("g3t-pinned");
-          n.removeStyle(PIN_BYPASS_PROPS.join(" "));
-        }
-      });
-    });
-    lockedIdsRef.current = locked;
+    lockedIdsRef.current = applyPinLocks(
+      cy,
+      pinnedIds,
+      allPinned,
+      lockedIdsRef.current,
+    );
+    lastPinsRef.current = { cy, pinnedIds, allPinned, ugm, theme };
   }, [pinnedIds, allPinned, ugm, theme]);
 
   // Theme -> canvas (round 20): restyle-only, like the spec effect.
@@ -2465,69 +2667,37 @@ export function CytoscapeCanvas({
   }, [theme, composeMergedStylesheet, stylesheetKey]);
 
   // Algorithm overlays (round 21): classes only, computed from the
-  // pure union rule; deactivating every overlay strips both classes,
-  // restoring the prior styling exactly (the acceptance criterion).
+  // pure union rule (applyOverlayClasses has the mechanism and the
+  // round-40 this-canvas scoping). The INITIAL membership, and the
+  // membership on every rebuilt instance, is applied by the init path
+  // (issue #44); this effect handles overlay and ugm changes over a
+  // live instance and skips an application that path just made.
   const overlays = useOverlayStore((s) => s.overlays);
   const overlayActiveIds = useOverlayStore((s) => s.activeIds);
-  const overlayTouchedRef = useRef(false);
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
-    const { anyActive, memberNodes, memberEdges, nodeTones, edgeTones } =
-      computeOverlayMembership(overlays, overlayActiveIds);
-    // Scope to THIS canvas (round 40): the overlay store is a global
-    // singleton, so on a page with several canvases an overlay
-    // registered for one canvas's nodes would otherwise fire every
-    // canvas's effect and dim the others wholesale (none of their
-    // nodes are members). Only react when an active overlay actually
-    // references an element present here; otherwise this canvas is
-    // not a participant and must be left untouched. A single-canvas
-    // app is unaffected: its overlays always reference its own nodes.
-    let touchesThisCanvas = false;
-    if (anyActive) {
-      const present = (id: string): boolean => cy.getElementById(id).nonempty();
-      for (const id of memberNodes) {
-        if (present(id)) {
-          touchesThisCanvas = true;
-          break;
-        }
-      }
-      if (!touchesThisCanvas) {
-        for (const id of memberEdges) {
-          if (present(id)) {
-            touchesThisCanvas = true;
-            break;
-          }
-        }
-      }
-    }
-    const effectiveActive = anyActive && touchesThisCanvas;
-    if (!effectiveActive && !overlayTouchedRef.current) return;
-    overlayTouchedRef.current = effectiveActive;
-    // Every tone class is stripped alongside the member class, so
-    // deactivation still restores by construction (the round-21
-    // property this effect is built on).
-    const TONE_CLASSES = "g3t-ov-danger g3t-ov-warning g3t-ov-info";
-    cy.batch(() => {
-      cy.nodes().forEach((n) => {
-        n.removeClass(`g3t-ov-member g3t-ov-dim ${TONE_CLASSES}`);
-        if (!effectiveActive) return;
-        if (memberNodes.has(n.id())) {
-          n.addClass("g3t-ov-member");
-          const tone = nodeTones.get(n.id());
-          if (tone) n.addClass(`g3t-ov-${tone}`);
-        } else n.addClass("g3t-ov-dim");
-      });
-      cy.edges().forEach((e) => {
-        e.removeClass(`g3t-ov-member g3t-ov-dim ${TONE_CLASSES}`);
-        if (!effectiveActive) return;
-        if (memberEdges.has(e.id())) {
-          e.addClass("g3t-ov-member");
-          const tone = edgeTones.get(e.id());
-          if (tone) e.addClass(`g3t-ov-${tone}`);
-        } else e.addClass("g3t-ov-dim");
-      });
-    });
+    const last = lastOverlaysRef.current;
+    if (
+      last &&
+      last.cy === cy &&
+      last.overlays === overlays &&
+      last.activeIds === overlayActiveIds &&
+      last.ugm === ugm
+    )
+      return;
+    overlayTouchedRef.current = applyOverlayClasses(
+      cy,
+      overlays,
+      overlayActiveIds,
+      overlayTouchedRef.current,
+    );
+    lastOverlaysRef.current = {
+      cy,
+      overlays,
+      activeIds: overlayActiveIds,
+      ugm,
+    };
   }, [overlays, overlayActiveIds, ugm]);
 
   // Label collision pass (issue #40): one effect per live instance
@@ -2628,6 +2798,9 @@ export function CytoscapeCanvas({
 
   return (
     <div
+      // #45: the shared view root class; the inner mount keeps the
+      // host's `className` so selectors on it still reach the canvas.
+      className={viewClass()}
       style={{ position: "relative", width: "100%", height: "100%" }}
       onContextMenu={suppressContextMenu}
     >

@@ -22,6 +22,7 @@ import {
   type EncodingSpec,
 } from "./encoding-spec";
 import { SEQUENTIAL_SCALE, DIVERGING_SCALE } from "./palette-bridge";
+import { viewClass } from "../../theme/view-class";
 
 /** R-13.3: an element descriptor, the same shape NodeStyleTarget
  *  uses, so one legend can serve a UGM-backed canvas and a
@@ -368,7 +369,7 @@ export function SpecLegend({
   // reader has locally broken is worse than one that admits it.
   const overrideCount = overrides?.length ?? 0;
   return (
-    <div className={className} data-testid="g3t-spec-legend">
+    <div className={viewClass(className)} data-testid="g3t-spec-legend">
       {overrideCount > 0 && (
         <div
           data-testid="legend-override-notice"

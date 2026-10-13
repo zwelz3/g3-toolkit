@@ -95,7 +95,17 @@ const BUDGETS = {
   // with the security fix above (+6.9 KB, measured on main the same
   // day) core is 173.0 KB, so the two raises stack: 176 keeps about
   // 3 KB of headroom, the posture both entries set.
-  core: 176.0 * 1024,
+  // Round-2 integration (2026-10-13): 176 -> 180. The derivation
+  // registry and version-2 snapshot (#17, +2.8 KB: sidecar map, the
+  // engine's version counter, recompute and listStale, fromJSON's typed
+  // document errors) and tripleEdgeKey (#48, +0.7 KB) were measured on
+  // separate branches; merged, core measures 177.3 KB. About 2.7 KB
+  // headroom, same posture as the entries above.
+  // Plus the working-set configuration (#5, +3.1 KB on its branch: the
+  // versioned WorkingSetConfig document and validator, the manager's
+  // default/ceiling/user-override resolution): 180 -> 184, measured
+  // after the merge (see the core line's comment history).
+  core: 184.0 * 1024,
   // Core ledger:
   // - NO RAISE, 2026-08-15 (the @g3-toolkit/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against
@@ -385,7 +395,39 @@ const BUDGETS = {
   // measures 411.5 KB; with wave 2 (#40 label collision +5.7 KB, #26
   // additive updates +4.5 KB) it measures about 422 KB, so the budget
   // is 428, a few KB of headroom as before.
-  react: 428 * 1024,
+  // Issue #47 (2026-10-13): 428 -> 434. Measured 421.6 -> 429.0 KB
+  // (431,727 -> 439,321 bytes, +7.6 KB), all of it TableView and all
+  // in the StatsPanel chunk, so a host that never references the
+  // table pays nothing: the four #39 deferrals that needed no
+  // dependency ruling (CSV export with the pure `getCsv` helper and
+  // the toolbar button, the "values" filter as a checklist popover
+  // with faceted counts and All/None, menu-based column reorder over
+  // a host-controllable columnOrder, and the cross-column search
+  // whose searchable set travels with the query). Sourcemap audit as
+  // the 2026-07-03 core entry requires: ZERO node_modules source
+  // bytes across react's 15 dist maps (885,513 source bytes, all
+  // first-party), so no vendored weight. Headroom 5 KB, modest on
+  // purpose as the previous entries set it.
+  // Round-2 integration (2026-10-13): 434 -> 440. The #47 table entry
+  // above (429.0 KB) and the #20 overlay sequence (+5.6 KB: the
+  // useOverlaySequence hook, OverlayTransport and the pure rules,
+  // tree-shakeable named exports) were measured on separate branches;
+  // merged, react measures 436.4 KB. About 3.5 KB headroom, same
+  // posture as the entries above.
+  // Round-2 integration (2026-10-13), second raise: 440 -> 446. The
+  // #6 PaginationControl molecule and MatrixView paging (+4.6 KB on
+  // its branch, +1.9 KB for the #16 AriaCompanion props before it)
+  // land on the 436.4 KB merged measurement above: 441.9 KB merged.
+  // About 4 KB headroom, same posture.
+  // Issue #45 (2026-10-13): 446 -> 450. The shared view root class:
+  // every exported view and panel root composes `g3t-view` through
+  // one helper (packages/react/src/theme/view-class.ts), so the
+  // scoped typography from #24 reaches views whose root was an
+  // unclassed inline-styled element. Measured 445.6 -> 446.4 KB
+  // (457,103 bytes after; +0.8 KB), one `viewClass(...)` call per
+  // root across 48 files plus the helper, no new dependency and no
+  // vendored bytes. Headroom back to about 3.5 KB, same posture.
+  react: 450 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the

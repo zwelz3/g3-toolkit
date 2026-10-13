@@ -30,6 +30,14 @@ import type { GraphAdapter, SchemaModel } from "./types";
 
 /** A portal connecting two holons. */
 export interface Portal {
+  /**
+   * Portal id. It is also the UGM edge id of the holarchy edge this
+   * portal projects to (issue #48), so it must be unique across every
+   * portal of the dataset; a repeated id keeps the first portal's edge
+   * and skips the later one, the way a portal to an unknown holon is
+   * already skipped. It should not reuse a holon id, because the
+   * canvas hands Cytoscape one id space for nodes and edges.
+   */
   id: string;
   label: string;
   sourceHolonId: string;
@@ -52,6 +60,16 @@ export interface Holon {
   }>;
   /** Interior graph edges. */
   interiorEdges?: Array<{
+    /**
+     * Stable edge id, used as the UGM edge id of the interior
+     * projection (issue #48). Omitted, the graph generates one and the
+     * same interior edge gets a different id on every projection. Must
+     * be unique across the holon's interior edges and should not reuse
+     * an interior node id (one Cytoscape id space, as for `Portal.id`);
+     * on a duplicate the first edge wins and the later one is skipped,
+     * the way an edge with a missing endpoint is already skipped.
+     */
+    id?: string;
     source: string;
     target: string;
     type: string;
@@ -162,15 +180,17 @@ export class HolonicAdapter implements GraphAdapter {
 
     for (const holon of this.dataset.holons) {
       for (const portal of holon.portals) {
-        if (ugm.hasNode(portal.targetHolonId)) {
-          ugm.addEdge(holon.id, portal.targetHolonId, {
-            type: portal.label,
-            properties: {
-              _portalId: portal.id,
-              _hasConstruct: !!portal.constructQuery,
-            },
-          });
-        }
+        if (!ugm.hasNode(portal.targetHolonId)) continue;
+        // First portal wins on a repeated id; see `Portal.id`.
+        if (ugm.hasEdge(portal.id)) continue;
+        ugm.addEdge(holon.id, portal.targetHolonId, {
+          key: portal.id,
+          type: portal.label,
+          properties: {
+            _portalId: portal.id,
+            _hasConstruct: !!portal.constructQuery,
+          },
+        });
       }
     }
 
@@ -192,12 +212,14 @@ export class HolonicAdapter implements GraphAdapter {
     }
 
     for (const edge of holon.interiorEdges ?? []) {
-      if (ugm.hasNode(edge.source) && ugm.hasNode(edge.target)) {
-        ugm.addEdge(edge.source, edge.target, {
-          type: edge.type,
-          properties: edge.properties ?? {},
-        });
-      }
+      if (!ugm.hasNode(edge.source) || !ugm.hasNode(edge.target)) continue;
+      // First edge wins on a duplicate id; see `Holon.interiorEdges`.
+      if (edge.id !== undefined && ugm.hasEdge(edge.id)) continue;
+      ugm.addEdge(edge.source, edge.target, {
+        key: edge.id,
+        type: edge.type,
+        properties: edge.properties ?? {},
+      });
     }
 
     return ugm;

@@ -14,6 +14,7 @@ import type { UGM } from "@g3-toolkit/core";
 import { useSelectionStore } from "../../state/selection-store";
 import { EmptyState } from "../../interaction/feedback";
 import { loadEcharts } from "../load-echarts";
+import { viewClass } from "../../theme/view-class";
 
 export interface StatsPanelProps {
   ugm: UGM;
@@ -270,7 +271,7 @@ export function StatsPanel({
   return (
     <div
       data-testid="stats-panel"
-      className={className}
+      className={viewClass(className)}
       style={{ width: "100%", height: "100%", minHeight: 200 }}
     >
       {histogram.length === 0 ? (

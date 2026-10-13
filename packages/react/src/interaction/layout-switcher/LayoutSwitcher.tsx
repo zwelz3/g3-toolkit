@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from "react";
 import type { LayoutEngine, Position } from "@g3-toolkit/core";
+import { viewClass } from "../../theme/view-class";
 
 export interface PinState {
   /** Pinned node positions. */
@@ -65,7 +66,7 @@ export function LayoutSwitcher({
 }: LayoutSwitcherProps) {
   return (
     <div
-      className={className}
+      className={viewClass(className)}
       data-testid="layout-switcher"
       style={{
         display: "flex",

@@ -7,6 +7,276 @@ published package. 1.1.0 (published 2026-10-13, without the entries
 below) is the released version on npm; the next tag is what moves these
 entries under a version heading.
 
+### 2026-10-13 (backlog round 2: rulings applied to #5, #6, #9, #16 to #20, #44 to #48)
+
+Source: the backlog left after #43 (the five follow-ups it filed plus
+the 2026-08 design-level issues), worked after the maintainer ruled on
+each decision the issues had been waiting for: `core` wins the handle
+name (#18), the derivation stamp lives in a sidecar map (#17), overlay
+sequencing is library surface (#20), AriaCompanion goes into the
+Provenance Auditor (#16), working-set limits take a default and a
+ceiling per view (#5), matrix pagination and the UGM page descriptor
+go ahead (#6), virtualization uses `@tanstack/react-virtual` (#47),
+the `g3t-view` root class is a public DOM change worth making (#45),
+and triple-derived edges dedupe first-wins (#48). Held per the same
+rulings: #12 (advanced routing) and the fork PR #3. Fourteen agents in
+isolated worktrees, merged one branch at a time onto this branch with
+the affected suites re-run after each merge. Round log:
+`planning/backlog-round-2.md`.
+
+- **`CytoscapeCanvas` style overrides, position pins and algorithm
+  overlays are re-applied to a rebuilt instance (#44).** The
+  style-override, pin and overlay effects keyed only on their own store
+  data, so a layout, edgeStyle, layoutOptions, interactionOptions,
+  containment or animate rebuild produced a bare instance until the
+  store next changed, the same defect #13 fixed for the encoding spec.
+  The three passes are now module-level functions
+  (`applyStyleOverrides`, `applyPinLocks`, `applyOverlayClasses`) that
+  the init path calls right after creating the instance, in the order
+  the effects run, reading the stores directly; each effect records
+  what it applied and skips an application the init path just made, so
+  mount and every rebuild apply each layer once. Additive growth (#26)
+  is unchanged. Restyle-only. Tests:
+  `CytoscapeCanvas.rebuild-decorations.test.tsx` (fifteen cases, nine
+  red before the fix) and a once-proof in the additive suite.
+
+- **Demo opt-ins for `labelCollision` and additive updates (#46, demo
+  half).** The Biomedical Knowledge Graph shell carries both. A Labels
+  control (All / Shorten / Hide, default Shorten, `labelMaxLength` 14)
+  switches `labelCollision` on whichever canvas view is showing. A third
+  canvas view, Explore, draws the subgraph induced by a drawn id set,
+  seeded with the three diseases; Expand selected adds the selected
+  node and its depth-1 neighbors as a superset ugm whose edges are keyed
+  by endpoints and type, with `graphUpdate="additive"` passed only in
+  that view; Reset shrinks the set and rebuilds on purpose. The spec's
+  categorical scale pins its domain so the subset cannot reshuffle
+  class colors. Rendered behavior awaits the live review in #46.
+
+- **Adapters pass stable edge keys (#48, both halves).** `GremlinAdapter`
+  keys each edge on its Gremlin id through a stable stringification
+  (GraphSON typed values unwrapped, JanusGraph relation ids as their
+  string, other object ids as sorted-key JSON) and names vertices and
+  endpoints with the same function, where `String(id)` had turned every
+  typed id into "[object Object]". `RestEdgeMapping` and
+  `Holon.interiorEdges` take an optional `id`; holarchy edges are keyed
+  on `portal.id`. `CypherAdapter` keys on the Neo4j 5 `elementId` and
+  never the legacy `id`, which is a per-entity-type counter that would
+  collide with node ids in Cytoscape's single id space; a 4.x response
+  keeps generated ids, and a relationship repeated across path rows is
+  now one edge. Triple-derived edges in the SPARQL adapter and the
+  projection pipeline are keyed by one shared helper,
+  `tripleEdgeKey(subject, predicate, object, graph?)`, the triple's
+  N-Triples line without the dot, whose leading `<` keeps it disjoint
+  from every node id; the named graph joins the key only when a caller
+  passes one, since both core paths merge graphs. On a duplicate key
+  every adapter keeps the first record and skips the later one, the
+  treatment a repeated node id already got. Twenty-nine tests across
+  the six paths. Still open, filed in the round log: Cytoscape's single
+  id space is a general #31 hazard the converter does not guard.
+
+- **`TableView`: CSV export, values checklist, column reorder,
+  cross-column search and row virtualization (#47).** `exportCsv` adds
+  an "Export CSV" toolbar button that writes the filtered rows in the
+  current sort and the visible columns in their current order, from
+  cell values, as RFC 4180 text; `getCsv(rows, columns)` is the
+  exported pure half, and the browser download is a guarded no-op in
+  jsdom or replaced through `download`. The `"values"` filter is a
+  checklist popover with per-value counts, All/None shortcuts and the
+  column menu's Escape/outside-click close; several ticks are a union.
+  The column menu gains move left/right driving TanStack `columnOrder`;
+  `columnOrder` and `onColumnOrderChange` let a host control or persist
+  it. `search` adds one box over the visible columns only (the
+  searchable ids travel inside the `globalFilter` value because the
+  filtered row model memoizes on the filter value, not visibility).
+  `virtualize` (boolean or `{ overscan, threshold }`, default off)
+  windows the rows of the `fill` scroll region through
+  `@tanstack/react-virtual` (`^3.14.18`, a regular dependency beside
+  `@tanstack/react-table`); it engages per page only past `threshold`
+  rows (default 150), so a small table's DOM is unchanged, with
+  aria-hidden spacer rows holding the height, `rowHeight` as the size
+  estimate, the focused row pinned while scrolling, and the first
+  `overscan` rows rendered before the region is measured. `autoPageSize`
+  is ignored while `virtualize` is set. Guide recipes with executable
+  twins for all five.
+
+- **`onReady` reach inventory and promotion proposal (#19, design record
+  only).** `roadmap/design/onready-inventory.md` catalogues every reach
+  through the Cytoscape `Core` across the shells, examples, guide
+  snippets, the library's own handle-taking components and the tests:
+  86 rows, 63 of them operations (camera 20, position reads 9, layout
+  runs 6, lifecycle 5, class 5, reads 5, style bypasses 4, position
+  writes 3, gestures 2, four singletons; 23 plumbing). Gesture
+  registration, the issue's lead example, appears only in the guide's
+  dbltap snippet, which has no executable twin. The record proposes the
+  promoted surface concretely typed, costs the three `onReady` options
+  against the rows, recommends narrowing to a capability object staged
+  behind a stability policy, and states what that means for #18. The
+  rulings it asks for are in the round log.
+
+- **One name for the Cytoscape handle prop: `core` (#18).** `GraphToolbar`
+  took the `onReady` instance as `cy` while `Minimap` took it as
+  `core`. `core` is canonical on both; `cy` stays accepted as a
+  deprecated alias for one major, resolved as `core ?? cy` by one
+  internal helper (core wins when both are supplied), with one
+  development warning per component when only `cy` is given.
+  `SearchBar`'s `onSearchChange` is optional: the bar drives the
+  selection store on an explicit pick regardless, and `GraphToolbar`'s
+  no-op callback is gone. In-repo callers migrated; the wiring guide
+  documents the alias in place of the inconsistency.
+
+- **Overlays can be walked in order (#20).** A layer over
+  `useOverlayStore`, not a change to it: `useOverlaySequence({ ids, mode,
+  speedMs, loop, autoplay })` holds the index and transport and on every
+  step merges into `activeIds` exactly the ids it owns, leaving every
+  other overlay alone; `OverlayTransport` is its presentational face
+  (prev / play-pause / next, a live "3 of 7" readout, optional speed and
+  loop, each suppressible, token colors only); the rules are the pure
+  `computeSequenceActiveIds`, `stepSequence` and `mergeSequenceActiveIds`.
+  On unmount or an `ids` change the sequence restores the ids it owned
+  to the state they had when it took them. Playback is one
+  `setInterval` whose tick advances its own index ref so batched ticks
+  cannot collapse. Story under Molecules/OverlayTransport; guide section
+  with a twin that registers a foreign active overlay and proves it
+  survives mount, stepping, a host toggle and unmount.
+
+- **Derived property values now record which definition produced them
+  (#17).** The UGM holds a derivation registry as a SIDECAR map, never
+  on node attributes: `setDerivation`, `getDerivation`,
+  `listDerivations`, `clearDerivation`, each stamp naming the
+  definition, its version, the write time and the expression.
+  `DerivedPropertyEngine` stamps every value it writes with a monotonic
+  per-definition version (bumped when `define` changes the expression)
+  and gains `getVersion`, `recompute(ugm, name)` and `listStale(ugm)`.
+  A plain `updateNodeProperties` write to a stamped key clears the
+  stamp; `removeNode` and `clear` drop stamps. The UGM snapshot moves to
+  version 2 with an optional `derivations` field; a snapshot without a
+  version still loads, another version throws `UnsupportedVersionError`,
+  a stamp for a missing node throws `MalformedDocumentError` (new
+  `DocumentKind` "ugm"). `exportSubgraphJson` carries the stamps
+  (additive field, document version unchanged); CSV is unchanged and
+  says so. Both inspectors show "derived by <definition>" through
+  `PropertyField.derivedBy`; `TableView` marks a derived cell with
+  `data-derived` and `g3t-table-cell-derived`. The SHACL validator and
+  the encoding spec are unchanged. No PROV-O wiring. Consumer-cost
+  budgets for the two UGM-rooted scenarios raised (6.0 to 8.0 KB, 13.0
+  to 15.0 KB), about half of the UGM growth being the typed error
+  vocabulary now reachable from `fromJSON`.
+
+- **CanvasAdapter and Minimap rasterization now tested (#9).** jsdom
+  returns null from `getContext("2d")`, so `paint()` and the Minimap
+  painter never ran under the unit suite and no e2e spec referenced
+  either. No source change: the unit suite spies
+  `HTMLCanvasElement.prototype.getContext` to hand each component a
+  recording Proxy context, and `canvas-adapter.test.tsx` pins one
+  `setTransform(dpr)` per paint, gradient extents and stops, the halo's
+  0.35 alpha and its restore, opacity reset and every DrawOp kind
+  reaching its primitive; `Minimap.test.tsx` drives the painter against
+  a fake core. `tests/e2e/raster-paint.spec.ts` reads pixels back
+  through `getImageData` on the production bundle (Supply Chain's
+  canvas-adapter toggle, the Style Lab F2 pane at deviceScaleFactor 2
+  for the halo ring and gradient steps, the Supply Chain Minimap); each
+  assertion was confirmed red against a deliberately broken `paint()`.
+
+- **AriaCompanion is used by a shell, and the gaps that surfaced are
+  closed (#16).** Wiring it into the Provenance Auditor found that
+  `useAnnounce` had never reached a live region: it set component-local
+  state nothing rendered. The component gains optional props, none
+  renamed: `announcement`, `announceDebounceMs`, `muted`,
+  `summarizeNode`, `hidden`, `label` and `instructions`; new
+  `useAnnouncer` returns the message to pass as `announcement`;
+  `useAnnounce` is deprecated in place. The auditor announces the
+  selection with directed PROV-O edge counts and the SHACL count plus
+  worst severity, the lineage step when a trace opens or a hop is
+  clicked, and the time window on a move, debounced at 300 ms and muted
+  during Play; the canvas region carries an accessible name and the
+  shell's `inset: 0` rule is overridden so the companion does not shield
+  the canvas. Nine component tests, seven shell tests, a guide recipe
+  with its twin; real screen-reader behavior is listed in the shell's
+  review copy.
+
+- **Pagination is a shared capability; the matrix pages instead of
+  truncating (#6, R7.3).** Core gains a page descriptor, `PageWindow
+  { offset, size, total, totalExact }`, and the helpers `pageNodes`,
+  `pageCategories`, `pageItems`, `pageCount` and `pageIndex`, which cut
+  a page in a stable code-unit id order or a caller comparator with id
+  as the tie-break; offset form only, since the in-memory UGM has no
+  cursor layer. `checkLimit` keeps `allowed`, `limit` and `requested`
+  and adds `strategy` ("allow" within the limit, otherwise the view
+  type's row of the exported `DEFAULT_LIMIT_STRATEGIES`: canvas, tree
+  and streaming refuse, table and matrix page, sankey truncates; a third
+  argument overrides per call) and `pageSize`. `@g3-toolkit/react` gains
+  the `PaginationControl` molecule (stateless prev/next, "Page X of Y",
+  a "rows 1 to 200 of 350" summary, optional page-size select,
+  aria-labels, Arrow/Home/End). `MatrixView` renders one control per
+  axis and pages rows and columns independently past `maxSize`, so a
+  350x350 request opens at 200x200 and every cell is reachable; the
+  color scale is over the whole matrix so paging never recolors; the
+  truncation notice is gone. R7.3's criterion is restated as a passing
+  test (a static render: a jsdom commit of 40,000 inline-styled cells
+  costs about 6 s). Not in this slice: `TableView` keeps its TanStack
+  bar, canvas and tree still refuse, aggregate-into-"other" is a
+  documented non-goal.
+
+- **Working-set limits are deployment configuration (#5, R7.7).**
+  `WorkingSetManager` was exported but nothing in production
+  instantiated it; TreeView alone took one as a prop and MatrixView
+  carried its own 200 literal. A versioned `WorkingSetConfig` document
+  (`{ version: 1, limits: { canvas: { default, ceiling }, ... } }`,
+  every view and field optional) validated with the shared
+  document-error vocabulary, `WorkingSetManager.fromConfig`, and
+  explicit precedence: built-in defaults, then the deployment default
+  and ceiling, then a per-user override (`setUserOverride`) that may
+  raise the default up to the ceiling and is refused above it as a
+  typed result (`canRaise`, `getCeiling`); the ceiling bounds every
+  layer, including the admin `setLimit`. `WorkingSetProvider` carries
+  one manager and `useWorkingSetManager` resolves explicit prop, then
+  provider, then a module default, so hosts that mount nothing keep
+  today's limits; TreeView and MatrixView read their limit through it,
+  and `workingSetLimitMessage` turns an over-limit request into a
+  prompt under the ceiling or a refusal above it. Only TreeView and
+  MatrixView enforce a limit today; the guide says so. Merged with #6,
+  the matrix limit from the provider is its page size.
+
+- **Every view root carries `g3t-view`, so the scoped typography reaches
+  it (#45).** #24 scoped the toolkit typography to `g3t-` classes and
+  moved the reset and `body` rule to the opt-in `style.base.css`, which
+  left the views whose root is an unclassed, inline-styled element (the
+  `CytoscapeCanvas` wrapper, the inspectors, the encoding panel, the
+  tree and schema views, the context menu, among others) inheriting the
+  host's font, size and ink when a host imported only `style.css`.
+  Every exported view and panel root (49 roots in 48 files) now
+  composes `g3t-view` through one internal helper (`viewClass`), with
+  the host's `className` and the component's own class kept first so
+  host selectors keep working; this is a public DOM change.
+  `g3t-base.css` names `.g3t-view` in the face/smoothing/border-box
+  rule and adds a `.g3t-view` rule for `font-size`, `line-height` and
+  `color`, the values `style.base.css` puts on `body`, so the
+  playground and Storybook render the same; `.g3t-btn`, `.g3t-select`,
+  `.g3t-input` and the panel section header pin `line-height: normal`
+  so a host reset cannot stretch them. VISIBLE CHANGE for hosts
+  without `style.base.css`: views now render at 13px/1.5/text-primary
+  where they previously showed the host's body values, which is the
+  intent. Hosts style the toolkit's text through the class, documented
+  in both guides with an executable twin. Tests: a table-driven suite
+  renders every component with minimal props and pins the class and
+  its order (112 cases, red before); the dist stylesheet test asserts
+  the `.g3t-view` rule and still no bare `body`, `html` or `*`
+  selector. React publish weight 446 to 450 KB (measured +0.8 KB).
+
+- **Ledgers.** React publish weight 421.6 to 446.4 KB across the
+  round (budget 428 to 450 with per-branch attribution, each raise a
+  separate entry); core 173.0 to 181.5 KB (budget 176 to 184: the
+  derivation registry, tripleEdgeKey, the working-set config); the
+  core root barrel consumer-cost scenario 155 to 160 KB; the two
+  UGM-rooted scenarios 6 to 8 and 13 to 15 KB. `api-surface.json`
+  gains `tripleEdgeKey`, `parseWorkingSetConfig`,
+  `validateWorkingSetConfig`, `DEFAULT_LIMIT_STRATEGIES`, the five
+  paging helpers, `getCsv`, `useAnnouncer`, `PaginationControl`,
+  `WorkingSetProvider`, `useWorkingSetManager`,
+  `getDefaultWorkingSetManager`, `workingSetLimitMessage`,
+  `useOverlaySequence`, `OverlayTransport`, the three sequence rules
+  and `DEFAULT_SPEED_OPTIONS`.
+
 ### 2026-10-13 (host-integration issues #23: seventeen sub-issues plus the older backlog)
 
 Source: the tracking issue #23 filed from a downstream React/Vite host

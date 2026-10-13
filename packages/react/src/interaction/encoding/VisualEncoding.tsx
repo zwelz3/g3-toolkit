@@ -10,6 +10,7 @@
 import { useCallback } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { useThemeStore } from "../../theme/ThemeManager";
+import { viewClass } from "../../theme/view-class";
 
 // ── Encoding Configuration ──────────────────────────────────────────
 
@@ -210,7 +211,7 @@ export function EncodingPanel({
   return (
     <div
       data-testid="encoding-panel"
-      className={className}
+      className={viewClass(className)}
       style={{
         padding: 8,
         fontSize: 12,
@@ -321,7 +322,7 @@ export function CanvasLegend({ ugm, encoding, className }: CanvasLegendProps) {
   return (
     <div
       data-testid="canvas-legend"
-      className={className}
+      className={viewClass(className)}
       style={{
         padding: 8,
         fontSize: 11,

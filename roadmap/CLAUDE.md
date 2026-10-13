@@ -32,7 +32,8 @@ roadmap/
 │   ├── algorithm-overlays.md          result interchange, overlay modes, precedence refinement
 │   ├── shacl-views.md                 shape-graph rendering, validation-report visualization
 │   ├── structural-rendering.md        ELK containers, compartments, ports (Group A)
-│   └── working-set-and-performance.md limit values, streaming layout, large graphs
+│   ├── working-set-and-performance.md limit values, streaming layout, large graphs
+│   └── onready-inventory.md           onReady Core-handle reach inventory, promotion proposal (#19, #18; owns nothing)
 ├── engineering/                       ← implementation work per capability
 │   ├── streaming.md                   StreamAdapter, sliding window (M9)
 │   ├── write-back.md                  commit-time SHACL, conflict policy (M9)

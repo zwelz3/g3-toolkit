@@ -91,6 +91,9 @@ const PLACEHOLDERS = {
   // Everything else is the adopter's own code and has no toolkit type.
   caseId: "any",
   cy: "any",
+  // The deployment's working-set document, read from wherever the
+  // host keeps configuration (issue #5 recipe).
+  deploymentConfigText: "string",
   DossierLookup: "any",
   initialSpec: "any",
   logError: "any",
@@ -112,6 +115,10 @@ const PLACEHOLDERS = {
   shapes: "any",
   spec: "any",
   validationResults: "any",
+  // The adopter's own useReactTable instance (wiring guide, getCsv):
+  // @tanstack/react-table is a peer of @g3-toolkit/react and is not
+  // installed at the repo root, so the snippet cannot import its types.
+  hostTable: "any",
 };
 const dir = resolve(root, ".verify-snippets");
 rmSync(dir, { recursive: true, force: true });
