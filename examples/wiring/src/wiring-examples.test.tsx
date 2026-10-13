@@ -1695,6 +1695,70 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(kShortestPaths(view, "a", "c", { k: 2 })).toHaveLength(1);
   });
 
+  it("endpoints: a node hasNode does not report is never found; an existing node is its own zero-hop path (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    ugm.addNode("lone", { types: ["Site"], properties: {} });
+    // An adjacency-style index: only nodes with edges are reported.
+    const view: PathGraph = {
+      hasNode: (id) => ugm.hasNode(id) && ugm.getNodeEdges(id).length > 0,
+      getNodeEdges: (id) => ugm.getNodeEdges(id),
+      getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+      getEdge: (id) => ugm.getEdge(id),
+    };
+    expect(findShortestPath(view, "lone", "lone").found).toBe(false);
+    expect(allShortestPaths(view, "lone", "lone").pathCount).toBe(0);
+    expect(kShortestPaths(view, "lone", "lone", { k: 3 })).toEqual([]);
+    expect(findShortestPath(view, "b", "b")).toEqual({
+      nodeIds: ["b"],
+      edgeIds: [],
+      length: 0,
+      found: true,
+    });
+    expect(allShortestPaths(view, "b", "b").pathCount).toBe(1);
+    expect(kShortestPaths(view, "b", "b", { k: 3 })).toEqual([
+      { nodeIds: ["b"], edgeIds: [] },
+    ]);
+  });
+
+  it("kShortestPaths over the allShortestPaths union lists only the shortest routes (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    // a - b - c, a second two-hop route through a hub, and a three-hop
+    // detour that kShortestPaths over the full graph would list too.
+    ugm.addNode("hub:1", { types: ["Hub"], properties: {} });
+    ugm.addEdge("a", "hub:1", { type: "feeds" });
+    ugm.addEdge("hub:1", "c", { type: "feeds" });
+    ugm.addNode("d1", { types: ["Site"], properties: {} });
+    ugm.addNode("d2", { types: ["Site"], properties: {} });
+    ugm.addEdge("a", "d1", { type: "feeds" });
+    ugm.addEdge("d1", "d2", { type: "feeds" });
+    ugm.addEdge("d2", "c", { type: "feeds" });
+    expect(kShortestPaths(ugm, "a", "c", { k: 50 })).toHaveLength(3);
+
+    const union = allShortestPaths(ugm, "a", "c");
+    expect(union.found).toBe(true);
+    expect(union.length).toBe(2);
+    expect(union.pathCount).toBe(2);
+    const nodes = new Set(union.nodeIds);
+    const edges = new Set(union.edgeIds);
+    const unionView: PathGraph = {
+      hasNode: (id) => nodes.has(id),
+      getNodeEdges: (id) => ugm.getNodeEdges(id).filter((e) => edges.has(e)),
+      getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+      getEdge: (id) => ugm.getEdge(id),
+    };
+    const shortestRoutes = kShortestPaths(unionView, "a", "c", {
+      k: union.pathCount,
+      maxHops: union.length,
+    });
+    expect(shortestRoutes.map((r) => r.nodeIds).sort()).toEqual([
+      ["a", "b", "c"],
+      ["a", "hub:1", "c"],
+    ]);
+    expect(shortestRoutes.every((r) => r.edgeIds.length === union.length)).toBe(
+      true,
+    );
+  });
+
   it("UGM.addEdge keeps a host-supplied key as the edge id (guide: The integration surface)", () => {
     const ugm = new UGM();
     ugm.addNode("pump-1", { types: ["Asset"], properties: { name: "Pump" } });
