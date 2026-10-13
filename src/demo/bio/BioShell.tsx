@@ -100,8 +100,10 @@ export function BioShell({ onBack }: { onBack: () => void }) {
   // first expansions show the seeding plainly). Expand adds the
   // selected node's neighborhood; each step is a superset ugm with
   // stable edge ids, which is what lets the canvas grow the instance
-  // in place instead of re-laying it out. Reset shrinks the set, so it
-  // takes the ordinary rebuild path on purpose. The subset is only
+  // in place instead of re-laying it out. Reset shrinks the set back
+  // to the seed, which the canvas also applies in place (issue #64:
+  // the three diseases survive, so it is the same scene): the expanded
+  // nodes leave, the diseases and the camera hold. The subset is only
   // induced in this view; `graphUpdate` is "additive" only here too,
   // so the other two views keep their rebuild-on-switch behavior.
   const seed = useMemo(() => nodesOfType(ugm, "Disease"), [ugm]);
@@ -233,7 +235,7 @@ export function BioShell({ onBack }: { onBack: () => void }) {
               ))}
               <span className="bio-view-caption" data-testid="bio-view-caption">
                 {canvasView === "explore"
-                  ? `${canvasUgm.getNodeIds().length} of ${ugm.nodeCount} nodes drawn; select a node and Expand: its neighbors join in place, seeded beside it and settled by one fcose pass with the drawn nodes held, camera untouched. Reset rebuilds from the three diseases.`
+                  ? `${canvasUgm.getNodeIds().length} of ${ugm.nodeCount} nodes drawn; select a node and Expand: its neighbors join in place, seeded beside it and settled by one fcose pass with the drawn nodes held, camera untouched. Reset removes everything but the three diseases, in place.`
                   : `${canvasUgm.getNodeIds().length} nodes · ${
                       canvasView === "raw"
                         ? "every triple an edge; literals and rdf:type as nodes"

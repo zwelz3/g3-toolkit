@@ -5,7 +5,11 @@
  * fit), really leaves the existing nodes where they were and places
  * only the new ones. The issue's host workaround used `locked`, which
  * fcose ignores while computing; `fixedNodeConstraint` is what it
- * honors. Headless cytoscape with the real fcose extension.
+ * honors. Issue #64 adds the shrink side against the real element
+ * model: a removed node takes its incident edges, a removed compound
+ * parent does NOT take its surviving children (they are moved out
+ * first, keeping their positions), and the camera is never written.
+ * Headless cytoscape with the real fcose extension.
  */
 import { describe, it, expect } from "vitest";
 import cytoscape from "cytoscape";
@@ -93,19 +97,176 @@ describe("applyAdditiveUpdate with the real fcose (headless)", () => {
     cy.destroy();
   });
 
-  it("returns false and touches nothing when the live graph has a node the next one lacks", () => {
+  it("removes the nodes the next graph lacks, with their incident edges, and holds the rest (#64)", () => {
     const { ugm, positions } = ring();
     const cy = mount(ugm, positions);
-    const smaller = new UGM();
-    smaller.addNode("n0", { types: ["T"], properties: {} });
-    smaller.addNode("n9", { types: ["T"], properties: {} });
-    smaller.addEdge("n0", "n9", { type: "r", key: "x" });
+    cy.viewport({ zoom: 1.7, pan: { x: 33, y: -21 } });
+    // Drop every other node: three survivors, no surviving ring edge
+    // (each edge joined a removed node).
+    const smaller = UGM.fromJSON(ugm.toJSON());
+    for (const id of ["n1", "n3", "n5"]) smaller.removeNode(id);
     expect(applyAdditiveUpdate(cy, ugmToCytoscapeElements(smaller), OPTS)).toBe(
+      true,
+    );
+    expect(
+      cy
+        .nodes()
+        .map((n) => n.id())
+        .sort(),
+    ).toEqual(["n0", "n2", "n4"]);
+    expect(cy.edges().length).toBe(0);
+    for (const id of ["n0", "n2", "n4"]) {
+      const before = positions.get(id)!;
+      const after = cy.$id(id).position();
+      expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(
+        1e-9,
+      );
+    }
+    expect(cy.zoom()).toBe(1.7);
+    expect(cy.pan()).toEqual({ x: 33, y: -21 });
+    cy.destroy();
+  });
+
+  it("shrinks and grows in one call: the removed node is gone, the new one lands beside its surviving neighbor (#64)", () => {
+    const { ugm, positions } = ring();
+    const cy = mount(ugm, positions);
+    const next = UGM.fromJSON(ugm.toJSON());
+    next.removeNode("n3");
+    next.addNode("n6", { types: ["U"], properties: {} });
+    next.addEdge("n0", "n6", { type: "r", key: "e6" });
+    expect(applyAdditiveUpdate(cy, ugmToCytoscapeElements(next), OPTS)).toBe(
+      true,
+    );
+    expect(cy.$id("n3").empty()).toBe(true);
+    expect(cy.nodes().length).toBe(6);
+    // e2 (n2-n3) and e3 (n3-n4) left with n3; e6 arrived.
+    expect(
+      cy
+        .edges()
+        .map((e) => e.id())
+        .sort(),
+    ).toEqual(["e0", "e1", "e4", "e5", "e6"]);
+    for (const id of ["n0", "n1", "n2", "n4", "n5"]) {
+      const before = positions.get(id)!;
+      const after = cy.$id(id).position();
+      expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(
+        1e-6,
+      );
+    }
+    const p6 = cy.$id("n6").position();
+    const n0 = positions.get("n0")!;
+    expect(Number.isFinite(p6.x) && Number.isFinite(p6.y)).toBe(true);
+    // Closer to n0 than to where n3 was (opposite side of the ring).
+    const n3 = positions.get("n3")!;
+    expect(Math.hypot(p6.x - n0.x, p6.y - n0.y)).toBeLessThan(
+      Math.hypot(p6.x - n3.x, p6.y - n3.y),
+    );
+    cy.destroy();
+  });
+
+  it("returns false and touches nothing when the next graph shares no node with the live one (#64 boundary)", () => {
+    const { ugm, positions } = ring();
+    const cy = mount(ugm, positions);
+    const other = new UGM();
+    other.addNode("x", { types: ["T"], properties: {} });
+    other.addNode("y", { types: ["T"], properties: {} });
+    other.addEdge("x", "y", { type: "r", key: "xy" });
+    expect(applyAdditiveUpdate(cy, ugmToCytoscapeElements(other), OPTS)).toBe(
       false,
     );
+    expect(applyAdditiveUpdate(cy, [], OPTS)).toBe(false);
     expect(cy.nodes().length).toBe(6);
     expect(cy.edges().length).toBe(6);
-    expect(cy.$id("n9").empty()).toBe(true);
+    expect(cy.$id("x").empty()).toBe(true);
+    cy.destroy();
+  });
+
+  it("removing a compound parent keeps its surviving children at their positions, top level (#64)", () => {
+    const containment = {
+      edgeType: "contains",
+      direction: "parentToChild",
+    } as const;
+    const ugm = new UGM();
+    ugm.addNode("p", { types: ["Group"], properties: {} });
+    ugm.addNode("a", { types: ["T"], properties: {} });
+    ugm.addNode("b", { types: ["T"], properties: {} });
+    ugm.addNode("c", { types: ["T"], properties: {} });
+    ugm.addEdge("p", "a", { type: "contains", key: "pa" });
+    ugm.addEdge("p", "b", { type: "contains", key: "pb" });
+    ugm.addEdge("a", "c", { type: "r", key: "ac" });
+    const positions = new Map([
+      ["a", { x: 10, y: 20 }],
+      ["b", { x: 60, y: 20 }],
+      ["c", { x: 200, y: 200 }],
+    ]);
+    const elements = ugmToCytoscapeElements(ugm, { containment }).map((el) =>
+      el.group === "nodes" && positions.has(String(el.data.id))
+        ? { ...el, position: positions.get(String(el.data.id)) }
+        : el,
+    );
+    const cy = cytoscape({
+      headless: true,
+      styleEnabled: true,
+      elements,
+      layout: { name: "preset" },
+    });
+    expect(cy.$id("a").data("parent")).toBe("p");
+    cy.$id("a").addClass("g3t-selected");
+    // The group dissolves (p leaves with its containment edges); b
+    // leaves too; a and c stay.
+    const next = UGM.fromJSON(ugm.toJSON());
+    next.removeNode("p");
+    next.removeNode("b");
+    expect(
+      applyAdditiveUpdate(
+        cy,
+        ugmToCytoscapeElements(next, { containment }),
+        OPTS,
+      ),
+    ).toBe(true);
+    expect(
+      cy
+        .nodes()
+        .map((n) => n.id())
+        .sort(),
+    ).toEqual(["a", "c"]);
+    expect(cy.edges().map((e) => e.id())).toEqual(["ac"]);
+    expect(cy.$id("a").isChild()).toBe(false);
+    expect(cy.$id("a").position()).toEqual({ x: 10, y: 20 });
+    expect(cy.$id("c").position()).toEqual({ x: 200, y: 200 });
+    // move() kept the element object: its classes survived.
+    expect(cy.$id("a").hasClass("g3t-selected")).toBe(true);
+    cy.destroy();
+  });
+
+  it("a surviving child re-parented to another node still takes the rebuild (#26 rule unchanged)", () => {
+    const containment = {
+      edgeType: "contains",
+      direction: "parentToChild",
+    } as const;
+    const ugm = new UGM();
+    ugm.addNode("p", { types: ["Group"], properties: {} });
+    ugm.addNode("q", { types: ["Group"], properties: {} });
+    ugm.addNode("a", { types: ["T"], properties: {} });
+    ugm.addEdge("p", "a", { type: "contains", key: "pa" });
+    const cy = cytoscape({
+      headless: true,
+      styleEnabled: true,
+      elements: ugmToCytoscapeElements(ugm, { containment }),
+      layout: { name: "preset" },
+    });
+    const next = UGM.fromJSON(ugm.toJSON());
+    next.removeNode("p");
+    next.addEdge("q", "a", { type: "contains", key: "qa" });
+    expect(
+      applyAdditiveUpdate(
+        cy,
+        ugmToCytoscapeElements(next, { containment }),
+        OPTS,
+      ),
+    ).toBe(false);
+    expect(cy.$id("p").nonempty()).toBe(true);
+    expect(cy.$id("a").data("parent")).toBe("p");
     cy.destroy();
   });
 });

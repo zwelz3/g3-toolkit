@@ -390,8 +390,10 @@ it to the canvas as `hidden`; the canvas hides them with a class
 (`display:none`) in a batched restyle, so node positions and the
 Cytoscape instance survive. Do NOT feed a pre-filtered UGM as `ugm`: a new
 `ugm` reference re-creates the instance and re-runs layout on every
-toggle (additive mode, next section, only ever grows a graph; a filter
-removes, so it would rebuild there too).
+toggle. Additive mode (next section) would remove the filtered nodes in
+place, but a hidden node keeps its position and its edges for when the
+filter lifts, and stays reachable for search, routes and export; a
+removed node is laid out again when it returns.
 
 ```tsx
 import { useMemo, useState } from "react";
@@ -417,18 +419,21 @@ const hidden = useMemo(() => {
 </>;
 ```
 
-### Grow a drawn graph without rebuilding it
+### Grow or shrink a drawn graph without rebuilding it
 
 CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. An
-explorer that adds one neighborhood at a time hands the canvas a new
-`ugm` on every step, and a new identity is a different graph: the
-instance is re-created, positions and the camera reset. With
-`graphUpdate="additive"` a new ugm whose node-id set is a SUPERSET of
-the drawn one grows the live instance instead: the new nodes and edges
-join in place, only the new nodes are laid out (one fcose pass with
-every existing node held by `fixedNodeConstraint`, seeded next to the
-neighbors they were expanded from), and the camera does not move. The
-host still owns the growth; it just builds each step as a superset.
+explorer that adds one neighborhood at a time, or collapses one, hands
+the canvas a new `ugm` on every step, and a new identity is a different
+graph: the instance is re-created, positions and the camera reset. With
+`graphUpdate="additive"` a new ugm that shares at least one node with
+the drawn one is the SAME SCENE and updates the live instance instead:
+nodes the new ugm lacks leave in place with their incident edges, the
+new nodes and edges join, every surviving node keeps its position, only
+the new nodes are laid out (one fcose pass with every existing node
+held by `fixedNodeConstraint`, seeded next to the neighbors they were
+expanded from; a pure removal runs no layout), and the camera does not
+move. The host still owns the change; it just builds each step from the
+previous one.
 
 ```tsx
 import { useState } from "react";
@@ -450,17 +455,39 @@ const expand = (nodeId: string) => {
   setGraph(next);
 };
 
+// A collapse is the same recipe minus the nodes: the canvas removes
+// them in place and nothing else moves.
+const collapse = (nodeIds: readonly string[]) => {
+  const next = UGM.fromJSON(graph.toJSON());
+  for (const id of nodeIds) if (next.hasNode(id)) next.removeNode(id);
+  setGraph(next);
+};
+
 <>
   <button onClick={() => expand(selectedIds[0])}>Expand</button>
+  <button onClick={() => collapse(selectedIds)}>Collapse</button>
   <CytoscapeCanvas ugm={graph} graphUpdate="additive" />
 </>;
 ```
 
-A step that REMOVES a node (pruning, a different subject) takes the
-normal rebuild path; so does a containment change that re-parents a
-drawn node. Edges the new ugm no longer has are removed in place, and
-drawn elements take the new ugm's data, so a data-only change is also
-in place. `animate` and `animationDuration` apply to the growth pass.
+The boundary is sharing a node. A new ugm with NO node in common with
+the drawn one (a different subject, or an empty graph, which has no
+scene to keep) takes the normal rebuild path and fits; so does a
+containment change that re-parents a surviving node (removing a parent
+whose children survive is not that: the children are moved to the top
+level in place and keep their positions). Edges the new ugm no longer
+has are removed in place, and drawn elements take the new ugm's data,
+so a data-only change is also in place. `animate` and
+`animationDuration` apply to the growth pass. Store entries that name
+a removed node (a pin, a selection, an overlay member) are yours and
+are left alone; the canvas skips ids it no longer draws, exactly as a
+rebuild does.
+
+Upgrading from 1.2.0: additive mode used to rebuild on any node
+removal. A host that relied on a shrink forcing a fresh layout and fit
+passes that step through `graphUpdate="rebuild"` (the prop is read per
+render, so switching it for one step is fine), or hands the canvas a
+ugm that shares no node with the drawn one.
 
 ### Register an algorithm result from your backend
 
@@ -1416,8 +1443,8 @@ of planning/large-graph-design.md; Approach 4 (worker layout with
 viewport culling, for drilled sets past ~5k) is designed but not yet
 implemented. To grow a drilled-in set one neighborhood at a time
 without re-laying out what is already drawn, pass each step as a
-superset ugm with `graphUpdate="additive"` ("Grow a drawn graph
-without rebuilding it", above).
+new ugm built from the previous one with `graphUpdate="additive"`
+("Grow or shrink a drawn graph without rebuilding it", above).
 
 ## Dense graphs: let labels yield to each other
 

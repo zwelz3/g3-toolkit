@@ -941,12 +941,15 @@ describe("wiring guide: filter by hiding, not by rebuilding", () => {
   });
 });
 
-describe("wiring guide: grow a drawn graph without rebuilding it", () => {
-  // The canvas's in-place growth is pinned under a cytoscape mock in
-  // packages/react (CytoscapeCanvas.additive.test.tsx) and against the
-  // real fcose in additive-update.test.ts. This twin runs the HOST side
-  // of the recipe: every step is a superset ugm whose drawn edges keep
-  // their ids, which is what makes the diff add only what is new.
+describe("wiring guide: grow or shrink a drawn graph without rebuilding it", () => {
+  // The canvas's in-place growth and shrink are pinned under a
+  // cytoscape mock in packages/react (CytoscapeCanvas.additive.test.tsx)
+  // and against the real fcose in additive-update.test.ts. This twin
+  // runs the HOST side of the recipe: every step is a new ugm built
+  // from the previous one whose kept edges keep their ids, which is
+  // what makes the diff add only what is new, and a collapse step
+  // shares a node with the drawn graph, which is what keeps it in place
+  // (issue #64).
   it("each step is a superset ugm with stable edge ids; additive mode is a canvas prop", () => {
     const base = graph();
     const neighborhood = (nodeId: string) =>
@@ -983,6 +986,38 @@ describe("wiring guide: grow a drawn graph without rebuilding it", () => {
     // The prop is on the public canvas type.
     const el = <CytoscapeCanvas ugm={next} graphUpdate="additive" />;
     expect(el.props.graphUpdate).toBe("additive");
+  });
+
+  it("a collapse step drops nodes and their edges but shares the rest, so the canvas shrinks in place (#64)", () => {
+    const base = graph();
+    const collapse = (current: UGM, nodeIds: readonly string[]): UGM => {
+      const next = UGM.fromJSON(current.toJSON());
+      for (const id of nodeIds) if (next.hasNode(id)) next.removeNode(id);
+      return next;
+    };
+    const next = collapse(base, ["asset-2", "not-drawn"]);
+    expect(next.hasNode("asset-2")).toBe(false);
+    next.forEachEdge((_id, _attrs, source, target) => {
+      expect(source).not.toBe("asset-2");
+      expect(target).not.toBe("asset-2");
+    });
+    // Same scene: at least one drawn node survives, and the survivors'
+    // edges keep their ids, so nothing but asset-2's edges leave.
+    const survivors = base.getNodeIds().filter((id) => id !== "asset-2");
+    expect(survivors.length).toBeGreaterThan(0);
+    for (const id of survivors) expect(next.hasNode(id)).toBe(true);
+    base.forEachEdge((id, _attrs, source, target) => {
+      if (source !== "asset-2" && target !== "asset-2")
+        expect(next.hasEdge(id)).toBe(true);
+    });
+    expect(next.nodeCount).toBe(base.nodeCount - 1);
+    // The boundary: a ugm sharing no node is a different graph and
+    // rebuilds, the empty ugm included; a host that wants a shrink to
+    // rebuild and fit passes that step through graphUpdate="rebuild".
+    const empty = collapse(base, base.getNodeIds());
+    expect(empty.nodeCount).toBe(0);
+    const el = <CytoscapeCanvas ugm={empty} graphUpdate="rebuild" />;
+    expect(el.props.graphUpdate).toBe("rebuild");
   });
 });
 

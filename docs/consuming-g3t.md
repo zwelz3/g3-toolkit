@@ -113,15 +113,17 @@ expanding a neighborhood) costs you the whole arrangement, because a
 new `ugm` identity is a different graph. That is often not what you
 want.
 
-The supported answer is the canvas's own additive mode (issue #26):
-`<CytoscapeCanvas ugm={graph} graphUpdate="additive" />`. When the new
-ugm's node-id set is a superset of the drawn one, the instance is kept,
-the new elements join in place, and ONLY the new nodes are laid out:
-one fcose pass with every existing node held by `fixedNodeConstraint`,
-seeded next to their drawn neighbors, no fit. A node removal or a
-re-parented node falls back to the rebuild. The recipe, with the
-edge-id rule that makes the diff minimal, is in the wiring guide under
-"Grow a drawn graph without rebuilding it".
+The supported answer is the canvas's own additive mode (issues #26 and
+#64): `<CytoscapeCanvas ugm={graph} graphUpdate="additive" />`. When
+the new ugm shares at least one node with the drawn one, the instance
+is kept: nodes the new ugm lacks leave in place with their edges, the
+new elements join, every surviving node holds, and ONLY the new nodes
+are laid out: one fcose pass with every existing node held by
+`fixedNodeConstraint`, seeded next to their drawn neighbors, no fit. A
+ugm sharing no node with the drawn one (an empty one included) or a
+re-parented surviving node falls back to the rebuild. The recipe, with
+the edge-id rule that makes the diff minimal, is in the wiring guide
+under "Grow or shrink a drawn graph without rebuilding it".
 
 `@g3-toolkit/core/layout` still exports the lower-level pieces for a
 host that drives the core directly: `capturePositions`,
