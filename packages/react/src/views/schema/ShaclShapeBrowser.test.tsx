@@ -420,13 +420,95 @@ describe("summary prop takes precedence over counted results (#35)", () => {
         summary={{ S: { focus: 0, failing: 0 } }}
       />,
     );
+    // S has a summary entry, so it was validated (0 focus nodes, #55);
+    // before #55 this read "Not validated".
     expect(screen.getByTestId("shape-badge-S").getAttribute("aria-label")).toBe(
-      "Not validated",
+      "No focus nodes",
     );
     expect(screen.getByTestId("shape-badge-O").getAttribute("aria-label")).toBe(
       "All nodes pass",
     );
     expect(screen.getByTestId("shape-O").textContent).toContain("2/2 pass");
+  });
+});
+
+// ── Issue #55: a summary entry with 0 focus nodes is validated ─────
+
+describe("badge distinguishes not validated, no focus nodes, and validated (#55)", () => {
+  const shapes: ShaclShape[] = ["Idle", "Empty", "Ran"].map((id) => ({
+    id,
+    targetClass: "T",
+    properties: [],
+  }));
+
+  it("reads the state from the summary entry when there is one", () => {
+    render(
+      <ShaclShapeBrowser
+        shapes={shapes}
+        validationResults={[]}
+        summary={{
+          Empty: { focus: 0, failing: 0 },
+          Ran: { focus: 4, failing: 0 },
+        }}
+      />,
+    );
+    // No summary entry and no results: nothing ran.
+    const idle = screen.getByTestId("shape-badge-Idle");
+    expect(idle.getAttribute("aria-label")).toBe("Not validated");
+    expect(idle.getAttribute("data-state")).toBe("not-validated");
+    expect(idle.textContent).toBe("—");
+    expect(screen.getByTestId("shape-Idle").textContent).not.toContain(
+      "focus nodes",
+    );
+
+    // Summary says it ran and its targets matched nothing: neutral,
+    // with its own glyph, and neither the pass tone nor idle wording.
+    const empty = screen.getByTestId("shape-badge-Empty");
+    expect(empty.getAttribute("aria-label")).toBe("No focus nodes");
+    expect(empty.getAttribute("data-state")).toBe("no-focus-nodes");
+    expect(empty.hasAttribute("data-severity")).toBe(false);
+    expect(
+      empty.querySelector('[data-testid="g3t-icon-minus"]'),
+    ).not.toBeNull();
+    expect(empty.querySelector('[data-testid="g3t-icon-check"]')).toBeNull();
+    expect(empty.style.color).toContain("var(--g3t-text-muted");
+    expect(screen.getByTestId("shape-Empty").textContent).toContain(
+      "0 focus nodes",
+    );
+
+    // Summary with focus nodes and no failures: validated, all pass.
+    const ran = screen.getByTestId("shape-badge-Ran");
+    expect(ran.getAttribute("aria-label")).toBe("All nodes pass");
+    expect(ran.getAttribute("data-state")).toBe("pass");
+    expect(ran.querySelector('[data-testid="g3t-icon-check"]')).not.toBeNull();
+    expect(screen.getByTestId("shape-Ran").textContent).toContain("4/4 pass");
+  });
+
+  it("the expanded panel of a 0-focus shape does not claim a pass", () => {
+    render(
+      <ShaclShapeBrowser
+        shapes={shapes}
+        validationResults={[]}
+        summary={{ Empty: { focus: 0, failing: 0 } }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("shape-toggle-Empty"));
+    const row = screen.getByTestId("shape-Empty");
+    expect(row.textContent).toContain("No focus nodes: the shape's targets");
+    expect(row.textContent).not.toContain("pass validation");
+  });
+
+  it("the failing badge carries data-state=fail", () => {
+    render(
+      <ShaclShapeBrowser
+        shapes={shapes}
+        validationResults={[]}
+        summary={{ Ran: { focus: 4, failing: 1 } }}
+      />,
+    );
+    expect(
+      screen.getByTestId("shape-badge-Ran").getAttribute("data-state"),
+    ).toBe("fail");
   });
 });
 
@@ -551,5 +633,59 @@ describe("several targets per shape (#35)", () => {
       />,
     );
     expect(screen.getByTestId("shape-targets-S").textContent).toBe("→ Drug");
+  });
+});
+
+// ── Issue #54: an empty targetClass is not a target ────────────────
+
+describe("an empty targetClass contributes no target entry (#54)", () => {
+  it("a shape targeted only by subjectsOf lists that target alone", () => {
+    const shape: ShaclShape = {
+      id: "S",
+      targetClass: "",
+      targets: [{ kind: "subjectsOf", value: "http://x.org/v#decomposes" }],
+      properties: [],
+    };
+    render(<ShaclShapeBrowser shapes={[shape]} validationResults={[]} />);
+    const targets = screen.getByTestId("shape-targets-S");
+    // Before #54: "→ , subjects of decomposes".
+    expect(targets.textContent).toBe("→ subjects of decomposes");
+    expect(targets.querySelectorAll("[data-target-kind]")).toHaveLength(1);
+    expect(targets.querySelector('[data-target-kind="class"]')).toBeNull();
+    expect(targets.getAttribute("title")).toBe(
+      "sh:targetSubjectsOf http://x.org/v#decomposes",
+    );
+  });
+
+  it("a shape with only a SPARQL target reads as that target", () => {
+    const shape: ShaclShape = {
+      id: "S",
+      targetClass: "",
+      targets: [
+        { kind: "sparql", value: "SELECT ?this WHERE { ?this a ex:X }" },
+      ],
+      properties: [],
+    };
+    render(<ShaclShapeBrowser shapes={[shape]} validationResults={[]} />);
+    expect(screen.getByTestId("shape-targets-S").textContent).toBe(
+      "→ SPARQL target",
+    );
+  });
+
+  it("a shape with no target at all shows no arrow or separator", () => {
+    const shape: ShaclShape = {
+      id: "S",
+      name: "Untargeted",
+      targetClass: "",
+      properties: [],
+    };
+    render(<ShaclShapeBrowser shapes={[shape]} validationResults={[]} />);
+    expect(screen.queryByTestId("shape-targets-S")).toBeNull();
+    const header = screen.getByTestId("shape-toggle-S");
+    expect(header.textContent).not.toContain("→");
+    expect(header.textContent).not.toContain(",");
+    // The name and the badge still render.
+    expect(header.textContent).toContain("Untargeted");
+    expect(screen.getByTestId("shape-badge-S")).toBeInTheDocument();
   });
 });
