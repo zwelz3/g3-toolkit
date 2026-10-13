@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useEffect, useRef, useState } from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
   UGM,
@@ -810,6 +810,57 @@ describe("wiring guide: class hierarchy (SchemaView nesting, TreeView forests)",
       "SHACL: 2 constraints, 2 shapes, violation",
     );
     expect(badge).toHaveAttribute("data-severity", "violation");
+  });
+
+  it("SchemaView badges `targets` classes, inherits superclass shapes, and renders a class under each parent (#56)", () => {
+    const shapes = [
+      {
+        id: "AgentShape",
+        targetClass: "Agent",
+        properties: [{ path: "name", minCount: 1 }],
+      },
+      {
+        id: "NamedShape",
+        // An empty targetClass with `targets` naming several classes.
+        targetClass: "",
+        targets: [
+          { kind: "class" as const, value: "Person" },
+          { kind: "class" as const, value: "Org" },
+        ],
+        properties: [{ path: "label", minCount: 1 }],
+      },
+    ];
+    render(
+      <SchemaView
+        schema={{
+          nodeTypes: ["Agent", "LegalEntity", "Person", "Org"],
+          edgeTypes: [],
+          nodeProperties: {},
+          edgeProperties: {},
+        }}
+        // Org has two superclasses: it renders under both.
+        subClassOf={{
+          Person: "Agent",
+          Org: ["Agent", "LegalEntity"],
+        }}
+        shapes={shapes}
+      />,
+    );
+    // NamedShape badges Person through `targets`, not `targetClass`.
+    expect(screen.getByTestId("shacl-badge-Person")).toHaveTextContent(
+      "2 shapes, 1 inherited",
+    );
+    const personList = screen.getByTestId("shacl-constraints-Person");
+    expect(
+      within(personList).getByTestId("shacl-shape-AgentShape"),
+    ).toHaveAttribute("data-inherited-from", "Agent");
+    // Org appears once under each parent, with its own path.
+    const copies = screen.getAllByTestId("schema-class-Org");
+    expect(copies).toHaveLength(2);
+    expect(copies.map((c) => c.getAttribute("data-path")).sort()).toEqual([
+      "Agent/Org",
+      "LegalEntity/Org",
+    ]);
   });
 
   it("TreeView renders a forest, seeds expansion, drops the type prefix, and moves by keyboard", () => {

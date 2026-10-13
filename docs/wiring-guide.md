@@ -862,7 +862,15 @@ passes rdfs:subClassOf as `class -> parent(s)`; a parent that is not a
 listed class leaves its child at the top level. Every shape targeting
 a class counts toward its badge (constraints, shapes), and with
 results the badge also reports the most severe status (violation >
-warning > info, or conforms):
+warning > info, or conforms). A shape targets every class named in
+`targetClass` and in `targets` of kind `class` (#56), and because
+`sh:targetClass` selects subclass instances too, a shape declared on a
+superclass also appears on each subclass, listed after the direct
+shapes and marked (`data-inherited-from`, the
+`g3t-schema-shape-inherited` class, `N inherited` on the badge). A
+class with several parents renders once under each of them; the copies
+share one record, so their badges agree, and each card carries its own
+`data-parent` and a root-to-card `data-path`:
 
 ```tsx
 import { SchemaView, TreeView } from "@g3-toolkit/react";
