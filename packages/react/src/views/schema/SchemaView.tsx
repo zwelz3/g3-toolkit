@@ -3,7 +3,8 @@
  *
  * Renders the class hierarchy as nested cards (rdfs:subClassOf via the
  * `subClassOf` prop; classes without a parent keep the flat sorted
- * order) with property annotations. SHACL shapes display as one
+ * order, and a class with several parents renders once under each)
+ * with property annotations. SHACL shapes display as one
  * constraint badge per target class, covering EVERY shape that targets
  * it (by `targetClass` or any `targets` entry of kind `class`, issue
  * #56) and every shape declared on one of its superclasses (marked as
@@ -108,9 +109,12 @@ export interface SchemaViewProps {
   /**
    * rdfs:subClassOf as `class -> parent class(es)`, keyed by the same
    * names `schema.nodeTypes` / the registry use. A class nests under
-   * the first listed parent that is itself a class here; a parent that
-   * is not (say `owl:Thing` when it is not in the list) leaves the
-   * class at the top level, where the flat sorted order still applies.
+   * every listed parent that is itself a class here (issue #56: the
+   * first used to win), as one card per parent that agree on shapes,
+   * inheritance and status; a parent that is not a class here (say
+   * `owl:Thing` when it is not in the list), the class itself, and a
+   * repeat are ignored, and a class with no usable parent stays at the
+   * top level, where the flat sorted order still applies.
    * Neither `SchemaModel` nor the UGM registry carries subclass edges,
    * so the host derives this from its ontology (the SHACL shapes
    * parser, R1.16, would supply it once it lands).
@@ -145,9 +149,11 @@ interface ClassNode {
    *  `shapes` order, then inherited ones, nearest superclass first. */
   shapes: ClassShape[];
   status: ShapeStatus;
+  /** Every known superclass, in `subClassOf` order, each once. The
+   *  class renders once under each; depth and parent are properties of
+   *  a rendered copy, not of the class, so they live on the card. */
+  parents: string[];
   children: ClassNode[];
-  depth: number;
-  parent: string | null;
 }
 
 const SEVERITY_RANK: Record<ShaclSeverityLevel, number> = {
@@ -204,9 +210,8 @@ export function SchemaView({
         properties,
         shapes: targeting,
         status: "none",
+        parents: [],
         children: [],
-        depth: 0,
-        parent: null,
       });
     };
     if (schema) {
@@ -220,47 +225,71 @@ export function SchemaView({
       }
     }
 
-    // 2. Nesting. First listed parent that is a known class wins;
-    //    anything unreachable from a root (a subclass cycle) is
-    //    promoted to a root rather than dropped.
+    // 2. Nesting. Every listed parent that is a known class, each
+    //    once and never the class itself (a class with several parents
+    //    renders under each; the maintainer ruling on issue #56). The
+    //    result is a DAG the cards walk, so cycles must be cut: a link
+    //    that closes a cycle reached from a root is dropped, and
+    //    anything still unreachable from a root (a cycle with no entry)
+    //    is promoted to a root rather than dropped, as before.
     const byName = (a: ClassNode, b: ClassNode) => a.name.localeCompare(b.name);
     if (subClassOf) {
       for (const cls of flat.values()) {
         const declared = subClassOf[cls.name];
-        const parents =
+        const listed =
           declared === undefined
             ? []
             : Array.isArray(declared)
               ? declared
               : [declared];
-        const parent = parents.find((p) => p !== cls.name && flat.has(p));
-        if (parent !== undefined) cls.parent = parent;
+        for (const p of listed) {
+          if (p === cls.name || !flat.has(p) || cls.parents.includes(p)) {
+            continue;
+          }
+          cls.parents.push(p);
+        }
       }
     }
-    const rootList = [...flat.values()].filter((c) => c.parent === null);
     for (const cls of flat.values()) {
-      if (cls.parent !== null) flat.get(cls.parent)?.children.push(cls);
+      for (const p of cls.parents) flat.get(p)?.children.push(cls);
     }
-    const reached = new Set<string>();
-    const setDepth = (node: ClassNode, depth: number): void => {
-      reached.add(node.name);
-      node.depth = depth;
-      node.children.sort(byName);
-      for (const child of node.children) setDepth(child, depth + 1);
+    const unlink = (parent: ClassNode, child: ClassNode): void => {
+      parent.children = parent.children.filter((c) => c !== child);
+      child.parents = child.parents.filter((p) => p !== parent.name);
     };
-    for (const root of rootList) setDepth(root, 0);
+    const rootList = [...flat.values()].filter((c) => c.parents.length === 0);
+    const reached = new Set<string>();
+    const onPath = new Set<string>();
+    const visit = (node: ClassNode): void => {
+      reached.add(node.name);
+      onPath.add(node.name);
+      for (const child of [...node.children]) {
+        // A child already on the path from the root is a back edge:
+        // only possible with several parents (a single-parent cycle has
+        // no entry from a root). Cut it so the card recursion ends.
+        if (onPath.has(child.name)) {
+          unlink(node, child);
+          continue;
+        }
+        // Reached by another path (a diamond): keep the link, the
+        // card renders there too, and do not walk it twice.
+        if (!reached.has(child.name)) visit(child);
+      }
+      onPath.delete(node.name);
+    };
+    for (const root of rootList) visit(root);
     for (const cls of flat.values()) {
       if (reached.has(cls.name)) continue;
-      // Cycle member: cut its parent link and treat it as a root; its
-      // own subtree then gets depths from here.
-      const former = cls.parent === null ? undefined : flat.get(cls.parent);
-      if (former) {
-        former.children = former.children.filter((c) => c !== cls);
+      // Cycle member with no entry: cut its parent links and treat it
+      // as a root; the rest of the cycle is then reached from it.
+      for (const p of [...cls.parents]) {
+        const parent = flat.get(p);
+        if (parent) unlink(parent, cls);
       }
-      cls.parent = null;
       rootList.push(cls);
-      setDepth(cls, 0);
+      visit(cls);
     }
+    for (const cls of flat.values()) cls.children.sort(byName);
 
     // 3. Inheritance: a shape declared on a superclass applies to the
     //    subclass too (sh:targetClass selects subclass instances), so
@@ -269,10 +298,9 @@ export function SchemaView({
     //    the class already targets directly is not listed twice, and
     //    one declared on two ancestors is attributed to the nearest.
     //    The walk is through `parentsOf`, the one place a class's
-    //    superclasses are read, so showing a class under several
-    //    parents later changes that function and nothing here.
-    const parentsOf = (node: ClassNode): string[] =>
-      node.parent === null ? [] : [node.parent];
+    //    superclasses are read; with several parents it collects from
+    //    every ancestor, so each rendered copy of a class agrees.
+    const parentsOf = (node: ClassNode): string[] => node.parents;
     for (const cls of flat.values()) {
       const have = new Set(cls.shapes.map((s) => s.id));
       const visited = new Set<string>([cls.name]);
@@ -346,7 +374,13 @@ export function SchemaView({
       }}
     >
       {roots.map((cls) => (
-        <ClassCard key={cls.name} cls={cls} />
+        <ClassCard
+          key={cls.name}
+          cls={cls}
+          parent={null}
+          depth={0}
+          path={cls.name}
+        />
       ))}
     </div>
   );
@@ -354,7 +388,25 @@ export function SchemaView({
 
 // ── Class card ──────────────────────────────────────────────────────
 
-function ClassCard({ cls }: { cls: ClassNode }): ReactNode {
+/**
+ * One rendered copy of a class. A class with several parents renders
+ * once under each, sharing the `ClassNode` (so shapes, inheritance and
+ * status agree across copies); `parent`, `depth` and `path` belong to
+ * the copy. `path` (root to here, slash-joined) keys the copy and is
+ * exposed as `data-path` so a host or test can address one copy where
+ * `schema-class-<name>` repeats.
+ */
+function ClassCard({
+  cls,
+  parent,
+  depth,
+  path,
+}: {
+  cls: ClassNode;
+  parent: string | null;
+  depth: number;
+  path: string;
+}): ReactNode {
   const constraintCount = cls.shapes.reduce(
     (n, s) => n + s.constraints.length,
     0,
@@ -378,8 +430,9 @@ function ClassCard({ cls }: { cls: ClassNode }): ReactNode {
   return (
     <div
       data-testid={`schema-class-${cls.name}`}
-      data-depth={cls.depth}
-      data-parent={cls.parent ?? undefined}
+      data-depth={depth}
+      data-parent={parent ?? undefined}
+      data-path={path}
       style={{
         border: "1px solid var(--g3t-border, #ddd)",
         borderRadius: 4,
@@ -475,7 +528,13 @@ function ClassCard({ cls }: { cls: ClassNode }): ReactNode {
           }}
         >
           {cls.children.map((child) => (
-            <ClassCard key={child.name} cls={child} />
+            <ClassCard
+              key={`${path}/${child.name}`}
+              cls={child}
+              parent={cls.name}
+              depth={depth + 1}
+              path={`${path}/${child.name}`}
+            />
           ))}
         </div>
       )}
