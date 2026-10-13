@@ -133,7 +133,7 @@ describe("views read their limit through the provider", () => {
     expect(treeRows().length).toBe(43);
   });
 
-  it("MatrixView: a deployment matrix limit truncates and announces; maxSize prop still wins", () => {
+  it("MatrixView: a deployment matrix limit becomes the page size (#6 pages rather than truncates)", () => {
     const ugm = typedRing(5);
     render(
       <WorkingSetProvider
@@ -143,8 +143,8 @@ describe("views read their limit through the provider", () => {
       </WorkingSetProvider>,
     );
     expect(
-      screen.getByText(/Showing 3 of 5 node types \(working-set limit\)/),
-    ).toBeInTheDocument();
+      screen.getByTestId("matrix-rows-pagination-summary").textContent,
+    ).toBe("rows 1 to 3 of 5");
   });
 
   it("MatrixView: without a provider the built-in 200 applies (no notice for 5 types)", () => {

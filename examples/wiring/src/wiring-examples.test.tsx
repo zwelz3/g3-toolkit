@@ -1837,10 +1837,11 @@ describe("wiring guide: set deployment working-set limits", () => {
     expect(seen).toBe(manager);
     expect(manager.getLimit("canvas")).toBe(300);
     expect(manager.checkLimit("canvas", 301).allowed).toBe(false);
-    // The matrix read its limit from the same document.
+    // The matrix read its limit from the same document: it pages at 3
+    // per axis (#6 replaced the truncation notice with paging).
     expect(
-      screen.getByText(/Showing 3 of 5 node types \(working-set limit\)/),
-    ).toBeInTheDocument();
+      screen.getByTestId("matrix-rows-pagination-summary").textContent,
+    ).toBe("rows 1 to 3 of 5");
   });
 
   it("the explicit action to exceed: a prompt under the ceiling, a refusal above it", () => {
