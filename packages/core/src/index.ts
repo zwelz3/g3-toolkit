@@ -284,8 +284,25 @@ export { ComboManager } from "./combo";
 export type { Combo } from "./combo";
 
 // ── Working set (limits per view; D6 logic) ─────────────────────────
-export { WorkingSetManager } from "./working-set-manager";
-export type { ViewType, LimitCheckResult } from "./working-set-manager";
+export {
+  WorkingSetManager,
+  DEFAULT_LIMIT_STRATEGIES,
+} from "./working-set-manager";
+export type {
+  ViewType,
+  LimitCheckResult,
+  LimitStrategy,
+} from "./working-set-manager";
+
+// ── Paging over query results (issue #6; D6 logic) ──────────────────
+export {
+  pageItems,
+  pageNodes,
+  pageCategories,
+  pageCount,
+  pageIndex,
+} from "./pagination";
+export type { PageWindow, PageRequest, PageResult } from "./pagination";
 
 // ── Undo/redo stack (D6 pure logic; reclassified from @g3-toolkit/react in P3.2) ──
 export { UndoRedoStack } from "./undo-redo";
