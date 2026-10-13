@@ -96,8 +96,8 @@ const BUDGETS = {
   // day) core is 173.0 KB, so the two raises stack: 176 keeps about
   // 3 KB of headroom, the posture both entries set.
   // Working-set configuration 2026-10-13 (issue #5): 176 -> 180.
-  // Measured 177.0 KB with the change on its branch (+4.0 KB over the
-  // 173.0 basis above): the versioned WorkingSetConfig document and
+  // Measured on its branch, same build both ways: 173.9 KB before,
+  // 177.0 KB after (+3.1 KB): the versioned WorkingSetConfig document and
   // its validator (working-set-config.ts, the throwing convention of
   // model/document-errors.ts, so the error classes it reuses cost
   // nothing new), and the manager's three-layer resolution (deployment
