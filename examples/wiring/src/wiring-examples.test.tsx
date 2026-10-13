@@ -1031,6 +1031,10 @@ describe("wiring guide: ontology rails (TreeView filter, group rows, rich labels
       for (const c of copies) {
         expect(c).toHaveAttribute("aria-selected", "true");
       }
+      // The breadcrumb follows the picked copy: the one under Agent.
+      const crumb = screen.getByTestId("tree-breadcrumb").textContent!;
+      expect(crumb).toContain("Agent");
+      expect(crumb).not.toContain("Artifact");
 
       // A group row toggles and never selects; the store stays empty.
       expect(item("ex:props")).not.toHaveAttribute("aria-selected");
