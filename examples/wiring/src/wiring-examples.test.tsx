@@ -1407,6 +1407,41 @@ describe("table view recipes (guide: Table view recipes)", () => {
     );
   });
 
+  it("virtualize mounts a window of a long page and the export still sees every row (guide: Virtualize a long page)", () => {
+    const bindings: Binding[] = Array.from({ length: 300 }, (_, i) => ({
+      s: `urn:${i}`,
+      label: `row ${i}`,
+      count: i,
+    }));
+    const download = vi.fn();
+    render(
+      <div style={{ height: 480 }}>
+        <TableView
+          rows={bindings}
+          columns={columns}
+          rowId={(r) => r.s}
+          fill
+          rowHeight={24}
+          pageSize={10_000}
+          virtualize={{ overscan: 20 }}
+          exportCsv={{ download }}
+        />
+      </div>,
+    );
+    // jsdom has no layout, so the body is unmeasured and the table
+    // renders the first `overscan` rows; a browser windows on scroll.
+    const mounted = document.querySelectorAll("[data-testid^='table-row-']");
+    expect(mounted).toHaveLength(20);
+    const spacer = screen.getByTestId("table-virtual-spacer");
+    expect(spacer.style.height).toBe(`${(300 - 20) * 24}px`);
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "300 rows",
+    );
+    fireEvent.click(screen.getByTestId("table-export-csv"));
+    const csv = download.mock.calls[0]![0] as string;
+    expect(csv.split("\r\n").filter((l) => l !== "")).toHaveLength(301);
+  });
+
   it("getCsv is the pure half, callable with a row model's rows and leaf columns (guide: Export, search, reorder, multi-value filters)", () => {
     // @tanstack/react-table is a peer of @g3-toolkit/react and is not
     // installed at this example's root, so the rows and columns here

@@ -6,7 +6,8 @@
  * model), menu-based column reorder over a host-controllable
  * `columnOrder`, and a cross-column search over the visible columns.
  * Each feature is exercised on the rows path and, where it applies,
- * on the UGM path. Virtualization stays deferred.
+ * on the UGM path. Virtualization has its own file,
+ * table-virtualization.test.tsx.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";

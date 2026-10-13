@@ -84,6 +84,7 @@
   "dependencies": {
     "@g3-toolkit/core": "workspace:^",
     "@tanstack/react-table": "^8.0.0",
+    "@tanstack/react-virtual": "^3.14.18",
     "fuse.js": "^7.0.0"
   },
   "peerDependencies": {
