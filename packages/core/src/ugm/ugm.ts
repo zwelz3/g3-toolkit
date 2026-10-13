@@ -126,10 +126,20 @@ export class UGM {
 
   /**
    * Add an edge with Qualified Edge metadata (D1).
-   * Auto-generates an edge key for multi-edge support.
-   * @returns the generated edge ID
+   * Uses `input.key` as the edge ID when given (a stable id the host
+   * owns, which snapshots and exports then carry unchanged); otherwise
+   * auto-generates one for multi-edge support. Graphology's generator
+   * skips ids already present, so a restored keyed id can never
+   * collide with a later generated one.
+   * @returns the edge ID
+   * @throws when `input.key` names an edge that already exists
    */
   addEdge(source: string, target: string, input: EdgeInput): string {
+    if (input.key !== undefined && this.graph.hasEdge(input.key)) {
+      throw new Error(
+        `UGM.addEdge: edge key "${input.key}" already exists in the graph`,
+      );
+    }
     const meta: QualifiedEdgeMeta = {};
     if (input.confidence !== undefined) meta.confidence = input.confidence;
     if (input.provenance_iri !== undefined)
@@ -146,7 +156,10 @@ export class UGM {
       meta,
     };
 
-    const edgeId = this.graph.addEdge(source, target, attributes);
+    const edgeId =
+      input.key !== undefined
+        ? this.graph.addEdgeWithKey(input.key, source, target, attributes)
+        : this.graph.addEdge(source, target, attributes);
 
     // Update registry
     this._edgeTypes.add(attributes.type);
@@ -331,7 +344,12 @@ export class UGM {
     return { nodes, edges };
   }
 
-  /** Deserialize from a JSON object produced by toJSON(). */
+  /**
+   * Deserialize from a JSON object produced by toJSON(). Edge ids are
+   * restored as keys, so a snapshot round-trip keeps every edge id
+   * (host-supplied or generated); before issue #31 the restore
+   * regenerated them, and an undo step silently renamed every edge.
+   */
   static fromJSON(data: SerializedUGM): UGM {
     const ugm = new UGM();
     for (const node of data.nodes) {
@@ -342,6 +360,7 @@ export class UGM {
     }
     for (const edge of data.edges) {
       ugm.addEdge(edge.source, edge.target, {
+        key: edge.id,
         type: edge.attributes.type,
         properties: edge.attributes.properties,
         ...edge.attributes.meta,

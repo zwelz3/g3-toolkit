@@ -74,6 +74,7 @@
     "isChainEdgeId",
     "isEdgePortId",
     "isOverlayTone",
+    "kShortestPaths",
     "khopNeighborhood",
     "layoutStructural",
     "layoutStructuralWithChangeSet",
@@ -217,7 +218,8 @@
   ],
   "@g3-toolkit/core/path-analysis": [
     "allShortestPaths",
-    "findShortestPath"
+    "findShortestPath",
+    "kShortestPaths"
   ],
   "@g3-toolkit/core/internal": [
     "cardinalitySuffix",

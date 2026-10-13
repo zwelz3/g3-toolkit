@@ -160,3 +160,17 @@ describe("output encoding at the export sinks", () => {
     expect(csv.split("\n")[1]).toBe("a,Asset,'-1+1");
   });
 });
+
+describe("stable edge ids in the export (issue #31)", () => {
+  it("JSON and CSV carry a host-supplied edge key as the edge id", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["Asset"], properties: {} });
+    ugm.addNode("b", { types: ["Asset"], properties: {} });
+    ugm.addEdge("a", "b", { key: "host:a-b", type: "feeds" });
+    const json = JSON.parse(exportSubgraphJson(ugm)) as {
+      edges: Array<{ id: string }>;
+    };
+    expect(json.edges.map((e) => e.id)).toEqual(["host:a-b"]);
+    expect(exportSubgraphCsv(ugm)).toContain("host:a-b,a,b,feeds");
+  });
+});
