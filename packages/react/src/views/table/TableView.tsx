@@ -1284,13 +1284,17 @@ export function TableView<T = TableNodeRow>({
                       // The sort state was legible only as an icon glyph,
                       // which no assistive technology reports and no test
                       // can assert without matching on an SVG. aria-sort is
-                      // the standard carrier.
+                      // the standard carrier; it is omitted on a column
+                      // that cannot sort (#57, ARIA practice: "none" means
+                      // sortable and unsorted, not unsortable).
                       aria-sort={
-                        header.column.getIsSorted() === "asc"
-                          ? "ascending"
-                          : header.column.getIsSorted() === "desc"
-                            ? "descending"
-                            : "none"
+                        !header.column.getCanSort()
+                          ? undefined
+                          : header.column.getIsSorted() === "asc"
+                            ? "ascending"
+                            : header.column.getIsSorted() === "desc"
+                              ? "descending"
+                              : "none"
                       }
                       style={{
                         padding: density === "compact" ? "2px 6px" : "6px 8px",
@@ -1300,7 +1304,7 @@ export function TableView<T = TableNodeRow>({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      <div
+                      <button
                         // The sort handler lives here, not on the th, so
                         // that the inline filter input below does not
                         // toggle sorting when it is clicked. The pointer
@@ -1310,13 +1314,47 @@ export function TableView<T = TableNodeRow>({
                         // nothing to do with sorting, so the whole header
                         // cell advertised a click that only its top half
                         // answered.
+                        //
+                        // #57: a native button, not a div, so the trigger
+                        // is in the tab order, Enter and Space activate it
+                        // and the stylesheet's focus ring applies (the
+                        // class matches the shared `[class^="g3t-"]`
+                        // :focus-visible rule). The inline reset keeps the
+                        // rendered header identical to the former div so
+                        // screenshot baselines hold. Enter and Space are
+                        // handled on keydown explicitly, with the default
+                        // suppressed, so Shift+Enter adds a sort column
+                        // the way Shift+click does regardless of whether a
+                        // browser copies modifiers onto the click it would
+                        // synthesize for the key.
+                        type="button"
+                        className="g3t-table-sort"
                         data-testid={`column-sort-${header.id}`}
+                        disabled={!header.column.getCanSort()}
                         style={{
+                          display: "block",
+                          width: "100%",
+                          margin: 0,
+                          padding: 0,
+                          border: 0,
+                          background: "none",
+                          font: "inherit",
+                          color: "inherit",
+                          textAlign: "inherit",
+                          whiteSpace: "inherit",
                           cursor: header.column.getCanSort()
                             ? "pointer"
                             : "default",
                         }}
                         onClick={header.column.getToggleSortingHandler()}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
+                          header.column.toggleSorting(
+                            undefined,
+                            header.column.getCanMultiSort() && e.shiftKey,
+                          );
+                        }}
                       >
                         {flexRender(
                           header.column.columnDef.header,
@@ -1327,7 +1365,7 @@ export function TableView<T = TableNodeRow>({
                         ) : header.column.getIsSorted() === "desc" ? (
                           <Icon name="sort-desc" size={12} />
                         ) : null}
-                      </div>
+                      </button>
                       {/* Inline filter (M11.E4.T2) */}
                       {header.column.getCanFilter() &&
                         filterKind === "text" && (
