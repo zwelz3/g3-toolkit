@@ -805,7 +805,7 @@ const chain: ProvenanceChain = [
 
 ## Table view recipes
 
-Both run under CI in `examples/wiring/src/wiring-examples.test.tsx`
+All of these run under CI in `examples/wiring/src/wiring-examples.test.tsx`
 ("table view recipes" describe).
 
 ### Table without a UGM
@@ -815,7 +815,7 @@ from the property registry), but tabular data that is not a graph
 (SPARQL SELECT bindings, a named-graph register, a validation-result
 list) does not need converting first. Pass `rows` and `columns`; a
 column names a `value` reader, optionally a `render`, and an inline
-filter kind (`"text"` default, `"values"` for a select over the
+filter kind (`"text"` default, `"values"` for a checklist over the
 distinct values with counts, `"range"` for a numeric min/max,
 `"none"`). `renderCell` is a table-wide override on either path
 (return `undefined` to fall back to the column). `selection` decides
@@ -859,7 +859,78 @@ function Register({ rows }: { rows: Binding[] }) {
 ```
 
 Not in this slice: virtualization past a few hundred rows (pagination
-is the scaling lever) and CSV export of the filtered rows.
+is the scaling lever; it needs a dependency ruling).
+
+### Export, search, reorder, multi-value filters
+
+Four toolbar affordances, each off by default so the chrome you have
+does not change. `exportCsv` adds an "Export CSV" button that writes
+the FILTERED rows in the current sort, the visible columns in their
+current order, as RFC 4180 text from cell values (not rendered
+nodes); pass `{ filename, download }` to name the file or to replace
+the browser download with your own sink. `search` adds one box above
+the per-column filters: a case-insensitive substring match over the
+VISIBLE columns only (hidden columns and `filter: "none"` columns are
+skipped, and hiding a column drops its matches at once), stacked on
+the per-column filters, with the "N of M rows" count following it.
+The column menu's move buttons reorder columns; hand the table a
+`columnOrder` (TanStack's shape: listed ids first, the rest after in
+definition order) and `onColumnOrderChange` to persist it, or omit
+`columnOrder` and only listen. A `"values"` column is a checklist
+with All/None shortcuts; several ticks are a union within the column,
+and the counts follow the other filters and the search.
+
+```tsx
+import { useState } from "react";
+import { TableView, type DataGridColumn } from "@g3-toolkit/react";
+
+interface Binding {
+  s: string;
+  label: string;
+  kind: string;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  { id: "s", header: "Subject", value: (r) => r.s },
+  { id: "label", header: "Label", value: (r) => r.label },
+  { id: "kind", header: "Kind", value: (r) => r.kind, filter: "values" },
+];
+
+function Register({ rows }: { rows: Binding[] }) {
+  // Persist the order wherever your settings live (here: local state).
+  const [order, setOrder] = useState<string[]>(["kind", "label", "s"]);
+  return (
+    <TableView
+      rows={rows}
+      columns={columns}
+      rowId={(r) => r.s}
+      selection="none"
+      search
+      exportCsv={{ filename: "bindings.csv" }}
+      columnOrder={order}
+      onColumnOrderChange={setOrder}
+    />
+  );
+}
+```
+
+`getCsv` is the pure half of the export, exported for a host that
+owns its own TanStack table or wires its own button: give it the rows
+of a row model (`table.getSortedRowModel().rows` is the filtered set
+in the current sort) and the columns to write (`table
+.getVisibleLeafColumns()` applies visibility and order), and it
+returns the text. It is headless, so it runs in a test; the browser
+download is the only part that needs a DOM.
+
+```ts
+import { getCsv } from "@g3-toolkit/react";
+
+// hostTable: your own useReactTable(...) instance.
+const csv = getCsv(
+  hostTable.getSortedRowModel().rows,
+  hostTable.getVisibleLeafColumns(),
+);
+```
 
 ### Fill a sized host (dock panel)
 

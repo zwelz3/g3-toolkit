@@ -11,6 +11,13 @@
  * UGM path keeps its behavior and test ids; the rows path reuses the
  * same chrome (sort, filters, column menu, pagination).
  *
+ * Issue #47 (the #39 deferrals that needed no dependency ruling): CSV
+ * export of the filtered rows (`getCsv`, a pure helper, plus an
+ * optional toolbar button), a checklist "values" filter, menu-based
+ * column reorder over TanStack `columnOrder` (host-controllable), and
+ * a cross-column search over the visible columns. Virtualization
+ * stays deferred: it needs a dependency decision.
+ *
  * @see specs/01-functional-views.md R1.7
  * @see specs/02-functional-interaction.md R2.1, R2.5
  * @see specs/07-ux-defaults-accessibility.md R7.4
@@ -34,7 +41,10 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   flexRender,
+  type Column,
   type ColumnDef,
+  type ColumnOrderState,
+  type OnChangeFn,
   type SortingState,
   type VisibilityState,
   type ColumnFiltersState,
@@ -74,9 +84,20 @@ export interface DataGridColumn<T> {
    *  returns a non-undefined node takes precedence. */
   render?: (value: unknown, row: T) => ReactNode;
   /** Inline header filter kind. "text" (default) is a substring
-   *  match, "values" a select over the distinct values with counts,
-   *  "range" a numeric min/max pair, "none" no filter. */
+   *  match, "values" a checklist over the distinct values with counts
+   *  (#47: several at once, exact match on the value's string form),
+   *  "range" a numeric min/max pair, "none" no filter (and no
+   *  cross-column search over it either). */
   filter?: "text" | "values" | "range" | "none";
+}
+
+/** CSV export options (#47) for the toolbar button. */
+export interface TableCsvExport {
+  /** Download name; default "table.csv". */
+  filename?: string;
+  /** Replaces the browser download (an anchor with an object URL):
+   *  hosts that save elsewhere, and tests, read the text here. */
+  download?: (csv: string, filename: string) => void;
 }
 
 /** What a table-wide cell renderer receives, on either path. */
@@ -125,6 +146,26 @@ export interface TableViewProps<T = TableNodeRow> {
    *  older `selectable={false}` is equivalent to "none" and also
    *  drops the context menu. */
   selection?: TableSelection;
+  /** Toolbar "Export CSV" button (#47): the FILTERED rows in the
+   *  current sort, the visible columns in their current order, cell
+   *  values rather than rendered nodes (see `getCsv`). Default off.
+   *  The download is a no-op where `URL.createObjectURL` is absent
+   *  (jsdom) unless `download` is given. */
+  exportCsv?: boolean | TableCsvExport;
+  /** Column order (#47) as TanStack `columnOrder`: column ids first
+   *  in this order, the rest after in definition order. Omit it to
+   *  let the table own the order (the column menu's move buttons
+   *  still report through `onColumnOrderChange`, so a host can
+   *  persist it without controlling it). */
+  columnOrder?: readonly string[];
+  /** Receives the full next order after every move. */
+  onColumnOrderChange?: (order: string[]) => void;
+  /** Cross-column search box (#47) in the toolbar, above the
+   *  per-column filters: a case-insensitive substring match over the
+   *  VISIBLE columns only (hidden and `filter: "none"` columns are
+   *  skipped), on top of the per-column filters. The "N of M" count
+   *  reflects it. Default off, so the chrome is unchanged. */
+  search?: boolean;
   /** Optional menu manager for right-click (R2.1 universality). */
   menuManager?: ContextMenuManager;
   /** Page size (default 50; max working-set limit R7.4 is 10,000).
@@ -178,17 +219,271 @@ function cellText(v: unknown): string {
   return String(v);
 }
 
-/** Exact-match filter for "values" columns. TanStack's equalsString
- *  lowercases the row value, which throws on numbers; the faceted
- *  select hands back the value's string form, so compare that. */
-function equalsValueString(
+/** Exact-match SET filter for "values" columns (#47). TanStack's
+ *  equalsString lowercases the row value, which throws on numbers;
+ *  the faceted checklist hands back the values' string forms, so
+ *  compare those. The value is the list of ticked strings (an empty
+ *  list matches nothing: "none", then tick a few); a single string
+ *  still works for a host that sets one value. `undefined` is "all"
+ *  and is auto-removed. */
+function includesValueString(
   row: Row<unknown>,
   columnId: string,
   filterValue: unknown,
 ): boolean {
-  return String(row.getValue(columnId)) === String(filterValue);
+  const wanted = Array.isArray(filterValue)
+    ? (filterValue as unknown[])
+    : [filterValue];
+  const actual = String(row.getValue(columnId));
+  return wanted.some((v) => String(v) === actual);
 }
-equalsValueString.autoRemove = (v: unknown) => v === undefined || v === "";
+includesValueString.autoRemove = (v: unknown) => v === undefined || v === "";
+
+/** What the search box stores as TanStack `globalFilter` (#47). The
+ *  searchable column ids travel WITH the query because the filtered
+ *  row model memoizes on `globalFilter` (and column filters and the
+ *  data), not on column visibility: a filter function that consulted
+ *  `column.getIsVisible()` at evaluation time would keep matching on
+ *  a column after it was hidden until the next query edit. The object
+ *  is memoized in the component so identity changes exactly when the
+ *  query or the visible set does. */
+interface SearchFilter {
+  /** Lowercased query. */
+  query: string;
+  /** Visible, searchable column ids. */
+  columnIds: readonly string[];
+}
+
+function searchVisibleColumns(
+  row: Row<unknown>,
+  columnId: string,
+  filterValue: SearchFilter,
+): boolean {
+  if (!filterValue.columnIds.includes(columnId)) return false;
+  const v = row.getValue(columnId);
+  if (v === undefined || v === null) return false;
+  return cellText(v).toLowerCase().includes(filterValue.query);
+}
+
+/** RFC 4180 field: quoted when it holds a quote, a comma, CR or LF,
+ *  with embedded quotes doubled. */
+function csvField(v: unknown): string {
+  const text =
+    v === undefined || v === null
+      ? ""
+      : typeof v === "object"
+        ? JSON.stringify(v)
+        : String(v);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * CSV text (#47) for TanStack rows and columns, RFC 4180: CRLF
+ * records, a header record from each column's header text (its id
+ * when the header is not a string), fields quoted and quote-doubled
+ * only where needed, cell VALUES (`row.getValue`, so null is empty
+ * and objects are JSON) rather than rendered nodes.
+ *
+ * It is pure and headless so a host that owns its own TanStack table
+ * (or wires its own button) can call it; TableView's `exportCsv`
+ * button passes `table.getSortedRowModel().rows` (the filtered rows
+ * in the current sort) and `table.getVisibleLeafColumns()` (column
+ * visibility and order applied).
+ */
+export function getCsv<T>(
+  rows: readonly Row<T>[],
+  columns: readonly Column<T, unknown>[],
+): string {
+  const header = columns.map((c) => {
+    const h = c.columnDef.header;
+    return csvField(typeof h === "string" ? h : c.id);
+  });
+  const records = rows.map((row) =>
+    columns.map((c) => csvField(row.getValue(c.id))).join(","),
+  );
+  return [header.join(","), ...records].join("\r\n") + "\r\n";
+}
+
+/** Browser download through an object URL. Silently a no-op where
+ *  `URL.createObjectURL` is missing (jsdom): the helper above is the
+ *  testable part, this is the browser-only part. */
+function downloadCsv(csv: string, filename: string): void {
+  if (
+    typeof document === "undefined" ||
+    typeof URL === "undefined" ||
+    typeof URL.createObjectURL !== "function"
+  )
+    return;
+  const url = URL.createObjectURL(
+    new Blob([csv], { type: "text/csv;charset=utf-8" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+const SELECT_STYLE = {
+  fontSize: 10,
+  padding: "1px 4px",
+  marginTop: 2,
+  border: "1px solid var(--g3t-border, #dee2e6)",
+} as const;
+
+/** Checklist filter for a "values" column (#47): a button showing the
+ *  current pick opens a popover of checkboxes with per-value counts
+ *  from the faceted row model (so the counts follow the OTHER
+ *  filters and the search), with All/None shortcuts. Closes on
+ *  Escape or an outside pointerdown, like the column menu. The
+ *  filter value is `undefined` for "all" or the list of ticked
+ *  string forms; unticking from "all" materializes the list. */
+function ValuesFilter({
+  column,
+  testId,
+}: {
+  column: Column<unknown, unknown>;
+  testId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const options = [...column.getFacetedUniqueValues()]
+    .map(([v, n]) => [cellText(v), n] as const)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  const raw = column.getFilterValue();
+  const picked: readonly string[] | undefined =
+    raw === undefined || raw === ""
+      ? undefined
+      : Array.isArray(raw)
+        ? raw.map(String)
+        : [String(raw)];
+  const isChecked = (v: string) => picked === undefined || picked.includes(v);
+  const toggle = (v: string) => {
+    const current = picked ?? options.map(([o]) => o);
+    const next = current.includes(v)
+      ? current.filter((x) => x !== v)
+      : [...current, v];
+    column.setFilterValue(next);
+  };
+  const label =
+    picked === undefined
+      ? "All"
+      : picked.length === 0
+        ? "None"
+        : picked.length === 1
+          ? picked[0]
+          : `${picked.length} selected`;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        data-testid={testId}
+        className="g3t-btn g3t-btn-ghost"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+        style={{
+          ...SELECT_STYLE,
+          width: "100%",
+          textAlign: "left",
+          fontWeight: "normal",
+        }}
+      >
+        {label} ▾
+      </button>
+      {open && (
+        <div
+          data-testid={`${testId}-menu`}
+          role="listbox"
+          aria-multiselectable
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            marginTop: 2,
+            zIndex: 100,
+            background: "var(--g3t-bg-primary, white)",
+            border: "1px solid var(--g3t-border, #dee2e6)",
+            borderRadius: 4,
+            padding: 6,
+            boxShadow: "var(--g3t-shadow-md, 0 2px 8px rgba(0,0,0,0.1))",
+            maxHeight: 240,
+            overflow: "auto",
+            minWidth: 140,
+            fontWeight: "normal",
+            fontSize: 11,
+          }}
+        >
+          <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            <button
+              type="button"
+              data-testid={`${testId}-all`}
+              className="g3t-btn g3t-btn-ghost"
+              style={{ fontSize: 10 }}
+              onClick={() => column.setFilterValue(undefined)}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              data-testid={`${testId}-none`}
+              className="g3t-btn g3t-btn-ghost"
+              style={{ fontSize: 10 }}
+              onClick={() => column.setFilterValue([])}
+            >
+              None
+            </button>
+          </div>
+          {options.map(([v, n]) => (
+            <label
+              key={v}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "1px 0",
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                data-testid={`${testId}-option-${v}`}
+                checked={isChecked(v)}
+                onChange={() => toggle(v)}
+              />
+              {v} ({n})
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const EMPTY_ROWS: readonly never[] = [];
 
@@ -199,6 +494,10 @@ export function TableView<T = TableNodeRow>({
   rowId,
   renderCell,
   selection = "store",
+  exportCsv = false,
+  columnOrder: columnOrderProp,
+  onColumnOrderChange,
+  search = false,
   menuManager,
   pageSize = 50,
   density = "comfortable",
@@ -213,6 +512,24 @@ export function TableView<T = TableNodeRow>({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  // #47: column order is controlled from the host when `columnOrder`
+  // is given, internal otherwise; either way every move reports the
+  // full next order so a host can persist without controlling.
+  const [internalOrder, setInternalOrder] = useState<ColumnOrderState>([]);
+  const columnOrder: ColumnOrderState =
+    columnOrderProp !== undefined
+      ? (columnOrderProp as ColumnOrderState)
+      : internalOrder;
+  const handleColumnOrderChange = useCallback<OnChangeFn<ColumnOrderState>>(
+    (updater) => {
+      const next =
+        typeof updater === "function" ? updater(columnOrder) : updater;
+      if (columnOrderProp === undefined) setInternalOrder(next);
+      onColumnOrderChange?.(next);
+    },
+    [columnOrder, columnOrderProp, onColumnOrderChange],
+  );
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const columnMenuRef = useRef<HTMLDivElement>(null);
   // Close the column-visibility menu on an outside click or Escape
@@ -323,9 +640,10 @@ export function TableView<T = TableNodeRow>({
         accessorFn: (row: T) => col.value(row),
         header: col.header,
         enableColumnFilter: kind !== "none",
+        enableGlobalFilter: kind !== "none",
         filterFn:
           kind === "values"
-            ? (equalsValueString as ColumnDef<T>["filterFn"])
+            ? (includesValueString as ColumnDef<T>["filterFn"])
             : kind === "range"
               ? "inNumberRange"
               : "includesString",
@@ -389,6 +707,24 @@ export function TableView<T = TableNodeRow>({
   const effectivePageSize =
     measuring && measuredPageSize !== null ? measuredPageSize : pageSize;
 
+  // #47: the search travels as one object with the visible, searchable
+  // column ids (see SearchFilter for why visibility cannot be read at
+  // evaluation time). `undefined` when empty, so TanStack skips the
+  // global pass entirely.
+  const searchFilter = useMemo<SearchFilter | undefined>(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!search || query === "") return undefined;
+    const columnIds = columns
+      .map((c) => c.id ?? (c as { accessorKey?: string }).accessorKey ?? "")
+      .filter(
+        (id) =>
+          id !== "" &&
+          columnVisibility[id] !== false &&
+          (ugm !== undefined || gridColumnById.get(id)?.filter !== "none"),
+      );
+    return { query, columnIds };
+  }, [search, searchQuery, columns, columnVisibility, ugm, gridColumnById]);
+
   // #21(b): pagination is CONTROLLED state like sorting, visibility
   // and filters, so the pageSize prop stays live. (It was passed
   // through TanStack's initialState, which is read once at
@@ -414,11 +750,26 @@ export function TableView<T = TableNodeRow>({
     data,
     columns,
     getRowId,
-    state: { sorting, columnVisibility, columnFilters, pagination },
+    state: {
+      sorting,
+      columnVisibility,
+      columnFilters,
+      columnOrder,
+      pagination,
+      globalFilter: searchFilter,
+    },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnFiltersChange: setColumnFilters,
+    onColumnOrderChange: handleColumnOrderChange,
     onPaginationChange: setPagination,
+    // The search box owns the query; TanStack never sets it itself.
+    onGlobalFilterChange: () => {},
+    globalFilterFn: searchVisibleColumns as never,
+    // TanStack's default admits only columns whose FIRST row holds a
+    // string or number; the visible/searchable set is decided per
+    // render in `searchFilter` instead.
+    getColumnCanGlobalFilter: () => true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -426,6 +777,32 @@ export function TableView<T = TableNodeRow>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
+
+  // #47: swap a column with its neighbor in the leaf order (hidden
+  // columns included, so the move is visible in the menu's own list).
+  // The full order is written, not a delta, so a controlled host
+  // receives something it can store as-is.
+  const moveColumn = (id: string, delta: -1 | 1) => {
+    const ids = table.getAllLeafColumns().map((c) => c.id);
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    const [moved] = ids.splice(i, 1);
+    ids.splice(j, 0, moved as string);
+    table.setColumnOrder(ids);
+  };
+
+  const csvOptions: TableCsvExport | null =
+    exportCsv === false ? null : exportCsv === true ? {} : exportCsv;
+  const handleExportCsv = () => {
+    if (csvOptions === null) return;
+    const csv = getCsv(
+      table.getSortedRowModel().rows,
+      table.getVisibleLeafColumns(),
+    );
+    const filename = csvOptions.filename ?? "table.csv";
+    (csvOptions.download ?? downloadCsv)(csv, filename);
+  };
 
   // Track last-clicked row index for shift-click range selection
   const lastClickedIndexRef = useRef<number>(-1);
@@ -576,28 +953,96 @@ export function TableView<T = TableNodeRow>({
                   ✕
                 </button>
               </div>
-              {table.getAllLeafColumns().map((col) => (
-                <label
+              {table.getAllLeafColumns().map((col, i, all) => (
+                <div
                   key={col.id}
+                  data-testid={`column-menu-row-${col.id}`}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 4,
                     padding: "2px 0",
-                    cursor: selectable ? "pointer" : "default",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={col.getIsVisible()}
-                    onChange={col.getToggleVisibilityHandler()}
-                  />
-                  {String(col.columnDef.header ?? col.id)}
-                </label>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      flex: 1,
+                      cursor: selectable ? "pointer" : "default",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={col.getIsVisible()}
+                      onChange={col.getToggleVisibilityHandler()}
+                    />
+                    {String(col.columnDef.header ?? col.id)}
+                  </label>
+                  {/* #47: reorder lives beside show/hide; the buttons
+                      sit OUTSIDE the label so a click does not also
+                      toggle visibility. */}
+                  <button
+                    type="button"
+                    data-testid={`column-move-left-${col.id}`}
+                    className="g3t-btn g3t-btn-ghost"
+                    aria-label={`Move ${String(col.columnDef.header ?? col.id)} left`}
+                    disabled={i === 0}
+                    onClick={() => moveColumn(col.id, -1)}
+                    style={{ fontSize: 10, padding: "0 3px", lineHeight: 1 }}
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`column-move-right-${col.id}`}
+                    className="g3t-btn g3t-btn-ghost"
+                    aria-label={`Move ${String(col.columnDef.header ?? col.id)} right`}
+                    disabled={i === all.length - 1}
+                    onClick={() => moveColumn(col.id, 1)}
+                    style={{ fontSize: 10, padding: "0 3px", lineHeight: 1 }}
+                  >
+                    ▶
+                  </button>
+                </div>
               ))}
             </div>
           )}
         </div>
+        {/* #47: cross-column search, above the per-column filters. */}
+        {search && (
+          <input
+            data-testid="table-search"
+            className="g3t-input"
+            type="search"
+            aria-label="Search visible columns"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              fontSize: 11,
+              padding: "1px 4px",
+              border: "1px solid var(--g3t-border, #dee2e6)",
+              minWidth: 140,
+            }}
+          />
+        )}
+        {csvOptions !== null && (
+          <button
+            type="button"
+            data-testid="table-export-csv"
+            className="g3t-btn g3t-btn-ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleExportCsv();
+            }}
+            style={{ fontSize: 11, marginLeft: "auto" }}
+          >
+            Export CSV
+          </button>
+        )}
       </div>
 
       <div className="g3t-table-scroll" ref={scrollRef}>
@@ -695,28 +1140,15 @@ export function TableView<T = TableNodeRow>({
                         )}
                       {header.column.getCanFilter() &&
                         filterKind === "values" && (
-                          <select
-                            data-testid={`column-filter-${header.id}`}
-                            className="g3t-select"
-                            value={String(header.column.getFilterValue() ?? "")}
-                            onChange={(e) =>
-                              header.column.setFilterValue(
-                                e.target.value || undefined,
-                              )
+                          <ValuesFilter
+                            column={
+                              header.column as unknown as Column<
+                                unknown,
+                                unknown
+                              >
                             }
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ ...filterInputStyle, width: "100%" }}
-                          >
-                            <option value="">All</option>
-                            {[...header.column.getFacetedUniqueValues()]
-                              .map(([v, n]) => [cellText(v), n] as const)
-                              .sort((a, b) => a[0].localeCompare(b[0]))
-                              .map(([v, n]) => (
-                                <option key={v} value={v}>
-                                  {v} ({n})
-                                </option>
-                              ))}
-                          </select>
+                            testId={`column-filter-${header.id}`}
+                          />
                         )}
                       {header.column.getCanFilter() &&
                         filterKind === "range" &&

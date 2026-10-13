@@ -385,7 +385,20 @@ const BUDGETS = {
   // measures 411.5 KB; with wave 2 (#40 label collision +5.7 KB, #26
   // additive updates +4.5 KB) it measures about 422 KB, so the budget
   // is 428, a few KB of headroom as before.
-  react: 428 * 1024,
+  // Issue #47 (2026-10-13): 428 -> 434. Measured 421.6 -> 429.0 KB
+  // (431,727 -> 439,321 bytes, +7.6 KB), all of it TableView and all
+  // in the StatsPanel chunk, so a host that never references the
+  // table pays nothing: the four #39 deferrals that needed no
+  // dependency ruling (CSV export with the pure `getCsv` helper and
+  // the toolbar button, the "values" filter as a checklist popover
+  // with faceted counts and All/None, menu-based column reorder over
+  // a host-controllable columnOrder, and the cross-column search
+  // whose searchable set travels with the query). Sourcemap audit as
+  // the 2026-07-03 core entry requires: ZERO node_modules source
+  // bytes across react's 15 dist maps (885,513 source bytes, all
+  // first-party), so no vendored weight. Headroom 5 KB, modest on
+  // purpose as the previous entries set it.
+  react: 434 * 1024,
   // React ledger:
   // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
   //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the

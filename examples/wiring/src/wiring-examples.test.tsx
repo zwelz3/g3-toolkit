@@ -75,6 +75,7 @@ import {
   ShaclShapeBrowser,
   FloatingLegend,
   TableView,
+  getCsv,
   resolveLabelCollisions,
   composeLabelPriority,
   type EncodingSpec,
@@ -1142,6 +1143,97 @@ describe("table view recipes (guide: Table view recipes)", () => {
     rerender(<TableView ugm={ugm} fill rowHeight={28} pageSize={2} />);
     expect(screen.getByTestId("table-pagination").textContent).toContain(
       "Page 1 of 1",
+    );
+  });
+
+  it("export, search, reorder and multi-value filters (guide: Export, search, reorder, multi-value filters)", () => {
+    interface Tagged extends Binding {
+      kind: string;
+    }
+    const tagged: Tagged[] = [
+      { s: "urn:1", label: "one", count: 1, kind: "A" },
+      { s: "urn:2", label: "two", count: 2, kind: "B" },
+      { s: "urn:3", label: "three", count: 3, kind: "A" },
+    ];
+    const taggedColumns: DataGridColumn<Tagged>[] = [
+      { id: "s", header: "Subject", value: (r) => r.s },
+      { id: "label", header: "Label", value: (r) => r.label },
+      { id: "kind", header: "Kind", value: (r) => r.kind, filter: "values" },
+    ];
+    const download = vi.fn();
+    function Register() {
+      const [order, setOrder] = useState<string[]>(["kind", "label", "s"]);
+      return (
+        <TableView
+          rows={tagged}
+          columns={taggedColumns}
+          rowId={(r) => r.s}
+          selection="none"
+          search
+          exportCsv={{ filename: "bindings.csv", download }}
+          columnOrder={order}
+          onColumnOrderChange={setOrder}
+        />
+      );
+    }
+    render(<Register />);
+    const headers = () =>
+      [...document.querySelectorAll("thead th")].map((th) =>
+        String(th.textContent)
+          .replace(/All.*$/, "")
+          .trim(),
+      );
+    expect(headers()).toEqual(["Kind", "Label", "Subject"]);
+
+    // Reorder from the column menu; the host's state follows.
+    fireEvent.click(screen.getByTestId("column-visibility-toggle"));
+    fireEvent.click(screen.getByTestId("column-move-right-kind"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(headers()).toEqual(["Label", "Kind", "Subject"]);
+
+    // Multi-value filter: tick A only (None, then A).
+    fireEvent.click(screen.getByTestId("column-filter-kind"));
+    fireEvent.click(screen.getByTestId("column-filter-kind-none"));
+    fireEvent.click(screen.getByTestId("column-filter-kind-option-A"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "2 of 3 rows",
+    );
+
+    // Search stacks on it and the count follows.
+    fireEvent.change(screen.getByTestId("table-search"), {
+      target: { value: "thr" },
+    });
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "1 of 3 rows",
+    );
+
+    // Export: the filtered rows, the columns in their current order.
+    fireEvent.click(screen.getByTestId("table-export-csv"));
+    expect(download).toHaveBeenCalledWith(
+      "Label,Kind,Subject\r\nthree,A,urn:3\r\n",
+      "bindings.csv",
+    );
+  });
+
+  it("getCsv is the pure half, callable with a row model's rows and leaf columns (guide: Export, search, reorder, multi-value filters)", () => {
+    // @tanstack/react-table is a peer of @g3-toolkit/react and is not
+    // installed at this example's root, so the rows and columns here
+    // are the shape getCsv reads (`row.getValue(id)`, `column.id`,
+    // `column.columnDef.header`); the real-table case runs in
+    // packages/react/src/views/table/table-followups.test.tsx.
+    type CsvRows = Parameters<typeof getCsv>[0];
+    type CsvColumns = Parameters<typeof getCsv>[1];
+    const records = [...rows].reverse();
+    const csvRows = records.map((r) => ({
+      getValue: (id: string) => r[id as keyof Binding],
+    })) as unknown as CsvRows;
+    const csvColumns = [
+      { id: "s", columnDef: { header: "Subject" } },
+      { id: "label", columnDef: { header: "Label, long" } },
+    ] as unknown as CsvColumns;
+    expect(getCsv(csvRows, csvColumns)).toBe(
+      'Subject,"Label, long"\r\nurn:2,two\r\nurn:1,one\r\n',
     );
   });
 });

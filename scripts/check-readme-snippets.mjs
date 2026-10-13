@@ -112,6 +112,10 @@ const PLACEHOLDERS = {
   shapes: "any",
   spec: "any",
   validationResults: "any",
+  // The adopter's own useReactTable instance (wiring guide, getCsv):
+  // @tanstack/react-table is a peer of @g3-toolkit/react and is not
+  // installed at the repo root, so the snippet cannot import its types.
+  hostTable: "any",
 };
 const dir = resolve(root, ".verify-snippets");
 rmSync(dir, { recursive: true, force: true });

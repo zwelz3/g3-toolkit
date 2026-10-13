@@ -84,20 +84,27 @@ describe("TableView rows path (#39)", () => {
     ).toBe("table-row-urn:3");
   });
 
-  it("filter kinds: values select lists distinct values with counts, range narrows numerically", () => {
+  it("filter kinds: values checklist lists distinct values with counts, range narrows numerically", () => {
+    // Updated for #47: the "values" control is a checklist popover, not
+    // a <select>, so the single-value pick is "None, then tick one"
+    // (the same one-value filter the select produced). The multi-value
+    // cases live in table-followups.test.tsx.
     render(<TableView rows={bindings} columns={columns} rowId={(r) => r.s} />);
-    const select = screen.getByTestId(
-      "column-filter-kind",
-    ) as HTMLSelectElement;
-    const labels = [...select.options].map((o) => o.textContent);
-    expect(labels).toEqual(["All", "A (2)", "B (1)"]);
-    fireEvent.change(select, { target: { value: "B" } });
+    fireEvent.click(screen.getByTestId("column-filter-kind"));
+    const menu = screen.getByTestId("column-filter-kind-menu");
+    const labels = [...menu.querySelectorAll("label")].map(
+      (l) => l.textContent,
+    );
+    expect(labels).toEqual(["A (2)", "B (1)"]);
+    fireEvent.click(screen.getByTestId("column-filter-kind-none"));
+    fireEvent.click(screen.getByTestId("column-filter-kind-option-B"));
     expect(screen.queryByTestId("table-row-urn:1")).toBeNull();
     expect(screen.getByTestId("table-row-urn:2")).toBeInTheDocument();
     expect(screen.getByTestId("table-pagination")).toHaveTextContent(
       "1 of 3 rows",
     );
-    fireEvent.change(select, { target: { value: "" } });
+    fireEvent.click(screen.getByTestId("column-filter-kind-all"));
+    expect(screen.getByTestId("table-row-urn:1")).toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId("column-filter-count-min"), {
       target: { value: "2" },
