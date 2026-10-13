@@ -13,6 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -85,8 +86,17 @@ async function mountPanes(): Promise<void> {
     style: base as cytoscape.StylesheetJson,
   });
   instances = [legacy, engine];
-  legacyPane?.onReady?.(legacy);
-  enginePane?.onReady?.(engine);
+  // Wrapped in act (issue #10): by this point the function has awaited
+  // canvasBaseStack(), so a bare call into the captured onReady runs in
+  // a microtask outside any act scope. Each handler fires several state
+  // updates in the shell (setLegacyCy, setHonesty, setF1Scene,
+  // setF1Resolved, setEngineCy); unwrapped, React flushed them outside
+  // act, logged a warning per update, and the waitFor that follows each
+  // mountPanes() was the only thing hiding the ordering hazard.
+  await act(async () => {
+    legacyPane?.onReady?.(legacy);
+    enginePane?.onReady?.(engine);
+  });
 }
 
 beforeEach(() => {

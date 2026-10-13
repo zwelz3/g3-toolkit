@@ -9,7 +9,7 @@
  * shells until their migration; new surfaces should use this one.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { UGM } from "@g3-toolkit/core";
 import { Icon } from "../../icons";
 import { shapeForIndex } from "../../views/canvas/palette";
@@ -87,6 +87,19 @@ function sampleFor(driver: string | undefined, v: string): ElementAttrs {
   };
 }
 
+/** The legend sections, named by the spec channel each one mirrors
+ *  (issue #38). Handed to `sectionTitle` and `labelFor` so a host can
+ *  word node types and relation types differently without branching
+ *  on the value domain. "node.shape" is also used for the DEFAULT
+ *  shape channel (no shape encoding declared; driver "types"). */
+export type LegendChannel =
+  | "node.color"
+  | "node.size"
+  | "node.shape"
+  | "node.icon"
+  | "edge.color"
+  | "edge.width";
+
 export interface SpecLegendProps {
   /** R-13 (register, 2026-08-05): the manual style overrides in
    *  scope. The legend asserts that a colour means a class; a
@@ -118,8 +131,18 @@ export interface SpecLegendProps {
   /** Header label shown when collapsible (default "Legend"). */
   title?: string;
   /** Display transform for categorical values (e.g. shorten IRIs to
-   *  prefixed names). Affects labels only; resolution keys are raw. */
-  labelFor?: (value: string) => string;
+   *  prefixed names). Affects labels only; resolution keys are raw.
+   *  The second argument names the section (issue #38), so one host
+   *  function can label node types and relation types differently; a
+   *  one-argument function keeps working unchanged. */
+  labelFor?: (value: string, channel: LegendChannel) => string;
+  /** Wording for each section heading (issue #38). The default prints
+   *  the encoding internals, `color: <code>types</code>`, which reads
+   *  as a developer tool in an end-user view; a host returns the
+   *  audience's words instead ("Node type", "Relation"). Scale
+   *  qualifiers that describe data rather than naming the channel (the
+   *  size domain, the ramp marker) stay appended either way. */
+  sectionTitle?: (channel: LegendChannel, driver: string) => string;
   className?: string;
 }
 
@@ -162,6 +185,17 @@ function ShapeGlyph({ shape }: { shape: string }) {
   );
 }
 
+/** The pre-#38 heading words, kept as the default so existing legends
+ *  render byte-for-byte the same. */
+const CHANNEL_WORDS: Record<LegendChannel, string> = {
+  "node.color": "color",
+  "node.size": "size",
+  "node.shape": "shape",
+  "node.icon": "icon",
+  "edge.color": "edge color",
+  "edge.width": "edge width",
+};
+
 /** Order categorical values by explicit domain position first (review
  *  4.4: stable legend order), data-discovered extras after. */
 function orderByDomain(
@@ -187,9 +221,24 @@ export function SpecLegend({
   defaultCollapsed = false,
   title = "Legend",
   labelFor,
+  sectionTitle,
   className,
 }: SpecLegendProps) {
   const display = labelFor ?? ((v: string) => v);
+  // Default heading unchanged from before #38 (channel word, driver in
+  // code); a host-supplied sectionTitle replaces exactly that part.
+  const heading = (
+    channel: LegendChannel,
+    driver: string,
+    fallbackDriver: string = driver,
+  ): ReactNode =>
+    sectionTitle !== undefined ? (
+      sectionTitle(channel, driver)
+    ) : (
+      <>
+        {CHANNEL_WORDS[channel]}: <code>{fallbackDriver}</code>
+      </>
+    );
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const colorEnc = spec.node.color;
   const sizeEnc = spec.node.size;
@@ -276,6 +325,45 @@ export function SpecLegend({
     return { lo, hi, domain: dom, driver: sizeEnc.driver, resolve };
   }, [sizeEnc, ugm]);
 
+  // Issue #38: edge color rows used to come from `scale.overrides`
+  // alone, so a categorical edge scale without overrides painted the
+  // canvas and the legend said nothing, and the only workaround was to
+  // pass every relation color as an override. Rows now come from the
+  // data the same way node color rows do: distinct driver values in
+  // edge traversal order, domain values first, colored through the
+  // SAME resolver the canvas patch uses (makeColorResolver with the
+  // "edge" target, see applyEncodingSpec), so the palette slot a value
+  // gets here is the slot it gets on the canvas. Without a UGM there
+  // is no edge data to walk (LegendElement describes nodes), so the
+  // explicit domain and the override keys stand in, which also keeps
+  // the pre-#38 override-only listing for that path.
+  const edgeColorRows = useMemo(() => {
+    if (edgeColorEnc?.scale.kind !== "categorical") return [];
+    const resolve = makeColorResolver(
+      edgeColorEnc,
+      ugm !== undefined ? { ugm } : {},
+      "edge",
+    );
+    const fromData = distinctValues(ugm, edgeColorEnc.driver, "edge");
+    const values =
+      ugm !== undefined
+        ? fromData
+        : [
+            ...new Set([
+              ...(edgeColorEnc.scale.domain ?? []),
+              ...Object.keys(edgeColorEnc.scale.overrides ?? {}),
+            ]),
+          ];
+    return orderByDomain(values, edgeColorEnc.scale.domain)
+      .map((v) => ({
+        value: v,
+        color: resolve(sampleFor(edgeColorEnc.driver, v)),
+      }))
+      .filter(
+        (r): r is { value: string; color: string } => r.color !== undefined,
+      );
+  }, [edgeColorEnc, ugm]);
+
   // R-13: the disclosure. A legend that keeps asserting a rule the
   // reader has locally broken is worse than one that admits it.
   const overrideCount = overrides?.length ?? 0;
@@ -341,7 +429,7 @@ export function SpecLegend({
           {colorEnc?.scale.kind === "categorical" && colorRows.length > 0 ? (
             <section>
               <div className="g3t-legend-title">
-                color: <code>{colorEnc.driver}</code>
+                {heading("node.color", colorEnc.driver ?? "")}
               </div>
               {colorRows.map((r) => (
                 <div
@@ -353,7 +441,7 @@ export function SpecLegend({
                     className="g3t-legend-swatch"
                     style={{ background: r.color }}
                   />
-                  {display(r.value)}
+                  {display(r.value, "node.color")}
                 </div>
               ))}
             </section>
@@ -362,7 +450,7 @@ export function SpecLegend({
           {colorEnc?.scale.kind === "sequential" ? (
             <section>
               <div className="g3t-legend-title">
-                color: <code>{colorEnc.driver}</code> (ramp)
+                {heading("node.color", colorEnc.driver ?? "")} (ramp)
               </div>
               <div className="g3t-legend-ramp" data-testid="legend-color-ramp">
                 {(colorEnc.scale.ramp === "diverging"
@@ -378,7 +466,7 @@ export function SpecLegend({
           {sizeRow ? (
             <section>
               <div className="g3t-legend-title">
-                size: <code>{sizeRow.driver}</code>
+                {heading("node.size", sizeRow.driver ?? "")}
                 {sizeRow.domain
                   ? ` (domain ${sizeRow.domain[0]}\u2013${sizeRow.domain[1]})`
                   : " (auto domain)"}
@@ -401,7 +489,11 @@ export function SpecLegend({
           {shapeRows.length > 0 || defaultShapeRows.length > 0 ? (
             <section>
               <div className="g3t-legend-title">
-                shape: <code>{shapeEnc?.driver ?? "types (default)"}</code>
+                {heading(
+                  "node.shape",
+                  shapeEnc?.driver ?? "types",
+                  shapeEnc?.driver ?? "types (default)",
+                )}
               </div>
               {(shapeRows.length > 0 ? shapeRows : defaultShapeRows).map(
                 (r) => (
@@ -410,7 +502,8 @@ export function SpecLegend({
                     className="g3t-legend-row"
                     data-testid={`legend-shape-${r.value}`}
                   >
-                    <ShapeGlyph shape={r.shape} /> {display(r.value)}
+                    <ShapeGlyph shape={r.shape} />{" "}
+                    {display(r.value, "node.shape")}
                     <span className="g3t-legend-shapename">({r.shape})</span>
                   </div>
                 ),
@@ -421,7 +514,7 @@ export function SpecLegend({
           {iconRows.length > 0 ? (
             <section>
               <div className="g3t-legend-title">
-                icon: <code>{iconEnc?.driver}</code>
+                {heading("node.icon", iconEnc?.driver ?? "")}
               </div>
               {iconRows.map((r) => (
                 <div
@@ -429,40 +522,39 @@ export function SpecLegend({
                   className="g3t-legend-row"
                   data-testid={`legend-icon-${r.value}`}
                 >
-                  <Icon name={r.icon} size={12} /> {display(r.value)}
+                  <Icon name={r.icon} size={12} />{" "}
+                  {display(r.value, "node.icon")}
                 </div>
               ))}
             </section>
           ) : null}
 
           {edgeColorEnc?.scale.kind === "categorical" &&
-          edgeColorEnc.scale.overrides ? (
+          edgeColorRows.length > 0 ? (
             <section>
               <div className="g3t-legend-title">
-                edge color: <code>{edgeColorEnc.driver}</code>
+                {heading("edge.color", edgeColorEnc.driver ?? "")}
               </div>
-              {Object.entries(edgeColorEnc.scale.overrides).map(
-                ([value, color]) => (
-                  <div
-                    className="g3t-legend-row"
-                    key={value}
-                    data-testid={`legend-edge-color-${value}`}
-                  >
-                    <span
-                      className="g3t-legend-line"
-                      style={{ height: 3, background: String(color) }}
-                    />{" "}
-                    {display(value)}
-                  </div>
-                ),
-              )}
+              {edgeColorRows.map((r) => (
+                <div
+                  className="g3t-legend-row"
+                  key={r.value}
+                  data-testid={`legend-edge-color-${r.value}`}
+                >
+                  <span
+                    className="g3t-legend-line"
+                    style={{ height: 3, background: r.color }}
+                  />{" "}
+                  {display(r.value, "edge.color")}
+                </div>
+              ))}
             </section>
           ) : null}
 
           {edgeWidthEnc?.scale.kind === "sequential" ? (
             <section>
               <div className="g3t-legend-title">
-                edge width: <code>{edgeWidthEnc.driver}</code>
+                {heading("edge.width", edgeWidthEnc.driver ?? "")}
               </div>
               <div className="g3t-legend-row" data-testid="legend-edge-width">
                 <span

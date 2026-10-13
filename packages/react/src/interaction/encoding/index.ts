@@ -18,6 +18,6 @@ export type {
 } from "./EncodingSpecPanel";
 export * from "./spec-apply";
 export { SpecLegend } from "./SpecLegend";
-export type { SpecLegendProps } from "./SpecLegend";
+export type { SpecLegendProps, LegendChannel } from "./SpecLegend";
 export { SpecPort } from "./SpecPort";
 export type { SpecPortProps } from "./SpecPort";

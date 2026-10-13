@@ -70,6 +70,9 @@ import {
   registerToolkitActions,
   ViewErrorBoundary,
   ShaclShapeBrowser,
+  FloatingLegend,
+  type EncodingSpec,
+  type LegendChannel,
   type ProvenanceChain,
   type ShaclShape,
 } from "@g3-toolkit/react";
@@ -285,6 +288,60 @@ describe("wiring guide: toolkit state driving the host", () => {
     usePositionPinStore.getState().clear();
     applyWorkspace(parseWorkspace(stored), { cy: null });
     expect(usePositionPinStore.getState().pinnedIds).toEqual(["asset-1"]);
+  });
+});
+
+describe("wiring guide: word the legend for your audience", () => {
+  it("sectionTitle and the channel-aware labelFor reach every section; edge rows need no overrides", () => {
+    const ugm = graph();
+    const spec: EncodingSpec = {
+      version: 1,
+      node: {
+        color: {
+          driver: "types",
+          scale: { kind: "categorical", palette: "okabe-ito" },
+        },
+      },
+      edge: {
+        color: {
+          driver: "type",
+          scale: { kind: "categorical", palette: "okabe-ito" },
+        },
+      },
+    };
+    const words: Record<LegendChannel, string> = {
+      "node.color": "Node type",
+      "node.size": "Importance",
+      "node.shape": "Node type",
+      "node.icon": "Node type",
+      "edge.color": "Relation",
+      "edge.width": "Strength",
+    };
+    const relationLabels: Record<string, string> = { feeds: "feeds into" };
+    render(
+      <FloatingLegend
+        ugm={ugm}
+        spec={spec}
+        sectionTitle={(channel) => words[channel]}
+        labelFor={(value, channel) =>
+          channel === "edge.color" ? (relationLabels[value] ?? value) : value
+        }
+      />,
+    );
+    const titles = Array.from(
+      document.querySelectorAll(".g3t-legend-title"),
+    ).map((el) => el.textContent);
+    expect(titles).toContain("Node type");
+    expect(titles).toContain("Relation");
+    expect(titles.some((t) => t?.includes("edge color:"))).toBe(false);
+    // The edge scale declares no overrides; the row still appears, and
+    // it carries the host's relation wording, not the node wording.
+    expect(screen.getByTestId("legend-edge-color-feeds").textContent).toContain(
+      "feeds into",
+    );
+    expect(screen.getByTestId("legend-color-Asset").textContent).toContain(
+      "Asset",
+    );
   });
 });
 

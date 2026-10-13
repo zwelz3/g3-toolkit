@@ -265,6 +265,41 @@ const [spec, setSpec] = useState<EncodingSpec>(initialSpec);
 `parseEncodingSpec` / `serializeEncodingSpec` round-trip it through
 storage or URLs; reserved-channel violations are rejected by name.
 
+### Word the legend for your audience
+
+By default `SpecLegend` (and `FloatingLegend`, which forwards these
+props) heads each section with the encoding internals, `color: types`
+and `edge color: relation`. For an end-user view, hand it the words
+your readers use. `sectionTitle` receives the section channel and the
+driver; `labelFor` receives the value and the same channel, so one
+function can label node types and relation types differently. Edge
+color rows come from the data (distinct driver values, colored by the
+same resolver the canvas uses), so a categorical edge scale needs no
+`overrides` to appear in the legend.
+
+```tsx
+import { FloatingLegend, type LegendChannel } from "@g3-toolkit/react";
+
+const words: Record<LegendChannel, string> = {
+  "node.color": "Node type",
+  "node.size": "Importance",
+  "node.shape": "Node type",
+  "node.icon": "Node type",
+  "edge.color": "Relation",
+  "edge.width": "Strength",
+};
+const relationLabels: Record<string, string> = { worksAt: "works at" };
+
+<FloatingLegend
+  ugm={ugm}
+  spec={spec}
+  sectionTitle={(channel) => words[channel]}
+  labelFor={(value, channel) =>
+    channel === "edge.color" ? (relationLabels[value] ?? value) : value
+  }
+/>;
+```
+
 ### Double-click a node to open detail
 
 There is no `onNodeDoubleClick` prop. Double-click is a Cytoscape
