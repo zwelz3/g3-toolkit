@@ -9,6 +9,7 @@ import {
   buildExport,
 } from "./GraphToolbar";
 import { usePositionPinStore } from "../../state/position-pin-store";
+import { resetCoreHandleWarnings } from "../core-handle";
 
 beforeEach(() => {
   // Pin state lives in a global store now (round 17): reset between
@@ -106,7 +107,7 @@ describe("runGraphLayout", () => {
 describe("GraphToolbar (rebuilt, round 16)", () => {
   it("renders the single-row anatomy", () => {
     const { cy } = mockCy();
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     expect(screen.getByTestId("g3t-graph-toolbar")).toBeTruthy();
     expect(screen.getByPlaceholderText("Search nodes…")).toBeTruthy();
     expect(screen.getByLabelText("Layout")).toBeTruthy();
@@ -115,7 +116,7 @@ describe("GraphToolbar (rebuilt, round 16)", () => {
 
   it("options popover edits locally; Run layout commits the values", () => {
     const { cy, raw } = mockCy();
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     fireEvent.click(screen.getByLabelText("Layout options"));
     fireEvent.change(screen.getByLabelText("Repulsion"), {
       target: { value: "12000" },
@@ -130,7 +131,7 @@ describe("GraphToolbar (rebuilt, round 16)", () => {
 
   it("layout select runs immediately; Pin all disables runs with explanation", () => {
     const { cy, raw } = mockCy();
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     fireEvent.change(screen.getByLabelText("Layout"), {
       target: { value: "grid" },
     });
@@ -158,7 +159,7 @@ describe("GraphToolbar (rebuilt, round 16)", () => {
 
   it("zoom and fit drive cy", () => {
     const { cy, raw } = mockCy();
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     fireEvent.click(screen.getByTestId("toolbar-zoom-in"));
     expect(raw.zoom).toHaveBeenCalledWith(1.25);
     fireEvent.click(screen.getByTestId("toolbar-fit"));
@@ -167,7 +168,7 @@ describe("GraphToolbar (rebuilt, round 16)", () => {
 
   it("typing only filters; the camera moves on an explicit pick (12.9)", () => {
     const { cy, raw } = mockCy();
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     fireEvent.change(screen.getByPlaceholderText("Search nodes…"), {
       target: { value: "Helix" },
     });
@@ -184,7 +185,7 @@ describe("GraphToolbar (rebuilt, round 16)", () => {
 describe("shuffle (round 19)", () => {
   it("re-runs force with randomize: true; Re-run stays incremental", () => {
     const { cy, raw } = mockCy();
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     fireEvent.click(screen.getByTestId("toolbar-shuffle"));
     expect(raw.layout).toHaveBeenLastCalledWith(
       expect.objectContaining({ name: "fcose", randomize: true }),
@@ -197,7 +198,7 @@ describe("shuffle (round 19)", () => {
 
   it("disables for non-force layouts with an explanation", () => {
     const { cy } = mockCy();
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     fireEvent.change(screen.getByLabelText("Layout"), {
       target: { value: "grid" },
     });
@@ -223,7 +224,7 @@ describe("export (R2.11 slice, round 26)", () => {
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
-    render(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} core={cy} />);
     fireEvent.click(screen.getByTestId("toolbar-export"));
     fireEvent.click(screen.getByTestId("export-png"));
     expect(raw.png).toHaveBeenCalledWith({ full: true, scale: 2 });
@@ -239,7 +240,7 @@ describe("export (R2.11 slice, round 26)", () => {
       zoom: vi.fn(),
       fit: vi.fn(),
     } as unknown as Core;
-    render(<GraphToolbar ugm={graph()} cy={dead} />);
+    render(<GraphToolbar ugm={graph()} core={dead} />);
     const input = screen.getByPlaceholderText("Search nodes…");
     fireEvent.change(input, { target: { value: "a" } });
     // No cy operation may reach the destroyed instance.
@@ -259,7 +260,7 @@ describe("VR-4: option edits apply LIVE (debounced, incremental)", () => {
     vi.useFakeTimers();
     try {
       const { cy, raw } = mockCy();
-      render(<GraphToolbar ugm={graph()} cy={cy} />);
+      render(<GraphToolbar ugm={graph()} core={cy} />);
       fireEvent.click(screen.getByLabelText("Layout options"));
       const slider = screen.getByLabelText("Edge length");
       const before = raw.layout.mock.calls.length;
@@ -284,7 +285,9 @@ describe("VR-4: option edits apply LIVE (debounced, incremental)", () => {
     vi.useFakeTimers();
     try {
       const { cy, raw } = mockCy();
-      render(<GraphToolbar ugm={graph()} cy={cy} initialLayout="hierarchy" />);
+      render(
+        <GraphToolbar ugm={graph()} core={cy} initialLayout="hierarchy" />,
+      );
       const select = screen.getByLabelText("Layout") as HTMLSelectElement;
       expect(select.value).toBe("hierarchy");
       fireEvent.click(screen.getByLabelText("Layout options"));
@@ -301,5 +304,53 @@ describe("VR-4: option edits apply LIVE (debounced, incremental)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// Issue #18 (maintainer ruling 2026-10-13): the handle prop is `core`
+// everywhere; `cy` survives one major as a deprecated alias.
+describe("handle prop: core is canonical, cy a deprecated alias (issue #18)", () => {
+  beforeEach(() => resetCoreHandleWarnings());
+
+  it("accepts the handle as core with no warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { cy, raw } = mockCy();
+    render(<GraphToolbar ugm={graph()} core={cy} />);
+    fireEvent.click(screen.getByTestId("toolbar-fit"));
+    expect(raw.fit).toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("accepts cy, still drives the instance, and warns ONCE in development", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { cy, raw } = mockCy();
+    const { rerender } = render(<GraphToolbar ugm={graph()} cy={cy} />);
+    rerender(<GraphToolbar ugm={graph()} cy={cy} />);
+    render(<GraphToolbar ugm={graph()} cy={mockCy().cy} />);
+    fireEvent.click(screen.getAllByTestId("toolbar-fit")[0]!);
+    expect(raw.fit).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/GraphToolbar.*`cy`.*deprecated/);
+    warn.mockRestore();
+  });
+
+  it("when both are given, core wins and cy is ignored (no warning)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const a = mockCy();
+    const b = mockCy();
+    render(<GraphToolbar ugm={graph()} core={a.cy} cy={b.cy} />);
+    fireEvent.click(screen.getByTestId("toolbar-fit"));
+    expect(a.raw.fit).toHaveBeenCalled();
+    expect(b.raw.fit).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("omitting both is the not-mounted state: controls no-op", () => {
+    render(<GraphToolbar ugm={graph()} />);
+    expect(() =>
+      fireEvent.click(screen.getByTestId("toolbar-fit")),
+    ).not.toThrow();
   });
 });
