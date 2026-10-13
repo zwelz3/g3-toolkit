@@ -10,8 +10,12 @@ Two functions emit these, and this table is generated from them:
 
 - `injectDesignTokens()` (`@g3-toolkit/core`) for the spatial,
   typographic, and scale constants. Call once at startup.
-- `injectCssVariables()` (`@g3-toolkit/react`, via `useThemeStore`)
-  for everything that changes with the active theme.
+- `injectCssVariables()` (`@g3-toolkit/react`, via `useThemeStore`
+  and `applyTheme`) for everything that changes with the active
+  theme. These land on `<html>` by default, or on the element the
+  host names as the theme target (`setThemeTarget`, or
+  `applyTheme(theme, { target })`), together with `color-scheme`;
+  the vocabulary is the same either way.
 
 Values in the "source" column name the constant or theme field
 supplying them, not the literal, since the theme-driven half changes
@@ -22,10 +26,11 @@ per theme.
 - **Names are stable within a major.** Treat them as public API.
 - **Theme-driven tokens change at runtime.** Read them through
   `var()`; do not snapshot them into JS.
-- `--g3t-success-muted`, `--g3t-warning-muted`, and
-  `--g3t-error-muted` are optional on `G3tTheme`. A custom theme may
-  omit them, in which case they are not emitted at all and your
-  `var()` fallback applies. Always pass a fallback for these three.
+- `--g3t-success-muted`, `--g3t-warning-muted`,
+  `--g3t-error-muted`, and `--g3t-overlay-color` are optional on
+  `G3tTheme`. A custom theme may omit them, in which case they are not
+  emitted at all and your `var()` fallback applies. Always pass a
+  fallback for these four.
 - **Element-scoped properties are not tokens.** A component may set a
   custom property on its own subtree (`--g3t-toggle-accent` on
   `PropertyField`). Those are implementation detail, not vocabulary,
@@ -69,6 +74,7 @@ per theme.
 | `--g3t-edge-selected` | theme.edgeSelectedColor |
 | `--g3t-node-label-color` | theme.nodeLabelColor |
 | `--g3t-node-stroke` | theme.nodeStroke |
+| `--g3t-overlay-color` | theme.overlayColor |
 
 ### Color: data scales
 
@@ -93,6 +99,17 @@ per theme.
 | `--g3t-font-xl` | DESIGN_TOKENS.fontSizeXl |
 | `--g3t-font-xs` | DESIGN_TOKENS.fontSizeXs |
 | `--g3t-line-height` | DESIGN_TOKENS.lineHeight |
+
+**Font loading is the host's.** `--g3t-font` names IBM Plex Sans and
+`--g3t-font-mono` names IBM Plex Mono, each with system fallbacks
+(`-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif` and
+`'Fira Code', 'Consolas', monospace`). Neither stylesheet the package
+ships loads a font: `style.css` once carried a Google Fonts `@import`,
+and a third-party request on load is unusable offline, under a strict
+CSP and on air-gapped deployments. Self-host the two Plex faces or
+load them from a CDN in your own document, or override the two tokens
+to use a face you already ship; without either, the toolkit renders
+in the first fallback that is installed.
 
 ### Spacing
 

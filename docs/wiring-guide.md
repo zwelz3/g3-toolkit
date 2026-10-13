@@ -31,6 +31,26 @@ surface, in three parts:
    validated documents, which is how external processes (Python
    services, pipelines, saved state) participate.
 
+The `ugm` you hand to the props channel is yours to build. Give each
+edge a `key` when your data already has a stable edge identity: the
+UGM then uses it as the edge id, so selection, overlays, and a
+"selected edge" in your URL survive a rebuild from the same data
+(without a key, every rebuild generates fresh ids). Keys are unique
+across the whole graph, and a duplicate throws.
+
+```ts
+import { UGM } from "@g3-toolkit/core";
+const ugm = new UGM();
+ugm.addNode("pump-1", { types: ["Asset"], properties: { name: "Pump" } });
+ugm.addNode("site-north", { types: ["Site"], properties: {} });
+const edgeId = ugm.addEdge("pump-1", "site-north", {
+  key: "pump-1|locatedAt|site-north", // your id, kept as-is
+  type: "locatedAt",
+});
+// edgeId === "pump-1|locatedAt|site-north"; toJSON/fromJSON and
+// exportSubgraphJson carry it unchanged.
+```
+
 A useful consequence: a "custom button" is almost always one line of
 store or function call in an `onClick`.
 
@@ -183,6 +203,40 @@ import { useThemeStore } from "@g3-toolkit/react";
 useThemeStore.getState().setTheme(orgSettings.darkMode ? "dark" : "light");
 ```
 
+By default the store writes `color-scheme` and the `--g3t-*` tokens
+inline on `<html>`, which also flips the host page's scrollbars and
+form controls. If your app owns the page's light/dark/automatic
+scheme, scope the writes to the element that wraps the graph views and
+remove them when the last view unmounts:
+
+```tsx
+import { useEffect, useRef } from "react";
+import { useThemeStore } from "@g3-toolkit/react";
+
+function GraphArea() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const { setThemeTarget, clearTheme } = useThemeStore.getState();
+    setThemeTarget(ref.current!);
+    return () => clearTheme();
+  }, []);
+  return <div ref={ref} className="graph-area" />;
+}
+```
+
+`setThemeTarget` moves the current theme to the element (restoring
+anything the store had written to `<html>`), and later `setTheme`
+calls, `ThemeSwitcher`, and workspace snapshots write there too.
+`clearTheme` removes the inline properties the store set, restoring
+any the host had on the element, and keeps the store's theme and
+target. The target scopes the DOM chrome (panels, search, legend,
+context menu) and `color-scheme`; the Cytoscape canvas and the Minimap
+read the theme object from the store, not CSS variables, so they
+follow the theme wherever the target is. `injectDesignTokens` (the
+spatial and typographic constants from `@g3-toolkit/core`) is separate
+and still writes to `<html>`; nothing in it changes with the theme
+except the dark shadow set.
+
 ### Drive the encoding from app state
 
 The spec is plain serializable state YOU own:
@@ -210,6 +264,41 @@ const [spec, setSpec] = useState<EncodingSpec>(initialSpec);
 
 `parseEncodingSpec` / `serializeEncodingSpec` round-trip it through
 storage or URLs; reserved-channel violations are rejected by name.
+
+### Word the legend for your audience
+
+By default `SpecLegend` (and `FloatingLegend`, which forwards these
+props) heads each section with the encoding internals, `color: types`
+and `edge color: relation`. For an end-user view, hand it the words
+your readers use. `sectionTitle` receives the section channel and the
+driver; `labelFor` receives the value and the same channel, so one
+function can label node types and relation types differently. Edge
+color rows come from the data (distinct driver values, colored by the
+same resolver the canvas uses), so a categorical edge scale needs no
+`overrides` to appear in the legend.
+
+```tsx
+import { FloatingLegend, type LegendChannel } from "@g3-toolkit/react";
+
+const words: Record<LegendChannel, string> = {
+  "node.color": "Node type",
+  "node.size": "Importance",
+  "node.shape": "Node type",
+  "node.icon": "Node type",
+  "edge.color": "Relation",
+  "edge.width": "Strength",
+};
+const relationLabels: Record<string, string> = { worksAt: "works at" };
+
+<FloatingLegend
+  ugm={ugm}
+  spec={spec}
+  sectionTitle={(channel) => words[channel]}
+  labelFor={(value, channel) =>
+    channel === "edge.color" ? (relationLabels[value] ?? value) : value
+  }
+/>;
+```
 
 ### Double-click a node to open detail
 
@@ -265,7 +354,8 @@ it to the canvas as `hidden`; the canvas hides them with a class
 (`display:none`) in a batched restyle, so node positions and the
 Cytoscape instance survive. Do NOT feed a pre-filtered UGM as `ugm`: a new
 `ugm` reference re-creates the instance and re-runs layout on every
-toggle.
+toggle (additive mode, next section, only ever grows a graph; a filter
+removes, so it would rebuild there too).
 
 ```tsx
 import { useMemo, useState } from "react";
@@ -290,6 +380,51 @@ const hidden = useMemo(() => {
   <CytoscapeCanvas ugm={ugm} hidden={hidden} />
 </>;
 ```
+
+### Grow a drawn graph without rebuilding it
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. An
+explorer that adds one neighborhood at a time hands the canvas a new
+`ugm` on every step, and a new identity is a different graph: the
+instance is re-created, positions and the camera reset. With
+`graphUpdate="additive"` a new ugm whose node-id set is a SUPERSET of
+the drawn one grows the live instance instead: the new nodes and edges
+join in place, only the new nodes are laid out (one fcose pass with
+every existing node held by `fixedNodeConstraint`, seeded next to the
+neighbors they were expanded from), and the camera does not move. The
+host still owns the growth; it just builds each step as a superset.
+
+```tsx
+import { useState } from "react";
+import { UGM } from "@g3-toolkit/core";
+import { CytoscapeCanvas } from "@g3-toolkit/react";
+
+// Each step is a NEW ugm holding every node of the previous one plus
+// the neighborhood. toJSON/fromJSON keeps the edge ids, and `key` names
+// the ones you add, so the diff adds only what is new; generated ids
+// differ per UGM instance and would replace every edge each step.
+const [graph, setGraph] = useState<UGM>(ugm);
+const expand = (nodeId: string) => {
+  const next = UGM.fromJSON(graph.toJSON());
+  for (const n of neighborhood(nodeId)) {
+    if (!next.hasNode(n.id))
+      next.addNode(n.id, { types: n.types, properties: n.properties });
+    next.addEdge(nodeId, n.id, { type: n.relation, key: `${nodeId}->${n.id}` });
+  }
+  setGraph(next);
+};
+
+<>
+  <button onClick={() => expand(selectedIds[0])}>Expand</button>
+  <CytoscapeCanvas ugm={graph} graphUpdate="additive" />
+</>;
+```
+
+A step that REMOVES a node (pruning, a different subject) takes the
+normal rebuild path; so does a containment change that re-parents a
+drawn node. Edges the new ugm no longer has are removed in place, and
+drawn elements take the new ugm's data, so a data-only change is also
+in place. `animate` and `animationDuration` apply to the growth pass.
 
 ### Register an algorithm result from your backend
 
@@ -537,6 +672,99 @@ Canvas application (compound parents + preset row positions) is the
 next slice; the document is renderer-neutral, so you can already
 consume it for SVG export or your own drawing layer.
 
+### Drive the shape browser from a deep link or an aggregated report
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`.
+`ShaclShapeBrowser` counts one result per focus node by default. A
+host whose report is already summarized (pyshacl, Jena, a SPARQL
+COUNT) hands the totals over through `summary`, which wins over
+counting for the shapes it names, so passing focus nodes need no
+placeholder results. `selectedShape` / `onSelectShape` make the
+selection controlled; the selected shape renders expanded, so a shape
+chosen from the URL opens on load. Leave both props off and the
+browser keeps its own expanded state as before. A shape declares every
+target it has through `targets`; `targetClass` stays the class the
+validator matches:
+
+```tsx
+import { useState } from "react";
+import { ShaclShapeBrowser, type ShaclShape } from "@g3-toolkit/react";
+
+const shapes: ShaclShape[] = [
+  {
+    id: "ex:QuoteShape",
+    targetClass: "ex:Quote",
+    targets: [
+      { kind: "class", value: "ex:Quote" },
+      { kind: "subjectsOf", value: "ex:quoteVerified" },
+    ],
+    properties: [
+      // Two property shapes on one path: give each its own id.
+      { id: "ex:QuoteShape-verified", path: "ex:quoteVerified", minCount: 1 },
+      {
+        id: "ex:QuoteShape-verified-bool",
+        path: "ex:quoteVerified",
+        datatype: "boolean",
+      },
+    ],
+  },
+];
+
+// From the URL: /shapes?selected=ex:QuoteShape
+const [selected, setSelected] = useState<string | null>("ex:QuoteShape");
+
+<ShaclShapeBrowser
+  shapes={shapes}
+  validationResults={validationResults}
+  // Per-shape totals from the report; bySeverity sets the badge tier.
+  summary={{
+    "ex:QuoteShape": { focus: 120, failing: 3, bySeverity: { warning: 3 } },
+  }}
+  selectedShape={selected}
+  onSelectShape={setSelected} // null when the selected shape collapses
+/>;
+// The badge exposes its tier for host CSS or tests:
+//   [data-testid="shape-badge-ex:QuoteShape"][data-severity="warning"]
+```
+
+### Class hierarchy: SchemaView nesting and TreeView forests
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. Neither
+`SchemaModel` nor the UGM registry carries subclass edges, so the host
+passes rdfs:subClassOf as `class -> parent(s)`; a parent that is not a
+listed class leaves its child at the top level. Every shape targeting
+a class counts toward its badge (constraints, shapes), and with
+results the badge also reports the most severe status (violation >
+warning > info, or conforms):
+
+```tsx
+import { SchemaView, TreeView } from "@g3-toolkit/react";
+
+<SchemaView
+  schema={{
+    nodeTypes: ["Agent", "Person"],
+    edgeTypes: [],
+    nodeProperties: { Person: ["name", "email"] },
+    edgeProperties: {},
+  }}
+  subClassOf={{ Person: "Agent" }}
+  shapes={shapes}
+  validationResults={validationResults}
+/>;
+
+// TreeView: several roots render as a forest (no synthetic parent row),
+// initialDepth only SEEDS expansion (every row toggles afterwards), the
+// [type] prefix is optional, and the rows form a WAI-ARIA tree: one tab
+// stop, ArrowUp/Down move, ArrowRight opens or enters, ArrowLeft closes
+// or climbs, Home/End jump, Enter or Space selects.
+<TreeView
+  ugm={ugm}
+  rootIds={["owl:Thing", "prov:Entity"]}
+  initialDepth={1}
+  showType={false}
+/>;
+```
+
 ### Render a provenance trace
 
 CI-executed in `examples/wiring/src/wiring-examples.test.tsx`. The
@@ -573,6 +801,86 @@ const chain: ProvenanceChain = [
   title="Lineage"
   onSelectHop={(id) => console.log(id)}
 />;
+```
+
+## Table view recipes
+
+Both run under CI in `examples/wiring/src/wiring-examples.test.tsx`
+("table view recipes" describe).
+
+### Table without a UGM
+
+`TableView` is a UGM adapter by default (one row per node, columns
+from the property registry), but tabular data that is not a graph
+(SPARQL SELECT bindings, a named-graph register, a validation-result
+list) does not need converting first. Pass `rows` and `columns`; a
+column names a `value` reader, optionally a `render`, and an inline
+filter kind (`"text"` default, `"values"` for a select over the
+distinct values with counts, `"range"` for a numeric min/max,
+`"none"`). `renderCell` is a table-wide override on either path
+(return `undefined` to fall back to the column). `selection` decides
+where a row click goes: `"store"` (default, the shared selection
+store, right for a view linked to a canvas), `"none"` for a standalone
+register, or `{ selected, onSelect }` to keep it in your own state;
+the host receives the full next set, modifier rules already applied.
+
+```tsx
+import { useState } from "react";
+import { TableView, type DataGridColumn } from "@g3-toolkit/react";
+
+interface Binding {
+  s: string;
+  label: string;
+  count: number;
+}
+
+const columns: DataGridColumn<Binding>[] = [
+  { id: "s", header: "Subject", value: (r) => r.s },
+  {
+    id: "label",
+    header: "Label",
+    value: (r) => r.label,
+    render: (v, r) => <a href={r.s}>{String(v)}</a>,
+  },
+  { id: "count", header: "Count", value: (r) => r.count, filter: "range" },
+];
+
+function Register({ rows }: { rows: Binding[] }) {
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  return (
+    <TableView
+      rows={rows}
+      columns={columns}
+      rowId={(r) => r.s}
+      selection={{ selected, onSelect: (ids) => setSelected(new Set(ids)) }}
+    />
+  );
+}
+```
+
+Not in this slice: virtualization past a few hundred rows (pagination
+is the scaling lever) and CSV export of the filtered rows.
+
+### Fill a sized host (dock panel)
+
+By default the table sizes to its CONTENT, which is wrong for a panel
+that has a definite height: rows run off the bottom and take the
+Prev/Next controls with them. `fill` makes the root a flex column at
+100% of the host, the body scrolls under a sticky header, and the
+pagination bar stays pinned (the rules live in
+`@g3-toolkit/react/style.css`; the regions carry stable classes,
+`g3t-table-toolbar`, `g3t-table-scroll`, `g3t-table-pagination`, for
+your own overrides). `pageSize` is live, so a count you compute from
+the host applies on the next render without a remount; or pass
+`rowHeight` with `autoPageSize` and the table measures its scroll
+region itself and re-fits on resize.
+
+```tsx
+import { TableView } from "@g3-toolkit/react";
+
+<div style={{ height: 480 }}>
+  <TableView ugm={ugm} fill rowHeight={28} autoPageSize density="compact" />
+</div>;
 ```
 
 ## Box (lasso) selection: the gesture
@@ -688,7 +996,88 @@ Supernodes carry `memberCount` (drive the size channel with it),
 edges aggregate into weighted `cluster-link` edges. This is Approach 1
 of planning/large-graph-design.md; Approach 4 (worker layout with
 viewport culling, for drilled sets past ~5k) is designed but not yet
-implemented.
+implemented. To grow a drilled-in set one neighborhood at a time
+without re-laying out what is already drawn, pass each step as a
+superset ugm with `graphUpdate="additive"` ("Grow a drawn graph
+without rebuilding it", above).
+
+## Dense graphs: let labels yield to each other
+
+CI-executed in `examples/wiring/src/wiring-examples.test.tsx` (the pure
+rule; the prop is covered by the canvas tests). Cytoscape draws every
+label at its element and never moves one out of another's way, so a
+dense graph (a citation network in layered rows, say) overprints labels
+until the user zooms in. `labelCollision` is an overlay pass over the
+rendered label boxes: after layout settles, after a zoom ends, after a
+node is dropped, and on every selection or hover change, the canvas
+measures each visible label, walks them by priority, and hides (or in
+`"shorten"` mode first truncates) a label whose box overlaps one already
+placed. Priority is selected (an edge counts when either endpoint is) >
+hovered (`hoveredNodeId` in the selection store, incident edges
+included) > your rank > node before edge > node degree or edge `weight`.
+Restyle only: no re-init, no refit, no node moves, and the `label` field
+itself is never written (hide is a class, shorten is a `_labelShort`
+field read by a scoped rule), so the encoding spec's label channel and
+this pass cannot fight.
+
+```tsx
+import { CytoscapeCanvas } from "@g3-toolkit/react";
+
+<CytoscapeCanvas
+  ugm={ugm}
+  labelCollision="shorten" // or "hide"; "none" is the default
+  labelMaxLength={14} // characters, ellipsis included
+  // Your rank within a tier. Omit it to read the `_labelPriority`
+  // element data field instead (0 when absent).
+  labelPriority={(ele) =>
+    typeof ele.data("citations") === "number" ? ele.data("citations") : 0
+  }
+/>;
+```
+
+Hosts with their own renderer get the same decision rule without the
+canvas: measure your label boxes in any one coordinate space, compose
+the priority the canvas uses, and apply the decisions yourself.
+
+```ts
+import {
+  resolveLabelCollisions,
+  composeLabelPriority,
+  type LabelCandidate,
+} from "@g3-toolkit/react";
+
+const labels: LabelCandidate[] = [
+  {
+    id: "p1",
+    kind: "node" as const,
+    text: "Deep residual learning",
+    box: { x: 0, y: 0, w: 140, h: 12 },
+    priority: 0,
+  },
+  {
+    id: "p2",
+    kind: "node" as const,
+    text: "Attention is all you need",
+    box: { x: 120, y: 4, w: 160, h: 12 },
+    priority: 0,
+  },
+].map((l) => ({
+  ...l,
+  priority: composeLabelPriority({
+    kind: l.kind,
+    selected: selectedIds.has(l.id),
+    explicit: 0,
+  }),
+}));
+
+const { decisions, shortened } = resolveLabelCollisions(labels, {
+  mode: "shorten",
+  maxLength: 14,
+});
+// decisions: Map<id, "show" | "hide" | "shorten">; shortened holds the
+// truncated text for every "shorten". Deterministic: equal priorities
+// break node before edge, then by id.
+```
 
 ## When a view fails to render
 
@@ -757,7 +1146,12 @@ from their own handlers rather than mounting as components.
 ### Path analysis
 
 ```ts
-import { findShortestPath, allShortestPaths } from "@g3-toolkit/core";
+import {
+  findShortestPath,
+  allShortestPaths,
+  kShortestPaths,
+  type PathGraph,
+} from "@g3-toolkit/core";
 const path = findShortestPath(ugm, "a", "c");
 // path.found, path.nodeIds (["a","b","c"]), path.edgeIds, path.length
 
@@ -766,6 +1160,35 @@ const path = findShortestPath(ugm, "a", "c");
 // dense graphs stay honest ("50+").
 const all = allShortestPaths(ugm, "a", "c");
 // all.nodeIds, all.edgeIds, all.pathCount
+
+// Options, shared by every search: maxHops bounds the search (a
+// farther target is found: false, and the search stops at the
+// bound instead of walking the whole graph); directed follows edges
+// source to target only; nodeFilter decides which nodes may sit
+// BETWEEN the endpoints (the endpoints themselves are exempt, so a
+// search between two hubs still finds them); edgeTypes filters edges.
+const bounded = findShortestPath(ugm, "a", "c", {
+  maxHops: 4,
+  directed: true,
+  nodeFilter: (id) => !id.startsWith("hub:"),
+});
+
+// The individual routes, shortest first (Yen's algorithm on unit-weight
+// hops; deterministic for a given graph), for a "path 3 of 12" listing.
+// Fewer than k exist: the array is shorter. Disconnected: empty.
+const routes = kShortestPaths(ugm, "a", "c", { k: 5, maxHops: 4 });
+// routes[i].nodeIds, routes[i].edgeIds
+
+// Every search reads only four methods, so a host with its own index
+// can pass a PathGraph instead of building a UGM for a read-only
+// search. UGM is a PathGraph by construction.
+const view: PathGraph = {
+  hasNode: (id) => ugm.hasNode(id),
+  getNodeEdges: (id) => ugm.getNodeEdges(id),
+  getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+  getEdge: (id) => ugm.getEdge(id),
+};
+findShortestPath(view, "a", "c");
 ```
 
 ### Subgraph export
@@ -795,6 +1218,39 @@ import { createTheme } from "@g3-toolkit/react";
 const theme = createTheme({ id: "acme", name: "Acme", accentPrimary: "#0af" });
 // Derives from LIGHT_THEME and warns when a chosen color fails WCAG
 // contrast against its background.
+```
+
+To follow your app's own CSS variables, derive the theme from them and
+apply it. `themeFromCssVariables` reads each named variable through
+`getComputedStyle` on the element you pass (so `:root` declarations
+and `var()` chains resolve) and fills the fields you do not map from
+the base preset. The result is a snapshot: re-derive when your app
+switches its theme.
+
+```ts
+import { themeFromCssVariables, applyTheme } from "@g3-toolkit/react";
+
+const theme = themeFromCssVariables(
+  document.body,
+  {
+    bgPrimary: "--app-surface",
+    bgSecondary: "--app-surface-raised",
+    textPrimary: "--app-text",
+    accentPrimary: "--app-accent",
+    border: "--app-border",
+  },
+  {
+    id: "app",
+    name: "App",
+    colorScheme: orgSettings.darkMode ? "dark" : "light",
+  },
+);
+// Store-free: write it to one element and get a dispose back, for a
+// host that applies on mount and removes on unmount without the store.
+const dispose = applyTheme(theme, { target: document.body });
+dispose(); // every property applyTheme set is removed or restored
+// Store-backed instead (ThemeSwitcher, workspace snapshots keep working):
+// useThemeStore.getState().setCustomTheme(theme)
 ```
 
 ### Camera control

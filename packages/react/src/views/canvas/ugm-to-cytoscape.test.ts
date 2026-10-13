@@ -5,7 +5,11 @@
 
 import { describe, it, expect } from "vitest";
 import { UGM } from "@g3-toolkit/core";
-import { ugmToCytoscapeElements } from "./ugm-to-cytoscape";
+import {
+  ugmToCytoscapeElements,
+  defaultNodeLabel,
+  defaultEdgeLabel,
+} from "./ugm-to-cytoscape";
 
 describe("compound containment mapping (slice 1, round 17)", () => {
   function containedGraph(): UGM {
@@ -93,5 +97,55 @@ describe("scalar type key (_type)", () => {
     });
     const els = ugmToCytoscapeElements(ugm);
     expect(els.find((e) => e.data.id === "x")?.data._type).toBe("Override");
+  });
+});
+
+describe("default label rule shared with the canvas (issue #14)", () => {
+  // The encoding spec's label channel overrides a value the converter
+  // stamps on EVERY element, so the canvas restores this rule when a
+  // spec drops the channel. The converter must stamp exactly what the
+  // exported helpers return, or the round trip drifts.
+  it("nodes: properties.name, else the id, with an explicit properties.label winning", () => {
+    const ugm = new UGM();
+    ugm.addNode("named", { types: ["T"], properties: { name: "Alpha" } });
+    ugm.addNode("bare", { types: ["T"] });
+    ugm.addNode("explicit", {
+      types: ["T"],
+      properties: { name: "Beta", label: "Custom" },
+    });
+    const els = ugmToCytoscapeElements(ugm);
+    for (const id of ["named", "bare", "explicit"]) {
+      expect(els.find((e) => e.data.id === id)?.data.label).toBe(
+        defaultNodeLabel(id, ugm.getNode(id)!),
+      );
+    }
+    expect(defaultNodeLabel("named", ugm.getNode("named")!)).toBe("Alpha");
+    expect(defaultNodeLabel("bare", ugm.getNode("bare")!)).toBe("bare");
+    expect(defaultNodeLabel("explicit", ugm.getNode("explicit")!)).toBe(
+      "Custom",
+    );
+  });
+
+  it("edges: the edge type, with an explicit properties.label winning", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["T"] });
+    ugm.addNode("b", { types: ["T"] });
+    ugm.addEdge("a", "b", { type: "knows" });
+    ugm.addEdge("b", "a", { type: "likes", properties: { label: "<3" } });
+    const els = ugmToCytoscapeElements(ugm);
+    ugm.forEachEdge((id, attrs) => {
+      expect(els.find((e) => e.data.id === id)?.data.label).toBe(
+        defaultEdgeLabel(attrs),
+      );
+    });
+    const byType = (t: string) => {
+      let found: unknown;
+      ugm.forEachEdge((_id, attrs) => {
+        if (attrs.type === t) found = defaultEdgeLabel(attrs);
+      });
+      return found;
+    };
+    expect(byType("knows")).toBe("knows");
+    expect(byType("likes")).toBe("<3");
   });
 });

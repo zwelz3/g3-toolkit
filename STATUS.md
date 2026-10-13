@@ -1,5 +1,35 @@
 # g3-toolkit Status
 
+**As of:** 2026-10-13 (active: **HOST-INTEGRATION ROUND.** Tracking
+issue #23 (seventeen sub-issues from a downstream host) plus the
+2026-08-27 backlog (#10, #13, #14, #21) were worked as eleven parallel
+agents in isolated worktrees and merged one branch at a time; the
+method and the per-issue dispositions and open questions are in
+`planning/host-integration-round.md`, the entries in the CHANGELOG
+under 2026-10-13. CLOSED by this round, pending Zach's live review:
+#10, #13, #14, #21, #24, #25, #27, #28, #29, #30, #31, #32, #33, #34,
+#35, #36, #37, #38, #39, and wave 2: #26 (`graphUpdate="additive"`,
+superset ugm grows the live instance under fcose fixedNodeConstraint)
+and #40 (`labelCollision="hide" | "shorten"`, an overlay pass over
+measured label boxes). NOT touched: #5,
+#6, #9, #12, #16 to #20 (rulings or larger scope). #41 was closed by
+the 1.1.0 release that main shipped the same day WITHOUT this round
+(the expr-eval security fix, merged from the advisory fork); this round
+is content for the release after it. What
+needs eyes rather than a gate: the dark-theme overlay tones now really
+render from the theme (#32), views with unclassed roots inherit the
+host font when only `style.css` is imported (#24), TableView fill mode
+in a dock host (#21), the TreeView keyboard model (#36), the seeded
+placement of added nodes (#26) and the real rendered label boxes (#40;
+no demo shell opts into either yet). Bundle: react about 422 of 428 KB
+after the round (ledger carries the attribution), core
+166.1 of 169. A latent defect found while fixing #13 and NOT fixed: the
+style-override, pin and overlay effects lose their applied state across
+a layout/edgeStyle rebuild until their store next changes; same shape
+as #13, needs its own issue.)
+
+## PRIOR SNAPSHOT (2026-10-13 security fix, 1.1.0)
+
 **As of:** 2026-10-13 (active: **SECURITY FIX, GHSA-mpfx-v932-r2fv.**
 `DerivedPropertyEngine` no longer evaluates through expr-eval, which
 has unpatched code-execution and prototype-pollution advisories; core

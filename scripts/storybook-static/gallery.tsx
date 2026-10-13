@@ -36,6 +36,9 @@ import {
 import { injectDesignTokens } from "@g3-toolkit/core";
 import { useThemeStore } from "@g3-toolkit/react";
 import baseCss from "../../packages/react/src/theme/g3t-base.css?raw";
+// The page reset is a separate opt-in file (issue #24); the static
+// gallery is our own page, so it inlines both.
+import pageCss from "../../packages/react/src/theme/g3t-page.css?raw";
 
 type ThemeId = "light" | "dark" | "high-contrast";
 interface Globals {
@@ -404,6 +407,7 @@ export function Gallery(): ReactNode {
   return (
     <>
       <style>{baseCss}</style>
+      <style>{pageCss}</style>
       <style>{galleryCss}</style>
       <div className="g3tg">
         <div className="g3tg-bar">

@@ -779,3 +779,113 @@ describe("layout settlement gates the same-graph camera replay", () => {
     expect(mockCy.viewport).toHaveBeenCalled();
   });
 });
+
+describe("preset layouts never animate (issue #27)", () => {
+  type InitCall = [
+    { layout: { name: string; fit?: boolean; animate?: boolean } },
+  ];
+  const lastLayout = async () => {
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: { calls: InitCall[] };
+    };
+    return cytoscape.mock.calls.at(-1)![0].layout;
+  };
+  const graph = (): UGM => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["T"], properties: {} });
+    ugm.addNode("b", { types: ["T"], properties: {} });
+    ugm.addEdge("a", "b", { type: "rel" });
+    return ugm;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    layoutStopHandlers.length = 0;
+  });
+
+  // The reported defect: a host places nodes in onReady from its own
+  // saved layout and watches them tween back to the initial scatter over
+  // animationDuration. cytoscape's preset captures each node's target
+  // when the layout STARTS (inside the constructor, before onReady), so
+  // any animation can only undo what onReady did. The layout call must
+  // therefore receive animate:false regardless of the prop default.
+  it('layout="preset" passes animate:false to the constructor\'s layout', async () => {
+    render(<CytoscapeCanvas ugm={graph()} layout="preset" />);
+    const layout = await lastLayout();
+    expect(layout.name).toBe("preset");
+    expect(layout.animate).toBe(false);
+    expect(layout.fit).toBe(false);
+  });
+
+  it("an explicit animate prop does not re-enable it for preset", async () => {
+    render(<CytoscapeCanvas ugm={graph()} layout="preset" animate={true} />);
+    expect((await lastLayout()).animate).toBe(false);
+  });
+
+  it("force layouts keep the animate prop (the override is preset-only)", async () => {
+    render(<CytoscapeCanvas ugm={graph()} layout="cose" animate={true} />);
+    const layout = await lastLayout();
+    expect(layout.name).toBe("cose");
+    expect(layout.animate).toBe(true);
+  });
+
+  // onReady is where the host sets positions; the layout has already
+  // been started (and, for preset, finished) by then.
+  it("onReady fires after the preset layout was passed to the constructor", async () => {
+    const order: string[] = [];
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mockImplementation: (fn: () => typeof mockCy) => void;
+    };
+    cytoscape.mockImplementation(() => {
+      order.push("construct");
+      return mockCy;
+    });
+    render(
+      <CytoscapeCanvas
+        ugm={graph()}
+        layout="preset"
+        onReady={() => order.push("onReady")}
+      />,
+    );
+    expect(order).toEqual(["construct", "onReady"]);
+    cytoscape.mockImplementation(() => mockCy);
+  });
+
+  // The theme reaches overlay members through the composed stylesheet
+  // (issue #32): the LAST member rule the constructor receives carries
+  // the active theme's overlayColor, so the static green is not the
+  // final word.
+  it("the constructor stylesheet ends overlay members with the theme color", async () => {
+    const { useThemeStore, createTheme } =
+      await import("../../theme/ThemeManager");
+    const host = createTheme({
+      id: "host",
+      name: "Host",
+      overlayColor: "#abcdef",
+    });
+    act(() => {
+      useThemeStore.getState().setCustomTheme(host);
+    });
+    render(<CytoscapeCanvas ugm={graph()} />);
+    const cytoscape = (await import("cytoscape")).default as unknown as {
+      mock: {
+        calls: Array<
+          [
+            {
+              style: Array<{
+                selector: string;
+                style: Record<string, unknown>;
+              }>;
+            },
+          ]
+        >;
+      };
+    };
+    const style = cytoscape.mock.calls.at(-1)![0].style;
+    const members = style.filter((r) => r.selector === "edge.g3t-ov-member");
+    expect(members.at(-1)!.style["line-color"]).toBe("#abcdef");
+    act(() => {
+      useThemeStore.getState().setTheme("light");
+    });
+  });
+});

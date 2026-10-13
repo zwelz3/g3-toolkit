@@ -1,9 +1,18 @@
 /**
  * ThemeManager: centralized theming via CSS custom properties (M8.5.E1.T1).
  *
- * All g3t components read colors from CSS variables (--g3t-*).
- * The ThemeManager injects these variables into :root and provides
- * derived objects for Cytoscape stylesheets and ECharts themes.
+ * All g3t DOM chrome (panels, search, legend, context menu) reads
+ * colors from CSS variables (--g3t-*). The ThemeManager injects these
+ * variables into :root by default, or into a host-chosen element (the
+ * theme TARGET, issue #33), and provides derived objects for Cytoscape
+ * stylesheets and ECharts themes.
+ *
+ * Two surfaces do NOT read the variables: CytoscapeCanvas composes its
+ * stylesheet from the theme OBJECT (themeColorRules, because Cytoscape
+ * cannot read CSS custom properties) and Minimap paints with the theme
+ * object on a canvas 2D context. Both follow the store's `theme` field
+ * wherever the target is, so a scoped target changes only the DOM
+ * chrome and `color-scheme`; the graph canvas is themed either way.
  *
  * @see specs/07-ux-defaults-accessibility.md R7.12
  */
@@ -58,6 +67,14 @@ export interface G3tTheme {
   edgeColor: string;
   edgeSelectedColor: string;
   selectionHighlight: string;
+  /** Neutral emphasis color for algorithm-overlay members (the
+   *  g3t-ov-member border and line color; toned members take the
+   *  semantic trio instead). OPTIONAL for the muted trio's reason: a
+   *  consumer-authored theme literal must keep compiling. When absent
+   *  the canvas keeps its historical green (DEFAULT_OVERLAY_COLOR in
+   *  CytoscapeCanvas) and the token is not emitted, so a var() reader
+   *  needs a fallback. */
+  overlayColor?: string;
 
   // Node type palette (Okabe-Ito based, adjusted per theme)
   typePalette: string[];
@@ -91,6 +108,7 @@ export const LIGHT_THEME: G3tTheme = {
   edgeColor: "#868e96",
   edgeSelectedColor: "#2563eb",
   selectionHighlight: "rgba(37, 99, 235, 0.15)",
+  overlayColor: "#2f9e44",
   typePalette: [
     "#E69F00",
     "#56B4E9",
@@ -129,6 +147,7 @@ export const DARK_THEME: G3tTheme = {
   edgeColor: "#555b63",
   edgeSelectedColor: "#4c8bf5",
   selectionHighlight: "rgba(76, 139, 245, 0.2)",
+  overlayColor: "#2f9e44",
   typePalette: [
     "#FFB74D",
     "#64B5F6",
@@ -170,6 +189,7 @@ export const HIGH_CONTRAST_THEME: G3tTheme = {
   edgeColor: "#000000",
   edgeSelectedColor: "#0000cc",
   selectionHighlight: "rgba(0, 0, 204, 0.2)",
+  overlayColor: "#2f9e44",
   typePalette: [
     "#000000",
     "#0000CC",
@@ -190,14 +210,50 @@ export const THEME_PRESETS: Record<string, G3tTheme> = {
 
 // ── Zustand Store ───────────────────────────────────────────────────
 
-export interface ThemeState {
-  theme: G3tTheme;
-  setTheme: (themeId: string) => void;
-  setCustomTheme: (theme: G3tTheme) => void;
+/** Where the theme's inline writes land. "root" is `<html>`, the
+ *  default and the only behavior before issue #33. An element scopes
+ *  the --g3t-* tokens and `color-scheme` to that subtree, so a host
+ *  with its own light/dark/automatic scheme keeps it for the rest of
+ *  the page (scrollbars, form controls) when a graph view mounts. */
+export type ThemeTarget = HTMLElement | "root";
+
+export interface ApplyThemeOptions {
+  /** Defaults to "root". */
+  target?: ThemeTarget;
 }
 
-export const useThemeStore = create<ThemeState>((set) => ({
+export interface ThemeState {
+  theme: G3tTheme;
+  /** Where setTheme / setCustomTheme write the tokens. */
+  target: ThemeTarget;
+  setTheme: (themeId: string) => void;
+  setCustomTheme: (theme: G3tTheme) => void;
+  /** Move the store's inline writes to `target`: the previous target
+   *  is put back the way the host left it and the current theme is
+   *  written to the new one, so the DOM and the store agree. */
+  setThemeTarget: (target: ThemeTarget) => void;
+  /** Remove the inline properties the store wrote to its target
+   *  (restoring any the host had set), for a host that unmounts its
+   *  last graph view. The store's `theme` and `target` are kept. */
+  clearTheme: () => void;
+}
+
+/** Dispose for the store's most recent write. Module-level like the
+ *  store singleton: each write first undoes the previous one, so the
+ *  values the dispose restores are always the host's own, never a
+ *  stale g3t theme. */
+let disposeStoreWrite: (() => void) | null = null;
+
+function writeStoreTheme(theme: G3tTheme, target: ThemeTarget): void {
+  disposeStoreWrite?.();
+  disposeStoreWrite = null;
+  const el = resolveTarget(target);
+  if (el) disposeStoreWrite = injectCssVariables(theme, el);
+}
+
+export const useThemeStore = create<ThemeState>((set, get) => ({
   theme: LIGHT_THEME,
+  target: "root",
   setTheme: (themeId: string) => {
     const preset = THEME_PRESETS[themeId];
     if (!preset) {
@@ -216,59 +272,120 @@ export const useThemeStore = create<ThemeState>((set) => ({
       return;
     }
     set({ theme: preset });
-    injectCssVariables(preset);
+    writeStoreTheme(preset, get().target);
   },
   setCustomTheme: (theme: G3tTheme) => {
     set({ theme });
-    injectCssVariables(theme);
+    writeStoreTheme(theme, get().target);
+  },
+  setThemeTarget: (target: ThemeTarget) => {
+    set({ target });
+    writeStoreTheme(get().theme, target);
+  },
+  clearTheme: () => {
+    disposeStoreWrite?.();
+    disposeStoreWrite = null;
   },
 }));
 
 // ── CSS Variable Injection ──────────────────────────────────────────
 
-function injectCssVariables(theme: G3tTheme): void {
-  if (typeof document === "undefined") return;
-  const root = document.documentElement;
+function resolveTarget(target: ThemeTarget | undefined): HTMLElement | null {
+  if (target && target !== "root") return target;
+  if (typeof document === "undefined") return null;
+  return document.documentElement;
+}
 
-  root.style.colorScheme = theme.colorScheme;
+/**
+ * Write a theme's `color-scheme` and --g3t-* tokens inline, to `<html>`
+ * by default or to `options.target`. Returns a dispose that puts the
+ * element back the way it was: every property this call set is removed,
+ * or restored to the inline value the host had there before.
+ *
+ * This is the store-free door for a host that owns the lifecycle
+ * itself (apply on mount, dispose on unmount). The store's
+ * setTheme / setCustomTheme go through the same writer against the
+ * store's `target`, so a host that wants ThemeSwitcher and workspace
+ * snapshots to keep working sets `setThemeTarget` instead and calls
+ * `clearTheme` on unmount.
+ */
+export function applyTheme(
+  theme: G3tTheme,
+  options: ApplyThemeOptions = {},
+): () => void {
+  const el = resolveTarget(options.target);
+  if (!el) return () => {};
+  return injectCssVariables(theme, el);
+}
+
+function injectCssVariables(theme: G3tTheme, el: HTMLElement): () => void {
+  // Every write records the inline value it replaces (empty when the
+  // host had none), so the dispose restores exactly that and nothing
+  // else. The recorder keeps the literal `setProperty("--g3t-...")`
+  // calls below because scripts/check-design-tokens.mjs derives the
+  // token vocabulary by parsing them; route writes through a helper
+  // with another name and that gate empties and refuses to run.
+  const previous = new Map<string, string>();
+  const style = {
+    setProperty(name: string, value: string): void {
+      if (!previous.has(name))
+        previous.set(name, el.style.getPropertyValue(name));
+      el.style.setProperty(name, value);
+    },
+  };
+
+  style.setProperty("color-scheme", theme.colorScheme);
   // Also exposed as a token: a component rendering into a portal or a
   // detached subtree sets its own `color-scheme` and cannot read the
-  // root's inline style property. ContextMenu does exactly this.
-  root.style.setProperty("--g3t-color-scheme", theme.colorScheme);
-  root.style.setProperty("--g3t-accent-color-controls", theme.accentPrimary);
-  root.style.setProperty("--g3t-bg-primary", theme.bgPrimary);
-  root.style.setProperty("--g3t-bg-secondary", theme.bgSecondary);
-  root.style.setProperty("--g3t-bg-tertiary", theme.bgTertiary);
-  root.style.setProperty("--g3t-border", theme.border);
-  root.style.setProperty("--g3t-text-primary", theme.textPrimary);
-  root.style.setProperty("--g3t-text-secondary", theme.textSecondary);
-  root.style.setProperty("--g3t-text-muted", theme.textMuted);
-  root.style.setProperty("--g3t-accent-primary", theme.accentPrimary);
-  root.style.setProperty("--g3t-accent-hover", theme.accentHover);
-  root.style.setProperty("--g3t-accent-muted", theme.accentMuted);
-  root.style.setProperty("--g3t-success", theme.success);
-  root.style.setProperty("--g3t-warning", theme.warning);
-  root.style.setProperty("--g3t-error", theme.error);
+  // target's inline style property. ContextMenu does exactly this.
+  style.setProperty("--g3t-color-scheme", theme.colorScheme);
+  style.setProperty("--g3t-accent-color-controls", theme.accentPrimary);
+  style.setProperty("--g3t-bg-primary", theme.bgPrimary);
+  style.setProperty("--g3t-bg-secondary", theme.bgSecondary);
+  style.setProperty("--g3t-bg-tertiary", theme.bgTertiary);
+  style.setProperty("--g3t-border", theme.border);
+  style.setProperty("--g3t-text-primary", theme.textPrimary);
+  style.setProperty("--g3t-text-secondary", theme.textSecondary);
+  style.setProperty("--g3t-text-muted", theme.textMuted);
+  style.setProperty("--g3t-accent-primary", theme.accentPrimary);
+  style.setProperty("--g3t-accent-hover", theme.accentHover);
+  style.setProperty("--g3t-accent-muted", theme.accentMuted);
+  style.setProperty("--g3t-success", theme.success);
+  style.setProperty("--g3t-warning", theme.warning);
+  style.setProperty("--g3t-error", theme.error);
   // Optional on G3tTheme (see the interface): skip rather than emit
   // "undefined", so a consumer theme that omits them leaves the
   // component fallback in force instead of blanking the ghost fill.
   if (theme.successMuted)
-    root.style.setProperty("--g3t-success-muted", theme.successMuted);
+    style.setProperty("--g3t-success-muted", theme.successMuted);
   if (theme.warningMuted)
-    root.style.setProperty("--g3t-warning-muted", theme.warningMuted);
+    style.setProperty("--g3t-warning-muted", theme.warningMuted);
   if (theme.errorMuted)
-    root.style.setProperty("--g3t-error-muted", theme.errorMuted);
-  root.style.setProperty("--g3t-canvas-bg", theme.canvasBg);
-  root.style.setProperty("--g3t-node-stroke", theme.nodeStroke);
-  root.style.setProperty("--g3t-node-label-color", theme.nodeLabelColor);
-  root.style.setProperty("--g3t-edge-color", theme.edgeColor);
-  root.style.setProperty("--g3t-edge-selected", theme.edgeSelectedColor);
-  root.style.setProperty("--g3t-selection-highlight", theme.selectionHighlight);
+    style.setProperty("--g3t-error-muted", theme.errorMuted);
+  style.setProperty("--g3t-canvas-bg", theme.canvasBg);
+  style.setProperty("--g3t-node-stroke", theme.nodeStroke);
+  style.setProperty("--g3t-node-label-color", theme.nodeLabelColor);
+  style.setProperty("--g3t-edge-color", theme.edgeColor);
+  style.setProperty("--g3t-edge-selected", theme.edgeSelectedColor);
+  style.setProperty("--g3t-selection-highlight", theme.selectionHighlight);
+  // Optional like the muted trio: skip rather than emit "undefined".
+  if (theme.overlayColor)
+    style.setProperty("--g3t-overlay-color", theme.overlayColor);
 
   // Type palette as indexed vars
   theme.typePalette.forEach((color, i) => {
-    root.style.setProperty(`--g3t-type-${i}`, color);
+    style.setProperty(`--g3t-type-${i}`, color);
   });
+
+  let disposed = false;
+  return () => {
+    if (disposed) return;
+    disposed = true;
+    for (const [name, prior] of previous) {
+      if (prior) el.style.setProperty(name, prior);
+      else el.style.removeProperty(name);
+    }
+  };
 }
 
 // ── Cytoscape Stylesheet Derivation ─────────────────────────────────
@@ -345,6 +462,62 @@ export function createTheme(
     );
   }
   return theme;
+}
+
+/** The G3tTheme fields a host CSS variable can supply: every color
+ *  string. `typePalette` is a list and `colorScheme` an enum, so they
+ *  come from the options, not the mapping. */
+export type ThemeColorField = Exclude<
+  keyof G3tTheme,
+  "id" | "name" | "colorScheme" | "typePalette"
+>;
+
+export interface ThemeFromCssVariablesOptions {
+  id: string;
+  name: string;
+  /** Native-control scheme for the derived theme; also picks the
+   *  default base (DARK_THEME for "dark", LIGHT_THEME otherwise). */
+  colorScheme?: "light" | "dark";
+  /** Preset to fill the fields the mapping does not cover. */
+  base?: G3tTheme;
+}
+
+/**
+ * Derive a theme from a host's own CSS custom properties, read through
+ * getComputedStyle on `element` (so a variable declared on :root or any
+ * ancestor resolves, with var() chains and fallbacks already applied).
+ * `mapping` names the host variable per theme field; a variable that
+ * resolves to nothing leaves the base value in place rather than
+ * writing an empty color.
+ *
+ * The result is a SNAPSHOT: computed values do not update when the
+ * host switches its theme, so re-derive and re-apply on the host's
+ * theme change (the same effect that flips it, or a MutationObserver
+ * on the attribute it toggles). The contrast warnings come from
+ * createTheme and apply only to plain hex values; rgb() strings, which
+ * getComputedStyle may return, are skipped, not failed.
+ */
+export function themeFromCssVariables(
+  element: Element,
+  mapping: Partial<Record<ThemeColorField, string>>,
+  options: ThemeFromCssVariablesOptions,
+): G3tTheme {
+  const overrides: Partial<G3tTheme> & { id: string; name: string } = {
+    id: options.id,
+    name: options.name,
+  };
+  if (options.colorScheme) overrides.colorScheme = options.colorScheme;
+  if (typeof window !== "undefined") {
+    const computed = window.getComputedStyle(element);
+    for (const [field, variable] of Object.entries(mapping)) {
+      if (!variable) continue;
+      const value = computed.getPropertyValue(variable).trim();
+      if (value) overrides[field as ThemeColorField] = value;
+    }
+  }
+  const base =
+    options.base ?? (options.colorScheme === "dark" ? DARK_THEME : LIGHT_THEME);
+  return createTheme(overrides, base);
 }
 
 /** Standalone theme derivation for hosts composing their own

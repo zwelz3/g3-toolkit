@@ -54,6 +54,13 @@ renders unstyled, with no error:
 import "@g3-toolkit/react/style.css";
 ```
 
+That file styles g3 elements only (no `body`, `html` or `*` rule, no
+font download). The page-level reset and body typography the
+playground uses are a separate opt-in,
+`@g3-toolkit/react/style.base.css`; see
+[docs/consuming-g3t.md](docs/consuming-g3t.md) for when to add it and
+how fonts are loaded.
+
 ## Minimal Integration
 
 ```tsx
@@ -252,7 +259,7 @@ internal accounting is in
 
 ## Theming
 
-CSS custom properties (`--g3t-*`) for colors, typography, spacing, shadows. Three built-in presets (light, dark, high-contrast). Components adapt automatically when the theme changes.
+CSS custom properties (`--g3t-*`) for colors, typography, spacing, shadows. Three built-in presets (light, dark, high-contrast). Components adapt automatically when the theme changes. The theme writes to `<html>` by default; a host that owns the page's color scheme can scope it to one element with `setThemeTarget` and remove it with `clearTheme` (see the wiring guide, "Theme from your app's settings").
 
 ```typescript
 import { useThemeStore } from "@g3-toolkit/react/state";

@@ -86,7 +86,16 @@ const BUDGETS = {
   // that bundles the engine drops about 25 KB of minified expr-eval for
   // these 6.9 KB, a net decrease of about 18 KB, and every install
   // sheds the dependency.
-  core: 172.0 * 1024,
+  // Host-integration round 2026-10-13 (issues #29/#30/#31): 172 -> 176.
+  // The round measured 164.3 -> 166.1 KB on its own branch (+1.8 KB:
+  // kShortestPaths, Yen's algorithm over unit-weight BFS, with the
+  // directed and nodeFilter options and the PathGraph read interface;
+  // EdgeInput.key through addEdgeWithKey and fromJSON restoring edge
+  // ids; the optional SHACL target and constraint-id fields). Merged
+  // with the security fix above (+6.9 KB, measured on main the same
+  // day) core is 173.0 KB, so the two raises stack: 176 keeps about
+  // 3 KB of headroom, the posture both entries set.
+  core: 176.0 * 1024,
   // Core ledger:
   // - NO RAISE, 2026-08-15 (the @g3-toolkit/layout recommendation is RETIRED,
   //   and 15 subpath exports were withdrawn). Measured 164.0 KB against
@@ -358,8 +367,81 @@ const BUDGETS = {
   // Round 21 (2026-08-05): +1.5 KB for R-12 (structural node
   // styles, controlled drag offsets, the renderer-neutral editor
   // target) and R-13.3 (one legend serving both renderers).
-  react: 395 * 1024,
+  // Issues #21/#39 (2026-10-13): 395 -> 402. Measured 392.0 -> 398.2
+  // KB (+6.2 KB), all of it TableView: the rows path (DataGridColumn
+  // columns with text/values/range header filters, the faceted row
+  // model wiring), the table-wide renderCell, host-owned and "none"
+  // selection modes, controlled pagination (the pageSize prop was
+  // inert after mount), and the fill-mode ResizeObserver page-size
+  // derivation. TableView sits in the StatsPanel chunk, so a host
+  // that never references it pays nothing. Headroom stays modest
+  // (3.8 KB) on purpose, as the previous entry set it.
+  // Integration (2026-10-13): the two entries above were measured on
+  // separate branches against the same 392.0 KB base (+6.2 KB table,
+  // +6.5 KB tree/schema) and each set 402. Merged with the other
+  // branches of the same round (theme target and dispose #33, legend
+  // edge rows #38, encoding re-apply and stylesheet restyle #13/#14/
+  // #28, overlay theme rules #32, SHACL browser #34/#35), the dist
+  // measures 411.5 KB; with wave 2 (#40 label collision +5.7 KB, #26
+  // additive updates +4.5 KB) it measures about 422 KB, so the budget
+  // is 428, a few KB of headroom as before.
+  react: 428 * 1024,
   // React ledger:
+  // - 395 -> 402 KB, 2026-10-13 (issues #36 and #37, TreeView and
+  //   SchemaView): measured 398.5 KB, +6.5 KB over the 392.0 KB the
+  //   previous entry recorded. Sourcemap attribution over every
+  //   react dist map first, per the 2026-07-03 core rule: ZERO
+  //   node_modules source bytes, so all of it is first-party. Two
+  //   files carry it, read off the same attribution:
+  //   TreeView.tsx 8.55 KB generated (was ~4.8 KB by the same
+  //   generated/source ratio): the expanded set is now seeded from
+  //   initialDepth and XORed with user toggles so rows inside the seed
+  //   collapse (the #36 defect), several roots render as a forest,
+  //   the [type] prefix is optional, and the rows form a WAI-ARIA
+  //   tree with a roving tab stop and the arrow/Home/End/Enter model
+  //   handled once at the tree root over a visible-row list. The
+  //   keyboard model is the largest share and is the capability the
+  //   host had to build for itself.
+  //   SchemaView.tsx 5.72 KB generated (was ~2.7 KB): rdfs:subClassOf
+  //   nesting with cycle promotion, one badge per class over EVERY
+  //   targeting shape (count, shape count, worst validation status),
+  //   and per-shape constraint lists. Both are tree-shakeable named
+  //   exports; a host that never references them pays nothing.
+  //   TreeView.css (0.6 KB) ships in style.css, which this gate does
+  //   not sum. New headroom is 3.5 KB, set modestly as before.
+  // - +5.7 KB, 2026-10-13 (issue #40, label collision), measured on
+  //   its branch by building with and without the change's files:
+  //   views/canvas/label-collision.ts (the pure greedy resolver,
+  //   shorten strategy and priority composition; tree-shakeable
+  //   named exports, so a host with its own renderer pays only what
+  //   it imports), views/canvas/apply-label-collision.ts (measure
+  //   rendered label boxes, apply class/field decisions), and in
+  //   CytoscapeCanvas the three props, one effect, and three
+  //   stylesheet rules. The canvas-side bytes are reached by every
+  //   CytoscapeCanvas import; the DEFAULT mode ("none") registers no
+  //   listener and does no per-render work, so the cost to a host
+  //   that never opts in is bytes only. Sourcemap audit run first as
+  //   the 2026-07-03 core entry requires: ZERO node_modules source
+  //   bytes across react's 15 dist maps (808,139 source bytes, all
+  //   first-party). Budgets are unminified by policy, and roughly
+  //   half of the 5.7 KB is the docblocks that explain the overlay
+  //   mechanism and why `label` is never written. New headroom is
+  //   folded into the integration budget above.
+  // - +4.5 KB, 2026-10-13 (issue #26, additive graph updates), measured
+  //   on its branch against the head it grew from:
+  //   CytoscapeCanvas gained `graphUpdate="additive"` (planner, seed
+  //   placement, the in-place grow with one fcose pass under
+  //   fixedNodeConstraint, and the render-time init-key decision).
+  //   It lives in the canvas rather than a tree-shakeable module
+  //   because it IS the canvas's graph-change detection: an explorer
+  //   that grows a drawn graph one neighborhood at a time lost
+  //   positions and camera on every step, and the host-side
+  //   workaround (`locked` under fcose) does not work. Budgets are
+  //   unminified by policy and roughly half of the growth is the
+  //   docblocks that say why. Sourcemap audit run first as the
+  //   2026-07-03 core entry requires: ZERO node_modules source bytes
+  //   across react's dist maps (803,359 bytes, all first-party). New
+  //   headroom is folded into the integration budget above.
   // - NO RAISE, 2026-08-28 (core stopped being external): measured
   //   651.7 KB, 167% of the 390 KB budget in force at the time. The
   //   261.7 KB over was not growth and the correct response was a

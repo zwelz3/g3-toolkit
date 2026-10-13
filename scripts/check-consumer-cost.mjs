@@ -125,7 +125,21 @@ const SCENARIOS = [
     // common react import. Externals are peers the adopter installs;
     // what is counted is g3t's own code, core's included.
     // Measured 81.4 KB, core's contribution included.
-    budget: 92 * 1024,
+    // 2026-10-13 (host-integration round): 92 -> 104 KB. Measured
+    // 95.3 KB after issues #13/#14/#28 (encoding re-apply on rebuild,
+    // label restore, content-keyed stylesheet restyle), #27/#32 (preset
+    // never animates, overlay theme rules), #26 (additive graph
+    // updates: planner, seed placement, fixed-node fcose pass) and #40
+    // (label collision: resolver, measurement, apply pass). All of it
+    // is canvas code reached by this import; the two opt-in features
+    // (#26, #40) do no work unless their prop is set, so the cost to a
+    // host that never opts in is bytes only. Rejected for now: loading
+    // the #40 apply pass through a dynamic import() when the prop is
+    // set, which would hand back about 4 KB here at the price of a
+    // first-pass delay after layoutstop; worth revisiting if this
+    // scenario keeps growing. Core's share is unchanged (its scenarios
+    // above moved by well under 1 KB).
+    budget: 104 * 1024,
     code: `export { CytoscapeCanvas } from "@g3-toolkit/react";\n`,
   },
 ];

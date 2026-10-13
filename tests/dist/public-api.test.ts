@@ -127,6 +127,96 @@ describe("built root entries re-export the source barrel", () => {
   }
 });
 
+describe("the component stylesheet styles g3t elements only", () => {
+  // Guards issue #24. dist/style.css once carried a Google Fonts
+  // @import, a universal `*` reset and a `body` typography rule, and
+  // importing it (the documented first line of every quickstart)
+  // restyled every page of the host application: body font swapped to
+  // IBM Plex at 13px, list and heading margins zeroed on pages with no
+  // graph on them, and a third-party request on load that offline,
+  // strict-CSP and air-gapped hosts cannot make. The reset and body
+  // rule now ship as the OPT-IN dist/style.base.css. Selector-level
+  // checks run on the built file rather than the source so a stray
+  // stylesheet imported by any entry (cssCodeSplit is off, so every
+  // css import lands in this one file) is caught too.
+  const reactDist = resolve(root, "packages", "react", "dist");
+
+  /** Selector lists of every top-level rule, comments and bodies removed. */
+  function selectorsOf(css: string): string[] {
+    const noComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const selectors: string[] = [];
+    // Walk rule-by-rule: text before a `{` at depth 0 or 1 is a
+    // selector list (depth 1 covers rules nested in @media), and
+    // braces are tracked so declaration bodies are skipped.
+    let depth = 0;
+    let buf = "";
+    for (const ch of noComments) {
+      if (ch === "{") {
+        const head = buf.trim();
+        if (!head.startsWith("@")) {
+          for (const s of head.split(",")) {
+            const sel = s.trim();
+            if (sel) selectors.push(sel);
+          }
+        }
+        depth++;
+        buf = "";
+      } else if (ch === "}") {
+        depth--;
+        buf = "";
+      } else if (ch === ";" && depth > 0) {
+        buf = "";
+      } else {
+        buf += ch;
+      }
+    }
+    return selectors;
+  }
+
+  it("dist/style.css has no bare body, html or * selector", () => {
+    const css = readFileSync(resolve(reactDist, "style.css"), "utf8");
+    const bare = selectorsOf(css).filter((sel) =>
+      /^(\*|html|body|:root)(\s*::?[\w-]+)?$|^\*\s*,|^(html|body)\s*[\s>+~]/.test(
+        sel,
+      ),
+    );
+    // `:root` is allowed only as a token host (custom properties), which
+    // the reduced-motion block uses; anything else page-level fails.
+    const offenders = bare.filter((sel) => !sel.startsWith(":root"));
+    expect(offenders).toEqual([]);
+    expect(selectorsOf(css).length).toBeGreaterThan(50);
+  });
+
+  /** The stylesheet with comments removed: prose may NAME @import. */
+  function codeOf(css: string): string {
+    return css.replace(/\/\*[\s\S]*?\*\//g, "");
+  }
+
+  it("dist/style.css does not @import a remote URL", () => {
+    const css = codeOf(readFileSync(resolve(reactDist, "style.css"), "utf8"));
+    expect(css).not.toMatch(/@import\s+url\(\s*["']?https?:/i);
+    expect(css).not.toMatch(/@import\s+["']https?:/i);
+    expect(css).not.toMatch(/fonts\.googleapis\.com/);
+  });
+
+  it("the page reset ships as the opt-in dist/style.base.css and is exported", () => {
+    const base = resolve(reactDist, "style.base.css");
+    expect(existsSync(base)).toBe(true);
+    const css = readFileSync(base, "utf8");
+    // The opt-in file is where the reset and body rule live now; if
+    // they vanish from here too, the playground silently loses them.
+    const selectors = selectorsOf(css);
+    expect(selectors).toContain("*");
+    expect(selectors).toContain("body");
+    expect(codeOf(css)).not.toMatch(/@import/);
+
+    const { exports } = readManifest("react");
+    const entry = exports["./style.base.css"];
+    expect(entry).toBeDefined();
+    expect(typeof entry === "string" ? entry : entry?.types).toBeDefined();
+  });
+});
+
 describe("built subpath entries load", () => {
   for (const pkg of PACKAGES) {
     it(`@g3-toolkit/${pkg}: every ESM subpath entry imports and is non-empty`, async () => {

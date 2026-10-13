@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useEffect, useRef, useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { Core } from "cytoscape";
 import {
@@ -31,6 +32,9 @@ import {
   resultSelectionIds,
   resultDetail,
   findShortestPath,
+  allShortestPaths,
+  kShortestPaths,
+  type PathGraph,
   exportSubgraphJson,
   exportSubgraphCsv,
   createPresetPipeline,
@@ -55,15 +59,30 @@ import {
   parseWorkspace,
   structuralToCytoscapeElements,
   FacetFilter,
+  CytoscapeCanvas,
   applyEncodingSpec,
   createTheme,
+  applyTheme,
+  themeFromCssVariables,
   createCameraController,
   ProvenanceTrace,
   Minimap,
+  SchemaView,
+  TreeView,
   createDefaultMenuManager,
   registerToolkitActions,
   ViewErrorBoundary,
+  ShaclShapeBrowser,
+  FloatingLegend,
+  TableView,
+  resolveLabelCollisions,
+  composeLabelPriority,
+  type EncodingSpec,
+  type LegendChannel,
+  type LabelCandidate,
   type ProvenanceChain,
+  type ShaclShape,
+  type DataGridColumn,
 } from "@g3-toolkit/react";
 
 beforeEach(() => {
@@ -152,6 +171,35 @@ describe("wiring guide: custom buttons", () => {
     useThemeStore.getState().setTheme("dark");
     expect(useThemeStore.getState().theme.id).toBe("dark");
     useThemeStore.getState().setTheme("light");
+  });
+
+  it("theme scoped to the graph area: setThemeTarget on mount, clearTheme on unmount", () => {
+    const root = document.documentElement.style;
+    root.removeProperty("color-scheme");
+    root.removeProperty("--g3t-bg-primary");
+    function GraphArea() {
+      const ref = useRef<HTMLDivElement>(null);
+      useEffect(() => {
+        const { setThemeTarget, clearTheme } = useThemeStore.getState();
+        setThemeTarget(ref.current!);
+        return () => clearTheme();
+      }, []);
+      return <div ref={ref} data-testid="graph-area" />;
+    }
+    const { unmount } = render(<GraphArea />);
+    useThemeStore.getState().setTheme("dark");
+    const area = screen.getByTestId("graph-area") as HTMLElement;
+    expect(area.style.getPropertyValue("color-scheme")).toBe("dark");
+    expect(area.style.getPropertyValue("--g3t-bg-primary")).not.toBe("");
+    // The host page keeps its own scheme.
+    expect(root.getPropertyValue("color-scheme")).toBe("");
+    expect(root.getPropertyValue("--g3t-bg-primary")).toBe("");
+    unmount();
+    expect(area.style.getPropertyValue("color-scheme")).toBe("");
+    expect(area.style.getPropertyValue("--g3t-bg-primary")).toBe("");
+    useThemeStore.getState().setThemeTarget("root");
+    useThemeStore.getState().setTheme("light");
+    useThemeStore.getState().clearTheme();
   });
 
   it("algorithm result from a backend response, overlay registered", () => {
@@ -248,6 +296,60 @@ describe("wiring guide: toolkit state driving the host", () => {
     usePositionPinStore.getState().clear();
     applyWorkspace(parseWorkspace(stored), { cy: null });
     expect(usePositionPinStore.getState().pinnedIds).toEqual(["asset-1"]);
+  });
+});
+
+describe("wiring guide: word the legend for your audience", () => {
+  it("sectionTitle and the channel-aware labelFor reach every section; edge rows need no overrides", () => {
+    const ugm = graph();
+    const spec: EncodingSpec = {
+      version: 1,
+      node: {
+        color: {
+          driver: "types",
+          scale: { kind: "categorical", palette: "okabe-ito" },
+        },
+      },
+      edge: {
+        color: {
+          driver: "type",
+          scale: { kind: "categorical", palette: "okabe-ito" },
+        },
+      },
+    };
+    const words: Record<LegendChannel, string> = {
+      "node.color": "Node type",
+      "node.size": "Importance",
+      "node.shape": "Node type",
+      "node.icon": "Node type",
+      "edge.color": "Relation",
+      "edge.width": "Strength",
+    };
+    const relationLabels: Record<string, string> = { feeds: "feeds into" };
+    render(
+      <FloatingLegend
+        ugm={ugm}
+        spec={spec}
+        sectionTitle={(channel) => words[channel]}
+        labelFor={(value, channel) =>
+          channel === "edge.color" ? (relationLabels[value] ?? value) : value
+        }
+      />,
+    );
+    const titles = Array.from(
+      document.querySelectorAll(".g3t-legend-title"),
+    ).map((el) => el.textContent);
+    expect(titles).toContain("Node type");
+    expect(titles).toContain("Relation");
+    expect(titles.some((t) => t?.includes("edge color:"))).toBe(false);
+    // The edge scale declares no overrides; the row still appears, and
+    // it carries the host's relation wording, not the node wording.
+    expect(screen.getByTestId("legend-edge-color-feeds").textContent).toContain(
+      "feeds into",
+    );
+    expect(screen.getByTestId("legend-color-Asset").textContent).toContain(
+      "Asset",
+    );
   });
 });
 
@@ -465,6 +567,189 @@ describe("wiring guide: linked shape + data views (B4)", () => {
   });
 });
 
+describe("wiring guide: shape browser from a deep link or an aggregated report", () => {
+  const shapes: ShaclShape[] = [
+    {
+      id: "ex:QuoteShape",
+      targetClass: "ex:Quote",
+      targets: [
+        { kind: "class", value: "ex:Quote" },
+        { kind: "subjectsOf", value: "ex:quoteVerified" },
+      ],
+      properties: [
+        // Two property shapes on one path: give each its own id.
+        { id: "ex:QuoteShape-verified", path: "ex:quoteVerified", minCount: 1 },
+        {
+          id: "ex:QuoteShape-verified-bool",
+          path: "ex:quoteVerified",
+          datatype: "boolean",
+        },
+      ],
+    },
+    { id: "ex:OrderShape", targetClass: "ex:Order", properties: [] },
+  ];
+
+  it("summary totals win over counting, and the selected shape opens expanded", () => {
+    function Host() {
+      // From the URL: /shapes?selected=ex:QuoteShape
+      const [selected, setSelected] = useState<string | null>("ex:QuoteShape");
+      return (
+        <ShaclShapeBrowser
+          shapes={shapes}
+          validationResults={[]}
+          summary={{
+            "ex:QuoteShape": {
+              focus: 120,
+              failing: 3,
+              bySeverity: { warning: 3 },
+            },
+          }}
+          selectedShape={selected}
+          onSelectShape={setSelected}
+        />
+      );
+    }
+    render(<Host />);
+    // No placeholder results, yet the totals and tier come through.
+    expect(screen.getByTestId("shape-ex:QuoteShape").textContent).toContain(
+      "117/120 pass",
+    );
+    const badge = screen.getByTestId("shape-badge-ex:QuoteShape");
+    expect(badge.getAttribute("data-severity")).toBe("warning");
+    expect(badge.getAttribute("aria-label")).toBe("3 failing");
+    // Deep link: expanded on load, both constraint rows rendered.
+    expect(
+      screen
+        .getByTestId("shape-toggle-ex:QuoteShape")
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(
+      screen.getByTestId("constraint-ex:QuoteShape-ex:QuoteShape-verified"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(
+        "constraint-ex:QuoteShape-ex:QuoteShape-verified-bool",
+      ),
+    ).toBeInTheDocument();
+    // Every target renders, class first.
+    expect(screen.getByTestId("shape-targets-ex:QuoteShape").textContent).toBe(
+      "→ ex:Quote, subjects of ex:quoteVerified",
+    );
+    // The host owns the selection: collapsing reports null and closes.
+    fireEvent.click(screen.getByTestId("shape-toggle-ex:QuoteShape"));
+    expect(
+      screen
+        .getByTestId("shape-toggle-ex:QuoteShape")
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+  });
+});
+
+describe("wiring guide: class hierarchy (SchemaView nesting, TreeView forests)", () => {
+  it("SchemaView nests subclasses and badges every targeting shape with the worst status", () => {
+    const shapes = [
+      {
+        id: "PersonBasic",
+        targetClass: "Person",
+        properties: [{ path: "name", minCount: 1 }],
+      },
+      {
+        id: "PersonContact",
+        targetClass: "Person",
+        properties: [{ path: "email", minCount: 1 }],
+      },
+    ];
+    const ugm = new UGM();
+    ugm.addNode("p1", { types: ["Person"], properties: { name: "Ada" } });
+    // p1 has no email: PersonContact fails with a violation.
+    const validationResults = validateShacl(ugm, shapes);
+
+    render(
+      <SchemaView
+        schema={{
+          nodeTypes: ["Agent", "Person"],
+          edgeTypes: [],
+          nodeProperties: { Person: ["name", "email"] },
+          edgeProperties: {},
+        }}
+        subClassOf={{ Person: "Agent" }}
+        shapes={shapes}
+        validationResults={validationResults}
+      />,
+    );
+    expect(screen.getByTestId("schema-class-Person")).toHaveAttribute(
+      "data-parent",
+      "Agent",
+    );
+    expect(screen.getByTestId("schema-subclasses-Agent")).toContainElement(
+      screen.getByTestId("schema-class-Person"),
+    );
+    const badge = screen.getByTestId("shacl-badge-Person");
+    expect(badge).toHaveTextContent(
+      "SHACL: 2 constraints, 2 shapes, violation",
+    );
+    expect(badge).toHaveAttribute("data-severity", "violation");
+  });
+
+  it("TreeView renders a forest, seeds expansion, drops the type prefix, and moves by keyboard", () => {
+    const ugm = new UGM();
+    ugm.addNode("owl:Thing", {
+      types: ["Class"],
+      properties: { name: "Thing" },
+    });
+    ugm.addNode("prov:Agent", {
+      types: ["Class"],
+      properties: { name: "Agent" },
+    });
+    ugm.addNode("prov:Entity", {
+      types: ["Class"],
+      properties: { name: "Entity" },
+    });
+    ugm.addNode("prov:Plan", {
+      types: ["Class"],
+      properties: { name: "Plan" },
+    });
+    ugm.addEdge("owl:Thing", "prov:Agent", { type: "subClassOf" });
+    ugm.addEdge("prov:Entity", "prov:Plan", { type: "subClassOf" });
+
+    render(
+      <TreeView
+        ugm={ugm}
+        rootIds={["owl:Thing", "prov:Entity"]}
+        initialDepth={1}
+        showType={false}
+      />,
+    );
+    // Two top-level rows, no synthetic parent, children seeded open.
+    expect(screen.getByTestId("tree-node-owl:Thing")).toHaveAttribute(
+      "aria-level",
+      "1",
+    );
+    expect(screen.getByTestId("tree-node-prov:Entity")).toHaveAttribute(
+      "aria-level",
+      "1",
+    );
+    expect(screen.getByTestId("tree-node-prov:Plan")).toHaveAttribute(
+      "aria-level",
+      "2",
+    );
+    expect(screen.getByTestId("tree-node-owl:Thing")).not.toHaveTextContent(
+      "[Class]",
+    );
+    // A seeded row collapses (impossible before issue #36).
+    fireEvent.click(screen.getByTestId("tree-toggle-owl:Thing"));
+    expect(screen.queryByTestId("tree-node-prov:Agent")).toBeNull();
+    // Keyboard: ArrowDown moves the roving tab stop to the next row.
+    const thing = screen.getByTestId("tree-node-owl:Thing");
+    thing.focus();
+    fireEvent.keyDown(thing, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(
+      screen.getByTestId("tree-node-prov:Entity"),
+    );
+    expect(screen.getByRole("tree")).toBeInTheDocument();
+  });
+});
+
 describe("wiring guide: filter by hiding, not by rebuilding", () => {
   it("FacetFilter emits the toggled type to onFilterChange", () => {
     const ugm = new UGM();
@@ -496,6 +781,51 @@ describe("wiring guide: filter by hiding, not by rebuilding", () => {
     });
     expect(hidden.has("only-asset")).toBe(true);
     expect(hidden.has("both")).toBe(false);
+  });
+});
+
+describe("wiring guide: grow a drawn graph without rebuilding it", () => {
+  // The canvas's in-place growth is pinned under a cytoscape mock in
+  // packages/react (CytoscapeCanvas.additive.test.tsx) and against the
+  // real fcose in additive-update.test.ts. This twin runs the HOST side
+  // of the recipe: every step is a superset ugm whose drawn edges keep
+  // their ids, which is what makes the diff add only what is new.
+  it("each step is a superset ugm with stable edge ids; additive mode is a canvas prop", () => {
+    const base = graph();
+    const neighborhood = (nodeId: string) =>
+      nodeId === "asset-2"
+        ? [
+            {
+              id: "asset-3",
+              types: ["Asset"],
+              properties: {},
+              relation: "feeds",
+            },
+          ]
+        : [];
+    const expand = (current: UGM, nodeId: string): UGM => {
+      const next = UGM.fromJSON(current.toJSON());
+      for (const n of neighborhood(nodeId)) {
+        if (!next.hasNode(n.id))
+          next.addNode(n.id, { types: n.types, properties: n.properties });
+        next.addEdge(nodeId, n.id, {
+          type: n.relation,
+          key: `${nodeId}->${n.id}`,
+        });
+      }
+      return next;
+    };
+    const next = expand(base, "asset-2");
+    for (const id of base.getNodeIds()) expect(next.hasNode(id)).toBe(true);
+    const drawnEdgeIds: string[] = [];
+    base.forEachEdge((id) => drawnEdgeIds.push(id));
+    expect(drawnEdgeIds.length).toBeGreaterThan(0);
+    for (const id of drawnEdgeIds) expect(next.hasEdge(id)).toBe(true);
+    expect(next.hasEdge("asset-2->asset-3")).toBe(true);
+    expect(next.nodeCount).toBe(base.nodeCount + 1);
+    // The prop is on the public canvas type.
+    const el = <CytoscapeCanvas ugm={next} graphUpdate="additive" />;
+    expect(el.props.graphUpdate).toBe("additive");
   });
 });
 
@@ -667,6 +997,53 @@ describe("scaling (guide: Scaling: collapse large graphs to clusters)", () => {
   });
 });
 
+describe("dense labels (guide: Dense graphs: let labels yield to each other)", () => {
+  it("resolves overprinting labels by the canvas's priority rule", () => {
+    const selectedIds = new Set(["p2"]);
+    const labels: LabelCandidate[] = [
+      {
+        id: "p1",
+        kind: "node" as const,
+        text: "Deep residual learning",
+        box: { x: 0, y: 0, w: 140, h: 12 },
+        priority: 0,
+      },
+      {
+        id: "p2",
+        kind: "node" as const,
+        text: "Attention is all you need",
+        box: { x: 120, y: 4, w: 160, h: 12 },
+        priority: 0,
+      },
+    ].map((l) => ({
+      ...l,
+      priority: composeLabelPriority({
+        kind: l.kind,
+        selected: selectedIds.has(l.id),
+        explicit: 0,
+      }),
+    }));
+    const { decisions, shortened } = resolveLabelCollisions(labels, {
+      mode: "shorten",
+      maxLength: 14,
+    });
+    // The selected paper keeps its full label; the other is truncated
+    // (14 of 22 chars: 89px centered on x=70 ends at 115, clear of
+    // p2 at x>=120).
+    expect(decisions.get("p2")).toBe("show");
+    expect(decisions.get("p1")).toBe("shorten");
+    expect(shortened.get("p1")).toBe("Deep residual\u2026");
+    // Same input in any order, same answer.
+    const again = resolveLabelCollisions([...labels].reverse(), {
+      mode: "shorten",
+      maxLength: 14,
+    });
+    expect([...again.decisions.entries()].sort()).toEqual(
+      [...decisions.entries()].sort(),
+    );
+  });
+});
+
 describe("provenance trace (guide: Render a provenance trace)", () => {
   it("renders hops, edge details, and the absence hop", () => {
     const chain: ProvenanceChain = [
@@ -711,6 +1088,64 @@ describe("provenance trace (guide: Render a provenance trace)", () => {
   });
 });
 
+describe("table view recipes (guide: Table view recipes)", () => {
+  interface Binding {
+    s: string;
+    label: string;
+    count: number;
+  }
+  const rows: Binding[] = [
+    { s: "urn:1", label: "one", count: 1 },
+    { s: "urn:2", label: "two", count: 2 },
+  ];
+  const columns: DataGridColumn<Binding>[] = [
+    { id: "s", header: "Subject", value: (r) => r.s },
+    {
+      id: "label",
+      header: "Label",
+      value: (r) => r.label,
+      render: (v, r) => <a href={r.s}>{String(v)}</a>,
+    },
+    { id: "count", header: "Count", value: (r) => r.count, filter: "range" },
+  ];
+
+  it("renders plain rows without a UGM, with host-owned selection", () => {
+    const onSelect = vi.fn();
+    render(
+      <TableView
+        rows={rows}
+        columns={columns}
+        rowId={(r) => r.s}
+        selection={{ selected: new Set(), onSelect }}
+      />,
+    );
+    expect(screen.getByText("Subject")).toBeDefined();
+    expect(screen.getByRole("link", { name: "two" })).toBeDefined();
+    fireEvent.click(screen.getByTestId("table-row-urn:1"));
+    expect(onSelect).toHaveBeenCalledWith(["urn:1"]);
+    // The shared store was not written: this is a standalone register.
+    expect(useSelectionStore.getState().selectedNodeIds.size).toBe(0);
+  });
+
+  it("fill mode names the regions and keeps pageSize live", () => {
+    const ugm = graph();
+    const { rerender } = render(
+      <TableView ugm={ugm} fill rowHeight={28} pageSize={1} />,
+    );
+    const root = screen.getByTestId("table-view");
+    expect(root.className).toContain("g3t-table-fill");
+    expect(root.querySelector(".g3t-table-scroll")).not.toBeNull();
+    expect(root.querySelector(".g3t-table-pagination")).not.toBeNull();
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "Page 1 of 2",
+    );
+    rerender(<TableView ugm={ugm} fill rowHeight={28} pageSize={2} />);
+    expect(screen.getByTestId("table-pagination").textContent).toContain(
+      "Page 1 of 1",
+    );
+  });
+});
+
 describe("programmatic APIs (guide: Programmatic APIs)", () => {
   function tinyGraph(): UGM {
     const ugm = new UGM();
@@ -727,6 +1162,83 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(path.found).toBe(true);
     expect(path.nodeIds).toEqual(["a", "b", "c"]);
     expect(path.length).toBe(2);
+  });
+
+  it("path options: maxHops, directed, nodeFilter (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    // a - b - c plus a hub joining a and c directly.
+    ugm.addNode("hub:1", { types: ["Hub"], properties: {} });
+    ugm.addEdge("a", "hub:1", { type: "feeds" });
+    ugm.addEdge("hub:1", "c", { type: "feeds" });
+    ugm.addEdge("c", "a", { type: "returns" });
+
+    const bounded = findShortestPath(ugm, "a", "c", {
+      maxHops: 4,
+      directed: true,
+      nodeFilter: (id) => !id.startsWith("hub:"),
+    });
+    expect(bounded.nodeIds).toEqual(["a", "b", "c"]);
+    // Undirected, c - a is one hop; directed, that edge points the
+    // other way.
+    expect(findShortestPath(ugm, "a", "c").length).toBe(1);
+    // A farther target under maxHops is reported not found.
+    expect(
+      findShortestPath(ugm, "a", "c", { maxHops: 1, directed: true }).found,
+    ).toBe(false);
+    expect(
+      allShortestPaths(ugm, "a", "c", { maxHops: 1, directed: true }).found,
+    ).toBe(false);
+  });
+
+  it("kShortestPaths lists individual routes, shortest first (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    ugm.addNode("hub:1", { types: ["Hub"], properties: {} });
+    ugm.addEdge("a", "hub:1", { type: "feeds" });
+    ugm.addEdge("hub:1", "c", { type: "feeds" });
+    ugm.addEdge("a", "c", { type: "direct" });
+    const routes = kShortestPaths(ugm, "a", "c", { k: 5, maxHops: 4 });
+    expect(routes.map((r) => r.nodeIds)).toEqual([
+      ["a", "c"],
+      ["a", "b", "c"],
+      ["a", "hub:1", "c"],
+    ]);
+    expect(routes.every((r) => r.edgeIds.length === r.nodeIds.length - 1)).toBe(
+      true,
+    );
+    // k larger than the number of routes: a shorter array, not an error.
+    expect(kShortestPaths(ugm, "a", "c", { k: 50 })).toHaveLength(3);
+  });
+
+  it("PathGraph: a four-method view stands in for a UGM (guide: Path analysis)", () => {
+    const ugm = tinyGraph();
+    const view: PathGraph = {
+      hasNode: (id) => ugm.hasNode(id),
+      getNodeEdges: (id) => ugm.getNodeEdges(id),
+      getEdgeEndpoints: (id) => ugm.getEdgeEndpoints(id),
+      getEdge: (id) => ugm.getEdge(id),
+    };
+    expect(findShortestPath(view, "a", "c").nodeIds).toEqual(["a", "b", "c"]);
+    expect(kShortestPaths(view, "a", "c", { k: 2 })).toHaveLength(1);
+  });
+
+  it("UGM.addEdge keeps a host-supplied key as the edge id (guide: The integration surface)", () => {
+    const ugm = new UGM();
+    ugm.addNode("pump-1", { types: ["Asset"], properties: { name: "Pump" } });
+    ugm.addNode("site-north", { types: ["Site"], properties: {} });
+    const edgeId = ugm.addEdge("pump-1", "site-north", {
+      key: "pump-1|locatedAt|site-north",
+      type: "locatedAt",
+    });
+    expect(edgeId).toBe("pump-1|locatedAt|site-north");
+    // Snapshots and the JSON export carry it unchanged.
+    expect(UGM.fromJSON(ugm.toJSON()).hasEdge(edgeId)).toBe(true);
+    const exported = JSON.parse(exportSubgraphJson(ugm)) as {
+      edges: Array<{ id: string }>;
+    };
+    expect(exported.edges[0]?.id).toBe(edgeId);
+    expect(() =>
+      ugm.addEdge("pump-1", "site-north", { key: edgeId, type: "locatedAt" }),
+    ).toThrow(/already exists/);
   });
 
   it("exportSubgraphJson / exportSubgraphCsv serialize the (sub)graph", () => {
@@ -776,6 +1288,33 @@ describe("programmatic APIs (guide: Programmatic APIs)", () => {
     expect(theme.id).toBe("acme");
     expect(theme.bgPrimary.length).toBeGreaterThan(0);
     expect(theme.textPrimary.length).toBeGreaterThan(0);
+  });
+
+  it("themeFromCssVariables + applyTheme: follow the host's variables, dispose on unmount", () => {
+    const sheet = document.createElement("style");
+    sheet.textContent =
+      ":root { --app-surface: #111111; --app-text: #eeeeee; --app-accent: #ff8800; }";
+    document.head.appendChild(sheet);
+    const theme = themeFromCssVariables(
+      document.body,
+      {
+        bgPrimary: "--app-surface",
+        textPrimary: "--app-text",
+        accentPrimary: "--app-accent",
+      },
+      { id: "app", name: "App", colorScheme: "dark" },
+    );
+    expect(theme.bgPrimary).toBe("#111111");
+    expect(theme.accentPrimary).toBe("#ff8800");
+    const dispose = applyTheme(theme, { target: document.body });
+    expect(document.body.style.getPropertyValue("--g3t-bg-primary")).toBe(
+      "#111111",
+    );
+    expect(document.body.style.getPropertyValue("color-scheme")).toBe("dark");
+    dispose();
+    expect(document.body.style.getPropertyValue("--g3t-bg-primary")).toBe("");
+    expect(document.body.style.getPropertyValue("color-scheme")).toBe("");
+    sheet.remove();
   });
 
   it("createCameraController drives the cy viewport imperatively", () => {

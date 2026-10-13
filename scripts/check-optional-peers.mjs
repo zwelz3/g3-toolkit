@@ -43,35 +43,92 @@ const OPT_IN = {
   },
 };
 
+/**
+ * REQUIRED peers that every entry point must reach LAZILY, through
+ * `import()`, never through a static `import ... from`. The value is
+ * the list of subpaths allowed to import the peer statically (a
+ * dedicated entry like `./timeline` would go here); empty means none.
+ *
+ * Different hazard from OPT_IN. These peers ARE installed, so nothing
+ * fails to resolve. The cost is weight: echarts is about 1.1 MB
+ * minified and its entry registers every chart type as a side effect,
+ * so a host bundler cannot shake an unused `import * as echarts`. The
+ * two echarts-backed views (StatsPanel, SankeyView) share helpers with
+ * CytoscapeCanvas, and rollup hoists a module shared by two entries
+ * into one common chunk; while they imported echarts statically, the
+ * chunk that exported CytoscapeCanvas carried that import, and a host
+ * using only the canvas shipped all of echarts (issue #25: 1.99 MB
+ * graph chunk, 855 KB with echarts aliased away). A dynamic import
+ * inside the view keeps the public import paths and lets the host
+ * code-split echarts into a chunk fetched only when a chart mounts.
+ *
+ * The walk follows STATIC edges only: a chunk reached through
+ * `import()` is itself lazy, so whatever it imports statically is
+ * paid only when it loads.
+ */
+const LAZY_PEERS = {
+  "@g3-toolkit/react": {
+    echarts: [],
+  },
+};
+
 const ESM_FROM = /\bfrom\s*["']([^"']+)["']/g;
 const ESM_BARE = /\bimport\s*["']([^"']+)["']/g;
 const ESM_DYNAMIC = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
 const CJS_REQUIRE = /\brequire\s*\(\s*["']([^"']+)["']\s*\)/g;
 
-function specifiersIn(text) {
+const STATIC_FORMS = [ESM_FROM, ESM_BARE, CJS_REQUIRE];
+const ALL_FORMS = [...STATIC_FORMS, ESM_DYNAMIC];
+
+function specifiersIn(text, forms = ALL_FORMS) {
   const out = new Set();
-  for (const re of [ESM_FROM, ESM_BARE, ESM_DYNAMIC, CJS_REQUIRE]) {
+  for (const re of forms) {
     re.lastIndex = 0;
     for (const m of text.matchAll(re)) out.add(m[1]);
   }
   return out;
 }
 
-/** Every file reachable from `entry` by relative specifier, plus the bare ones. */
-function reachable(entry) {
+/**
+ * Every file reachable from `entry` by relative specifier, plus the
+ * bare ones. `forms` selects which import forms count as edges:
+ * everything for the optional-peer check (an optional peer behind an
+ * `import()` still throws the moment it runs), static forms only for
+ * the lazy-peer check. `bareBy` records which file carried each bare
+ * specifier so a failure can name the chunk.
+ */
+function reachable(entry, forms = ALL_FORMS) {
   const files = new Set();
   const bare = new Set();
+  const bareBy = new Map();
   const queue = [entry];
   while (queue.length > 0) {
     const file = queue.pop();
     if (files.has(file) || !existsSync(file)) continue;
     files.add(file);
-    for (const spec of specifiersIn(readFileSync(file, "utf8"))) {
+    for (const spec of specifiersIn(readFileSync(file, "utf8"), forms)) {
       if (spec.startsWith(".")) queue.push(resolve(dirname(file), spec));
-      else bare.add(spec);
+      else {
+        bare.add(spec);
+        if (!bareBy.has(spec)) bareBy.set(spec, file);
+      }
     }
   }
-  return { files, bare };
+  return { files, bare, bareBy };
+}
+
+/** The runtime entry files a subpath resolves to, relative to the package. */
+function runtimeEntries(target) {
+  const entries = [];
+  if (typeof target === "object" && target !== null) {
+    for (const key of ["import", "require", "default"]) {
+      const value = target[key];
+      if (typeof value === "string" && /\.(mjs|cjs|js)$/.test(value)) {
+        entries.push(value);
+      }
+    }
+  }
+  return entries;
 }
 
 function matches(spec, pkgName) {
@@ -81,6 +138,7 @@ function matches(spec, pkgName) {
 const failures = [];
 let checkedEntries = 0;
 let checkedPeers = 0;
+let checkedLazy = 0;
 
 for (const dir of readdirSync(packagesDir)) {
   const pkgDir = join(packagesDir, dir);
@@ -92,8 +150,11 @@ for (const dir of readdirSync(packagesDir)) {
   const optional = Object.entries(pkg.peerDependenciesMeta ?? {})
     .filter(([, meta]) => meta?.optional === true)
     .map(([name]) => name);
-  if (optional.length === 0) continue;
+  const lazy = LAZY_PEERS[pkg.name] ?? {};
+  const lazyPeers = Object.keys(lazy);
+  if (optional.length === 0 && lazyPeers.length === 0) continue;
   checkedPeers += optional.length;
+  checkedLazy += lazyPeers.length;
 
   const optIn = OPT_IN[pkg.name] ?? {};
   // An opt-in entry naming a subpath the manifest does not export is a
@@ -112,19 +173,27 @@ for (const dir of readdirSync(packagesDir)) {
       }
     }
   }
+  // Same staleness rule for the lazy list: the peer must be a declared
+  // peer (a lazily loaded module that nothing installs is a runtime
+  // throw), and every allowance must name a real subpath.
+  for (const [peer, subpaths] of Object.entries(lazy)) {
+    if (!(peer in (pkg.peerDependencies ?? {}))) {
+      failures.push(
+        `${pkg.name}: lazy-peer list names ${peer}, which is not a declared peer`,
+      );
+    }
+    for (const subpath of subpaths) {
+      if (!(subpath in (pkg.exports ?? {}))) {
+        failures.push(
+          `${pkg.name}: lazy-peer list names ${subpath}, which the exports map does not declare`,
+        );
+      }
+    }
+  }
 
   for (const [subpath, target] of Object.entries(pkg.exports ?? {})) {
     if (subpath === "./package.json") continue;
-    const entries = [];
-    if (typeof target === "object" && target !== null) {
-      for (const key of ["import", "require", "default"]) {
-        const value = target[key];
-        if (typeof value === "string" && /\.(mjs|cjs|js)$/.test(value)) {
-          entries.push(value);
-        }
-      }
-    }
-    for (const rel of entries) {
+    for (const rel of runtimeEntries(target)) {
       const abs = join(pkgDir, rel);
       if (!existsSync(abs)) continue; // check-package-exports owns absence
       checkedEntries += 1;
@@ -141,6 +210,22 @@ for (const dir of readdirSync(packagesDir)) {
           );
         }
       }
+      if (lazyPeers.length === 0) continue;
+      const staticReach = reachable(abs, STATIC_FORMS);
+      for (const peer of lazyPeers) {
+        if (lazy[peer].includes(subpath)) continue;
+        const hit = [...staticReach.bare].find((spec) => matches(spec, peer));
+        if (hit) {
+          const carrier = relative(root, staticReach.bareBy.get(hit));
+          failures.push(
+            `${pkg.name} "${subpath}" (${relative(root, abs)}) statically reaches "${hit}" ` +
+              `through ${carrier}. ${peer} must be loaded with import() so a host that never ` +
+              `mounts a chart does not bundle it; a static import in a shared chunk is paid by ` +
+              `every consumer of that chunk. Load it lazily inside the view, or give the view ` +
+              `its own entry and list that subpath in LAZY_PEERS.`,
+          );
+        }
+      }
     }
   }
 }
@@ -151,5 +236,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log(
-  `Optional peers: ${checkedPeers} optional peer(s), ${checkedEntries} entry point(s) walked, no unguarded static import.`,
+  `Optional peers: ${checkedPeers} optional peer(s), ${checkedLazy} lazy peer(s), ` +
+    `${checkedEntries} entry point(s) walked, no unguarded static import.`,
 );

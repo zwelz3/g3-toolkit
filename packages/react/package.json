@@ -42,6 +42,10 @@
       "types": "./style.css.d.ts",
       "default": "./dist/style.css"
     },
+    "./style.base.css": {
+      "types": "./style.base.css.d.ts",
+      "default": "./dist/style.base.css"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -49,7 +53,8 @@
     "README.md",
     "LICENSE",
     "NOTICE",
-    "style.css.d.ts"
+    "style.css.d.ts",
+    "style.base.css.d.ts"
   ],
   "keywords": [
     "graph",

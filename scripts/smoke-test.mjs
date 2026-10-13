@@ -27,7 +27,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGES = ["core", "react", "charts"];
-const SKIP_SUBPATHS = new Set(["./package.json", "./style.css"]);
+const SKIP_SUBPATHS = new Set([
+  "./package.json",
+  "./style.css",
+  "./style.base.css",
+]);
 
 let failures = 0;
 

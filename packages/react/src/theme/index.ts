@@ -8,8 +8,17 @@ export {
   THEME_PRESETS,
   createTheme,
   contrastRatioOrNull,
+  applyTheme,
+  themeFromCssVariables,
 } from "./ThemeManager";
-export type { G3tTheme } from "./ThemeManager";
+export type {
+  G3tTheme,
+  ThemeTarget,
+  ThemeState,
+  ApplyThemeOptions,
+  ThemeColorField,
+  ThemeFromCssVariablesOptions,
+} from "./ThemeManager";
 // Core's WCAG helper, re-exported so `contrastRatio` on this entry
 // means one function. The null-returning variant next to it is
 // contrastRatioOrNull; pick that one when a color may not be plain hex.

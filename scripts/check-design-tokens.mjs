@@ -14,8 +14,12 @@
  *
  *   1. Global emitters. `injectDesignTokens` (core design-tokens.ts)
  *      and `injectCssVariables` (react ThemeManager.ts) are the only
- *      two functions that write tokens to :root. A hand-kept list here
- *      would drift from them within one round.
+ *      two functions that write tokens to :root (or, for the theme
+ *      half, to the host's chosen target element; same vocabulary
+ *      either way). A hand-kept list here would drift from them
+ *      within one round. The theme emitter routes its writes through
+ *      a recorder whose method is also named `setProperty`, so the
+ *      literal regex below still sees every call.
  *   2. Templated families. `--g3t-seq-${i}` / `--g3t-div-${i}` /
  *      `--g3t-type-${i}` are emitted in a loop, so the emitted names
  *      are not literals. Each becomes a `--g3t-seq-*` prefix.
@@ -205,7 +209,7 @@ const GROUPS = [
     "Color: accent and semantic",
     /^--g3t-(accent|success|warning|error|selection-highlight|color-scheme)/,
   ],
-  ["Color: graph elements", /^--g3t-(node|edge)/],
+  ["Color: graph elements", /^--g3t-(node|edge|overlay)/],
   ["Color: data scales", /^--g3t-(seq|div|type)-/],
   ["Typography", /^--g3t-(font|line-height)/],
   ["Spacing", /^--g3t-space-/],
@@ -218,6 +222,20 @@ const GROUPS = [
   ],
   ["Layering", /^--g3t-z-/],
 ];
+
+// Issue #24 (2026-10-13): style.css used to carry a Google Fonts
+// @import; it no longer loads any font. The note lives here, not in
+// the generated file, because the doc is byte-compared on every run.
+const FONT_LOADING_NOTE = `**Font loading is the host's.** \`--g3t-font\` names IBM Plex Sans and
+\`--g3t-font-mono\` names IBM Plex Mono, each with system fallbacks
+(\`-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif\` and
+\`'Fira Code', 'Consolas', monospace\`). Neither stylesheet the package
+ships loads a font: \`style.css\` once carried a Google Fonts \`@import\`,
+and a third-party request on load is unusable offline, under a strict
+CSP and on air-gapped deployments. Self-host the two Plex faces or
+load them from a CDN in your own document, or override the two tokens
+to use a face you already ship; without either, the toolkit renders
+in the first fallback that is installed.`;
 
 function renderDoc() {
   const all = [...globalTokens, ...[...globalPrefixes].map((p) => `${p}*`)];
@@ -235,7 +253,8 @@ function renderDoc() {
       })
       .join("\n");
     sections.push(
-      `### ${title}\n\n| Token | Value source |\n| --- | --- |\n${rows}`,
+      `### ${title}\n\n| Token | Value source |\n| --- | --- |\n${rows}` +
+        (title === "Typography" ? `\n\n${FONT_LOADING_NOTE}` : ""),
     );
   }
 
@@ -261,8 +280,12 @@ Two functions emit these, and this table is generated from them:
 
 - \`injectDesignTokens()\` (\`@g3-toolkit/core\`) for the spatial,
   typographic, and scale constants. Call once at startup.
-- \`injectCssVariables()\` (\`@g3-toolkit/react\`, via \`useThemeStore\`)
-  for everything that changes with the active theme.
+- \`injectCssVariables()\` (\`@g3-toolkit/react\`, via \`useThemeStore\`
+  and \`applyTheme\`) for everything that changes with the active
+  theme. These land on \`<html>\` by default, or on the element the
+  host names as the theme target (\`setThemeTarget\`, or
+  \`applyTheme(theme, { target })\`), together with \`color-scheme\`;
+  the vocabulary is the same either way.
 
 Values in the "source" column name the constant or theme field
 supplying them, not the literal, since the theme-driven half changes
@@ -273,10 +296,11 @@ per theme.
 - **Names are stable within a major.** Treat them as public API.
 - **Theme-driven tokens change at runtime.** Read them through
   \`var()\`; do not snapshot them into JS.
-- \`--g3t-success-muted\`, \`--g3t-warning-muted\`, and
-  \`--g3t-error-muted\` are optional on \`G3tTheme\`. A custom theme may
-  omit them, in which case they are not emitted at all and your
-  \`var()\` fallback applies. Always pass a fallback for these three.
+- \`--g3t-success-muted\`, \`--g3t-warning-muted\`,
+  \`--g3t-error-muted\`, and \`--g3t-overlay-color\` are optional on
+  \`G3tTheme\`. A custom theme may omit them, in which case they are not
+  emitted at all and your \`var()\` fallback applies. Always pass a
+  fallback for these four.
 - **Element-scoped properties are not tokens.** A component may set a
   custom property on its own subtree (\`--g3t-toggle-accent\` on
   \`PropertyField\`). Those are implementation detail, not vocabulary,

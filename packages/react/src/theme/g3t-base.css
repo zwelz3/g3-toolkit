@@ -1,32 +1,47 @@
 /*
- * g3t global base styles.
+ * g3t component styles (published as @g3-toolkit/react/style.css).
  *
- * Provides a polished foundation via CSS custom properties.
  * Import once at app root or Storybook preview.
  *
  * All values reference --g3t-* tokens so they adapt to
  * light/dark/high-contrast themes automatically.
+ *
+ * SCOPE RULE (issue #24): every selector in this file is scoped to a
+ * `g3t-` class. Nothing here may target `html`, `body`, a bare element
+ * or `*`, and nothing may `@import` a remote URL. This file once
+ * carried a Google Fonts @import, a universal box-sizing/margin reset
+ * and a `body` typography rule, and importing it changed every page
+ * of the host application: body font swapped to IBM Plex at 13px,
+ * list and heading margins zeroed on pages with no graph on them, and
+ * a third-party network request on load that offline, strict-CSP and
+ * air-gapped hosts cannot make. A component library styles its own
+ * elements. The page-level reset and typography moved to g3t-page.css
+ * (published as @g3-toolkit/react/style.base.css) as an OPT-IN for
+ * hosts that want the playground look; the playground and Storybook
+ * import both. Font loading is the host's decision: the expected
+ * stack is the --g3t-font / --g3t-font-mono tokens (IBM Plex Sans and
+ * IBM Plex Mono, with system fallbacks), documented in
+ * docs/consuming-g3t.md. tests/dist/public-api.test.ts asserts the
+ * built style.css keeps to this rule.
  */
 
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
-
-/* ── Reset ─────────────────────────────────────────────────────── */
-
-*,
-*::before,
-*::after {
+/* ── Typography and box model ──────────────────────────────────────
+   Applied to g3t-classed elements (first class or any later class),
+   not to the page. Descendants without a class inherit the face from
+   the nearest g3t ancestor, so chrome composed from toolkit atoms
+   reads in the toolkit face; a view that only sets inline styles on
+   its root inherits the host's. Size, color and line-height are NOT
+   set here: those are per-component rules below, and setting them on
+   every g3t element directly (rather than letting them inherit, as
+   the old body rule did) would override the inline sizes components
+   pass down to their children and grow every button by the
+   line-height delta. border-box replaces the universal reset for the
+   elements the toolkit owns: .g3t-input and friends carry padding
+   plus border at 100% width and overflow under content-box. */
+[class^="g3t-"],
+[class*=" g3t-"] {
   box-sizing: border-box;
-  margin: 0;
-}
-
-/* ── Base ──────────────────────────────────────────────────────── */
-
-body {
   font-family: var(--g3t-font, "IBM Plex Sans", sans-serif);
-  font-size: var(--g3t-font-md, 13px);
-  line-height: var(--g3t-line-height, 1.5);
-  color: var(--g3t-text-primary, #212529);
-  background: var(--g3t-bg-primary, #fff);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -211,6 +226,35 @@ body {
   color: var(--g3t-text-muted);
   background: var(--g3t-bg-secondary);
   border-top: 1px solid var(--g3t-border);
+}
+
+/* Table view (#21). The root carried no layout and its regions had no
+   class names, so a host with a definite height got a table that
+   floated or overflowed, and the only override seams were test ids.
+   The region classes are always present; g3t-table-fill is the opt-in
+   that uses the host's height: flex column, scrolling body, sticky
+   header cells (a sticky thead does nothing in most engines, only the
+   cells position), pagination pinned at the bottom. */
+.g3t-table-fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.g3t-table-fill > .g3t-table-toolbar,
+.g3t-table-fill > .g3t-table-pagination {
+  flex: 0 0 auto;
+}
+.g3t-table-fill > .g3t-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.g3t-table-fill > .g3t-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--g3t-z-sticky, 100);
+  background: var(--g3t-bg-primary);
 }
 
 /* Tooltip */

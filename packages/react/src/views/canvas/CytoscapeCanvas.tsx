@@ -18,6 +18,12 @@ import {
 } from "react";
 import cytoscape, { type Core } from "cytoscape";
 import { registerBoxSelectionSync } from "./box-selection-sync";
+import {
+  applyLabelCollisionPass,
+  clearLabelCollision,
+  LABEL_HIDDEN_CLASS,
+  LABEL_SHORT_FIELD,
+} from "./apply-label-collision";
 import fcose from "cytoscape-fcose";
 import type { UGM } from "@g3-toolkit/core";
 import { applyEncodingSpec } from "../../interaction/encoding/spec-apply";
@@ -129,6 +135,8 @@ import {
 } from "../../state/emphasis-store";
 import {
   ugmToCytoscapeElements,
+  defaultNodeLabel,
+  defaultEdgeLabel,
   type ContainmentOptions,
 } from "./ugm-to-cytoscape";
 import {
@@ -159,6 +167,16 @@ function ensureFcose(): void {
     // fcose registration failed; fall back to built-in layouts
   }
 }
+
+/** The canvas's fcose spread tuning, shared by the initial layout and
+ *  the additive pass (issue #26) so new nodes settle at the same edge
+ *  length and repulsion the rest of the graph was laid out with. */
+const FCOSE_TUNING = {
+  idealEdgeLength: 100,
+  nodeRepulsion: 10000,
+  gravity: 0.2,
+  gravityRange: 1.5,
+} as const;
 
 /**
  * Default Cytoscape stylesheet.
@@ -209,6 +227,13 @@ export const ENCODING_NODE_RULES: CyStylesheet[] = [
   },
 ];
 
+/** The neutral overlay-member green every built-in preset carries as
+ *  `overlayColor`, and the fallback for a consumer theme that omits
+ *  the field. ONE literal: the static rules below and the
+ *  theme-derived overlayThemeRules must agree, and a test pins both
+ *  to this constant. */
+export const DEFAULT_OVERLAY_COLOR = "#2f9e44";
+
 /** Algorithm overlay rendering (round 21): the reserved borderWeight
  *  owner, realized. Members of active overlays carry emphasized
  *  borders/lines via the g3t-ov-member class; with any overlay
@@ -216,20 +241,26 @@ export const ENCODING_NODE_RULES: CyStylesheet[] = [
  *  strips them and the prior styling returns by construction.
  *  Documented precedence note: instance pins (bypass styles) shadow
  *  overlay borders on the pinned element, deliberately: an explicit
- *  per-node act outranks a computed emphasis. */
+ *  per-node act outranks a computed emphasis.
+ *  COLORS here are the theme-less defaults only. The composed canvas
+ *  stylesheet re-states every overlay color from the theme AFTER this
+ *  block (overlayThemeRules), because these rules sit after the theme
+ *  block (the dim must beat encoding) and cytoscape gives the property
+ *  to the later rule: with the literals last, no theme ever reached an
+ *  emphasized member (issue #32, the fixed green in a dark host). */
 export const OVERLAY_RULES: CyStylesheet[] = [
   {
     selector: "node.g3t-ov-member",
 
-    style: { "border-width": 3, "border-color": "#2f9e44" } as any,
+    style: { "border-width": 3, "border-color": DEFAULT_OVERLAY_COLOR } as any,
   },
   {
     selector: "edge.g3t-ov-member",
 
     style: {
       width: 3.5,
-      "line-color": "#2f9e44",
-      "target-arrow-color": "#2f9e44",
+      "line-color": DEFAULT_OVERLAY_COLOR,
+      "target-arrow-color": DEFAULT_OVERLAY_COLOR,
     } as any,
   },
   {
@@ -353,17 +384,34 @@ export function themeColorRules(theme: G3tTheme): CyStylesheet[] {
         color: theme.textPrimary,
       } as any,
     },
+  ];
+}
+
+/** Theme-resolved OVERLAY colors (issue #32). Kept apart from
+ *  themeColorRules because of WHERE they must land in the merge: the
+ *  static OVERLAY_RULES sit after the theme block (the dim has to beat
+ *  encoding), so overlay colors declared inside themeColorRules were
+ *  clobbered by the static literals in every theme, neutral green and
+ *  the 2026-08-27 tones alike. composeCanvasStylesheet pushes these
+ *  right after OVERLAY_RULES, so the theme wins the color and the
+ *  static block keeps supplying geometry (border width, line width,
+ *  dim opacity). Neutral members take `overlayColor`, defaulting to
+ *  the historical green when a consumer theme omits the optional
+ *  field; tones take the semantic trio. */
+export function overlayThemeRules(theme: G3tTheme): CyStylesheet[] {
+  const member = theme.overlayColor ?? DEFAULT_OVERLAY_COLOR;
+  return [
     {
       selector: "node.g3t-ov-member",
 
-      style: { "border-color": theme.success } as any,
+      style: { "border-color": member } as any,
     },
     {
       selector: "edge.g3t-ov-member",
 
       style: {
-        "line-color": theme.success,
-        "target-arrow-color": theme.success,
+        "line-color": member,
+        "target-arrow-color": member,
       } as any,
     },
     // Tone overrides, theme-driven (2026-08-27). Declared after the
@@ -638,6 +686,8 @@ export const DEFAULT_STYLESHEET: CyStylesheet[] = [
  *  so the theme's plain `edge { line-color }` clobbered
  *  `edge[_ecolor]` in every theme and color-by-confidence never
  *  painted) -> OVERLAY rules (emphasis dim must beat encoding) ->
+ *  OVERLAY theme colors (issue #32: the static overlay literals used
+ *  to be the last word, so no theme reached a member) ->
  *  user stylesheet (user wins ties) -> svg-overlay transparency ->
  *  hidden filter last. */
 /** Upstream P1 (prm-analyzer, 2026-07-28) + the 64b regression it
@@ -726,6 +776,9 @@ export function composeCanvasStylesheet(
     // Emphasis/overlay dim still beats encoding (the 9.10
     // contract: a trace-route dim must fade encoded elements too).
     ...OVERLAY_RULES,
+    // Overlay COLORS from the theme, after the static block so they
+    // win the property (issue #32); the user stylesheet still follows.
+    ...overlayThemeRules(theme),
   );
   if (opts?.userStylesheet) {
     merged.push(...opts.userStylesheet);
@@ -740,6 +793,24 @@ export function composeCanvasStylesheet(
       style: { opacity: 0 },
     } as never);
   }
+  // Label collision outcomes (issue #40): after the user stylesheet so
+  // a host rule mapping `label` cannot resurrect a hidden or shortened
+  // label. Field-scoped per element kind (no bare node/edge mapping),
+  // like every other data() rule in this file.
+  merged.push(
+    {
+      selector: `node[${LABEL_SHORT_FIELD}]`,
+      style: { label: `data(${LABEL_SHORT_FIELD})` },
+    } as any,
+    {
+      selector: `edge[${LABEL_SHORT_FIELD}]`,
+      style: { label: `data(${LABEL_SHORT_FIELD})` },
+    } as any,
+    {
+      selector: `node.${LABEL_HIDDEN_CLASS}, edge.${LABEL_HIDDEN_CLASS}`,
+      style: { label: "" },
+    } as any,
+  );
   // Visibility filter (hidden prop): last so it wins over every
   // mapper.
   merged.push({
@@ -792,7 +863,15 @@ export interface CytoscapeCanvasProps {
    *  passed (an unwired Inspect is omitted, never rendered dead);
    *  app-specific items go through manager.register(). */
   menuManager?: ContextMenuManager;
-  /** Callback when the Cytoscape core is ready. */
+  /** Callback when the Cytoscape core is ready. ORDERING GUARANTEE
+   *  (issue #27): fires synchronously after construction and after the
+   *  initial layout was STARTED. A `preset` layout (the `layout` prop,
+   *  a structural scene, or the LR-45 same-graph replay) is never
+   *  animated and has therefore FINISHED by then, so positions set
+   *  here hold; nothing moves them afterwards. A force layout (fcose,
+   *  cose) is asynchronous and still running when this fires, so
+   *  positions set here are overwritten when it settles; do
+   *  post-layout work on `cy.one("layoutstop", ...)` instead. */
   onReady?: (cy: Core) => void;
   /** CSS class for the container div. */
   className?: string;
@@ -848,7 +927,10 @@ export interface CytoscapeCanvasProps {
    *  The host forwards this to the compartment-collapse store's toggleAll
    *  (and re-runs layoutStructural with the new collapsed set). When
    *  omitted, the chip still renders but tapping it is a no-op. */
-  /** F1: Animate layout transitions. Default true. */
+  /** F1: Animate layout transitions. Default true. Never applied to a
+   *  `preset` layout (issue #27): preset positions are already decided,
+   *  and an animated preset tweened nodes back toward the positions
+   *  captured at construction, undoing whatever `onReady` placed. */
   animate?: boolean;
   /** F1: Animation duration in ms. Default 400. */
   animationDuration?: number;
@@ -872,6 +954,58 @@ export interface CytoscapeCanvasProps {
    * where it has not changed; rebuild it only when the hidden set does.
    */
   hidden?: ReadonlySet<string>;
+  /**
+   * Label collision handling (issue #40). Cytoscape draws every label
+   * at its element and never moves one out of another's way, so dense
+   * graphs overprint. "none" (default): current behavior. "hide": after
+   * layout settles, after a zoom ends, after a node is dropped, and on
+   * every selection/hover change, each visible element's rendered
+   * label box is measured and lower-priority overlapping labels are
+   * hidden (class `g3t-label-hidden`, rule `label: ""`). "shorten":
+   * the same, but a loser is first truncated to `labelMaxLength`
+   * characters with an ellipsis (data field `_labelShort`, read by a
+   * `[_labelShort]`-scoped rule) and hidden only if the shortened box
+   * still overlaps. Priority: selected (an edge counts as selected when
+   * either endpoint is) > hovered (`hoveredNodeId` in the selection
+   * store; incident edges count) > `labelPriority` / `_labelPriority` >
+   * node before edge > node degree or edge `weight`. An overlay pass,
+   * restyle only: never re-inits, refits, or moves nodes, and never
+   * writes `label` (the spec and converter own that field). The pure
+   * rule is exported as `resolveLabelCollisions` for hosts with their
+   * own renderer.
+   */
+  labelCollision?: "none" | "hide" | "shorten";
+  /** Host rank for the collision pass (higher wins within the selected
+   *  / hovered tiers). Read through a ref, so an inline arrow is fine;
+   *  a changed accessor takes effect on the next pass. When omitted,
+   *  the `_labelPriority` element data field is used (0 if absent). */
+  labelPriority?: (ele: cytoscape.SingularElementArgument) => number;
+  /** "shorten" mode: maximum characters of a truncated label, ellipsis
+   *  included. Default 16. */
+  labelMaxLength?: number;
+  /**
+   * How a NEW `ugm` identity reaches a live instance (issue #26).
+   * "rebuild" (default): a new identity is a different graph; the
+   * instance is re-created and laid out from scratch (positions and
+   * camera reset), as the `ugm` contract above says. "additive": when
+   * the new ugm's node-id set is a SUPERSET of the live instance's
+   * (an explorer growing one neighborhood at a time), the instance is
+   * kept: new nodes and edges are added in place, edges the new ugm no
+   * longer has are removed, existing elements take the new ugm's data,
+   * and ONLY the new nodes are laid out, seeded at the centroid of
+   * their already-placed neighbors and settled by fcose with every
+   * existing node held by `fixedNodeConstraint` (which fcose honors;
+   * `locked` it does not). The camera is untouched (no fit). `animate`
+   * and `animationDuration` apply to that pass. A ugm that REMOVES a
+   * node, a containment change that re-parents an existing node, or a
+   * structural scene falls back to the rebuild path. Edge ids must be
+   * stable across growth (pass `key` to `UGM.addEdge`) for the diff to
+   * add only the new edges; generated ids differ per UGM instance, so
+   * every edge is then replaced (correct, but a churn). The spec,
+   * hidden set, pins, overrides and overlays are re-applied to the
+   * grown instance.
+   */
+  graphUpdate?: "rebuild" | "additive";
 }
 
 /** Apply the visibility filter as a batched class toggle: hidden nodes
@@ -886,6 +1020,94 @@ function applyHiddenClasses(
     cy.nodes().forEach((n) => {
       if (hidden && hidden.has(n.id())) n.addClass("g3t-hidden");
       else n.removeClass("g3t-hidden");
+    });
+  });
+}
+
+/** Content key for the `stylesheet` prop (issue #28). Keyed by CONTENT
+ *  like structuralDecorations and layoutOptions: hosts pass inline
+ *  literals, so identity churns every render and would restyle every
+ *  render. JSON.stringify drops function-valued style entries, so a
+ *  change that only swaps a function is not detected (the same limit
+ *  layoutOptionsKey has). */
+function stylesheetContentKey(stylesheet: CyStylesheet[] | undefined): string {
+  return stylesheet ? JSON.stringify(stylesheet) : "";
+}
+
+/** Apply an encoding spec to a live instance: batch element-data
+ *  updates and let Cytoscape restyle from its data mappers. Called
+ *  from the init path for every (re)built instance AND from the spec
+ *  effect for spec changes over a live instance (issue #13: the init
+ *  effect rebuilds on layout/edgeStyle changes the spec effect does
+ *  not depend on, so a rebuilt instance never got the patch and every
+ *  icon vanished on a layout toggle; same shape as applyHiddenClasses
+ *  above). Restyle only: no layout, no camera change. */
+function applyEncodingPatch(cy: Core, spec: EncodingSpec, ugm: UGM): void {
+  const patch = applyEncodingSpec(spec, ugm);
+  // VR-2 follow-up (owner verification 2026-07-28): a spec change
+  // that DROPS a channel must also CLEAR that channel's stale data,
+  // or the old attribute-selector rule keeps matching forever
+  // (leaving color-by-confidence left every edge amber: the new
+  // spec wrote no _ecolor, and nothing removed the old one).
+  // Issue #14 (a): _shape was added to NodeVisualPatch after this
+  // list was written and never joined it, so dropping node.shape
+  // left the old shapes rendering. The lists must cover every key
+  // applyEncodingSpec writes EXCEPT label (next comment).
+  const NODE_KEYS = ["_color", "_icon", "_size", "_shape"] as const;
+  const EDGE_KEYS = ["_ecolor", "_ewidth"] as const;
+  // Issue #14 (b): `label` is NOT spec-owned. ugmToCytoscapeElements
+  // stamps it on every node and edge, and the default stylesheet
+  // renders it, so the spec channel OVERRIDES a value that is always
+  // present. Deleting it would blank labels that were never
+  // spec-driven; leaving it (the old behavior) made the channel
+  // impossible to un-set. The correct cleanup is to RESTORE the
+  // converter's own value (one shared rule, so the round trip is
+  // exact). A host that wants NO label uses a stylesheet rule.
+  const restoreLabel = (
+    ele: cytoscape.SingularElementArgument,
+    data: { label?: string } | undefined,
+    fallback: () => unknown,
+  ) => {
+    if (data !== undefined && "label" in data) return;
+    const value = fallback();
+    if (ele.data("label") !== value) ele.data("label", value);
+  };
+  cy.batch(() => {
+    cy.nodes().forEach((ele) => {
+      const data = patch.nodes.get(ele.id());
+      for (const k of NODE_KEYS) {
+        if ((data === undefined || !(k in data)) && ele.data(k) !== undefined) {
+          ele.removeData(k);
+        }
+      }
+      const attrs = ugm.getNode(ele.id());
+      if (attrs)
+        restoreLabel(ele, data, () => defaultNodeLabel(ele.id(), attrs));
+    });
+    cy.edges().forEach((ele) => {
+      const data = patch.edges.get(ele.id());
+      for (const k of EDGE_KEYS) {
+        if ((data === undefined || !(k in data)) && ele.data(k) !== undefined) {
+          ele.removeData(k);
+        }
+      }
+      const attrs = ugm.getEdge(ele.id());
+      if (attrs) restoreLabel(ele, data, () => defaultEdgeLabel(attrs));
+    });
+    patch.nodes.forEach((data, id) => {
+      const ele = cy.getElementById(id);
+      if (ele.nonempty()) ele.data(data);
+    });
+    patch.edges.forEach((data, id) => {
+      const ele = cy.getElementById(id);
+      if (ele.nonempty()) ele.data(data);
+    });
+    // Review 4.7: the spec may have (re)stamped _icon; pinned nodes
+    // render background-image from _bgStack, so their stacks must
+    // re-compose here or the new icon never shows under the badge.
+    const badge = pinBadgeUri(useThemeStore.getState().theme);
+    cy.nodes().forEach((n) => {
+      if (n.hasClass("g3t-pinned")) composePinStack(n, badge);
     });
   });
 }
@@ -958,6 +1180,268 @@ function applyScenePatch(cy: Core, next: cytoscape.ElementDefinition[]): void {
   });
 }
 
+/** LR-45: a ugm's identity for the same-graph test (node + edge ids),
+ *  so data-only rebuilds (the inferred toggle) are recognizable as the
+ *  same graph. Shared with the additive path (issue #26), which moves
+ *  the live instance's identity forward as it grows. */
+function ugmGraphKey(ugm: UGM): string {
+  const eids: string[] = [];
+  ugm.forEachEdge((eid) => eids.push(eid));
+  return [...ugm.getNodeIds()].sort().join("|") + "#" + eids.sort().join("|");
+}
+
+/** Issue #26: does `ugm` carry every node the live instance has? */
+function isNodeSuperset(ugm: UGM, live: ReadonlySet<string>): boolean {
+  for (const id of live) if (!ugm.hasNode(id)) return false;
+  return true;
+}
+
+/**
+ * Additive graph update (issue #26): the pure plan. Partitions the
+ * next ugm's element definitions against the live instance's ids into
+ * nodes and edges to ADD, elements to UPDATE in place (data merge), and
+ * edge ids to REMOVE. Nodes are never removed: `superset` is false when
+ * the live instance holds a node the next graph lacks, and the caller
+ * falls back to a rebuild. Edges absent from the next graph DO go
+ * (position-neutral, and without it a host that lets the UGM generate
+ * edge ids would draw every edge twice after a growth step). Exported
+ * for direct testing, like planScenePatch.
+ */
+export function planAdditiveUpdate(
+  existingNodeIds: ReadonlySet<string>,
+  existingEdgeIds: ReadonlySet<string>,
+  next: readonly { group?: string; data: { id?: string } }[],
+): {
+  superset: boolean;
+  addNodeIdx: number[];
+  addEdgeIdx: number[];
+  updateIdx: number[];
+  removeEdgeIds: string[];
+} {
+  const nextNodeIds = new Set<string>();
+  const nextEdgeIds = new Set<string>();
+  const addNodeIdx: number[] = [];
+  const addEdgeIdx: number[] = [];
+  const updateIdx: number[] = [];
+  next.forEach((def, i) => {
+    const id = def.data.id;
+    if (!id) return;
+    if (def.group === "edges") {
+      nextEdgeIds.add(id);
+      if (existingEdgeIds.has(id)) updateIdx.push(i);
+      else addEdgeIdx.push(i);
+    } else {
+      nextNodeIds.add(id);
+      if (existingNodeIds.has(id)) updateIdx.push(i);
+      else addNodeIdx.push(i);
+    }
+  });
+  let superset = true;
+  for (const id of existingNodeIds) {
+    if (!nextNodeIds.has(id)) {
+      superset = false;
+      break;
+    }
+  }
+  const removeEdgeIds: string[] = [];
+  for (const id of existingEdgeIds) {
+    if (!nextEdgeIds.has(id)) removeEdgeIds.push(id);
+  }
+  return { superset, addNodeIdx, addEdgeIdx, updateIdx, removeEdgeIds };
+}
+
+/**
+ * Issue #26: starting positions for the added nodes. Each new node is
+ * seeded at the centroid of its neighbors that already have a position
+ * (existing nodes, or new nodes seeded earlier in the same pass), so it
+ * appears NEXT TO what it was expanded from instead of at the origin
+ * or in a random scatter; a node with no placed neighbor sits at the
+ * centroid of the placed graph. A deterministic radial offset (golden
+ * angle per new node) keeps two seeds from coinciding with each other
+ * or with a lone neighbor: Cytoscape warns about "invalid endpoints"
+ * for an edge whose ends share a point, and fcose starts from these
+ * positions (randomize: false), so distinct seeds also give it a
+ * direction to spread siblings in. Exported for direct testing.
+ */
+export function seedAdditivePositions(
+  newIds: readonly string[],
+  placed: ReadonlyMap<string, { x: number; y: number }>,
+  edges: readonly { source: string; target: string }[],
+  radius = 40,
+): Map<string, { x: number; y: number }> {
+  const adjacency = new Map<string, string[]>();
+  const link = (a: string, b: string) => {
+    const list = adjacency.get(a);
+    if (list) list.push(b);
+    else adjacency.set(a, [b]);
+  };
+  for (const e of edges) {
+    if (e.source === e.target) continue;
+    link(e.source, e.target);
+    link(e.target, e.source);
+  }
+  let gx = 0;
+  let gy = 0;
+  for (const p of placed.values()) {
+    gx += p.x;
+    gy += p.y;
+  }
+  const graphCenter =
+    placed.size > 0
+      ? { x: gx / placed.size, y: gy / placed.size }
+      : { x: 0, y: 0 };
+  const seeds = new Map<string, { x: number; y: number }>();
+  const GOLDEN_ANGLE = 2.399963229728653;
+  newIds.forEach((id, i) => {
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const nb of adjacency.get(id) ?? []) {
+      const p = placed.get(nb) ?? seeds.get(nb);
+      if (!p) continue;
+      sx += p.x;
+      sy += p.y;
+      n++;
+    }
+    const center = n > 0 ? { x: sx / n, y: sy / n } : graphCenter;
+    const angle = i * GOLDEN_ANGLE;
+    seeds.set(id, {
+      x: center.x + radius * Math.cos(angle),
+      y: center.y + radius * Math.sin(angle),
+    });
+  });
+  return seeds;
+}
+
+/** Cytoscape refuses these through data() (collection/data: the
+ *  immutableKeys list); the additive data merge leaves them alone. */
+const IMMUTABLE_DATA_KEYS: ReadonlySet<string> = new Set([
+  "id",
+  "source",
+  "target",
+  "parent",
+]);
+
+/**
+ * Issue #26: grow a live instance in place. `next` is the converter's
+ * output for the new ugm (validated). Returns false, having touched
+ * nothing, when the live node set is not a subset of `next` or an
+ * existing node would change parent (Cytoscape's `parent` is immutable
+ * through data(); that case needs the rebuild). Otherwise, in one
+ * batch: stale edges leave, existing elements take the new data
+ * (topology-derived converter fields such as `_curveStyle` change when
+ * a reverse edge arrives, and a data-only ugm change lands without a
+ * rebuild), and the new elements join, nodes seeded by
+ * seedAdditivePositions. Then, only if nodes were added, ONE fcose pass
+ * runs from the current positions (randomize: false) with every
+ * existing non-compound visible node held by `fixedNodeConstraint`,
+ * `fit: false` so the camera stays where the user left it. Hidden
+ * (display: none) nodes are excluded from the constraint list because
+ * fcose excludes them from its graph, and a constraint on a node it
+ * does not know yields NaN coordinates for everything. Exported for the
+ * headless fcose test (the React tests mock cytoscape).
+ */
+export function applyAdditiveUpdate(
+  cy: Core,
+  next: cytoscape.ElementDefinition[],
+  opts: {
+    animate: boolean;
+    animationDuration: number;
+    layoutOptions: Record<string, unknown> | undefined;
+  },
+): boolean {
+  const placed = new Map<string, { x: number; y: number }>();
+  cy.nodes().forEach((n) => {
+    const p = n.position();
+    placed.set(n.id(), { x: p.x, y: p.y });
+  });
+  const existingEdgeIds = new Set<string>();
+  cy.edges().forEach((e) => {
+    existingEdgeIds.add(e.id());
+  });
+  const plan = planAdditiveUpdate(
+    new Set(placed.keys()),
+    existingEdgeIds,
+    next as never,
+  );
+  if (!plan.superset) return false;
+  for (const i of plan.updateIdx) {
+    const def = next[i];
+    if (!def?.data.id || def.group === "edges") continue;
+    const ele = cy.$id(def.data.id);
+    if (ele.empty()) continue;
+    if ((def.data as { parent?: string }).parent !== ele.data("parent"))
+      return false;
+  }
+  const addNodes = plan.addNodeIdx
+    .map((i) => next[i])
+    .filter((d): d is cytoscape.ElementDefinition => d !== undefined);
+  const addEdges = plan.addEdgeIdx
+    .map((i) => next[i])
+    .filter((d): d is cytoscape.ElementDefinition => d !== undefined);
+  const seeds = seedAdditivePositions(
+    addNodes.map((d) => String(d.data.id)),
+    placed,
+    next
+      .filter((d) => d.group === "edges")
+      .map((d) => ({
+        source: String(d.data.source),
+        target: String(d.data.target),
+      })),
+  );
+  for (const def of addNodes) {
+    const seed = seeds.get(String(def.data.id));
+    if (seed) def.position = seed;
+  }
+  cy.batch(() => {
+    for (const id of plan.removeEdgeIds) {
+      const ele = cy.$id(id);
+      if (ele.nonempty()) ele.remove();
+    }
+    for (const i of plan.updateIdx) {
+      const def = next[i];
+      if (!def?.data.id) continue;
+      const ele = cy.$id(def.data.id);
+      if (ele.empty()) continue;
+      // Immutable through data() (id, source, target, parent) stay as
+      // they are; the parent case was ruled out above.
+      const rest: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(def.data)) {
+        if (!IMMUTABLE_DATA_KEYS.has(k)) rest[k] = v;
+      }
+      ele.data(rest);
+    }
+    if (addNodes.length + addEdges.length > 0)
+      cy.add([...addNodes, ...addEdges]);
+  });
+  if (addNodes.length === 0) return true;
+  const fixedNodeConstraint: {
+    nodeId: string;
+    position: { x: number; y: number };
+  }[] = [];
+  cy.nodes().forEach((n) => {
+    const id = n.id();
+    if (seeds.has(id)) return;
+    if (typeof n.isParent === "function" && n.isParent()) return;
+    if (typeof n.style === "function" && n.style("display") === "none") return;
+    const p = n.position();
+    fixedNodeConstraint.push({ nodeId: id, position: { x: p.x, y: p.y } });
+  });
+  cy.layout({
+    name: "fcose",
+    ...FCOSE_TUNING,
+    ...(opts.layoutOptions ?? {}),
+    animate: opts.animate,
+    animationDuration: opts.animationDuration,
+    // LAST, like the preset policy in init: no caller option may
+    // re-enable fit, re-randomize the placed nodes, or drop the hold.
+    randomize: false,
+    fit: false,
+    fixedNodeConstraint,
+  } as unknown as cytoscape.LayoutOptions).run();
+  return true;
+}
+
 export function CytoscapeCanvas({
   ugm,
   interactionOptions,
@@ -977,6 +1461,10 @@ export function CytoscapeCanvas({
   structuralDecorations,
   structuralEdgeLayer = "cytoscape",
   hidden,
+  labelCollision = "none",
+  labelPriority,
+  labelMaxLength,
+  graphUpdate = "rebuild",
 }: CytoscapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -1060,6 +1548,66 @@ export function CytoscapeCanvas({
   const hiddenRef = useRef(hidden);
   // eslint-disable-next-line react-hooks/refs
   hiddenRef.current = hidden;
+  // Issue #40: the priority accessor is read per pass, never a dep.
+  const labelPriorityRef = useRef(labelPriority);
+  // eslint-disable-next-line react-hooks/refs
+  labelPriorityRef.current = labelPriority;
+  // Issue #26 (additive graph updates). The init callback keys on
+  // `initUgm`, the ugm identity the live instance was BUILT from, and
+  // reads the current ugm through ugmRef. In additive mode a new ugm
+  // whose node set is a superset of the live instance's keeps the init
+  // key (no teardown; the additive effect below grows the instance in
+  // place); anything else moves the key to the new ugm, which rebuilds
+  // exactly as before, so the default mode never diverges from the
+  // pre-#26 behavior. The decision is made ONCE per ugm identity, in
+  // render, so a rebuild still lands in the SAME commit as the ugm
+  // change: an effect-driven epoch bump (the structural scene pattern)
+  // would re-order the rebuild after the ugm-keyed pin, override and
+  // overlay effects, which would then dress a doomed instance and
+  // never run for the new one. liveNodeIdsRef is the live instance's
+  // node set (null for a structural scene, which is never grown).
+  const ugmRef = useRef(ugm);
+  // eslint-disable-next-line react-hooks/refs
+  ugmRef.current = ugm;
+  const liveUgmRef = useRef<UGM | null>(null);
+  const liveNodeIdsRef = useRef<ReadonlySet<string> | null>(null);
+  const additiveRef = useRef<{ ugm: UGM; initUgm: UGM }>({ ugm, initUgm: ugm });
+  /* eslint-disable react-hooks/refs -- decided in render on purpose; see
+     the comment above. Idempotent per ugm identity, so a discarded
+     render re-deciding on the same inputs changes nothing. */
+  if (additiveRef.current.ugm !== ugm) {
+    const live = liveNodeIdsRef.current;
+    const grow =
+      graphUpdate === "additive" &&
+      !structural &&
+      live !== null &&
+      isNodeSuperset(ugm, live);
+    additiveRef.current = {
+      ugm,
+      initUgm: grow ? additiveRef.current.initUgm : ugm,
+    };
+  }
+  const initUgm = additiveRef.current.initUgm;
+  /* eslint-enable react-hooks/refs */
+  // Issue #13: the init path applies the spec to every (re)built
+  // instance from this ref, exactly as hiddenRef above; the spec
+  // effect below keeps handling spec changes over a live instance.
+  const encodingSpecRef = useRef(encodingSpec);
+  // eslint-disable-next-line react-hooks/refs
+  encodingSpecRef.current = encodingSpec;
+  // What the last applyEncodingPatch call used, so the spec effect can
+  // skip the application the init path just made (on mount, and on
+  // every rebuild) instead of patching the same instance twice.
+  const lastEncodingPatchRef = useRef<{
+    cy: Core;
+    spec: EncodingSpec;
+    ugm: UGM;
+  } | null>(null);
+  // Issue #28: the stylesheet prop restyles by CONTENT (see
+  // stylesheetContentKey); the applied key is recorded at init and by
+  // the restyle effect so neither applies what the other just did.
+  const stylesheetKey = stylesheetContentKey(stylesheet);
+  const stylesheetAppliedKeyRef = useRef(stylesheetKey);
 
   /** One stylesheet assembly for init AND live theme restyles.
    *  Order is the precedence story: structural defaults (fallback
@@ -1120,6 +1668,11 @@ export function CytoscapeCanvas({
     // MR-1 flash fix: the scene is read from the ref (the callback's
     // deps carry graph IDENTITY via graphEpoch, not the scene object).
     const structural = structuralRef.current;
+    // Issue #26: the CURRENT ugm, not the identity the deps key on
+    // (initUgm): after additive growth the two differ, and a rebuild
+    // for any other reason (layout, edgeStyle, ...) must build the
+    // graph the host is showing now.
+    const ugm = ugmRef.current;
     if (!containerRef.current) return undefined;
 
     // Graph identity: the sorted top-level node ids. Stable across a collapse
@@ -1133,13 +1686,7 @@ export function CytoscapeCanvas({
       : // LR-45: ugm graphs get an identity too (node + edge ids),
         // so data-only rebuilds (the inferred toggle) are
         // recognizable as the same graph.
-        ((): string => {
-          const eids: string[] = [];
-          ugm.forEachEdge((eid) => eids.push(eid));
-          return (
-            [...ugm.getNodeIds()].sort().join("|") + "#" + eids.sort().join("|")
-          );
-        })();
+        ugmGraphKey(ugm);
     const sameGraphRebuild =
       (structural &&
         wasStructuralRef.current &&
@@ -1295,14 +1842,7 @@ export function CytoscapeCanvas({
               edgeElasticity: 100,
             }
           : {}),
-        ...(layoutName === "fcose"
-          ? {
-              idealEdgeLength: 100,
-              nodeRepulsion: 10000,
-              gravity: 0.2,
-              gravityRange: 1.5,
-            }
-          : {}),
+        ...(layoutName === "fcose" ? FCOSE_TUNING : {}),
         // Caller spacing/fit tuning (review 5.11): wins over the
         // built-in fcose/cose numbers above.
         ...(layoutOptionsRef.current ?? {}),
@@ -1310,16 +1850,26 @@ export function CytoscapeCanvas({
         // construction so a collapse rebuild can preserve pan/zoom; the
         // preset layout must not fit on its own. LAST: no caller
         // option may re-enable preset fit.
-        ...(layoutName === "preset" ? { fit: false } : {}),
+        // Nor preset ANIMATION (issue #27): a preset layout means the
+        // positions are decided, and cytoscape's preset animates each
+        // node from its current position to the position captured when
+        // the layout STARTED, over animationDuration. onReady fires
+        // synchronously after the constructor, so a host that placed
+        // nodes there watched the tween drag them back to the initial
+        // scatter. Forcing animate:false is also what makes the
+        // settlement claim below true: a preset layout finishes inside
+        // the constructor only when it does not animate.
+        ...(layoutName === "preset" ? { fit: false, animate: false } : {}),
       } as cytoscape.LayoutOptions,
     });
 
     // Layout settlement (see layoutSettledRef). A preset layout places
-    // every node from geometry we already hold and finishes inside the
-    // constructor above, so it is settled on arrival; anything else runs
-    // asynchronously and is settled at layoutstop. `one` is deliberate:
-    // the first completion is what makes the camera meaningful, and
-    // later reheats keep it settled.
+    // every node from geometry we already hold and, never animated (the
+    // override above), finishes inside the constructor, so it is
+    // settled on arrival and onReady's position guarantee holds;
+    // anything else runs asynchronously and is settled at layoutstop.
+    // `one` is deliberate: the first completion is what makes the
+    // camera meaningful, and later reheats keep it settled.
     layoutSettledRef.current = layoutName === "preset";
     if (!layoutSettledRef.current) {
       cy.one("layoutstop", () => {
@@ -1343,6 +1893,10 @@ export function CytoscapeCanvas({
     }
     prevInputKeyRef.current = inputKey;
     wasStructuralRef.current = Boolean(structural);
+    // Issue #26: what this instance was built from, for the additive
+    // effect's "already built" test and the render-time superset check.
+    liveUgmRef.current = ugm;
+    liveNodeIdsRef.current = structural ? null : new Set(ugm.getNodeIds());
 
     // Wire right-click context menu (R2.1, R2.2, D3)
     // Bugfix 8: suppress the browser's native contextmenu so it doesn't
@@ -1556,6 +2110,21 @@ export function CytoscapeCanvas({
     setOverlayCy(cy);
     // Re-apply the visibility filter to this (possibly rebuilt) instance.
     applyHiddenClasses(cy, hiddenRef.current);
+    // Issue #13: same for the encoding spec. A layout/edgeStyle change
+    // rebuilds the instance while the spec and ugm keep their identity,
+    // so the spec effect below has no reason to re-run; the rebuilt
+    // instance rendered the type-palette defaults ("my icons vanished").
+    // Structural scenes carry no spec patch (the effect skips them too).
+    const spec = encodingSpecRef.current;
+    if (!structural && spec) {
+      applyEncodingPatch(cy, spec, ugm);
+      lastEncodingPatchRef.current = { cy, spec, ugm };
+    }
+    // The merged stylesheet composed above read stylesheetRef.current,
+    // which is the stylesheet this key describes (issue #28).
+    stylesheetAppliedKeyRef.current = stylesheetContentKey(
+      stylesheetRef.current,
+    );
     // Bugfix 3: read from ref (see comment near onReadyRef above)
     onReadyRef.current?.(cy);
 
@@ -1581,7 +2150,10 @@ export function CytoscapeCanvas({
     // because we know they are stable-by-ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    ugm,
+    // Issue #26: the ugm identity the live instance was built from;
+    // additive growth keeps it (see additiveRef), everything else is
+    // the current ugm.
+    initUgm,
     containmentKey,
     layout,
     layoutOptionsKey,
@@ -1660,60 +2232,73 @@ export function CytoscapeCanvas({
     };
   }, [initCytoscape]);
 
-  // Spec application: batch element-data updates; Cytoscape restyles
-  // from its data mappers. MUST follow the init effect in source
-  // order: effects run top-down on mount, and this one needs
-  // cyRef populated to apply the INITIAL spec.
+  // Issue #26: additive growth over a LIVE instance. Runs after the
+  // init effect (source order), so when the ugm change rebuilt the
+  // instance in this commit (rebuild mode, or a non-superset in
+  // additive mode) liveUgmRef already names this ugm and there is
+  // nothing to do. Otherwise the render-time decision kept the init
+  // key and this effect grows the instance in place, then moves its
+  // identity forward (so a later same-graph rebuild replays positions
+  // and camera, LR-45) and re-applies what the init path applies to a
+  // fresh instance: hidden classes, the spec patch (over the whole
+  // instance: a data-driven scale may re-domain when nodes arrive, and
+  // the patch cleans stale channels), and emphasis; the pin, override
+  // and overlay effects below key on `ugm` and follow on their own. If
+  // the live instance cannot be grown after all (the host mutated it
+  // through onReady, or a parent would change), fall back to a rebuild
+  // through the epoch.
+  useEffect(() => {
+    if (ugm === liveUgmRef.current) return;
+    const cy = cyRef.current;
+    const grown =
+      cy !== null &&
+      graphUpdate === "additive" &&
+      !structural &&
+      applyAdditiveUpdate(
+        cy,
+        validateAssembledElements(ugmToCytoscapeElements(ugm, { containment })),
+        {
+          animate,
+          animationDuration,
+          layoutOptions: layoutOptionsRef.current,
+        },
+      );
+    if (!grown) {
+      setGraphEpoch((e) => e + 1);
+      return;
+    }
+    liveUgmRef.current = ugm;
+    liveNodeIdsRef.current = new Set(ugm.getNodeIds());
+    prevInputKeyRef.current = ugmGraphKey(ugm);
+    applyHiddenClasses(cy, hiddenRef.current);
+    const spec = encodingSpecRef.current;
+    if (spec) {
+      applyEncodingPatch(cy, spec, ugm);
+      lastEncodingPatchRef.current = { cy, spec, ugm };
+    }
+    applyEmphasisClasses(cy, useEmphasisStore.getState());
+  }, [ugm, graphUpdate, structural, containment, animate, animationDuration]);
+
+  // Spec application over a LIVE instance (spec or ugm identity
+  // change): element-data patches only, so visual edits never move
+  // nodes. MUST follow the init effect in source order: effects run
+  // top-down, and this one needs cyRef populated. The INITIAL spec, and
+  // the spec on every rebuilt instance, is applied by the init path
+  // (issue #13); this effect skips an application that path just made
+  // for the same instance, spec and ugm.
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy || !encodingSpec || structural) return;
-    const patch = applyEncodingSpec(encodingSpec, ugm);
-    // VR-2 follow-up (owner verification 2026-07-28): a spec change
-    // that DROPS a channel must also CLEAR that channel's stale data,
-    // or the old attribute-selector rule keeps matching forever
-    // (leaving color-by-confidence left every edge amber: the new
-    // spec wrote no _ecolor, and nothing removed the old one).
-    const NODE_KEYS = ["_color", "_icon", "_size"] as const;
-    const EDGE_KEYS = ["_ecolor", "_ewidth"] as const;
-    cy.batch(() => {
-      cy.nodes().forEach((ele) => {
-        const data = patch.nodes.get(ele.id());
-        for (const k of NODE_KEYS) {
-          if (
-            (data === undefined || !(k in data)) &&
-            ele.data(k) !== undefined
-          ) {
-            ele.removeData(k);
-          }
-        }
-      });
-      cy.edges().forEach((ele) => {
-        const data = patch.edges.get(ele.id());
-        for (const k of EDGE_KEYS) {
-          if (
-            (data === undefined || !(k in data)) &&
-            ele.data(k) !== undefined
-          ) {
-            ele.removeData(k);
-          }
-        }
-      });
-      patch.nodes.forEach((data, id) => {
-        const ele = cy.getElementById(id);
-        if (ele.nonempty()) ele.data(data);
-      });
-      patch.edges.forEach((data, id) => {
-        const ele = cy.getElementById(id);
-        if (ele.nonempty()) ele.data(data);
-      });
-      // Review 4.7: the spec may have (re)stamped _icon; pinned nodes
-      // render background-image from _bgStack, so their stacks must
-      // re-compose here or the new icon never shows under the badge.
-      const badge = pinBadgeUri(useThemeStore.getState().theme);
-      cy.nodes().forEach((n) => {
-        if (n.hasClass("g3t-pinned")) composePinStack(n, badge);
-      });
-    });
+    const last = lastEncodingPatchRef.current;
+    if (
+      last &&
+      last.cy === cy &&
+      last.spec === encodingSpec &&
+      last.ugm === ugm
+    )
+      return;
+    applyEncodingPatch(cy, encodingSpec, ugm);
+    lastEncodingPatchRef.current = { cy, spec: encodingSpec, ugm };
   }, [encodingSpec, ugm, structural]);
 
   // Visibility filter (hidden prop): a batched class toggle, applied on
@@ -1858,14 +2443,26 @@ export function CytoscapeCanvas({
   // merged stylesheet and applies it in place. Bypass styles
   // (instance overrides) and classes survive fromJson by Cytoscape's
   // contract; element data is untouched.
+  // Issue #28: the `stylesheet` prop rides the SAME restyle, keyed on
+  // its content. It used to be read only here and at init, so a
+  // changed stylesheet showed up only on the next theme change or
+  // rebuild. One effect for both: a render that changes theme and
+  // stylesheet together composes once, and the init path records both
+  // "applied" marks, so mount and every rebuild apply nothing twice.
   useEffect(() => {
     const cy = cyRef.current;
-    if (!cy || themeAppliedRef.current === theme) return;
+    if (!cy) return;
+    if (
+      themeAppliedRef.current === theme &&
+      stylesheetAppliedKeyRef.current === stylesheetKey
+    )
+      return;
     themeAppliedRef.current = theme;
+    stylesheetAppliedKeyRef.current = stylesheetKey;
     cy.style()
       .fromJson(composeMergedStylesheet(theme) as never)
       .update();
-  }, [theme, composeMergedStylesheet]);
+  }, [theme, composeMergedStylesheet, stylesheetKey]);
 
   // Algorithm overlays (round 21): classes only, computed from the
   // pure union rule; deactivating every overlay strips both classes,
@@ -1932,6 +2529,84 @@ export function CytoscapeCanvas({
       });
     });
   }, [overlays, overlayActiveIds, ugm]);
+
+  // Label collision pass (issue #40): one effect per live instance
+  // (`overlayCy` flips on every rebuild, so the listeners re-register
+  // on the new core). Runs the pass when the layout is already settled
+  // at registration, then on layoutstop (initial settle and every
+  // reheat), on a node drop, on zoom end (zoom has no end event, so
+  // the trailing edge of a short debounce), and on selection/hover
+  // store changes (priority input). Also keyed on the inputs that
+  // change label text or visibility (spec, hidden set, theme and
+  // stylesheet restyles) so a pass re-measures after them; those
+  // effects sit ABOVE this one in source order, so cytoscape already
+  // holds their result when this runs. Restyle only.
+  // labelCollisionTouchedRef: "none" (the default) does NO work unless
+  // a pass applied something on this instance that must be restored
+  // (same gate as overlayTouchedRef: a bare mount asks nothing of a
+  // minimal test mock, and the default mode costs nothing per render).
+  const labelCollisionTouchedRef = useRef(false);
+  useEffect(() => {
+    const cy = overlayCy;
+    if (!cy) return;
+    if (labelCollision === "none") {
+      if (labelCollisionTouchedRef.current) {
+        labelCollisionTouchedRef.current = false;
+        clearLabelCollision(cy);
+      }
+      return;
+    }
+    const mode = labelCollision;
+    // A rebuild destroys the core before this effect re-runs (the
+    // overlayCy flip lands a render later), so a store notification
+    // or the trailing zoom timer can arrive for a dead instance.
+    const alive = () => typeof cy.destroyed !== "function" || !cy.destroyed();
+    const run = () => {
+      if (!alive()) return;
+      labelCollisionTouchedRef.current = true;
+      const sel = useSelectionStore.getState();
+      const selectedIds = new Set<string>([
+        ...sel.selectedNodeIds,
+        ...sel.selectedEdgeIds,
+      ]);
+      applyLabelCollisionPass(cy, {
+        mode,
+        maxLength: labelMaxLength,
+        priority: labelPriorityRef.current,
+        selectedIds,
+        hoveredNodeId: sel.hoveredNodeId,
+      });
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = undefined;
+        run();
+      }, 120);
+    };
+    cy.on("layoutstop", run);
+    cy.on("zoom", schedule);
+    cy.on("dragfree", "node", run);
+    const unsub = useSelectionStore.subscribe(run);
+    if (layoutSettledRef.current) run();
+    return () => {
+      if (timer !== undefined) clearTimeout(timer);
+      unsub();
+      if (!alive()) return;
+      cy.removeListener("layoutstop", run);
+      cy.removeListener("zoom", schedule);
+      cy.removeListener("dragfree", "node", run);
+    };
+  }, [
+    overlayCy,
+    labelCollision,
+    labelMaxLength,
+    encodingSpec,
+    hidden,
+    theme,
+    stylesheetKey,
+  ]);
 
   // Bugfix 16: belt-and-suspenders contextmenu suppression. We already
   // attach a native contextmenu listener inside initCytoscape (bugfix

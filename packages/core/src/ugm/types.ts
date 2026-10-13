@@ -57,6 +57,16 @@ export interface NodeInput {
 
 /** Input for adding an edge. */
 export interface EdgeInput {
+  /**
+   * A stable edge id supplied by the host (issue #31). Omitted, the
+   * graph generates one, and a host that rebuilds its UGM from its
+   * own data gets a different id for the same edge on every rebuild,
+   * which breaks anything keyed by edge id (selection, overlays, a
+   * selected edge in the URL) across rebuilds. The key must be
+   * unique across ALL edges of the graph, not just between one pair
+   * of nodes; `addEdge` throws on a duplicate.
+   */
+  key?: string;
   type: string;
   properties?: PropertyMap;
   confidence?: number;

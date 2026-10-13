@@ -566,3 +566,97 @@ describe("UGM: edge cases (audit)", () => {
     expect(ugm.edgeCount).toBe(0);
   });
 });
+
+describe("UGM: host-supplied edge keys (issue #31)", () => {
+  it("uses input.key as the edge id", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    const id = ugm.addEdge("a", "b", { key: "a-feeds-b", type: "feeds" });
+    expect(id).toBe("a-feeds-b");
+    expect(ugm.hasEdge("a-feeds-b")).toBe(true);
+    expect(ugm.getEdge("a-feeds-b")?.type).toBe("feeds");
+    expect(ugm.getEdgeEndpoints("a-feeds-b")).toEqual({
+      source: "a",
+      target: "b",
+    });
+  });
+
+  it("emits edgeAdded with the supplied key", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    const handler = vi.fn();
+    ugm.on("edgeAdded", handler);
+    ugm.addEdge("a", "b", { key: "k1", type: "link" });
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({ edgeId: "k1", source: "a", target: "b" }),
+    );
+  });
+
+  it("throws a clear error on a duplicate key, graph-wide", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addNode("c", { types: ["X"] });
+    ugm.addEdge("a", "b", { key: "dup", type: "link" });
+    // Same pair and a different pair both collide: the key space is
+    // the whole graph, not one node pair.
+    expect(() => ugm.addEdge("a", "b", { key: "dup", type: "link" })).toThrow(
+      /edge key "dup" already exists/,
+    );
+    expect(() => ugm.addEdge("b", "c", { key: "dup", type: "other" })).toThrow(
+      /edge key "dup" already exists/,
+    );
+    expect(ugm.edgeCount).toBe(1);
+  });
+
+  it("rebuilding from the same host data yields the same ids", () => {
+    const build = () => {
+      const ugm = new UGM();
+      ugm.addNode("a", { types: ["X"] });
+      ugm.addNode("b", { types: ["X"] });
+      return ugm.addEdge("a", "b", { key: "host:42", type: "link" });
+    };
+    expect(build()).toBe(build());
+  });
+
+  it("keyed and generated edges coexist on the same pair", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    const keyed = ugm.addEdge("a", "b", { key: "k", type: "link" });
+    const generated = ugm.addEdge("a", "b", { type: "link" });
+    expect(keyed).toBe("k");
+    expect(generated).not.toBe("k");
+    expect(ugm.getEdgesBetween("a", "b").sort()).toEqual(
+      [keyed, generated].sort(),
+    );
+  });
+
+  it("a snapshot restored from JSON keeps the keyed edge id", () => {
+    const ugm = new UGM();
+    ugm.addNode("a", { types: ["X"] });
+    ugm.addNode("b", { types: ["X"] });
+    ugm.addEdge("a", "b", { key: "stable-1", type: "link", confidence: 0.5 });
+    const generated = ugm.addEdge("b", "a", { type: "back" });
+
+    const restored = UGM.fromJSON(JSON.parse(JSON.stringify(ugm.toJSON())));
+    expect(restored.hasEdge("stable-1")).toBe(true);
+    expect(restored.getEdge("stable-1")?.meta.confidence).toBe(0.5);
+    // Generated ids survive the round-trip too (undo/redo relies on
+    // snapshots, and an undo step used to rename every edge).
+    expect(restored.hasEdge(generated)).toBe(true);
+    expect(restored.getEdgeEndpoints(generated)).toEqual({
+      source: "b",
+      target: "a",
+    });
+
+    // The restored graph can still generate ids without colliding
+    // with the ones it restored.
+    const fresh = restored.addEdge("a", "b", { type: "more" });
+    expect(fresh).not.toBe("stable-1");
+    expect(fresh).not.toBe(generated);
+    expect(restored.edgeCount).toBe(3);
+  });
+});

@@ -173,28 +173,36 @@ describe("TreeView (M5.E4.T1)", () => {
     const ugm = createTreeUGM(3, 2); // 1+2+4 = 7 nodes
     render(<TreeView ugm={ugm} initialDepth={1} />);
 
-    // Find a toggle button for a node with children
-    const toggleButtons = screen
+    // Issue #36: every toggle collapses as well as expands, including
+    // the root inside initialDepth (before the fix, the first toggle
+    // was the root's and clicking it was a no-op, which is what this
+    // test's ">=" was tolerating). Pick a toggle whose row is COLLAPSED
+    // so the click is an expand, and require the count to grow.
+    const collapsedToggle = screen
       .getAllByRole("button")
       .filter((btn) =>
         btn.getAttribute("data-testid")?.startsWith("tree-toggle-"),
+      )
+      .find(
+        (btn) =>
+          btn.closest("[aria-expanded]")?.getAttribute("aria-expanded") ===
+          "false",
       );
-    expect(toggleButtons.length).toBeGreaterThan(0);
+    expect(collapsedToggle).toBeDefined();
 
     // Count nodes before expand
     const before = screen
       .getByTestId("tree-view")
       .querySelectorAll("[data-testid^='tree-node-']").length;
 
-    // Click toggle to expand
-    fireEvent.click(toggleButtons[0]!);
+    fireEvent.click(collapsedToggle!);
 
     const after = screen
       .getByTestId("tree-view")
       .querySelectorAll("[data-testid^='tree-node-']").length;
 
-    // Should have more nodes after expanding
-    expect(after).toBeGreaterThanOrEqual(before);
+    // 1 root + 2 children before; the expanded child adds its 2.
+    expect(after).toBeGreaterThan(before);
   });
 
   it("clicking a node selects it in the store", () => {

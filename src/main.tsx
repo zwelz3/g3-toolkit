@@ -11,6 +11,12 @@ import "@g3-toolkit/react";
 // stylesheet is imported EXPLICITLY at the app entry: an app-level
 // css import is not shakeable.
 import "@g3-toolkit/react/theme/g3t-base.css";
+// The page reset and body typography are OPT-IN for adopters (issue
+// #24: style.css must not restyle the host page) and the playground
+// opts in: it is an application built on the toolkit, so the page
+// should read in the toolkit face. Published as
+// "@g3-toolkit/react/style.base.css".
+import "@g3-toolkit/react/theme/g3t-page.css";
 
 // Inject design tokens at startup
 injectDesignTokens();
