@@ -111,6 +111,21 @@ switch. A separate prototype, Model Index (a searchable glossary with
 SKOS labels and links), was built as an unlinked artifact and is not
 part of the playground.
 
+## Consistency pass and handoff (same day)
+
+The approach doc was reviewed against everything decided after it and
+corrected (mapping, sync gates, governance, visualization, lenses,
+explorer panel, adoption order, open questions, and the four diagrams).
+The one place the prototype and this scenario still carried the
+superseded design was the row detail: the realization layer cited
+"manifest, engineer" and a conflict note named the conformance gate.
+Both now follow the generated-wire-types design ("conversions,
+engineer"; the build fails at the conversion), in the scenario, its
+test and the published prototype. A handoff bundle (docs as Markdown,
+both prototypes, the sample trace with a draft JSON Schema it
+validates against, and this scenario's source) was packaged for an
+implementing agent outside this repository.
+
 ## Next, if the owner wants to continue
 
 In priority order: decide whether finding 1 becomes a structural-view

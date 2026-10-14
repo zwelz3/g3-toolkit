@@ -669,7 +669,7 @@ function Detail({
             <td className="code">
               {p.layers.r ? `${p.rust}: ${realText(p)}` : "absent"}
             </td>
-            <td className="src">manifest, engineer</td>
+            <td className="src">conversions, engineer</td>
           </tr>
           <tr className={p.internal || !p.layers.s ? "abs" : ""}>
             <td>Wire</td>
@@ -680,8 +680,8 @@ function Detail({
       </table>
       {p.conflict ? (
         <div className="note warn">
-          {p.conflict} The conformance gate fails until engineers add the code
-          or SMEs mark it notRealized.
+          {p.conflict} The build fails at the conversion until engineers add the
+          code or SMEs mark it notRealized.
         </div>
       ) : null}
       {gapNote ? <div className="note warn">{gapNote}</div> : null}

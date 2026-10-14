@@ -26,6 +26,11 @@ source, export or bundle change.
   everywhere it appears ("Shape / Contract (S)" alongside the C/S/R
   marks), and a Light/Dark switch in the header drives the toolkit
   theme store so both palettes can be evaluated in place.
+- Consistency fix (same day): the realization layer's source in the
+  row detail now reads "conversions, engineer" and a layer conflict
+  says the build fails at the conversion, matching the revised
+  approach (generated wire types plus hand-written conversions; the
+  earlier annotation manifest was dropped).
 - Findings recorded for the owner: the structural SVG view draws one
   text run per row (the scenario keeps its own SVG for columns and
   per-layer marks), a plain class layout interleaves modules, and

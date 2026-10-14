@@ -54,7 +54,7 @@ describe("ExplorerShell", () => {
     fireEvent.click(screen.getByTestId("mx-row-band"));
     const detail = screen.getByTestId("mx-detail");
     expect(detail.textContent).toContain("Layers disagree");
-    expect(detail.textContent).toContain("manifest, engineer");
+    expect(detail.textContent).toContain("conversions, engineer");
     expect(detail.textContent).toContain(
       "The Rust enum Band has C and Ku only.",
     );
