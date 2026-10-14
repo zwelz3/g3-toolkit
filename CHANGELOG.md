@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### 2026-10-14 (Model Explorer playground scenario)
+
+A ninth playground card, **Model Explorer**, ports a reviewed
+single-file prototype into the playground at visual parity with it
+(`planning/model-explorer-spike.md`). Demo code only: no package
+source, export or bundle change.
+
+- One sample data model read through three layers per property
+  (vocabulary meaning, SHACL-style contract, code that realizes it),
+  carried as one versioned `model-trace` JSON document.
+- Role profiles (app developer, systems engineer, knowledge engineer)
+  set the notation (API card, SysML block, ontology), lens, labels and
+  filters; a floating bar keeps the canvas full width and a slide-over
+  panel holds every option.
+- An entity view of one class with every relation, and a map of all
+  classes whose level of detail follows zoom. The map places modules
+  with `layoutStructural` and resolves its four detail levels with a
+  core `LodSchedule` through `resolveLod`; selection lives in
+  `useSelectionStore`. Zoom, lens and notation never re-run layout: a
+  test pins every class to its slot across levels and options.
+- Findings recorded for the owner: the structural SVG view draws one
+  text run per row (the scenario keeps its own SVG for columns and
+  per-layer marks), a plain class layout interleaves modules, and
+  `sketch` does not order a from-scratch layout.
+
 ### 2026-10-13 (gaps found integrating 1.2.0 into a host, #53)
 
 Twelve sub-issues from the host that drove #23, re-checked against

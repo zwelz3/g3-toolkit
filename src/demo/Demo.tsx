@@ -54,6 +54,10 @@ const SHELL_MAP: Record<string, ShellLoader> = {
     import("./ontology/OntologyShell").then((m) => ({
       default: m.OntologyShell,
     })),
+  "model-explorer": () =>
+    import("./explorer/ExplorerShell").then((m) => ({
+      default: m.ExplorerShell,
+    })),
   "style-lab": () =>
     import("./stylelab/StyleLabShell").then((m) => ({
       default: m.StyleLabShell,

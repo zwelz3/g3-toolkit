@@ -1,5 +1,20 @@
 # g3-toolkit Status
 
+**As of:** 2026-10-14 (active: **MODEL EXPLORER SPIKE.** A ninth
+playground card ports a reviewed data-model explorer prototype at
+visual parity (`planning/model-explorer-spike.md`): three layers per
+property (concept, contract, realization) from one versioned
+`model-trace` document, role profiles, an entity view, and a map whose
+detail follows zoom through a core `LodSchedule`, with modules placed
+by `layoutStructural`. Demo code only; no package or bundle change.
+What needs eyes: the card in the Pages playground against the
+prototype, in both themes. Open questions for Zach, from the round log:
+a row renderer for the structural SVG view, nesting in
+`StructuralNode`, and whether `sketch` should order a from-scratch
+layout. The host-gaps round 3 snapshot below is unchanged.)
+
+## PRIOR SNAPSHOT (2026-10-13 host gaps round 3)
+
 **As of:** 2026-10-13 (active: **HOST GAPS ROUND 3, after 1.2.0.** The
 host from #23 moved to 1.2.0 and filed twelve gaps under #53. Four
 needed a ruling (overlay precedence, additive shrink, several parents,

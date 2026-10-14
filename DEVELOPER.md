@@ -177,11 +177,11 @@ lint cannot tell you whether a selector matches anything.
 pnpm dev          # Opens at localhost:5173
 ```
 
-The landing page offers eight cards, each with a dedicated shell (there
+The landing page offers nine cards, each with a dedicated shell (there
 is no generic fallback app any more): four scenario shells (Provenance
 Auditor, MBSE Satellite Workbench, Supply Chain Digital Thread,
-Biomedical Knowledge Graph) and four capability surfaces (Analytics
-Dashboard, Scale, Style Lab, Ontology Workbench). Two of the surfaces are
+Biomedical Knowledge Graph) and five capability surfaces (Analytics
+Dashboard, Scale, Style Lab, Model Explorer, Ontology Workbench). Two of the surfaces are
 environment-gated in `src/demo/DemoLanding.tsx`: Style Lab is dev-only and Scale
 is production-only, both overridable with `?e2e=1`.
 

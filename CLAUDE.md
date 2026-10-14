@@ -184,10 +184,12 @@ narrative was deliberately dropped, recoverable from history.
 
 **Demo/examples surface (supporting).** `src/demo/DemoLanding.tsx` is
 the register and the authority; count from it rather than from here.
-It currently registers EIGHT scenarios, each with its own shell: four
+It currently registers NINE scenarios, each with its own shell: four
 domain stories (Provenance Auditor, MBSE Satellite Workbench, Supply
-Chain Digital Thread, Biomedical Knowledge Graph) and four capability
-surfaces (Analytics Dashboard, Scale, Style Lab, Ontology Workbench).
+Chain Digital Thread, Biomedical Knowledge Graph) and five capability
+surfaces (Analytics Dashboard, Scale, Style Lab, Model Explorer,
+Ontology Workbench). Model Explorer is the 2026-10-14 spike
+(planning/model-explorer-spike.md).
 Two are environment-gated there: Scale is hidden in DEV and Style Lab
 is shown only in DEV. `examples/decision-dashboards` exports ONE
 dashboard, AnalyticsDashboard; the Schema Dashboard was retired

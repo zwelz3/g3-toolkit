@@ -85,6 +85,17 @@ export const CAPABILITY_SURFACES: Scenario[] = [
     tags: ["StyleEngine", "parity oracle", "LOD schedule"],
   },
   {
+    id: "model-explorer",
+    title: "Model Explorer",
+    subtitle: "One data model through concept, contract and code",
+    description:
+      "Read a sample model through three layers (vocabulary meaning, SHACL-style contract, and the code that realizes it) with role profiles for app developers, systems engineers and knowledge engineers. An entity view shows one class with every relation; a map lays out modules with layoutStructural and changes its level of detail with zoom through a core LodSchedule. Every row shows which layer it comes from and where the layers disagree.",
+    accent: "#2650c4",
+    accentGlow: "rgba(38, 80, 196, 0.15)",
+    icon: "\u2637",
+    tags: ["model-trace", "resolveLod", "role profiles"],
+  },
+  {
     id: "ontology-workbench",
     title: "Ontology Workbench",
     subtitle: "Protege-style browsing, SHACL, SPARQL, and a demo reasoner",
