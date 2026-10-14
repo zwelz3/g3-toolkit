@@ -54,6 +54,9 @@ export const EXPLORER_STYLES = `
 .mx .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
 .mx .top h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
 .mx .top .sample { font-size: 12.5px; color: var(--mx-muted); }
+.mx .top .theme { margin-left: auto; background: var(--mx-surface); }
+.mx .seg .lk { display: inline-block; min-width: 1.4em; margin-right: 5px; padding: 0 4px; border-radius: 4px; background: var(--mx-hover); font-family: var(--mx-mono); font-size: 11px; font-weight: 600; text-align: center; }
+.mx .seg button[aria-pressed="true"] .lk { background: rgba(255, 255, 255, 0.22); }
 .mx .subbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; color: var(--mx-muted); }
 .mx .crumbs { display: flex; align-items: center; gap: 6px; color: var(--mx-ink); }
 .mx .crumbs .mod { color: var(--mx-muted); }

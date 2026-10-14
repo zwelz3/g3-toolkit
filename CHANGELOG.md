@@ -22,6 +22,10 @@ source, export or bundle change.
   core `LodSchedule` through `resolveLod`; selection lives in
   `useSelectionStore`. Zoom, lens and notation never re-run layout: a
   test pins every class to its slot across levels and options.
+- Follow-up from review: each lens is named with its layer letter
+  everywhere it appears ("Shape / Contract (S)" alongside the C/S/R
+  marks), and a Light/Dark switch in the header drives the toolkit
+  theme store so both palettes can be evaluated in place.
 - Findings recorded for the owner: the structural SVG view draws one
   text run per row (the scenario keeps its own SVG for columns and
   per-layer marks), a plain class layout interleaves modules, and

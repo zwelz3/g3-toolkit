@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { useSelectionStore } from "@g3-toolkit/react";
+import { useSelectionStore, useThemeStore } from "@g3-toolkit/react";
 import { ExplorerShell } from "./ExplorerShell";
 
 afterEach(() => {
@@ -82,6 +82,26 @@ describe("ExplorerShell", () => {
     expect(screen.getByTestId("mx-selcard").textContent).toContain(
       "Transponder",
     );
+  });
+
+  it("names each lens with its layer letter", () => {
+    render(<ExplorerShell onBack={() => {}} />);
+    expect(screen.getByTestId("mx-lens-contract").textContent).toBe(
+      "SShape / Contract",
+    );
+    fireEvent.click(screen.getByTestId("mx-customize"));
+    const opt = document.querySelector('label[for="mx-o-lens-contract"]');
+    expect(opt?.textContent).toContain("Shape / Contract (S)");
+  });
+
+  it("switches light and dark through the toolkit theme store", () => {
+    useThemeStore.getState().setTheme("light");
+    render(<ExplorerShell onBack={() => {}} />);
+    expect(screen.getByTestId("mx-shell").className).not.toContain("mx-dark");
+    fireEvent.click(screen.getByTestId("mx-theme-dark"));
+    expect(useThemeStore.getState().theme.id).toBe("dark");
+    expect(screen.getByTestId("mx-shell").className).toContain("mx-dark");
+    useThemeStore.getState().setTheme("light");
   });
 
   it("leaves the scenario through the back button", () => {

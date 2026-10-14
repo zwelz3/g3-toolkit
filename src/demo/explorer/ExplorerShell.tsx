@@ -29,6 +29,7 @@ import {
 } from "react";
 import { useSelectionStore, useThemeStore } from "@g3-toolkit/react";
 import {
+  LENSES,
   PROFILES,
   SECLABEL,
   SECS,
@@ -652,19 +653,19 @@ function Detail({
         </thead>
         <tbody>
           <tr className={p.layers.c ? "" : "abs"}>
-            <td>Concept</td>
+            <td>Concept (C)</td>
             <td>{p.layers.c ? conceptText(p) : "absent"}</td>
             <td className="src">vocabulary, SME</td>
           </tr>
           <tr className={p.layers.s ? "" : "abs"}>
-            <td>Contract</td>
+            <td>Shape / Contract (S)</td>
             <td className="code">
               {p.layers.s ? contractText(p, "onto") : "absent"}
             </td>
             <td className="src">shapes, SME</td>
           </tr>
           <tr className={p.layers.r ? "" : "abs"}>
-            <td>Realization</td>
+            <td>Realization (R)</td>
             <td className="code">
               {p.layers.r ? `${p.rust}: ${realText(p)}` : "absent"}
             </td>
@@ -838,10 +839,15 @@ function Drawer({
       <fieldset className="grp">
         <Leg t="Lens" changed={o.lens !== d.lens} />
         {radios("lens", [
-          ["concept", "Concept", null, "What it means"],
-          ["contract", "Contract", null, "What is valid"],
-          ["realization", "Realization", null, "What is built"],
-          ["combined", "Combined", null, "What each layer contributes"],
+          ...LENSES.map(
+            (l) =>
+              [l.id, `${l.name} (${l.letter})`, null, l.desc] as [
+                Lens,
+                string,
+                null,
+                string,
+              ],
+          ),
         ])}
       </fieldset>
       <fieldset className="grp">
@@ -1816,6 +1822,24 @@ export function ExplorerShell({ onBack }: { onBack: () => void }) {
             Prototype. Sample satellite payload model: class names, definitions
             and values are illustrative.
           </span>
+          <div className="seg theme" role="group" aria-label="Theme">
+            {(
+              [
+                ["light", "Light"],
+                ["dark", "Dark"],
+              ] as const
+            ).map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={(v === "dark") === dark}
+                data-testid={"mx-theme-" + v}
+                onClick={() => useThemeStore.getState().setTheme(v)}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
         </header>
         <div className="subbar">
           {view === "entity" ? (
@@ -1922,22 +1946,17 @@ export function ExplorerShell({ onBack }: { onBack: () => void }) {
                 ))}
               </select>
               <div className="seg" role="group" aria-label="Lens">
-                {(
-                  [
-                    ["concept", "Concept"],
-                    ["contract", "Contract"],
-                    ["realization", "Realization"],
-                    ["combined", "Combined"],
-                  ] as [Lens, string][]
-                ).map(([v, l]) => (
+                {LENSES.map((l) => (
                   <button
-                    key={v}
+                    key={l.id}
                     type="button"
-                    aria-pressed={opts.lens === v}
-                    data-testid={"mx-lens-" + v}
-                    onClick={() => set({ lens: v })}
+                    aria-pressed={opts.lens === l.id}
+                    title={l.desc}
+                    data-testid={"mx-lens-" + l.id}
+                    onClick={() => set({ lens: l.id })}
                   >
-                    {l}
+                    <b className="lk">{l.letter}</b>
+                    {l.name}
                   </button>
                 ))}
               </div>
@@ -1980,7 +1999,7 @@ export function ExplorerShell({ onBack }: { onBack: () => void }) {
                 <i className="warn" />
                 layers disagree
               </span>
-              <span>C concept · S shape · R realization</span>
+              <span>C concept · S shape / contract · R realization</span>
             </div>
           ) : null}
 

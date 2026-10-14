@@ -522,6 +522,39 @@ export const SECLABEL: Record<Section, string> = {
 
 export type Notation = "uml" | "api" | "onto";
 export type Lens = "concept" | "contract" | "realization" | "combined";
+/** One name per layer, used everywhere a layer is named; the letter
+ *  matches the C/S/R strip in the views. */
+export const LENSES: {
+  id: Lens;
+  letter: string;
+  name: string;
+  desc: string;
+}[] = [
+  {
+    id: "concept",
+    letter: "C",
+    name: "Concept",
+    desc: "What it means: the vocabulary",
+  },
+  {
+    id: "contract",
+    letter: "S",
+    name: "Shape / Contract",
+    desc: "What is valid: the SHACL shapes",
+  },
+  {
+    id: "realization",
+    letter: "R",
+    name: "Realization",
+    desc: "What is built: the code fields",
+  },
+  {
+    id: "combined",
+    letter: "C+S+R",
+    name: "Combined",
+    desc: "What each layer contributes",
+  },
+];
 export type LabelSource = "key" | "iri" | "rust" | "json";
 export type DataOverlay = "none" | "fixture" | "rejected";
 export type TraceFilter = "all" | "gaps" | "conflicts";

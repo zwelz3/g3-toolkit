@@ -97,6 +97,20 @@ build, phone widths, and the IBM Plex webfont (blocked in this
 environment, so both renders fell back to the same system face; the
 live page loads it).
 
+## Review follow-up (same day)
+
+Zach's review asked for two changes, both applied to the prototype and
+the scenario so they stay at parity. Lenses now carry their layer
+letter and canonical name everywhere a layer is named (pill, customize
+panel, detail table, legend): Concept (C), Shape / Contract (S),
+Realization (R), Combined (C+S+R); one `LENSES` table in `model.ts`
+feeds every label. A Light/Dark switch in the header sets the toolkit
+theme through `useThemeStore` (the prototype has System/Light/Dark,
+since it has no host theme). Two tests cover the letters and the
+switch. A separate prototype, Model Index (a searchable glossary with
+SKOS labels and links), was built as an unlinked artifact and is not
+part of the playground.
+
 ## Next, if the owner wants to continue
 
 In priority order: decide whether finding 1 becomes a structural-view
