@@ -126,6 +126,19 @@ both prototypes, the sample trace with a draft JSON Schema it
 validates against, and this scenario's source) was packaged for an
 implementing agent outside this repository.
 
+## Owner decision: not the implementation vehicle (same day)
+
+Zach ruled that the real build uses the platform's existing React +
+TypeScript stack, not g3-toolkit. The scenario stays as the record of
+the spike. For the handoff, its code was ported out of the toolkit: map
+modules come from the authored column arrangement (the prototype's own
+approach, which needs no layout engine), the four detail levels are one
+threshold table, and selection and theme are controlled React props.
+The port typechecks under strict settings, passes the same 26 tests from
+a clean install, and renders at parity with the prototype. The findings
+below therefore have no consumer waiting on them; treat them as library
+observations, not commitments.
+
 ## Next, if the owner wants to continue
 
 In priority order: decide whether finding 1 becomes a structural-view
